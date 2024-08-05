@@ -13,11 +13,12 @@ import (
 type Decan struct {
 	Name      string
 	Services  []string
-	resources []Resource
+	Resources []Resource
+	Enabled   bool
 }
 
 func NewDecan(path string) *Decan {
-	d := &Decan{}
+	d := &Decan{Enabled: true}
 	d.Name = filepath.Base(path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -30,7 +31,7 @@ func NewDecan(path string) *Decan {
 			Quadlet:  isQuadlet(v.Name()),
 			Template: isTemplate(v.Name()),
 		}
-		d.resources = append(d.resources, newRes)
+		d.Resources = append(d.Resources, newRes)
 		if newRes.Quadlet && strings.HasSuffix(newRes.Name, ".container") {
 			d.Services = append(d.Services, fmt.Sprintf("%v.service", strings.TrimSuffix(newRes.Name, ".container")))
 		}

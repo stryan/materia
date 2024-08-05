@@ -1,24 +1,22 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/user"
-	"path/filepath"
+	"time"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/nikolalohinski/gonja/v2"
 )
 
 type Config struct {
 	GitRepo string
+	Timeout int
 }
 
 func main() {
@@ -34,7 +32,12 @@ func main() {
 	}
 	ctx := context.Background()
 	prefix := "/var/lib"
+	state := "/var/lib"
 	destination := "/etc/systemd/system"
+	timeout := c.Timeout
+	if timeout == 0 {
+		timeout = 30
+	}
 	if currentUser.Username != "root" {
 		home := currentUser.HomeDir
 		var found bool
@@ -49,8 +52,12 @@ func main() {
 		if !found {
 			prefix = fmt.Sprintf("%v/.local/share", home)
 		}
+		state, found = os.LookupEnv("XDG_DATA_STATE")
+		if !found {
+			state = fmt.Sprintf("%v/.local/state", home)
+		}
 	}
-	m := NewMateria(prefix, destination)
+	m := NewMateria(prefix, destination, state)
 	err = m.SetupHost()
 	if err != nil {
 		log.Fatal(err)
@@ -64,13 +71,27 @@ func main() {
 	sm := mem.NewMemoryManager()
 	sm.Add("container_tag", "latest")
 	sm.Add("hello_config", "HI!")
-	decans, err := determineDecans(m)
+	actions, err := m.DetermineDecans()
 	if err != nil {
 		log.Fatal(err)
 	}
-	applied, err := applyDecans(m, sm, decans)
-	if err != nil {
-		log.Fatal(err)
+	var results []applicationResult
+	for _, v := range actions {
+		var res []applicationResult
+		if v.Enabled {
+			log.Info("applying decan", "decan", v.Name)
+			res, err = m.ApplyDecan(v.Name, sm)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Info("removing decan", "decan", v.Name)
+			res, err = m.RemoveDecan(v.Name)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		results = append(results, res...)
 	}
 	var conn *dbus.Conn
 	if currentUser.Username != "root" {
@@ -85,7 +106,7 @@ func main() {
 		}
 	}
 	defer conn.Close()
-	for _, v := range applied {
+	for _, v := range results {
 		// first scan for reload requirements
 		if v.NeedReload {
 			err = conn.ReloadContext(ctx)
@@ -96,128 +117,57 @@ func main() {
 		}
 	}
 	// start/restart services
-	for _, v := range applied {
+	for _, v := range results {
 		// now restart services
 		if len(v.RestartServices) > 0 {
 			callback := make(chan string)
 			for _, unit := range v.RestartServices {
-				log.Info("restarting service %v", unit)
+				log.Info("restarting service", "unit", unit)
 				_, err := conn.ReloadOrTryRestartUnitContext(ctx, unit, "replace", callback)
 				if err != nil {
 					log.Warn(err)
 				}
-				<-callback
+				select {
+				case res := <-callback:
+					log.Debug("restarted unit", "unit", unit, "result", res)
+				case <-time.After(time.Duration(timeout) * time.Second):
+					log.Warn("timeout while restarting unit", "unit", unit)
+				}
 			}
 		}
 		if len(v.NewServices) > 0 {
 			callback := make(chan string)
 			for _, unit := range v.NewServices {
-				log.Info("restarting service %v", unit)
+				log.Info("starting service", "unit", unit)
 				_, err := conn.StartUnitContext(ctx, unit, "fail", callback)
 				if err != nil {
 					log.Warn(err)
 				}
-				<-callback
+				select {
+				case res := <-callback:
+					log.Debug("started unit", "unit", unit, "result", res)
+				case <-time.After(time.Duration(timeout) * time.Second):
+					log.Warn("timeout while starting unit", "unit", unit)
+				}
 			}
 		}
 	}
-}
-
-func determineDecans(m *Materia) ([]*Decan, error) {
-	var decans []*Decan
-	// TODO: map decans to host, for now we just apply all of them
-	entries, err := os.ReadDir(m.AllDecanSourcePaths())
-	if err != nil {
-		return decans, err
-	}
-	var decanPaths []string
-	for _, v := range entries {
-		log.Debug("possible decan", "entry", v.Name())
-		if v.IsDir() {
-			decanPaths = append(decanPaths, v.Name())
+	// any remaining cleanup for removed decans?
+	for _, v := range results {
+		if v.Removed {
+			log.Info("removed decan", "decan", v.Decan)
 		}
 	}
-	for _, v := range decanPaths {
-		decans = append(decans, NewDecan(filepath.Join(m.AllDecanSourcePaths(), v)))
-	}
-
-	return decans, nil
 }
 
+type applicationAction struct {
+	Name    string
+	Enabled bool
+}
 type applicationResult struct {
+	Decan           string
 	NeedReload      bool
 	RestartServices []string
 	NewServices     []string
-}
-
-func applyDecans(m *Materia, sm secrets.SecretsManager, decans []*Decan) ([]applicationResult, error) {
-	var results []applicationResult
-	secretContext := sm.All(context.Background())
-	for _, v := range decans {
-		log.Infof("applying %v", v.Name)
-		err := os.Mkdir(m.DecanInstallPath(v), 0o755)
-		if err != nil && os.IsNotExist(err) {
-			return results, err
-		}
-		application := applicationResult{}
-
-		for _, star := range v.resources {
-			var result []byte
-			data, err := os.ReadFile(star.Path)
-			if err != nil {
-				return results, err
-			}
-			if star.Template {
-				log.Debug("applying template", "file", star.Name)
-				tmpl, err := gonja.FromBytes(data)
-				if err != nil {
-					return results, err
-				}
-				result, err = tmpl.ExecuteToBytes(secretContext)
-				if err != nil {
-					return results, err
-				}
-			} else {
-				result = data
-			}
-			finalDest := m.DecanInstallPath(v)
-			if star.Quadlet {
-				finalDest = m.InstallPath()
-			}
-			finalpath := filepath.Join(finalDest, star.Name)
-			newFile := true
-			if _, err := os.Stat(finalpath); !os.IsNotExist(err) {
-				// file already exists, lets see if we're actually making changes
-				// TODO: read and compare by chunks
-				existingData, err := os.ReadFile(finalpath)
-				if err != nil {
-					return results, err
-				}
-				if bytes.Equal(result, existingData) {
-					// no diff, skip file
-					log.Debug("skipping existing unchanged file", "filename", star.Name, "destination", finalDest)
-					continue
-				} else {
-					newFile = false
-				}
-			}
-			log.Debug("writing file", "filename", star.Name, "destination", finalDest)
-			err = os.WriteFile(filepath.Join(finalDest, star.Name), result, 0o755)
-			if err != nil {
-				return results, err
-			}
-			if star.Quadlet {
-				application.NeedReload = true
-			} else {
-				if newFile {
-					application.NewServices = append(application.NewServices, v.ServiceForResource(star)...)
-				} else {
-					application.RestartServices = append(application.RestartServices, v.ServiceForResource(star)...)
-				}
-			}
-		}
-		results = append(results, application)
-
-	}
-	return results, nil
+	Removed         bool
 }
