@@ -73,7 +73,7 @@ func main() {
 			state = fmt.Sprintf("%v/.local/state", home)
 		}
 	}
-	m := NewMateria(prefix, destination, state)
+	m := NewMateria(prefix, destination, state, currentUser)
 	err = m.SetupHost()
 	if err != nil {
 		log.Fatal(err)
@@ -96,7 +96,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	actions, err := m.DetermineDecans()
+	actions, err := m.DetermineDecans(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,6 +106,11 @@ func main() {
 		if v.Enabled {
 			log.Info("applying decan", "decan", v.Name)
 			res, err = m.ApplyDecan(v.Name, sm)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else if v.Started {
+			err = m.StartDecan(ctx, v.Name)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -131,14 +136,11 @@ func main() {
 		}
 	}
 	defer conn.Close()
-	for _, v := range results {
-		// first scan for reload requirements
-		if v.NeedReload {
-			err = conn.ReloadContext(ctx)
-			if err != nil {
-				log.Fatal(err)
-			}
-			break // we only need it once
+	if len(results) > 0 {
+		// if we have a result we pretty much always want to reload first
+		err = conn.ReloadContext(ctx)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}
 	// start/restart services
@@ -160,9 +162,9 @@ func main() {
 				}
 			}
 		}
-		if len(v.NewServices) > 0 {
+		if len(v.StartServices) > 0 {
 			callback := make(chan string)
-			for _, unit := range v.NewServices {
+			for _, unit := range v.StartServices {
 				log.Info("starting service", "unit", unit)
 				_, err := conn.StartUnitContext(ctx, unit, "fail", callback)
 				if err != nil {
@@ -185,14 +187,14 @@ func main() {
 	}
 }
 
-type applicationAction struct {
+type applicationPlan struct {
 	Name    string
 	Enabled bool
+	Started bool
 }
 type applicationResult struct {
 	Decan           string
-	NeedReload      bool
 	RestartServices []string
-	NewServices     []string
+	StartServices   []string
 	Removed         bool
 }
