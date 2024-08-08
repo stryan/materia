@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -16,16 +17,29 @@ import (
 )
 
 type Config struct {
-	GitRepo string
-	Timeout int
-	Secrets string
+	GitRepo          string `envconfig:"GIT_REPO"`
+	Timeout          int
+	Secrets          string
+	SecretsAgeIdents string `envconfig:"SECRETS_AGE_IDENTS"`
+}
+
+func (c *Config) Validate() error {
+	if c.GitRepo == "" {
+		return errors.New("need git repo location")
+	}
+	return nil
 }
 
 func main() {
 	var c Config
-	err := envconfig.Process("materia", &c)
+
+	err := envconfig.Process("MATERIA", &c)
 	if err != nil {
 		log.Fatal(err.Error())
+	}
+	err = c.Validate()
+	if err != nil {
+		log.Fatal(err)
 	}
 	log.Default().SetLevel(log.DebugLevel)
 	currentUser, err := user.Current()
@@ -75,7 +89,7 @@ func main() {
 	var sm secrets.SecretsManager
 	if c.Secrets == "age" || c.Secrets == "" {
 		sm, err = age.NewAgeStore(age.Config{
-			IdentPath: "key.txt",
+			IdentPath: c.SecretsAgeIdents,
 			RepoPath:  m.SourcePath(),
 		})
 		if err != nil {

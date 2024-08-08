@@ -25,7 +25,21 @@ type Config struct {
 	RepoPath  string
 }
 
+func (c *Config) Validate() error {
+	if c.RepoPath == "" {
+		return errors.New("invalid repo path for age")
+	}
+	if c.IdentPath == "" {
+		return errors.New("invalid identities location for age")
+	}
+	return nil
+}
+
 func NewAgeStore(c Config) (*AgeStore, error) {
+	err := c.Validate()
+	if err != nil {
+		return nil, err
+	}
 	var a AgeStore
 	ifile, err := os.Open(c.IdentPath)
 	if err != nil {
