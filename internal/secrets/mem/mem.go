@@ -3,7 +3,7 @@ package mem
 import (
 	"context"
 
-	"github.com/nikolalohinski/gonja/v2/exec"
+	"git.saintnet.tech/stryan/materia/internal/secrets"
 )
 
 type MemoryManager struct {
@@ -15,8 +15,12 @@ func NewMemoryManager() *MemoryManager {
 	return &MemoryManager{secrets}
 }
 
-func (m *MemoryManager) All(_ context.Context) *exec.Context {
-	return exec.NewContext(m.secrets)
+func (m *MemoryManager) All(_ context.Context) map[string]interface{} {
+	return m.secrets
+}
+
+func (m *MemoryManager) Lookup(_ context.Context, _ secrets.SecretFilter) map[string]interface{} {
+	return m.secrets
 }
 
 func (m *MemoryManager) Add(key, value string) {

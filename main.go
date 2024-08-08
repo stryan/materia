@@ -7,7 +7,8 @@ import (
 	"os/user"
 	"time"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
+	"git.saintnet.tech/stryan/materia/internal/secrets"
+	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -17,6 +18,7 @@ import (
 type Config struct {
 	GitRepo string
 	Timeout int
+	Secrets string
 }
 
 func main() {
@@ -68,9 +70,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sm := mem.NewMemoryManager()
-	sm.Add("container_tag", "latest")
-	sm.Add("hello_config", "HI!")
+	// sm := mem.NewMemoryManager()
+	// sm.Add("container_tag", "latest")
+	var sm secrets.SecretsManager
+	if c.Secrets == "age" || c.Secrets == "" {
+		sm, err = age.NewAgeStore(age.Config{
+			IdentPath: "key.txt",
+			RepoPath:  m.SourcePath(),
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 	actions, err := m.DetermineDecans()
 	if err != nil {
 		log.Fatal(err)

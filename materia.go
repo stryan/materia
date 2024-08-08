@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
-	"github.com/nikolalohinski/gonja/v2"
 )
 
 type Materia struct {
@@ -131,8 +131,8 @@ func (m *Materia) InstallPath(decan *Decan, r Resource) string {
 	}
 }
 
-func (m *Materia) InstallFile(decan, path, filename string, data []byte) error {
-	err := os.WriteFile(filepath.Join(path, filename), data, 0o755)
+func (m *Materia) InstallFile(decan, path, filename string, data *bytes.Buffer) error {
+	err := os.WriteFile(filepath.Join(path, filename), data.Bytes(), 0o755)
 	if err != nil {
 		return err
 	}
@@ -149,7 +149,6 @@ func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applica
 	if !ok {
 		return results, fmt.Errorf("tried to apply non existent decan %v", decan)
 	}
-	secretContext := sm.All(context.Background())
 
 	err := os.Mkdir(m.DecanDataPath(d), 0o755)
 	if err != nil && os.IsNotExist(err) {
@@ -164,23 +163,24 @@ func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applica
 	}
 
 	for _, star := range d.Resources {
-		var result []byte
+		var result *bytes.Buffer
 		data, err := os.ReadFile(star.Path)
 		if err != nil {
 			return results, err
 		}
 		if star.Template {
+			result = bytes.NewBuffer([]byte{})
 			log.Debug("applying template", "file", star.Name)
-			tmpl, err := gonja.FromBytes(data)
+			tmpl, err := template.New(star.Name).Parse(string(data))
 			if err != nil {
-				return results, err
+				panic(err)
 			}
-			result, err = tmpl.ExecuteToBytes(secretContext)
+			err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
 			if err != nil {
-				return results, err
+				panic(err)
 			}
 		} else {
-			result = data
+			result = bytes.NewBuffer(data)
 		}
 		finalDest := m.InstallPath(d, star)
 		finalpath := filepath.Join(finalDest, star.Name)
@@ -192,7 +192,7 @@ func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applica
 			if err != nil {
 				return results, err
 			}
-			if bytes.Equal(result, existingData) {
+			if bytes.Equal(result.Bytes(), existingData) {
 				// no diff, skip file
 				log.Debug("skipping existing unchanged file", "filename", star.Name, "destination", finalDest)
 				continue

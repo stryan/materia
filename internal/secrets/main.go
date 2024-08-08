@@ -2,10 +2,14 @@ package secrets
 
 import (
 	"context"
-
-	"github.com/nikolalohinski/gonja/v2/exec"
 )
 
 type SecretsManager interface {
-	All(context.Context) *exec.Context
+	All(context.Context) map[string]interface{}
+	Lookup(context.Context, SecretFilter) map[string]interface{}
+}
+
+type SecretFilter struct {
+	Hostname string
+	Role     string
 }

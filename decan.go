@@ -27,7 +27,7 @@ func NewDecan(path string) *Decan {
 	for _, v := range entries {
 		newRes := Resource{
 			Path:     filepath.Join(path, v.Name()),
-			Name:     strings.TrimSuffix(v.Name(), ".j2"),
+			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
 			Quadlet:  isQuadlet(v.Name()),
 			Template: isTemplate(v.Name()),
 		}
@@ -44,11 +44,11 @@ func (d *Decan) ServiceForResource(_ Resource) []string {
 }
 
 func isQuadlet(file string) bool {
-	filename := strings.TrimSuffix(file, ".j2")
+	filename := strings.TrimSuffix(file, ".gotmpl")
 	quadlets := []string{".pod", ".container", ".network", ".volume", ".kube"}
 	return slices.Contains(quadlets, filepath.Ext(filename))
 }
 
 func isTemplate(file string) bool {
-	return strings.HasSuffix(file, ".j2")
+	return strings.HasSuffix(file, ".gotmpl")
 }
