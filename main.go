@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
-	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -73,7 +71,7 @@ func main() {
 			state = fmt.Sprintf("%v/.local/state", home)
 		}
 	}
-	m := NewMateria(prefix, destination, state, currentUser)
+	m := NewMateria(prefix, destination, state, currentUser, timeout)
 	err = m.SetupHost()
 	if err != nil {
 		log.Fatal(err)
@@ -100,101 +98,47 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	var results []applicationResult
+	var results []ApplicationAction
 	for _, v := range actions {
-		var res []applicationResult
-		if v.Enabled {
-			log.Info("applying decan", "decan", v.Name)
-			res, err = m.ApplyDecan(v.Name, sm)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else if v.Started {
-			err = m.StartDecan(ctx, v.Name)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			log.Info("removing decan", "decan", v.Name)
-			res, err = m.RemoveDecan(v.Name)
-			if err != nil {
-				log.Fatal(err)
-			}
+		var res []ApplicationAction
+		switch v.Todo {
+		case ApplicationActionInstall:
+			res, err = m.ApplyDecan(v.Decan, sm)
+		case ApplicationActionRemove:
+			res, err = m.RemoveDecan(v.Decan)
+		case ApplicationActionRestart:
+			err = m.RestartDecan(ctx, v.Decan)
+		case ApplicationActionStart:
+			err = m.StartDecan(ctx, v.Decan)
+		case ApplicationActionStop:
+			err = m.StopDecan(ctx, v.Decan)
+		}
+		if err != nil {
+			log.Fatal(err)
 		}
 		results = append(results, res...)
 	}
-	var conn *dbus.Conn
-	if currentUser.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	defer conn.Close()
 	if len(results) > 0 {
-		// if we have a result we pretty much always want to reload first
-		err = conn.ReloadContext(ctx)
+		err = m.ReloadUnits(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
-	// start/restart services
-	for _, v := range results {
-		// now restart services
-		if len(v.RestartServices) > 0 {
-			callback := make(chan string)
-			for _, unit := range v.RestartServices {
-				log.Info("restarting service", "unit", unit)
-				_, err := conn.ReloadOrTryRestartUnitContext(ctx, unit, "replace", callback)
-				if err != nil {
-					log.Warn(err)
-				}
-				select {
-				case res := <-callback:
-					log.Debug("restarted unit", "unit", unit, "result", res)
-				case <-time.After(time.Duration(timeout) * time.Second):
-					log.Warn("timeout while restarting unit", "unit", unit)
-				}
-			}
-		}
-		if len(v.StartServices) > 0 {
-			callback := make(chan string)
-			for _, unit := range v.StartServices {
-				log.Info("starting service", "unit", unit)
-				_, err := conn.StartUnitContext(ctx, unit, "fail", callback)
-				if err != nil {
-					log.Warn(err)
-				}
-				select {
-				case res := <-callback:
-					log.Debug("started unit", "unit", unit, "result", res)
-				case <-time.After(time.Duration(timeout) * time.Second):
-					log.Warn("timeout while starting unit", "unit", unit)
-				}
-			}
-		}
-	}
-	// any remaining cleanup for removed decans?
-	for _, v := range results {
-		if v.Removed {
-			log.Info("removed decan", "decan", v.Decan)
-		}
-	}
-}
 
-type applicationPlan struct {
-	Name    string
-	Enabled bool
-	Started bool
-}
-type applicationResult struct {
-	Decan           string
-	RestartServices []string
-	StartServices   []string
-	Removed         bool
+	for _, v := range results {
+		switch v.Todo {
+		case ApplicationActionStart:
+			err = m.StartDecan(ctx, v.Decan)
+		case ApplicationActionStop:
+			err = m.StopDecan(ctx, v.Decan)
+		case ApplicationActionRestart:
+			err = m.RestartDecan(ctx, v.Decan)
+		default:
+			log.Warn("Invalid secondary todo received", "action", v.Todo)
+			err = nil
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }

@@ -21,9 +21,10 @@ type Materia struct {
 	concerns                          map[string][]string
 	Decans                            map[string]*Decan
 	User                              *user.User
+	Timeout                           int
 }
 
-func NewMateria(prefix, destination, state string, user *user.User) *Materia {
+func NewMateria(prefix, destination, state string, user *user.User, timeout int) *Materia {
 	return &Materia{
 		prefix:             prefix,
 		quadletDestination: destination,
@@ -31,6 +32,7 @@ func NewMateria(prefix, destination, state string, user *user.User) *Materia {
 		concerns:           make(map[string][]string),
 		Decans:             make(map[string]*Decan),
 		User:               user,
+		Timeout:            timeout,
 	}
 }
 
@@ -57,8 +59,8 @@ func (m *Materia) SetupHost() error {
 	return nil
 }
 
-func (m *Materia) DetermineDecans(ctx context.Context) ([]applicationPlan, error) {
-	actions := []applicationPlan{}
+func (m *Materia) DetermineDecans(ctx context.Context) ([]ApplicationAction, error) {
+	actions := []ApplicationAction{}
 	var decans []*Decan
 	// figure out ones to add
 	// TODO: map decans to host, for now we just apply all of them
@@ -75,9 +77,9 @@ func (m *Materia) DetermineDecans(ctx context.Context) ([]applicationPlan, error
 	for _, v := range decanPaths {
 		decan := NewDecan(filepath.Join(m.AllDecanSourcePaths(), v))
 		decans = append(decans, decan)
-		actions = append(actions, applicationPlan{
-			Name:    decan.Name,
-			Enabled: true,
+		actions = append(actions, ApplicationAction{
+			Decan: decan.Name,
+			Todo:  ApplicationActionInstall,
 		})
 	}
 	for _, v := range decans {
@@ -96,9 +98,9 @@ func (m *Materia) DetermineDecans(ctx context.Context) ([]applicationPlan, error
 				Name:    v.Name(),
 				Enabled: false,
 			}
-			actions = append(actions, applicationPlan{
-				Name:    v.Name(),
-				Enabled: false,
+			actions = append(actions, ApplicationAction{
+				Decan: v.Name(),
+				Todo:  ApplicationActionRemove,
 			})
 		}
 	}
@@ -122,9 +124,9 @@ func (m *Materia) DetermineDecans(ctx context.Context) ([]applicationPlan, error
 		}
 		for _, service := range currentServices {
 			if service.ActiveState == "inactive" {
-				actions = append(actions, applicationPlan{
-					Name:    v.Name,
-					Started: true,
+				actions = append(actions, ApplicationAction{
+					Decan: v.Name,
+					Todo:  ApplicationActionStart,
 				})
 			}
 		}
@@ -162,10 +164,102 @@ func (m *Materia) StartDecan(ctx context.Context, name string) error {
 		select {
 		case res := <-callback:
 			log.Debug("started unit", "unit", unit, "result", res)
-		case <-time.After(time.Duration(30) * time.Second):
+		case <-time.After(time.Duration(m.Timeout) * time.Second):
 			log.Warn("timeout while starting unit", "unit", unit)
 		}
 	}
+	return nil
+}
+
+func (m *Materia) RestartDecan(ctx context.Context, name string) error {
+	var conn *dbus.Conn
+	var err error
+	decan, ok := m.Decans[name]
+	if !ok {
+		return errors.New("tried to start invalid decan")
+	}
+	if m.User.Username != "root" {
+		conn, err = dbus.NewUserConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		conn, err = dbus.NewSystemConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	callback := make(chan string)
+	for _, unit := range decan.Services {
+		log.Info("starting service", "unit", unit)
+		_, err := conn.RestartUnitContext(ctx, unit, "fail", callback)
+		if err != nil {
+			log.Warn(err)
+		}
+		select {
+		case res := <-callback:
+			log.Debug("started unit", "unit", unit, "result", res)
+		case <-time.After(time.Duration(m.Timeout) * time.Second):
+			log.Warn("timeout while starting unit", "unit", unit)
+		}
+	}
+	return nil
+}
+
+func (m *Materia) StopDecan(ctx context.Context, name string) error {
+	var conn *dbus.Conn
+	var err error
+	decan, ok := m.Decans[name]
+	if !ok {
+		return errors.New("tried to start invalid decan")
+	}
+	if m.User.Username != "root" {
+		conn, err = dbus.NewUserConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		conn, err = dbus.NewSystemConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	callback := make(chan string)
+	for _, unit := range decan.Services {
+		log.Info("starting service", "unit", unit)
+		_, err := conn.StopUnitContext(ctx, unit, "fail", callback)
+		if err != nil {
+			log.Warn(err)
+		}
+		select {
+		case res := <-callback:
+			log.Debug("started unit", "unit", unit, "result", res)
+		case <-time.After(time.Duration(m.Timeout) * time.Second):
+			log.Warn("timeout while starting unit", "unit", unit)
+		}
+	}
+	return nil
+}
+
+func (m *Materia) ReloadUnits(ctx context.Context) error {
+	var conn *dbus.Conn
+	var err error
+	if m.User.Username != "root" {
+		conn, err = dbus.NewUserConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		conn, err = dbus.NewSystemConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err = conn.ReloadContext(ctx)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -212,8 +306,8 @@ func (m *Materia) InstallFile(decan, path, filename string, data *bytes.Buffer) 
 	return nil
 }
 
-func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applicationResult, error) {
-	var results []applicationResult
+func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]ApplicationAction, error) {
+	var results []ApplicationAction
 
 	d, ok := m.Decans[decan]
 	if !ok {
@@ -228,10 +322,6 @@ func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applica
 	if err != nil && os.IsNotExist(err) {
 		return results, err
 	}
-	application := applicationResult{
-		Decan: d.Name,
-	}
-
 	for _, star := range d.Resources {
 		var result *bytes.Buffer
 		data, err := os.ReadFile(star.Path)
@@ -275,19 +365,28 @@ func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]applica
 		if err != nil {
 			return results, err
 		}
-		if newFile {
-			application.StartServices = append(application.StartServices, d.ServiceForResource(star)...)
+		if !newFile {
+			for _, v := range d.ServiceForResource(star) {
+				results = append(results, ApplicationAction{
+					Service: v,
+					Todo:    ApplicationActionStart,
+				})
+			}
 		} else {
-			application.RestartServices = append(application.RestartServices, d.ServiceForResource(star)...)
+			for _, v := range d.ServiceForResource(star) {
+				results = append(results, ApplicationAction{
+					Service: v,
+					Todo:    ApplicationActionRestart,
+				})
+			}
 		}
 
 	}
-	results = append(results, application)
 	return results, nil
 }
 
-func (m *Materia) RemoveDecan(decan string) ([]applicationResult, error) {
-	var results []applicationResult
+func (m *Materia) RemoveDecan(decan string) ([]ApplicationAction, error) {
+	var results []ApplicationAction
 	d, ok := m.Decans[decan]
 	if !ok {
 		return results, fmt.Errorf("tried to remove non existent decan %v", decan)
@@ -303,9 +402,9 @@ func (m *Materia) RemoveDecan(decan string) ([]applicationResult, error) {
 	if err != nil {
 		return results, err
 	}
-	results = append(results, applicationResult{
-		Decan:   d.Name,
-		Removed: true,
+	results = append(results, ApplicationAction{
+		Decan: decan,
+		Todo:  ApplicationActionRemove,
 	})
 	return results, nil
 }
