@@ -20,7 +20,6 @@ import (
 
 type Materia struct {
 	prefix, quadletDestination, state string
-	concerns                          map[string][]string
 	Components                        map[string]*Component
 	newComponents                     map[string]*Component
 	User                              *user.User
@@ -63,7 +62,6 @@ func NewerMateria(c Config) *Materia {
 		prefix:             prefix,
 		quadletDestination: destination,
 		state:              state,
-		concerns:           make(map[string][]string),
 		Components:         make(map[string]*Component),
 		newComponents:      make(map[string]*Component),
 		User:               currentUser,
@@ -76,7 +74,6 @@ func NewMateria(prefix, destination, state string, user *user.User, timeout int)
 		prefix:             prefix,
 		quadletDestination: destination,
 		state:              state,
-		concerns:           make(map[string][]string),
 		Components:         make(map[string]*Component),
 		User:               user,
 		Timeout:            timeout,
@@ -233,41 +230,6 @@ func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager)
 	return actions, nil
 }
 
-func (m *Materia) StartComponent(ctx context.Context, name string) error {
-	var conn *dbus.Conn
-	var err error
-	component, ok := m.Components[name]
-	if !ok {
-		return errors.New("tried to start invalid decan")
-	}
-	if m.User.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	callback := make(chan string)
-	for _, unit := range component.Services {
-		log.Info("starting service", "unit", unit)
-		_, err := conn.StartUnitContext(ctx, unit.Name, "fail", callback)
-		if err != nil {
-			log.Warn(err)
-		}
-		select {
-		case res := <-callback:
-			log.Debug("started unit", "unit", unit, "result", res)
-		case <-time.After(time.Duration(m.Timeout) * time.Second):
-			log.Warn("timeout while starting unit", "unit", unit)
-		}
-	}
-	return nil
-}
-
 func GetServicesFromResources(servs []Resource) []Resource {
 	services := []Resource{}
 	// if there's any pods in the list, use them instead of raw container files
@@ -390,12 +352,12 @@ func (m *Materia) AllComponentSourcePaths() string {
 	return filepath.Join(m.SourcePath(), "components")
 }
 
-func (m *Materia) ComponentSourcePath(decan *Component) string {
-	return filepath.Join(m.AllComponentSourcePaths(), decan.Name)
+func (m *Materia) ComponentSourcePath(component *Component) string {
+	return filepath.Join(m.AllComponentSourcePaths(), component.Name)
 }
 
-func (m *Materia) ComponentDataPath(decan *Component) string {
-	return filepath.Join(m.prefix, "materia", "components", decan.Name)
+func (m *Materia) ComponentDataPath(component *Component) string {
+	return filepath.Join(m.prefix, "materia", "components", component.Name)
 }
 
 func (m *Materia) AllComponentDataPaths() string {
@@ -414,14 +376,11 @@ func (m *Materia) QuadletPath(comp *Component) string {
 	return filepath.Join(m.quadletDestination, comp.Name)
 }
 
-func (m *Materia) InstallFile(decan, path string, data *bytes.Buffer) error {
+func (m *Materia) InstallFile(file, path string, data *bytes.Buffer) error {
 	err := os.WriteFile(path, data.Bytes(), 0o755)
 	if err != nil {
 		return err
 	}
-	concerns := m.concerns[decan]
-	concerns = append(concerns, path)
-	m.concerns[decan] = concerns
 	return nil
 }
 

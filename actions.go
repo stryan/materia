@@ -13,12 +13,6 @@ const (
 	ActionRemoveResource
 )
 
-type ApplicationAction struct {
-	Decan   string
-	Service string
-	Todo    ActionType
-}
-
 type Action struct {
 	Todo    ActionType
 	Parent  *Component
