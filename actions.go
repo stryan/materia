@@ -21,5 +21,6 @@ type ApplicationAction struct {
 
 type Action struct {
 	Todo    ActionType
-	Payload []string
+	Parent  *Component
+	Payload Resource
 }

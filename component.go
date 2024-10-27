@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 type Component struct {
 	Name      string
-	Services  []string
+	Services  []Resource
 	Resources []Resource
 	State     ComponentLifecycle
 }
@@ -29,7 +33,7 @@ const (
 	StateRemoved
 )
 
-func NewComponent(path string) *Component {
+func NewComponentFromSource(path string) *Component {
 	d := &Component{}
 	d.Name = filepath.Base(path)
 	entries, err := os.ReadDir(path)
@@ -45,19 +49,10 @@ func NewComponent(path string) *Component {
 		}
 		d.Resources = append(d.Resources, newRes)
 	}
-	for _, v := range d.Resources {
-		if v.Kind == ResourceTypeContainer || v.Kind == ResourceTypePod {
-			d.Services = append(d.Services, fmt.Sprintf("%v.service", strings.TrimSuffix(v.Name, ".container")))
-		}
-	}
 	return d
 }
 
-func (d *Component) ServiceForResource(_ Resource) []string {
-	return d.Services
-}
-
-func (c *Component) Diff(other *Component) ([]Action, error) {
+func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
 	var diffActions []Action
 	dmp := diffmatchpatch.New()
 	if len(c.Resources) == 0 || len(other.Resources) == 0 {
@@ -79,32 +74,54 @@ func (c *Component) Diff(other *Component) ([]Action, error) {
 			if err != nil {
 				return diffActions, err
 			}
+			curString := string(curFile)
+			// parse if template
 			newFile, err := os.ReadFile(newRes.Path)
 			if err != nil {
 				return diffActions, err
 			}
-			diffs := dmp.DiffMain(string(curFile), string(newFile), false)
-			if len(diffs) != 0 {
+			var newString string
+			result := bytes.NewBuffer([]byte{})
+			if newRes.Template {
+				log.Debug("applying template for candidate", "file", newRes.Name)
+				tmpl, err := template.New(newRes.Name).Parse(string(newFile))
+				if err != nil {
+					return diffActions, err
+				}
+				err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
+				if err != nil {
+					return diffActions, err
+				}
+
+			} else {
+				result = bytes.NewBuffer(newFile)
+			}
+			newString = result.String()
+			diffs := dmp.DiffMain(curString, newString, false)
+			if len(diffs) != 1 {
 				diffActions = append(diffActions, Action{
 					Todo:    ActionUpdateResource,
-					Payload: []string{c.Name, newRes.Name},
+					Parent:  c,
+					Payload: newRes,
 				})
 			}
 		} else {
 			// in current resources but not source resources, remove old
 			diffActions = append(diffActions, Action{
 				Todo:    ActionRemoveResource,
-				Payload: []string{c.Name, cur.Name},
+				Parent:  c,
+				Payload: cur,
 			})
 		}
 	}
 
 	for k := range newResources {
-		if _, ok := currentResources[k]; !ok {
+		if cur, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
 			diffActions = append(diffActions, Action{
 				Todo:    ActionInstallResource,
-				Payload: []string{c.Name, k},
+				Parent:  c,
+				Payload: cur,
 			})
 		}
 	}

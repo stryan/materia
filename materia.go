@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -163,7 +164,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 		}
 	}
 	for _, v := range compPaths {
-		c := NewComponent(filepath.Join(m.AllComponentSourcePaths(), v))
+		c := NewComponentFromSource(filepath.Join(m.AllComponentSourcePaths(), v))
 		existing, ok := m.Components[c.Name]
 		if !ok {
 			c.State = StateFresh
@@ -184,20 +185,21 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 	return nil
 }
 
-func (m *Materia) CalculateDiffs(ctx context.Context) ([]Action, error) {
+func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range m.Components {
 		switch v.State {
 		case StateFresh:
 			actions = append(actions, Action{
-				Todo:    ActionInstallComponent,
-				Payload: []string{v.Name},
+				Todo:   ActionInstallComponent,
+				Parent: v,
 			})
 			for _, r := range v.Resources {
 				actions = append(actions, Action{
 					Todo:    ActionInstallResource,
-					Payload: []string{v.Name, r.Name},
+					Parent:  v,
+					Payload: r,
 				})
 			}
 		case StateMayNeedUpdate:
@@ -205,15 +207,19 @@ func (m *Materia) CalculateDiffs(ctx context.Context) ([]Action, error) {
 			if !ok {
 				return actions, errors.New("tried to replace component with nonexistent candidate")
 			}
-			resourceActions, err := v.Diff(candidate)
+			resourceActions, err := v.Diff(candidate, sm)
 			if err != nil {
 				return actions, err
 			}
-			actions = append(actions, resourceActions...)
+			if len(resourceActions) != 0 {
+				actions = append(actions, resourceActions...)
+			} else {
+				v.State = StateOK
+			}
 		case StateStale, StateNeedRemoval:
 			actions = append(actions, Action{
-				Todo:    ActionRemoveComponent,
-				Payload: []string{v.Name},
+				Todo:   ActionRemoveComponent,
+				Parent: v,
 			})
 		case StateOK, StateRemoved:
 			continue
@@ -226,83 +232,6 @@ func (m *Materia) CalculateDiffs(ctx context.Context) ([]Action, error) {
 
 	return actions, nil
 }
-
-// func (m *Materia) DetermineComponents(ctx context.Context) ([]ApplicationAction, error) {
-// 	actions := []ApplicationAction{}
-// 	var components []*Component
-// 	// figure out ones to add
-// 	// TODO: map components to host, for now we just apply all of them
-// 	entries, err := os.ReadDir(m.AllComponentSourcePaths())
-// 	if err != nil {
-// 		return actions, err
-// 	}
-// 	var decanPaths []string
-// 	for _, v := range entries {
-// 		if v.IsDir() {
-// 			decanPaths = append(decanPaths, v.Name())
-// 		}
-// 	}
-// 	for _, v := range decanPaths {
-// 		decan := NewComponent(filepath.Join(m.AllComponentSourcePaths(), v))
-// 		components = append(components, decan)
-// 		actions = append(actions, ApplicationAction{
-// 			Decan: decan.Name,
-// 			Todo:  ActionInstall,
-// 		})
-// 	}
-// 	for _, v := range components {
-// 		m.Components[v.Name] = v
-// 	}
-// 	// get components to remove
-// 	entries, err = os.ReadDir(m.AllComponentDataPaths())
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	for _, v := range entries {
-// 		// TODO: this is slow
-// 		_, ok := m.Components[v.Name()]
-// 		if !ok {
-// 			m.Components[v.Name()] = &Component{
-// 				Name:    v.Name(),
-// 				Enabled: false,
-// 			}
-// 			actions = append(actions, ApplicationAction{
-// 				Decan: v.Name(),
-// 				Todo:  ActionRemove,
-// 			})
-// 		}
-// 	}
-// 	var conn *dbus.Conn
-// 	if m.User.Username != "root" {
-// 		conn, err = dbus.NewUserConnectionContext(ctx)
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 	} else {
-// 		conn, err = dbus.NewSystemConnectionContext(ctx)
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 	}
-// 	defer conn.Close()
-// 	for _, v := range m.Components {
-// 		currentServices, err := conn.ListUnitsByNamesContext(ctx, v.Services)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		for _, service := range currentServices {
-// 			if service.ActiveState == "inactive" {
-// 				actions = append(actions, ApplicationAction{
-// 					Decan: v.Name,
-// 					Todo:  ActionStart,
-// 				})
-// 			}
-// 		}
-//
-// 	}
-//
-// 	return actions, nil
-// }
 
 func (m *Materia) StartComponent(ctx context.Context, name string) error {
 	var conn *dbus.Conn
@@ -325,7 +254,7 @@ func (m *Materia) StartComponent(ctx context.Context, name string) error {
 	callback := make(chan string)
 	for _, unit := range component.Services {
 		log.Info("starting service", "unit", unit)
-		_, err := conn.StartUnitContext(ctx, unit, "fail", callback)
+		_, err := conn.StartUnitContext(ctx, unit.Name, "fail", callback)
 		if err != nil {
 			log.Warn(err)
 		}
@@ -339,47 +268,49 @@ func (m *Materia) StartComponent(ctx context.Context, name string) error {
 	return nil
 }
 
-func (m *Materia) RestartComponent(ctx context.Context, name string) error {
-	var conn *dbus.Conn
-	var err error
-	component, ok := m.Components[name]
-	if !ok {
-		return errors.New("tried to start invalid decan")
-	}
-	if m.User.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
+func GetServicesFromResources(servs []Resource) []Resource {
+	services := []Resource{}
+	// if there's any pods in the list, use them instead of raw container files
+	hasPods := slices.ContainsFunc(servs, func(r Resource) bool { return r.Kind == ResourceTypePod })
+	if hasPods {
+		for _, s := range servs {
+			if s.Kind == ResourceTypePod {
+				podname, found := strings.CutSuffix(s.Name, ".pod")
+				if !found {
+					log.Warn("invalid pod name", "raw_name", s.Name)
+				}
+				services = append(services, Resource{
+					Name: fmt.Sprintf("%v-pod.service", podname),
+					Kind: ResourceTypeService,
+				})
+			}
 		}
 	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
+		for _, s := range servs {
+			if s.Kind == ResourceTypeContainer {
+				servicename, found := strings.CutSuffix(s.Name, ".container")
+				if !found {
+					log.Warn("invalid service name", "raw_name", s.Name)
+				}
+				services = append(services, Resource{
+					Name: fmt.Sprintf("%v.service", servicename),
+					Kind: ResourceTypeService,
+				})
+			}
 		}
 	}
-	callback := make(chan string)
-	for _, unit := range component.Services {
-		log.Info("starting service", "unit", unit)
-		_, err := conn.RestartUnitContext(ctx, unit, "fail", callback)
-		if err != nil {
-			log.Warn(err)
-		}
-		select {
-		case res := <-callback:
-			log.Debug("started unit", "unit", unit, "result", res)
-		case <-time.After(time.Duration(m.Timeout) * time.Second):
-			log.Warn("timeout while starting unit", "unit", unit)
-		}
-	}
-	return nil
+	return services
 }
 
-func (m *Materia) StopComponent(ctx context.Context, name string) error {
+func (m *Materia) ModifyService(ctx context.Context, command Action) error {
 	var conn *dbus.Conn
 	var err error
-	component, ok := m.Components[name]
-	if !ok {
-		return errors.New("tried to start invalid decan")
+	res := command.Payload
+	if res.Name == "" {
+		return errors.New("modified empty service")
+	}
+	if res.Kind != ResourceTypeService {
+		return errors.New("attempted to modify a non service resource")
 	}
 	if m.User.Username != "root" {
 		conn, err = dbus.NewUserConnectionContext(ctx)
@@ -393,18 +324,34 @@ func (m *Materia) StopComponent(ctx context.Context, name string) error {
 		}
 	}
 	callback := make(chan string)
-	for _, unit := range component.Services {
-		log.Info("starting service", "unit", unit)
-		_, err := conn.StopUnitContext(ctx, unit, "fail", callback)
+	switch command.Todo {
+	case ActionStartService:
+		log.Info("starting service", "unit", res.Name)
+		_, err = conn.StartUnitContext(ctx, res.Name, "fail", callback)
 		if err != nil {
 			log.Warn(err)
 		}
-		select {
-		case res := <-callback:
-			log.Debug("started unit", "unit", unit, "result", res)
-		case <-time.After(time.Duration(m.Timeout) * time.Second):
-			log.Warn("timeout while starting unit", "unit", unit)
+	case ActionStopService:
+		log.Info("stopping service", "unit", res.Name)
+		_, err = conn.StopUnitContext(ctx, res.Name, "fail", callback)
+		if err != nil {
+			log.Warn(err)
 		}
+	case ActionRestartService:
+		log.Info("restarting service", "unit", res.Name)
+		_, err = conn.RestartUnitContext(ctx, res.Name, "fail", callback)
+		if err != nil {
+			log.Warn(err)
+		}
+	default:
+		return errors.New("invalid service command")
+	}
+
+	select {
+	case result := <-callback:
+		log.Debug("modified unit", "unit", res.Name, "result", result)
+	case <-time.After(time.Duration(m.Timeout) * time.Second):
+		log.Warn("timeout while starting unit", "unit", res.Name)
 	}
 	return nil
 }
@@ -478,11 +425,7 @@ func (m *Materia) InstallFile(decan, path string, data *bytes.Buffer) error {
 	return nil
 }
 
-func (m *Materia) InstallComponent(component string, sm secrets.SecretsManager) error {
-	comp, ok := m.Components[component]
-	if !ok {
-		return errors.New("tried to install non existent component")
-	}
+func (m *Materia) InstallComponent(comp *Component, sm secrets.SecretsManager) error {
 	err := os.Mkdir(m.ComponentDataPath(comp), 0o755)
 	if err != nil {
 		return err
@@ -492,15 +435,11 @@ func (m *Materia) InstallComponent(component string, sm secrets.SecretsManager) 
 		return err
 	}
 
-	log.Info("installed", "component", component)
+	log.Info("installed", "component", comp.Name)
 	return nil
 }
 
-func (m *Materia) RemoveComponent(component string, _ secrets.SecretsManager) error {
-	comp, ok := m.Components[component]
-	if !ok {
-		return errors.New("tried to remove non existent component")
-	}
+func (m *Materia) RemoveComponent(comp *Component, _ secrets.SecretsManager) error {
 	for _, v := range comp.Resources {
 		err := os.Remove(v.Path)
 		if err != nil {
@@ -512,25 +451,11 @@ func (m *Materia) RemoveComponent(component string, _ secrets.SecretsManager) er
 	if err != nil {
 		return err
 	}
-	log.Info("removed", "component", component)
+	log.Info("removed", "component", comp.Name)
 	return nil
 }
 
-func (m *Materia) InstallResource(component, resource string, sm secrets.SecretsManager) error {
-	comp, ok := m.newComponents[component]
-	if !ok {
-		return fmt.Errorf("tried to install resource %v for non-existent component %v", resource, component)
-	}
-	var res Resource
-	fmt.Fprintf(os.Stderr, "FBLTHP[5]: materia.go:525: Resources=%+v\n", comp.Resources)
-	for _, v := range comp.Resources {
-		if v.Name == resource {
-			res = v
-		}
-	}
-	if res.Name == "" {
-		return fmt.Errorf("tried to install non-existent resource %v for component %v", resource, component)
-	}
+func (m *Materia) InstallResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
 	path := m.InstallPath(comp, res)
 	var result *bytes.Buffer
 	data, err := os.ReadFile(res.Path)
@@ -552,31 +477,18 @@ func (m *Materia) InstallResource(component, resource string, sm secrets.Secrets
 		result = bytes.NewBuffer(data)
 	}
 	log.Debug("writing file", "filename", res.Name, "destination", path)
-	err = m.InstallFile(component, fmt.Sprintf("%v/%v", path, res.Name), result)
+	err = m.InstallFile(comp.Name, fmt.Sprintf("%v/%v", path, res.Name), result)
 	if err != nil {
 		return err
 	}
 
-	log.Info("installed", "component", component, "resource", resource)
+	log.Info("installed", "component", comp.Name, "resource", res.Name)
 	return nil
 }
 
-func (m *Materia) RemoveResource(component, resource string, _ secrets.SecretsManager) error {
-	comp, ok := m.Components[component]
-	if !ok {
-		return fmt.Errorf("tried to remove resource %v for non existent component %v", resource, component)
-	}
-	var res Resource
-	for _, v := range comp.Resources {
-		if v.Name == resource {
-			res = v
-		}
-	}
-	if res.Name == "" {
-		return fmt.Errorf("tried to remove non-existent resource %v for component %v", resource, component)
-	}
+func (m *Materia) RemoveResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
 	if strings.Contains(res.Path, m.SourcePath()) {
-		return fmt.Errorf("tried to remove resource %v for component %v from source", resource, component)
+		return fmt.Errorf("tried to remove resource %v for component %v from source", res.Name, comp.Name)
 	}
 
 	log.Debug("removing file", "filename", res.Name, "destination", res.Path)
@@ -584,130 +496,6 @@ func (m *Materia) RemoveResource(component, resource string, _ secrets.SecretsMa
 	if err != nil {
 		return err
 	}
-	log.Info("removed", "component", component, "resource", resource)
+	log.Info("removed", "component", comp.Name, "resource", res.Name)
 	return nil
 }
-
-func (m *Materia) UpdateResource(component, resource string, sm secrets.SecretsManager) error {
-	comp, ok := m.newComponents[component]
-	if !ok {
-		return fmt.Errorf("tried to update resource %v for non existent component %v", resource, component)
-	}
-	var res Resource
-	for _, v := range comp.Resources {
-		if v.Name == resource {
-			res = v
-		}
-	}
-	if res.Name == "" {
-		return fmt.Errorf("tried to update non-existent resource %v for component %v", resource, component)
-	}
-
-	// TODO update
-
-	log.Info("updated", "component", component, "resource", resource)
-	return nil
-}
-
-// func (m *Materia) ApplyComponent(decan string, sm secrets.SecretsManager) ([]ApplicationAction, error) {
-// 	var results []ApplicationAction
-//
-// 	d, ok := m.Components[decan]
-// 	if !ok {
-// 		return results, fmt.Errorf("tried to apply non existent decan %v", decan)
-// 	}
-//
-// 	err := os.Mkdir(m.ComponentDataPath(d), 0o755)
-// 	if err != nil && os.IsNotExist(err) {
-// 		return results, err
-// 	}
-// 	err = os.Mkdir(m.InstallPath(d, Resource{}), 0o755)
-// 	if err != nil && os.IsNotExist(err) {
-// 		return results, err
-// 	}
-// 	for _, star := range d.Resources {
-// 		var result *bytes.Buffer
-// 		data, err := os.ReadFile(star.Path)
-// 		if err != nil {
-// 			return results, err
-// 		}
-// 		if star.Template {
-// 			result = bytes.NewBuffer([]byte{})
-// 			log.Debug("applying template", "file", star.Name)
-// 			tmpl, err := template.New(star.Name).Parse(string(data))
-// 			if err != nil {
-// 				panic(err)
-// 			}
-// 			err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
-// 			if err != nil {
-// 				panic(err)
-// 			}
-// 		} else {
-// 			result = bytes.NewBuffer(data)
-// 		}
-// 		finalDest := m.InstallPath(d, star)
-// 		finalpath := filepath.Join(finalDest, star.Name)
-// 		newFile := true
-// 		if _, err := os.Stat(finalpath); !os.IsNotExist(err) {
-// 			// file already exists, lets see if we're actually making changes
-// 			// TODO: read and compare by chunks
-// 			existingData, err := os.ReadFile(finalpath)
-// 			if err != nil {
-// 				return results, err
-// 			}
-// 			if bytes.Equal(result.Bytes(), existingData) {
-// 				// no diff, skip file
-// 				log.Debug("skipping existing unchanged file", "filename", star.Name, "destination", finalDest)
-// 				continue
-// 			} else {
-// 				newFile = false
-// 			}
-// 		}
-// 		log.Debug("writing file", "filename", star.Name, "destination", finalDest)
-// 		err = m.InstallFile(d.Name, finalDest, star.Name, result)
-// 		if err != nil {
-// 			return results, err
-// 		}
-// 		if !newFile {
-// 			for _, v := range d.ServiceForResource(star) {
-// 				results = append(results, ApplicationAction{
-// 					Service: v,
-// 					Todo:    ActionStartService,
-// 				})
-// 			}
-// 		} else {
-// 			for _, v := range d.ServiceForResource(star) {
-// 				results = append(results, ApplicationAction{
-// 					Service: v,
-// 					Todo:    ActionRestartService,
-// 				})
-// 			}
-// 		}
-//
-// 	}
-// 	return results, nil
-// }
-
-// func (m *Materia) RemoveComponent(component string) ([]ApplicationAction, error) {
-// 	var results []ApplicationAction
-// 	c, ok := m.Components[component]
-// 	if !ok {
-// 		return results, fmt.Errorf("tried to remove non existent decan %v", component)
-// 	}
-// 	// if c.Enabled {
-// 	// 	return results, fmt.Errorf("tried to remove enabled decan %v", component)
-// 	// }
-// 	err := os.RemoveAll(filepath.Join(m.quadletDestination, c.Name))
-// 	if err != nil {
-// 		return results, err
-// 	}
-// 	err = os.RemoveAll(m.ComponentDataPath(c))
-// 	if err != nil {
-// 		return results, err
-// 	}
-// 	results = append(results, ApplicationAction{
-// 		Decan: component,
-// 		Todo:  ActionRemoveComponent,
-// 	})
-// 	return results, nil
-// }
