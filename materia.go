@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
@@ -19,9 +20,54 @@ import (
 type Materia struct {
 	prefix, quadletDestination, state string
 	concerns                          map[string][]string
-	Decans                            map[string]*Decan
+	Components                        map[string]*Component
+	newComponents                     map[string]*Component
 	User                              *user.User
 	Timeout                           int
+}
+
+func NewerMateria(c Config) *Materia {
+	currentUser, err := user.Current()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	prefix := "/var/lib"
+	state := "/var/lib"
+	destination := "/etc/systemd/system"
+	timeout := c.Timeout
+	if timeout == 0 {
+		timeout = 30
+	}
+	if currentUser.Username != "root" {
+		home := currentUser.HomeDir
+		var found bool
+
+		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
+		if !found {
+			destination = fmt.Sprintf("%v/.config/containers/systemd/", home)
+		} else {
+			destination = fmt.Sprintf("%v/containers/systemd/", conf)
+		}
+		prefix, found = os.LookupEnv("XDG_DATA_HOME")
+		if !found {
+			prefix = fmt.Sprintf("%v/.local/share", home)
+		}
+		state, found = os.LookupEnv("XDG_DATA_STATE")
+		if !found {
+			state = fmt.Sprintf("%v/.local/state", home)
+		}
+	}
+
+	return &Materia{
+		prefix:             prefix,
+		quadletDestination: destination,
+		state:              state,
+		concerns:           make(map[string][]string),
+		Components:         make(map[string]*Component),
+		newComponents:      make(map[string]*Component),
+		User:               currentUser,
+		Timeout:            timeout,
+	}
 }
 
 func NewMateria(prefix, destination, state string, user *user.User, timeout int) *Materia {
@@ -30,7 +76,7 @@ func NewMateria(prefix, destination, state string, user *user.User, timeout int)
 		quadletDestination: destination,
 		state:              state,
 		concerns:           make(map[string][]string),
-		Decans:             make(map[string]*Decan),
+		Components:         make(map[string]*Component),
 		User:               user,
 		Timeout:            timeout,
 	}
@@ -51,7 +97,7 @@ func (m *Materia) SetupHost() error {
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
-	err = os.Mkdir(filepath.Join(m.prefix, "materia", "decans"), 0o755)
+	err = os.Mkdir(filepath.Join(m.prefix, "materia", "components"), 0o755)
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
@@ -59,87 +105,209 @@ func (m *Materia) SetupHost() error {
 	return nil
 }
 
-func (m *Materia) DetermineDecans(ctx context.Context) ([]ApplicationAction, error) {
-	actions := []ApplicationAction{}
-	var decans []*Decan
-	// figure out ones to add
-	// TODO: map decans to host, for now we just apply all of them
-	entries, err := os.ReadDir(m.AllDecanSourcePaths())
-	if err != nil {
-		return actions, err
-	}
-	var decanPaths []string
-	for _, v := range entries {
-		if v.IsDir() {
-			decanPaths = append(decanPaths, v.Name())
-		}
-	}
-	for _, v := range decanPaths {
-		decan := NewDecan(filepath.Join(m.AllDecanSourcePaths(), v))
-		decans = append(decans, decan)
-		actions = append(actions, ApplicationAction{
-			Decan: decan.Name,
-			Todo:  ApplicationActionInstall,
-		})
-	}
-	for _, v := range decans {
-		m.Decans[v.Name] = v
-	}
-	// get decans to remove
-	entries, err = os.ReadDir(m.AllDecanDataPaths())
+func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
+	// Get existing Components
+	entries, err := os.ReadDir(m.AllComponentDataPaths())
 	if err != nil {
 		log.Fatal(err)
 	}
 	for _, v := range entries {
-		// TODO: this is slow
-		_, ok := m.Decans[v.Name()]
-		if !ok {
-			m.Decans[v.Name()] = &Decan{
-				Name:    v.Name(),
-				Enabled: false,
+		log.Debug("reading existing component", "component", v.Name())
+		oldComp := &Component{
+			Name:      v.Name(),
+			Resources: []Resource{},
+			State:     StateStale,
+		}
+		// load resources
+		entries, err := os.ReadDir(m.ComponentDataPath(oldComp))
+		if err != nil {
+			return err
+		}
+		for _, v := range entries {
+			newRes := Resource{
+				Path:     filepath.Join(m.ComponentDataPath(oldComp), v.Name()),
+				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+				Kind:     FindResourceType(v.Name()),
+				Template: isTemplate(v.Name()),
 			}
-			actions = append(actions, ApplicationAction{
-				Decan: v.Name(),
-				Todo:  ApplicationActionRemove,
+			oldComp.Resources = append(oldComp.Resources, newRes)
+		}
+		// load quadlets
+		entries, err = os.ReadDir(m.QuadletPath(oldComp))
+		if err != nil {
+			return err
+		}
+		for _, v := range entries {
+			newRes := Resource{
+				Path:     filepath.Join(m.QuadletPath(oldComp), v.Name()),
+				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+				Kind:     FindResourceType(v.Name()),
+				Template: isTemplate(v.Name()),
+			}
+			oldComp.Resources = append(oldComp.Resources, newRes)
+		}
+		log.Debug("existing component", "component", oldComp)
+		oldComp.State = StateStale
+		m.Components[oldComp.Name] = oldComp
+	}
+	// figure out ones to add
+	// TODO: map components to host, for now we just apply all of them
+	entries, err = os.ReadDir(m.AllComponentSourcePaths())
+	if err != nil {
+		return err
+	}
+	var compPaths []string
+	for _, v := range entries {
+		if v.IsDir() {
+			compPaths = append(compPaths, v.Name())
+		}
+	}
+	for _, v := range compPaths {
+		c := NewComponent(filepath.Join(m.AllComponentSourcePaths(), v))
+		existing, ok := m.Components[c.Name]
+		if !ok {
+			c.State = StateFresh
+			m.Components[c.Name] = c
+		} else {
+			m.newComponents[c.Name] = c
+			existing.State = StateMayNeedUpdate
+			m.Components[c.Name] = existing
+		}
+	}
+	for _, v := range m.Components {
+		if v.State == StateStale {
+			// exists on disk but not in source, remove
+			v.State = StateNeedRemoval
+		}
+	}
+
+	return nil
+}
+
+func (m *Materia) CalculateDiffs(ctx context.Context) ([]Action, error) {
+	var actions []Action
+
+	for _, v := range m.Components {
+		switch v.State {
+		case StateFresh:
+			actions = append(actions, Action{
+				Todo:    ActionInstallComponent,
+				Payload: []string{v.Name},
 			})
-		}
-	}
-	var conn *dbus.Conn
-	if m.User.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	defer conn.Close()
-	for _, v := range m.Decans {
-		currentServices, err := conn.ListUnitsByNamesContext(ctx, v.Services)
-		if err != nil {
-			return nil, err
-		}
-		for _, service := range currentServices {
-			if service.ActiveState == "inactive" {
-				actions = append(actions, ApplicationAction{
-					Decan: v.Name,
-					Todo:  ApplicationActionStart,
+			for _, r := range v.Resources {
+				actions = append(actions, Action{
+					Todo:    ActionInstallResource,
+					Payload: []string{v.Name, r.Name},
 				})
 			}
+		case StateMayNeedUpdate:
+			candidate, ok := m.newComponents[v.Name]
+			if !ok {
+				return actions, errors.New("tried to replace component with nonexistent candidate")
+			}
+			resourceActions, err := v.Diff(candidate)
+			if err != nil {
+				return actions, err
+			}
+			actions = append(actions, resourceActions...)
+		case StateStale, StateNeedRemoval:
+			actions = append(actions, Action{
+				Todo:    ActionRemoveComponent,
+				Payload: []string{v.Name},
+			})
+		case StateOK, StateRemoved:
+			continue
+		case StateUnknown:
+			return actions, errors.New("found unknown component")
+		default:
+			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
 		}
-
 	}
 
 	return actions, nil
 }
 
-func (m *Materia) StartDecan(ctx context.Context, name string) error {
+// func (m *Materia) DetermineComponents(ctx context.Context) ([]ApplicationAction, error) {
+// 	actions := []ApplicationAction{}
+// 	var components []*Component
+// 	// figure out ones to add
+// 	// TODO: map components to host, for now we just apply all of them
+// 	entries, err := os.ReadDir(m.AllComponentSourcePaths())
+// 	if err != nil {
+// 		return actions, err
+// 	}
+// 	var decanPaths []string
+// 	for _, v := range entries {
+// 		if v.IsDir() {
+// 			decanPaths = append(decanPaths, v.Name())
+// 		}
+// 	}
+// 	for _, v := range decanPaths {
+// 		decan := NewComponent(filepath.Join(m.AllComponentSourcePaths(), v))
+// 		components = append(components, decan)
+// 		actions = append(actions, ApplicationAction{
+// 			Decan: decan.Name,
+// 			Todo:  ActionInstall,
+// 		})
+// 	}
+// 	for _, v := range components {
+// 		m.Components[v.Name] = v
+// 	}
+// 	// get components to remove
+// 	entries, err = os.ReadDir(m.AllComponentDataPaths())
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	for _, v := range entries {
+// 		// TODO: this is slow
+// 		_, ok := m.Components[v.Name()]
+// 		if !ok {
+// 			m.Components[v.Name()] = &Component{
+// 				Name:    v.Name(),
+// 				Enabled: false,
+// 			}
+// 			actions = append(actions, ApplicationAction{
+// 				Decan: v.Name(),
+// 				Todo:  ActionRemove,
+// 			})
+// 		}
+// 	}
+// 	var conn *dbus.Conn
+// 	if m.User.Username != "root" {
+// 		conn, err = dbus.NewUserConnectionContext(ctx)
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 	} else {
+// 		conn, err = dbus.NewSystemConnectionContext(ctx)
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 	}
+// 	defer conn.Close()
+// 	for _, v := range m.Components {
+// 		currentServices, err := conn.ListUnitsByNamesContext(ctx, v.Services)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		for _, service := range currentServices {
+// 			if service.ActiveState == "inactive" {
+// 				actions = append(actions, ApplicationAction{
+// 					Decan: v.Name,
+// 					Todo:  ActionStart,
+// 				})
+// 			}
+// 		}
+//
+// 	}
+//
+// 	return actions, nil
+// }
+
+func (m *Materia) StartComponent(ctx context.Context, name string) error {
 	var conn *dbus.Conn
 	var err error
-	decan, ok := m.Decans[name]
+	component, ok := m.Components[name]
 	if !ok {
 		return errors.New("tried to start invalid decan")
 	}
@@ -155,7 +323,7 @@ func (m *Materia) StartDecan(ctx context.Context, name string) error {
 		}
 	}
 	callback := make(chan string)
-	for _, unit := range decan.Services {
+	for _, unit := range component.Services {
 		log.Info("starting service", "unit", unit)
 		_, err := conn.StartUnitContext(ctx, unit, "fail", callback)
 		if err != nil {
@@ -171,10 +339,10 @@ func (m *Materia) StartDecan(ctx context.Context, name string) error {
 	return nil
 }
 
-func (m *Materia) RestartDecan(ctx context.Context, name string) error {
+func (m *Materia) RestartComponent(ctx context.Context, name string) error {
 	var conn *dbus.Conn
 	var err error
-	decan, ok := m.Decans[name]
+	component, ok := m.Components[name]
 	if !ok {
 		return errors.New("tried to start invalid decan")
 	}
@@ -190,7 +358,7 @@ func (m *Materia) RestartDecan(ctx context.Context, name string) error {
 		}
 	}
 	callback := make(chan string)
-	for _, unit := range decan.Services {
+	for _, unit := range component.Services {
 		log.Info("starting service", "unit", unit)
 		_, err := conn.RestartUnitContext(ctx, unit, "fail", callback)
 		if err != nil {
@@ -206,10 +374,10 @@ func (m *Materia) RestartDecan(ctx context.Context, name string) error {
 	return nil
 }
 
-func (m *Materia) StopDecan(ctx context.Context, name string) error {
+func (m *Materia) StopComponent(ctx context.Context, name string) error {
 	var conn *dbus.Conn
 	var err error
-	decan, ok := m.Decans[name]
+	component, ok := m.Components[name]
 	if !ok {
 		return errors.New("tried to start invalid decan")
 	}
@@ -225,7 +393,7 @@ func (m *Materia) StopDecan(ctx context.Context, name string) error {
 		}
 	}
 	callback := make(chan string)
-	for _, unit := range decan.Services {
+	for _, unit := range component.Services {
 		log.Info("starting service", "unit", unit)
 		_, err := conn.StopUnitContext(ctx, unit, "fail", callback)
 		if err != nil {
@@ -271,140 +439,275 @@ func (m *Materia) SourcePath() string {
 	return filepath.Join(m.prefix, "materia", "source")
 }
 
-func (m *Materia) AllDecanSourcePaths() string {
-	return filepath.Join(m.SourcePath(), "decans")
+func (m *Materia) AllComponentSourcePaths() string {
+	return filepath.Join(m.SourcePath(), "components")
 }
 
-func (m *Materia) DecanSourcePath(decan *Decan) string {
-	return filepath.Join(m.AllDecanSourcePaths(), decan.Name)
+func (m *Materia) ComponentSourcePath(decan *Component) string {
+	return filepath.Join(m.AllComponentSourcePaths(), decan.Name)
 }
 
-func (m *Materia) DecanDataPath(decan *Decan) string {
-	return filepath.Join(m.prefix, "materia", "decans", decan.Name)
+func (m *Materia) ComponentDataPath(decan *Component) string {
+	return filepath.Join(m.prefix, "materia", "components", decan.Name)
 }
 
-func (m *Materia) AllDecanDataPaths() string {
-	return filepath.Join(m.prefix, "materia", "decans")
+func (m *Materia) AllComponentDataPaths() string {
+	return filepath.Join(m.prefix, "materia", "components")
 }
 
-func (m *Materia) InstallPath(decan *Decan, r Resource) string {
-	if r.Quadlet || r.Name == "" {
-		return filepath.Join(m.quadletDestination, decan.Name)
+func (m *Materia) InstallPath(comp *Component, r Resource) string {
+	if r.Kind != ResourceTypeFile {
+		return filepath.Join(m.quadletDestination, comp.Name)
 	} else {
-		return filepath.Join(m.prefix, "materia", "decans", decan.Name)
+		return filepath.Join(m.prefix, "materia", "components", comp.Name)
 	}
 }
 
-func (m *Materia) InstallFile(decan, path, filename string, data *bytes.Buffer) error {
-	err := os.WriteFile(filepath.Join(path, filename), data.Bytes(), 0o755)
+func (m *Materia) QuadletPath(comp *Component) string {
+	return filepath.Join(m.quadletDestination, comp.Name)
+}
+
+func (m *Materia) InstallFile(decan, path string, data *bytes.Buffer) error {
+	err := os.WriteFile(path, data.Bytes(), 0o755)
 	if err != nil {
 		return err
 	}
 	concerns := m.concerns[decan]
-	concerns = append(concerns, filepath.Join(path, filename))
+	concerns = append(concerns, path)
 	m.concerns[decan] = concerns
 	return nil
 }
 
-func (m *Materia) ApplyDecan(decan string, sm secrets.SecretsManager) ([]ApplicationAction, error) {
-	var results []ApplicationAction
-
-	d, ok := m.Decans[decan]
+func (m *Materia) InstallComponent(component string, sm secrets.SecretsManager) error {
+	comp, ok := m.Components[component]
 	if !ok {
-		return results, fmt.Errorf("tried to apply non existent decan %v", decan)
+		return errors.New("tried to install non existent component")
+	}
+	err := os.Mkdir(m.ComponentDataPath(comp), 0o755)
+	if err != nil {
+		return err
+	}
+	err = os.Mkdir(m.InstallPath(comp, Resource{}), 0o755)
+	if err != nil {
+		return err
 	}
 
-	err := os.Mkdir(m.DecanDataPath(d), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return results, err
-	}
-	err = os.Mkdir(m.InstallPath(d, Resource{}), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return results, err
-	}
-	for _, star := range d.Resources {
-		var result *bytes.Buffer
-		data, err := os.ReadFile(star.Path)
-		if err != nil {
-			return results, err
-		}
-		if star.Template {
-			result = bytes.NewBuffer([]byte{})
-			log.Debug("applying template", "file", star.Name)
-			tmpl, err := template.New(star.Name).Parse(string(data))
-			if err != nil {
-				panic(err)
-			}
-			err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			result = bytes.NewBuffer(data)
-		}
-		finalDest := m.InstallPath(d, star)
-		finalpath := filepath.Join(finalDest, star.Name)
-		newFile := true
-		if _, err := os.Stat(finalpath); !os.IsNotExist(err) {
-			// file already exists, lets see if we're actually making changes
-			// TODO: read and compare by chunks
-			existingData, err := os.ReadFile(finalpath)
-			if err != nil {
-				return results, err
-			}
-			if bytes.Equal(result.Bytes(), existingData) {
-				// no diff, skip file
-				log.Debug("skipping existing unchanged file", "filename", star.Name, "destination", finalDest)
-				continue
-			} else {
-				newFile = false
-			}
-		}
-		log.Debug("writing file", "filename", star.Name, "destination", finalDest)
-		err = m.InstallFile(d.Name, finalDest, star.Name, result)
-		if err != nil {
-			return results, err
-		}
-		if !newFile {
-			for _, v := range d.ServiceForResource(star) {
-				results = append(results, ApplicationAction{
-					Service: v,
-					Todo:    ApplicationActionStart,
-				})
-			}
-		} else {
-			for _, v := range d.ServiceForResource(star) {
-				results = append(results, ApplicationAction{
-					Service: v,
-					Todo:    ApplicationActionRestart,
-				})
-			}
-		}
-
-	}
-	return results, nil
+	log.Info("installed", "component", component)
+	return nil
 }
 
-func (m *Materia) RemoveDecan(decan string) ([]ApplicationAction, error) {
-	var results []ApplicationAction
-	d, ok := m.Decans[decan]
+func (m *Materia) RemoveComponent(component string, _ secrets.SecretsManager) error {
+	comp, ok := m.Components[component]
 	if !ok {
-		return results, fmt.Errorf("tried to remove non existent decan %v", decan)
+		return errors.New("tried to remove non existent component")
 	}
-	if d.Enabled {
-		return results, fmt.Errorf("tried to remove enabled decan %v", decan)
+	for _, v := range comp.Resources {
+		err := os.Remove(v.Path)
+		if err != nil {
+			return err
+		}
+		log.Info("removed", "resource", v.Name)
 	}
-	err := os.RemoveAll(filepath.Join(m.quadletDestination, d.Name))
+	err := os.Remove(m.ComponentDataPath(comp))
 	if err != nil {
-		return results, err
+		return err
 	}
-	err = os.RemoveAll(m.DecanDataPath(d))
-	if err != nil {
-		return results, err
-	}
-	results = append(results, ApplicationAction{
-		Decan: decan,
-		Todo:  ApplicationActionRemove,
-	})
-	return results, nil
+	log.Info("removed", "component", component)
+	return nil
 }
+
+func (m *Materia) InstallResource(component, resource string, sm secrets.SecretsManager) error {
+	comp, ok := m.newComponents[component]
+	if !ok {
+		return fmt.Errorf("tried to install resource %v for non-existent component %v", resource, component)
+	}
+	var res Resource
+	fmt.Fprintf(os.Stderr, "FBLTHP[5]: materia.go:525: Resources=%+v\n", comp.Resources)
+	for _, v := range comp.Resources {
+		if v.Name == resource {
+			res = v
+		}
+	}
+	if res.Name == "" {
+		return fmt.Errorf("tried to install non-existent resource %v for component %v", resource, component)
+	}
+	path := m.InstallPath(comp, res)
+	var result *bytes.Buffer
+	data, err := os.ReadFile(res.Path)
+	if err != nil {
+		return err
+	}
+	if res.Template {
+		result = bytes.NewBuffer([]byte{})
+		log.Debug("applying template", "file", res.Name)
+		tmpl, err := template.New(res.Name).Parse(string(data))
+		if err != nil {
+			panic(err)
+		}
+		err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		result = bytes.NewBuffer(data)
+	}
+	log.Debug("writing file", "filename", res.Name, "destination", path)
+	err = m.InstallFile(component, fmt.Sprintf("%v/%v", path, res.Name), result)
+	if err != nil {
+		return err
+	}
+
+	log.Info("installed", "component", component, "resource", resource)
+	return nil
+}
+
+func (m *Materia) RemoveResource(component, resource string, _ secrets.SecretsManager) error {
+	comp, ok := m.Components[component]
+	if !ok {
+		return fmt.Errorf("tried to remove resource %v for non existent component %v", resource, component)
+	}
+	var res Resource
+	for _, v := range comp.Resources {
+		if v.Name == resource {
+			res = v
+		}
+	}
+	if res.Name == "" {
+		return fmt.Errorf("tried to remove non-existent resource %v for component %v", resource, component)
+	}
+	if strings.Contains(res.Path, m.SourcePath()) {
+		return fmt.Errorf("tried to remove resource %v for component %v from source", resource, component)
+	}
+
+	log.Debug("removing file", "filename", res.Name, "destination", res.Path)
+	err := os.Remove(res.Path)
+	if err != nil {
+		return err
+	}
+	log.Info("removed", "component", component, "resource", resource)
+	return nil
+}
+
+func (m *Materia) UpdateResource(component, resource string, sm secrets.SecretsManager) error {
+	comp, ok := m.newComponents[component]
+	if !ok {
+		return fmt.Errorf("tried to update resource %v for non existent component %v", resource, component)
+	}
+	var res Resource
+	for _, v := range comp.Resources {
+		if v.Name == resource {
+			res = v
+		}
+	}
+	if res.Name == "" {
+		return fmt.Errorf("tried to update non-existent resource %v for component %v", resource, component)
+	}
+
+	// TODO update
+
+	log.Info("updated", "component", component, "resource", resource)
+	return nil
+}
+
+// func (m *Materia) ApplyComponent(decan string, sm secrets.SecretsManager) ([]ApplicationAction, error) {
+// 	var results []ApplicationAction
+//
+// 	d, ok := m.Components[decan]
+// 	if !ok {
+// 		return results, fmt.Errorf("tried to apply non existent decan %v", decan)
+// 	}
+//
+// 	err := os.Mkdir(m.ComponentDataPath(d), 0o755)
+// 	if err != nil && os.IsNotExist(err) {
+// 		return results, err
+// 	}
+// 	err = os.Mkdir(m.InstallPath(d, Resource{}), 0o755)
+// 	if err != nil && os.IsNotExist(err) {
+// 		return results, err
+// 	}
+// 	for _, star := range d.Resources {
+// 		var result *bytes.Buffer
+// 		data, err := os.ReadFile(star.Path)
+// 		if err != nil {
+// 			return results, err
+// 		}
+// 		if star.Template {
+// 			result = bytes.NewBuffer([]byte{})
+// 			log.Debug("applying template", "file", star.Name)
+// 			tmpl, err := template.New(star.Name).Parse(string(data))
+// 			if err != nil {
+// 				panic(err)
+// 			}
+// 			err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
+// 			if err != nil {
+// 				panic(err)
+// 			}
+// 		} else {
+// 			result = bytes.NewBuffer(data)
+// 		}
+// 		finalDest := m.InstallPath(d, star)
+// 		finalpath := filepath.Join(finalDest, star.Name)
+// 		newFile := true
+// 		if _, err := os.Stat(finalpath); !os.IsNotExist(err) {
+// 			// file already exists, lets see if we're actually making changes
+// 			// TODO: read and compare by chunks
+// 			existingData, err := os.ReadFile(finalpath)
+// 			if err != nil {
+// 				return results, err
+// 			}
+// 			if bytes.Equal(result.Bytes(), existingData) {
+// 				// no diff, skip file
+// 				log.Debug("skipping existing unchanged file", "filename", star.Name, "destination", finalDest)
+// 				continue
+// 			} else {
+// 				newFile = false
+// 			}
+// 		}
+// 		log.Debug("writing file", "filename", star.Name, "destination", finalDest)
+// 		err = m.InstallFile(d.Name, finalDest, star.Name, result)
+// 		if err != nil {
+// 			return results, err
+// 		}
+// 		if !newFile {
+// 			for _, v := range d.ServiceForResource(star) {
+// 				results = append(results, ApplicationAction{
+// 					Service: v,
+// 					Todo:    ActionStartService,
+// 				})
+// 			}
+// 		} else {
+// 			for _, v := range d.ServiceForResource(star) {
+// 				results = append(results, ApplicationAction{
+// 					Service: v,
+// 					Todo:    ActionRestartService,
+// 				})
+// 			}
+// 		}
+//
+// 	}
+// 	return results, nil
+// }
+
+// func (m *Materia) RemoveComponent(component string) ([]ApplicationAction, error) {
+// 	var results []ApplicationAction
+// 	c, ok := m.Components[component]
+// 	if !ok {
+// 		return results, fmt.Errorf("tried to remove non existent decan %v", component)
+// 	}
+// 	// if c.Enabled {
+// 	// 	return results, fmt.Errorf("tried to remove enabled decan %v", component)
+// 	// }
+// 	err := os.RemoveAll(filepath.Join(m.quadletDestination, c.Name))
+// 	if err != nil {
+// 		return results, err
+// 	}
+// 	err = os.RemoveAll(m.ComponentDataPath(c))
+// 	if err != nil {
+// 		return results, err
+// 	}
+// 	results = append(results, ApplicationAction{
+// 		Decan: component,
+// 		Todo:  ActionRemoveComponent,
+// 	})
+// 	return results, nil
+// }

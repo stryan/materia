@@ -3,6 +3,17 @@ package main
 type Resource struct {
 	Path     string
 	Name     string
-	Quadlet  bool
+	Kind     ResourceType
 	Template bool
 }
+
+type ResourceType int
+
+const (
+	ResourceTypeContainer ResourceType = iota
+	ResourceTypeVolume
+	ResourceTypePod
+	ResourceTypeNetwork
+	ResourceTypeKube
+	ResourceTypeFile
+)

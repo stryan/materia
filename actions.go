@@ -1,17 +1,25 @@
 package main
 
-type Action int
+type ActionType int
 
 const (
-	ApplicationActionInstall Action = iota
-	ApplicationActionRemove
-	ApplicationActionStart
-	ApplicationActionStop
-	ApplicationActionRestart
+	ActionInstallComponent ActionType = iota
+	ActionRemoveComponent
+	ActionStartService
+	ActionStopService
+	ActionRestartService
+	ActionInstallResource
+	ActionUpdateResource
+	ActionRemoveResource
 )
 
 type ApplicationAction struct {
 	Decan   string
 	Service string
-	Todo    Action
+	Todo    ActionType
+}
+
+type Action struct {
+	Todo    ActionType
+	Payload []string
 }
