@@ -46,8 +46,11 @@ func main() {
 	}
 	m := NewerMateria(c)
 	log.Debug("dump", "materia", m)
+
+	log.Info("starting run")
 	// PLAN
 	// Setup host
+	log.Info("setting up host")
 	err = m.SetupHost()
 	if err != nil {
 		log.Fatal(err)
@@ -63,6 +66,7 @@ func main() {
 		}
 	}
 	// Ensure local cache
+	log.Info("updating configured source cache")
 	ctx := context.Background()
 	source := git.NewGitSource(m.SourcePath(), c.GitRepo)
 	err = source.Sync(ctx)
@@ -76,15 +80,20 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Debug("component actions")
+	var installing, removing, updating, ok []string
 	for _, v := range m.Components {
 		switch v.State {
 		case StateFresh:
+			installing = append(installing, v.Name)
 			log.Debug("fresh:", "component", v.Name)
 		case StateMayNeedUpdate:
+			updating = append(updating, v.Name)
 			log.Debug("update:", "component", v.Name)
 		case StateNeedRemoval:
+			removing = append(removing, v.Name)
 			log.Debug("remove:", "component", v.Name)
 		case StateOK:
+			ok = append(ok, v.Name)
 			log.Debug("ok:", "component", v.Name)
 		case StateRemoved:
 			log.Debug("removed:", "component", v.Name)
@@ -96,6 +105,10 @@ func main() {
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
 		}
 	}
+	log.Info("installing components", "installing", installing)
+	log.Info("removing components", "removing", removing)
+	log.Info("updating components", "updating", updating)
+	log.Info("unchanged components", "unchanged", ok)
 	// Determine diff actions
 	diffActions, err := m.CalculateDiffs(ctx, sm)
 	if err != nil {
@@ -213,4 +226,5 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+	log.Info("finishing run")
 }
