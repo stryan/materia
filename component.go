@@ -1,17 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 type Component struct {
@@ -54,7 +50,6 @@ func NewComponentFromSource(path string) *Component {
 
 func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
 	var diffActions []Action
-	dmp := diffmatchpatch.New()
 	if len(c.Resources) == 0 || len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
 		return diffActions, fmt.Errorf("one or both components is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
@@ -70,33 +65,10 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 	for k, cur := range currentResources {
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			curFile, err := os.ReadFile(cur.Path)
+			diffs, err := cur.Diff(newRes, sm)
 			if err != nil {
 				return diffActions, err
 			}
-			curString := string(curFile)
-			// parse if template
-			newFile, err := os.ReadFile(newRes.Path)
-			if err != nil {
-				return diffActions, err
-			}
-			var newString string
-			result := bytes.NewBuffer([]byte{})
-			if newRes.Template {
-				tmpl, err := template.New(newRes.Name).Parse(string(newFile))
-				if err != nil {
-					return diffActions, err
-				}
-				err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
-				if err != nil {
-					return diffActions, err
-				}
-
-			} else {
-				result = bytes.NewBuffer(newFile)
-			}
-			newString = result.String()
-			diffs := dmp.DiffMain(curString, newString, false)
 			if len(diffs) != 1 {
 				log.Debug("updating current resource", "file", cur.Name)
 				diffActions = append(diffActions, Action{
