@@ -15,6 +15,8 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v4/pkg/bindings"
+	"github.com/containers/podman/v4/pkg/bindings/volumes"
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
@@ -24,9 +26,11 @@ type Materia struct {
 	newComponents                     map[string]*Component
 	User                              *user.User
 	Timeout                           int
+	SystemdConn                       *dbus.Conn
+	PodmanConn                        context.Context
 }
 
-func NewerMateria(c Config) *Materia {
+func NewMateria(ctx context.Context, c Config) *Materia {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -38,6 +42,8 @@ func NewerMateria(c Config) *Materia {
 	if timeout == 0 {
 		timeout = 30
 	}
+	var conn *dbus.Conn
+	var podConn context.Context
 	if currentUser.Username != "root" {
 		home := currentUser.HomeDir
 		var found bool
@@ -56,6 +62,24 @@ func NewerMateria(c Config) *Materia {
 		if !found {
 			state = fmt.Sprintf("%v/.local/state", home)
 		}
+		conn, err = dbus.NewUserConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		podConn, err = bindings.NewConnection(context.Background(), fmt.Sprintf("unix:///run/user/%v/podman/podman.sock", currentUser.Uid))
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		conn, err = dbus.NewSystemConnectionContext(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		podConn, err = bindings.NewConnection(context.Background(), "unix:///run/podman/podman.sock")
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	return &Materia{
@@ -66,18 +90,13 @@ func NewerMateria(c Config) *Materia {
 		newComponents:      make(map[string]*Component),
 		User:               currentUser,
 		Timeout:            timeout,
+		SystemdConn:        conn,
+		PodmanConn:         podConn,
 	}
 }
 
-func NewMateria(prefix, destination, state string, user *user.User, timeout int) *Materia {
-	return &Materia{
-		prefix:             prefix,
-		quadletDestination: destination,
-		state:              state,
-		Components:         make(map[string]*Component),
-		User:               user,
-		Timeout:            timeout,
-	}
+func (m *Materia) Close() {
+	m.SystemdConn.Close()
 }
 
 func (m *Materia) SetupHost() error {
@@ -230,6 +249,63 @@ func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager)
 	return actions, nil
 }
 
+func (m *Materia) CalculateVolDiffs(ctx context.Context, sm secrets.SecretsManager) ([]Action, error) {
+	var actions []Action
+
+	for _, v := range m.Components {
+		for _, r := range v.Resources {
+			if r.Kind == ResourceTypeVolumeFile {
+				splitp := strings.Split(r.Path, ":")
+				if len(splitp) != 2 {
+					return actions, fmt.Errorf("invalid volume path name: %v", r.Path)
+				}
+				volName := splitp[0]
+				volResource := splitp[1]
+				// ensure volume exists
+				callback := make(chan string)
+				_, err := m.SystemdConn.StartUnitContext(ctx, volName, "fail", callback)
+				if err != nil {
+					return actions, err
+				}
+				select {
+				case result := <-callback:
+					log.Debug("modified volume unit", "unit", volName, "result", result)
+				case <-time.After(time.Duration(m.Timeout) * time.Second):
+					log.Warn("timeout while starting volume unit", "unit", volName)
+				}
+				resp, err := volumes.Inspect(m.PodmanConn, fmt.Sprintf("systemd-%v", volName), nil)
+				if err != nil {
+					return actions, err
+				}
+				inVolLoc := fmt.Sprintf("%v/%v", resp.Mountpoint, volResource)
+				if _, err := os.Stat(inVolLoc); errors.Is(err, os.ErrNotExist) {
+					// VolumeResource does not exist
+					finalPayload := r
+					finalPayload.Path = inVolLoc
+					actions = append(actions, Action{
+						Todo:    ActionInstallVolumeResource,
+						Parent:  v,
+						Payload: finalPayload,
+					})
+				} else if err != nil {
+					return actions, err
+				}
+				// TODO diff here
+				log.Info("TODO diff")
+				finalPayload := r
+				finalPayload.Path = inVolLoc
+				actions = append(actions, Action{
+					Todo:    ActionInstallVolumeResource,
+					Parent:  v,
+					Payload: finalPayload,
+				})
+			}
+		}
+	}
+
+	return actions, nil
+}
+
 func GetServicesFromResources(servs []Resource) []Resource {
 	services := []Resource{}
 	// if there's any pods in the list, use them instead of raw container files
@@ -265,7 +341,6 @@ func GetServicesFromResources(servs []Resource) []Resource {
 }
 
 func (m *Materia) ModifyService(ctx context.Context, command Action) error {
-	var conn *dbus.Conn
 	var err error
 	res := command.Payload
 	if res.Name == "" {
@@ -274,34 +349,23 @@ func (m *Materia) ModifyService(ctx context.Context, command Action) error {
 	if res.Kind != ResourceTypeService {
 		return errors.New("attempted to modify a non service resource")
 	}
-	if m.User.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 	callback := make(chan string)
 	switch command.Todo {
 	case ActionStartService:
 		log.Info("starting service", "unit", res.Name)
-		_, err = conn.StartUnitContext(ctx, res.Name, "fail", callback)
+		_, err = m.SystemdConn.StartUnitContext(ctx, res.Name, "fail", callback)
 		if err != nil {
 			log.Warn(err)
 		}
 	case ActionStopService:
 		log.Info("stopping service", "unit", res.Name)
-		_, err = conn.StopUnitContext(ctx, res.Name, "fail", callback)
+		_, err = m.SystemdConn.StopUnitContext(ctx, res.Name, "fail", callback)
 		if err != nil {
 			log.Warn(err)
 		}
 	case ActionRestartService:
 		log.Info("restarting service", "unit", res.Name)
-		_, err = conn.RestartUnitContext(ctx, res.Name, "fail", callback)
+		_, err = m.SystemdConn.RestartUnitContext(ctx, res.Name, "fail", callback)
 		if err != nil {
 			log.Warn(err)
 		}

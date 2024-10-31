@@ -16,6 +16,7 @@ const (
 	ResourceTypeNetwork
 	ResourceTypeKube
 	ResourceTypeFile
+	ResourceTypeVolumeFile
 
 	// special types that exist after systemctl daemon-reload
 	ResourceTypeService

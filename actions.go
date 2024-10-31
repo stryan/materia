@@ -9,6 +9,7 @@ const (
 	ActionStopService
 	ActionRestartService
 	ActionInstallResource
+	ActionInstallVolumeResource
 	ActionUpdateResource
 	ActionRemoveResource
 )

@@ -83,7 +83,6 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 			var newString string
 			result := bytes.NewBuffer([]byte{})
 			if newRes.Template {
-				log.Debug("applying template for candidate", "file", newRes.Name)
 				tmpl, err := template.New(newRes.Name).Parse(string(newFile))
 				if err != nil {
 					return diffActions, err
@@ -99,6 +98,7 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 			newString = result.String()
 			diffs := dmp.DiffMain(curString, newString, false)
 			if len(diffs) != 1 {
+				log.Debug("updating current resource", "file", cur.Name)
 				diffActions = append(diffActions, Action{
 					Todo:    ActionUpdateResource,
 					Parent:  c,
@@ -115,13 +115,14 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 		}
 	}
 
-	for k := range newResources {
-		if cur, ok := currentResources[k]; !ok {
+	for k, newRes := range newResources {
+		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
+			log.Debug("installing new resource", "file", newRes.Name)
 			diffActions = append(diffActions, Action{
 				Todo:    ActionInstallResource,
 				Parent:  c,
-				Payload: cur,
+				Payload: newRes,
 			})
 		}
 	}

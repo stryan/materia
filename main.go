@@ -44,7 +44,8 @@ func main() {
 		log.Default().SetLevel(log.DebugLevel)
 		log.Default().SetReportCaller(true)
 	}
-	m := NewerMateria(c)
+	ctx := context.Background()
+	m := NewMateria(ctx, c)
 	log.Debug("dump", "materia", m)
 
 	log.Info("starting run")
@@ -67,7 +68,6 @@ func main() {
 	}
 	// Ensure local cache
 	log.Info("updating configured source cache")
-	ctx := context.Background()
 	source := git.NewGitSource(m.SourcePath(), c.GitRepo)
 	err = source.Sync(ctx)
 	if err != nil {
@@ -115,11 +115,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// determine volume actions
+	volResourceActions, err := m.CalculateVolDiffs(ctx, sm)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// Determine response actions
 	var serviceActions []Action
 	// guestimate potentials
 	potentialServices := make(map[string][]Resource)
-	var volumeActions []Action
+	var volumeServiceActions []Action
 	for _, v := range diffActions {
 		if v.Todo == ActionInstallResource || v.Todo == ActionUpdateResource {
 			if v.Payload.Kind == ResourceTypeContainer || v.Payload.Kind == ResourceTypePod {
@@ -131,7 +137,7 @@ func main() {
 				if !found {
 					log.Warn("invalid volume name", "raw_name", v.Parent.Name)
 				}
-				volumeActions = append(volumeActions, Action{
+				volumeServiceActions = append(volumeServiceActions, Action{
 					Todo:   ActionStartService,
 					Parent: v.Parent,
 					Payload: Resource{
@@ -142,14 +148,23 @@ func main() {
 			}
 		}
 	}
-	for _, m := range m.Components {
-		if m.State == StateOK {
-			servs := GetServicesFromResources(m.Resources)
+	for _, c := range m.Components {
+		if c.State == StateOK {
+			servs := GetServicesFromResources(c.Resources)
 			for _, s := range servs {
-				serviceActions = append(serviceActions, Action{
-					Todo:    ActionStartService,
-					Payload: s,
-				})
+				us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+				if err != nil {
+					log.Fatal(err)
+				}
+				if len(us) != 1 {
+					log.Warn("somethings funky with service", "service", s.Name)
+				}
+				if us[0].ActiveState != "active" {
+					serviceActions = append(serviceActions, Action{
+						Todo:    ActionStartService,
+						Payload: s,
+					})
+				}
 			}
 		}
 	}
@@ -162,12 +177,23 @@ func main() {
 		}
 		servs := GetServicesFromResources(servs)
 		for _, s := range servs {
-			serviceActions = append(serviceActions, Action{
-				Todo:    ActionStartService,
-				Payload: s,
-			})
+			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+			if err != nil {
+				log.Fatal(err)
+			}
+			if len(us) != 1 {
+				log.Warn("somethings funky with service", "service", s.Name)
+			}
+			if us[0].ActiveState != "active" {
+				serviceActions = append(serviceActions, Action{
+					Todo:    ActionStartService,
+					Payload: s,
+				})
+			}
 		}
 	}
+
+	volumeActions := append(volumeServiceActions, volResourceActions...)
 
 	// EXECUTE
 	log.Debug("diff actions", "diffActions", diffActions)
@@ -175,6 +201,7 @@ func main() {
 	log.Debug("service actions", "serviceActions", serviceActions)
 
 	// Template and install resources
+
 	for _, v := range diffActions {
 		switch v.Todo {
 		case ActionInstallComponent:
@@ -209,15 +236,23 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	// Ensure volumes
+	// Ensure volumes and volume resources
 	for _, v := range volumeActions {
-		err := m.ModifyService(ctx, v)
-		if err != nil {
-			log.Fatal(err)
+		switch v.Todo {
+		case ActionInstallVolumeResource:
+			err := m.InstallResource(v.Parent, v.Payload, sm)
+			if err != nil {
+				log.Fatal(err)
+			}
+		case ActionStartService:
+			err := m.ModifyService(ctx, v)
+			if err != nil {
+				log.Fatal(err)
+			}
+		default:
+			panic(fmt.Sprintf("unexpected main.ActionType: %#v", v.Todo))
 		}
 	}
-
-	// TODO Install volume resources
 
 	// Start/stop services
 	for _, v := range serviceActions {
