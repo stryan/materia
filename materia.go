@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
+	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	"git.saintnet.tech/stryan/materia/internal/source"
+	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v4/pkg/bindings"
 	"github.com/containers/podman/v4/pkg/bindings/volumes"
@@ -25,9 +28,11 @@ type Materia struct {
 	Timeout                           int
 	SystemdConn                       *dbus.Conn
 	PodmanConn                        context.Context
+	sm                                secrets.SecretsManager
+	source                            source.Source
 }
 
-func NewMateria(ctx context.Context, c Config) *Materia {
+func NewMateria(ctx context.Context, c Config) (*Materia, error) {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -41,6 +46,7 @@ func NewMateria(ctx context.Context, c Config) *Materia {
 	}
 	var conn *dbus.Conn
 	var podConn context.Context
+
 	if currentUser.Username != "root" {
 		home := currentUser.HomeDir
 		var found bool
@@ -61,21 +67,34 @@ func NewMateria(ctx context.Context, c Config) *Materia {
 		}
 		conn, err = dbus.NewUserConnectionContext(ctx)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		podConn, err = bindings.NewConnection(context.Background(), fmt.Sprintf("unix:///run/user/%v/podman/podman.sock", currentUser.Uid))
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 	} else {
 		conn, err = dbus.NewSystemConnectionContext(ctx)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		podConn, err = bindings.NewConnection(context.Background(), "unix:///run/podman/podman.sock")
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
+		}
+	}
+	sourcePath := filepath.Join(prefix, "materia", "source")
+
+	source := git.NewGitSource(sourcePath, c.GitRepo)
+	var sm secrets.SecretsManager
+	if c.Secrets == "age" || c.Secrets == "" {
+		sm, err = age.NewAgeStore(age.Config{
+			IdentPath: c.SecretsAgeIdents,
+			RepoPath:  sourcePath,
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -86,7 +105,9 @@ func NewMateria(ctx context.Context, c Config) *Materia {
 		Timeout:            timeout,
 		SystemdConn:        conn,
 		PodmanConn:         podConn,
-	}
+		sm:                 sm,
+		source:             source,
+	}, nil
 }
 
 func (m *Materia) Close() {
@@ -122,7 +143,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 	newComponents := make(map[string]*Component)
 	entries, err := os.ReadDir(m.AllComponentDataPaths())
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil, err
 	}
 	for _, v := range entries {
 		log.Debug("reading existing component", "component", v.Name())
@@ -503,5 +524,216 @@ func (m *Materia) RemoveResource(comp *Component, res Resource, _ secrets.Secret
 		return err
 	}
 	log.Info("removed", "component", comp.Name, "resource", res.Name)
+	return nil
+}
+
+func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
+	var actions []Action
+	var err error
+	err = m.SetupHost()
+	if err != nil {
+		return actions, err
+	}
+
+	// Ensure local cache
+	log.Info("updating configured source cache")
+	err = m.source.Sync(ctx)
+	if err != nil {
+		return actions, err
+	}
+
+	// Determine assigned components
+	// Determine existing components
+	var components map[string]*Component
+	var newComponents map[string]*Component
+	if components, newComponents, err = m.NewDetermineDesiredComponents(ctx); err != nil {
+		return actions, err
+	}
+	log.Debug("component actions")
+	var installing, removing, updating, ok []string
+	for _, v := range components {
+		switch v.State {
+		case StateFresh:
+			installing = append(installing, v.Name)
+			log.Debug("fresh:", "component", v.Name)
+		case StateMayNeedUpdate:
+			updating = append(updating, v.Name)
+			log.Debug("update:", "component", v.Name)
+		case StateNeedRemoval:
+			removing = append(removing, v.Name)
+			log.Debug("remove:", "component", v.Name)
+		case StateOK:
+			ok = append(ok, v.Name)
+			log.Debug("ok:", "component", v.Name)
+		case StateRemoved:
+			log.Debug("removed:", "component", v.Name)
+		case StateStale:
+			log.Debug("stale:", "component", v.Name)
+		case StateUnknown:
+			log.Debug("unknown:", "component", v.Name)
+		default:
+			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
+		}
+	}
+	log.Info("installing components", "installing", installing)
+	log.Info("removing components", "removing", removing)
+	log.Info("updating components", "updating", updating)
+	log.Info("unchanged components", "unchanged", ok)
+	// Determine diff actions
+	diffActions, err := m.CalculateDiffs(ctx, m.sm, components, newComponents)
+	if err != nil {
+		return actions, err
+	}
+
+	// determine volume actions
+	volResourceActions, err := m.CalculateVolDiffs(ctx, m.sm, components)
+	if err != nil {
+		return actions, err
+	}
+
+	// Determine response actions
+	var serviceActions []Action
+	// guestimate potentials
+	potentialServices := make(map[string][]Resource)
+	var volumeServiceActions []Action
+	for _, v := range diffActions {
+		if v.Todo == ActionInstallResource || v.Todo == ActionUpdateResource {
+			if v.Payload.Kind == ResourceTypeContainer || v.Payload.Kind == ResourceTypePod {
+				potentialServices[v.Parent.Name] = append(potentialServices[v.Parent.Name], v.Payload)
+			}
+			if v.Payload.Kind == ResourceTypeVolume {
+				// TODO maybe only do this if we have EnsureVolume actions, but we'll get to that
+				volName, found := strings.CutSuffix(v.Payload.Name, ".volume")
+				if !found {
+					log.Warn("invalid volume name", "raw_name", v.Parent.Name)
+				}
+				volumeServiceActions = append(volumeServiceActions, Action{
+					Todo:   ActionStartService,
+					Parent: v.Parent,
+					Payload: Resource{
+						Name: fmt.Sprintf("%v-volume.service", volName),
+						Kind: ResourceTypeService,
+					},
+				})
+			}
+		}
+	}
+	for _, c := range components {
+		if c.State == StateOK {
+			servs := GetServicesFromResources(c.Resources)
+			for _, s := range servs {
+				us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+				if err != nil {
+					return actions, err
+				}
+				if len(us) != 1 {
+					log.Warn("somethings funky with service", "service", s.Name)
+				}
+				if us[0].ActiveState != "active" {
+					serviceActions = append(serviceActions, Action{
+						Todo:    ActionStartService,
+						Payload: s,
+					})
+				}
+			}
+		}
+	}
+
+	for compName, servs := range potentialServices {
+		comp := components[compName]
+		if len(comp.Services) != 0 {
+			// already loaded from manifest, skip
+			continue
+		}
+		servs := GetServicesFromResources(servs)
+		for _, s := range servs {
+			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+			if err != nil {
+				return actions, err
+			}
+			if len(us) != 1 {
+				log.Warn("somethings funky with service", "service", s.Name)
+			}
+			if us[0].ActiveState != "active" {
+				serviceActions = append(serviceActions, Action{
+					Todo:    ActionStartService,
+					Payload: s,
+				})
+			}
+		}
+	}
+
+	volumeActions := append(volumeServiceActions, volResourceActions...)
+	log.Debug("diff actions", "diffActions", diffActions)
+	log.Debug("volume actions", "volActions", volumeActions)
+	log.Debug("service actions", "serviceActions", serviceActions)
+	actions = append(diffActions, volumeActions...)
+	actions = append(actions, serviceActions...)
+	return actions, nil
+}
+
+func (m *Materia) Execute(ctx context.Context, plan []Action) error {
+	// Template and install resources
+	resourceChanged := false
+	for _, v := range plan {
+		switch v.Todo {
+		case ActionInstallComponent:
+			if err := m.InstallComponent(v.Parent, m.sm); err != nil {
+				return err
+			}
+			resourceChanged = true
+		case ActionInstallResource:
+			if err := m.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
+				return err
+			}
+
+			resourceChanged = true
+		case ActionUpdateResource:
+			if err := m.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
+				return err
+			}
+
+			resourceChanged = true
+		case ActionRemoveComponent:
+			if err := m.RemoveComponent(v.Parent, m.sm); err != nil {
+				return err
+			}
+
+			resourceChanged = true
+		case ActionRemoveResource:
+			if err := m.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
+				return err
+			}
+
+			resourceChanged = true
+		default:
+		}
+	}
+
+	// If any resource actions were taken, daemon-reload
+	if resourceChanged {
+		err := m.ReloadUnits(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	// Ensure volumes and volume resources
+	// start/stop services
+	for _, v := range plan {
+		switch v.Todo {
+		case ActionInstallVolumeResource:
+			err := m.InstallResource(v.Parent, v.Payload, m.sm)
+			if err != nil {
+				return err
+			}
+		case ActionStartService, ActionStopService, ActionRestartService:
+			err := m.ModifyService(ctx, v)
+			if err != nil {
+				return err
+			}
+		default:
+			panic(fmt.Sprintf("unexpected main.ActionType: %#v", v.Todo))
+		}
+	}
 	return nil
 }
