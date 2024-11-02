@@ -112,9 +112,10 @@ func NewMateria(ctx context.Context, c Config) (*Materia, error) {
 
 func (m *Materia) Close() {
 	m.SystemdConn.Close()
+	// TODO do something with closing the podman context here
 }
 
-func (m *Materia) SetupHost() error {
+func (m *Materia) setupHost() error {
 	if _, err := os.Stat(m.prefix); os.IsNotExist(err) {
 		return fmt.Errorf("prefix %v does not exist, setup manually", m.prefix)
 	}
@@ -137,11 +138,11 @@ func (m *Materia) SetupHost() error {
 	return nil
 }
 
-func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string]*Component, map[string]*Component, error) {
+func (m *Materia) newDetermineDesiredComponents(ctx context.Context) (map[string]*Component, map[string]*Component, error) {
 	// Get existing Components
 	currentComponents := make(map[string]*Component)
 	newComponents := make(map[string]*Component)
-	entries, err := os.ReadDir(m.AllComponentDataPaths())
+	entries, err := os.ReadDir(m.allComponentDataPaths())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -153,13 +154,13 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 			State:     StateStale,
 		}
 		// load resources
-		entries, err := os.ReadDir(m.ComponentDataPath(oldComp))
+		entries, err := os.ReadDir(m.componentDataPath(oldComp))
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, v := range entries {
 			newRes := Resource{
-				Path:     filepath.Join(m.ComponentDataPath(oldComp), v.Name()),
+				Path:     filepath.Join(m.componentDataPath(oldComp), v.Name()),
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
 				Kind:     FindResourceType(v.Name()),
 				Template: isTemplate(v.Name()),
@@ -167,13 +168,13 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 			oldComp.Resources = append(oldComp.Resources, newRes)
 		}
 		// load quadlets
-		entries, err = os.ReadDir(m.QuadletPath(oldComp))
+		entries, err = os.ReadDir(m.quadletPath(oldComp))
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, v := range entries {
 			newRes := Resource{
-				Path:     filepath.Join(m.QuadletPath(oldComp), v.Name()),
+				Path:     filepath.Join(m.quadletPath(oldComp), v.Name()),
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
 				Kind:     FindResourceType(v.Name()),
 				Template: isTemplate(v.Name()),
@@ -186,7 +187,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 	}
 	// figure out ones to add
 	// TODO: map components to host, for now we just apply all of them
-	entries, err = os.ReadDir(m.AllComponentSourcePaths())
+	entries, err = os.ReadDir(m.allComponentSourcePaths())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,7 +198,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 		}
 	}
 	for _, v := range compPaths {
-		c := NewComponentFromSource(filepath.Join(m.AllComponentSourcePaths(), v))
+		c := NewComponentFromSource(filepath.Join(m.allComponentSourcePaths(), v))
 		existing, ok := currentComponents[c.Name]
 		if !ok {
 			c.State = StateFresh
@@ -218,7 +219,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string
 	return currentComponents, newComponents, nil
 }
 
-func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
+func (m *Materia) calculateDiffs(ctx context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range currentComponents {
@@ -266,7 +267,7 @@ func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager,
 	return actions, nil
 }
 
-func (m *Materia) CalculateVolDiffs(ctx context.Context, sm secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
+func (m *Materia) calculateVolDiffs(ctx context.Context, sm secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range components {
@@ -323,7 +324,8 @@ func (m *Materia) CalculateVolDiffs(ctx context.Context, sm secrets.SecretsManag
 	return actions, nil
 }
 
-func GetServicesFromResources(servs []Resource) []Resource {
+// TODO refactor this into a per resource thing
+func getServicesFromResources(servs []Resource) []Resource {
 	services := []Resource{}
 	// if there's any pods in the list, use them instead of raw container files
 	hasPods := slices.ContainsFunc(servs, func(r Resource) bool { return r.Kind == ResourceTypePod })
@@ -357,7 +359,7 @@ func GetServicesFromResources(servs []Resource) []Resource {
 	return services
 }
 
-func (m *Materia) ModifyService(ctx context.Context, command Action) error {
+func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	var err error
 	res := command.Payload
 	if res.Name == "" {
@@ -386,53 +388,52 @@ func (m *Materia) ModifyService(ctx context.Context, command Action) error {
 		if err != nil {
 			log.Warn(err)
 		}
+	case ActionReloadUnits:
+		log.Info("restarting service", "unit", res.Name)
+		err = m.SystemdConn.ReloadContext(ctx)
+		if err != nil {
+			log.Warn(err)
+		}
 	default:
 		return errors.New("invalid service command")
 	}
-
-	select {
-	case result := <-callback:
-		log.Debug("modified unit", "unit", res.Name, "result", result)
-	case <-time.After(time.Duration(m.Timeout) * time.Second):
-		log.Warn("timeout while starting unit", "unit", res.Name)
+	if command.Todo != ActionReloadUnits {
+		select {
+		case result := <-callback:
+			log.Debug("modified unit", "unit", res.Name, "result", result)
+		case <-time.After(time.Duration(m.Timeout) * time.Second):
+			log.Warn("timeout while starting unit", "unit", res.Name)
+		}
 	}
 	return nil
 }
 
-func (m *Materia) ReloadUnits(ctx context.Context) error {
-	err := m.SystemdConn.ReloadContext(ctx)
-	if err != nil {
-		return err
-	}
+//
+// func (m *Materia) statePath() string {
+// 	return filepath.Join(m.state, "materia")
+// }
 
-	return nil
-}
-
-func (m *Materia) State() string {
-	return filepath.Join(m.state, "materia")
-}
-
-func (m *Materia) SourcePath() string {
+func (m *Materia) sourcePath() string {
 	return filepath.Join(m.prefix, "materia", "source")
 }
 
-func (m *Materia) AllComponentSourcePaths() string {
-	return filepath.Join(m.SourcePath(), "components")
+func (m *Materia) allComponentSourcePaths() string {
+	return filepath.Join(m.sourcePath(), "components")
 }
 
-func (m *Materia) ComponentSourcePath(component *Component) string {
-	return filepath.Join(m.AllComponentSourcePaths(), component.Name)
-}
+// func (m *Materia) componentSourcePath(component *Component) string {
+// 	return filepath.Join(m.allComponentSourcePaths(), component.Name)
+// }
 
-func (m *Materia) ComponentDataPath(component *Component) string {
+func (m *Materia) componentDataPath(component *Component) string {
 	return filepath.Join(m.prefix, "materia", "components", component.Name)
 }
 
-func (m *Materia) AllComponentDataPaths() string {
+func (m *Materia) allComponentDataPaths() string {
 	return filepath.Join(m.prefix, "materia", "components")
 }
 
-func (m *Materia) InstallPath(comp *Component, r Resource) string {
+func (m *Materia) installPath(comp *Component, r Resource) string {
 	if r.Kind != ResourceTypeFile {
 		return filepath.Join(m.quadletDestination, comp.Name)
 	} else {
@@ -440,11 +441,11 @@ func (m *Materia) InstallPath(comp *Component, r Resource) string {
 	}
 }
 
-func (m *Materia) QuadletPath(comp *Component) string {
+func (m *Materia) quadletPath(comp *Component) string {
 	return filepath.Join(m.quadletDestination, comp.Name)
 }
 
-func (m *Materia) InstallFile(file, path string, data *bytes.Buffer) error {
+func (m *Materia) installFile(path string, data *bytes.Buffer) error {
 	err := os.WriteFile(path, data.Bytes(), 0o755)
 	if err != nil {
 		return err
@@ -452,12 +453,12 @@ func (m *Materia) InstallFile(file, path string, data *bytes.Buffer) error {
 	return nil
 }
 
-func (m *Materia) InstallComponent(comp *Component, sm secrets.SecretsManager) error {
-	err := os.Mkdir(m.ComponentDataPath(comp), 0o755)
+func (m *Materia) installComponent(comp *Component, _ secrets.SecretsManager) error {
+	err := os.Mkdir(m.componentDataPath(comp), 0o755)
 	if err != nil {
 		return err
 	}
-	err = os.Mkdir(m.InstallPath(comp, Resource{}), 0o755)
+	err = os.Mkdir(m.installPath(comp, Resource{}), 0o755)
 	if err != nil {
 		return err
 	}
@@ -466,7 +467,7 @@ func (m *Materia) InstallComponent(comp *Component, sm secrets.SecretsManager) e
 	return nil
 }
 
-func (m *Materia) RemoveComponent(comp *Component, _ secrets.SecretsManager) error {
+func (m *Materia) removeComponent(comp *Component, _ secrets.SecretsManager) error {
 	for _, v := range comp.Resources {
 		err := os.Remove(v.Path)
 		if err != nil {
@@ -474,7 +475,7 @@ func (m *Materia) RemoveComponent(comp *Component, _ secrets.SecretsManager) err
 		}
 		log.Info("removed", "resource", v.Name)
 	}
-	err := os.Remove(m.ComponentDataPath(comp))
+	err := os.Remove(m.componentDataPath(comp))
 	if err != nil {
 		return err
 	}
@@ -482,8 +483,8 @@ func (m *Materia) RemoveComponent(comp *Component, _ secrets.SecretsManager) err
 	return nil
 }
 
-func (m *Materia) InstallResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
-	path := m.InstallPath(comp, res)
+func (m *Materia) installResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
+	path := m.installPath(comp, res)
 	var result *bytes.Buffer
 	data, err := os.ReadFile(res.Path)
 	if err != nil {
@@ -504,7 +505,7 @@ func (m *Materia) InstallResource(comp *Component, res Resource, sm secrets.Secr
 		result = bytes.NewBuffer(data)
 	}
 	log.Debug("writing file", "filename", res.Name, "destination", path)
-	err = m.InstallFile(comp.Name, fmt.Sprintf("%v/%v", path, res.Name), result)
+	err = m.installFile(fmt.Sprintf("%v/%v", path, res.Name), result)
 	if err != nil {
 		return err
 	}
@@ -513,8 +514,8 @@ func (m *Materia) InstallResource(comp *Component, res Resource, sm secrets.Secr
 	return nil
 }
 
-func (m *Materia) RemoveResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
-	if strings.Contains(res.Path, m.SourcePath()) {
+func (m *Materia) removeResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
+	if strings.Contains(res.Path, m.sourcePath()) {
 		return fmt.Errorf("tried to remove resource %v for component %v from source", res.Name, comp.Name)
 	}
 
@@ -530,7 +531,7 @@ func (m *Materia) RemoveResource(comp *Component, res Resource, _ secrets.Secret
 func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	var actions []Action
 	var err error
-	err = m.SetupHost()
+	err = m.setupHost()
 	if err != nil {
 		return actions, err
 	}
@@ -546,7 +547,7 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	// Determine existing components
 	var components map[string]*Component
 	var newComponents map[string]*Component
-	if components, newComponents, err = m.NewDetermineDesiredComponents(ctx); err != nil {
+	if components, newComponents, err = m.newDetermineDesiredComponents(ctx); err != nil {
 		return actions, err
 	}
 	log.Debug("component actions")
@@ -580,13 +581,13 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	log.Info("updating components", "updating", updating)
 	log.Info("unchanged components", "unchanged", ok)
 	// Determine diff actions
-	diffActions, err := m.CalculateDiffs(ctx, m.sm, components, newComponents)
+	diffActions, err := m.calculateDiffs(ctx, m.sm, components, newComponents)
 	if err != nil {
 		return actions, err
 	}
 
 	// determine volume actions
-	volResourceActions, err := m.CalculateVolDiffs(ctx, m.sm, components)
+	volResourceActions, err := m.calculateVolDiffs(ctx, m.sm, components)
 	if err != nil {
 		return actions, err
 	}
@@ -620,7 +621,7 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	}
 	for _, c := range components {
 		if c.State == StateOK {
-			servs := GetServicesFromResources(c.Resources)
+			servs := getServicesFromResources(c.Resources)
 			for _, s := range servs {
 				us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
 				if err != nil {
@@ -645,7 +646,7 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 			// already loaded from manifest, skip
 			continue
 		}
-		servs := GetServicesFromResources(servs)
+		servs := getServicesFromResources(servs)
 		for _, s := range servs {
 			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
 			if err != nil {
@@ -678,30 +679,30 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	for _, v := range plan {
 		switch v.Todo {
 		case ActionInstallComponent:
-			if err := m.InstallComponent(v.Parent, m.sm); err != nil {
+			if err := m.installComponent(v.Parent, m.sm); err != nil {
 				return err
 			}
 			resourceChanged = true
 		case ActionInstallResource:
-			if err := m.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.installResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionUpdateResource:
-			if err := m.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.installResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionRemoveComponent:
-			if err := m.RemoveComponent(v.Parent, m.sm); err != nil {
+			if err := m.removeComponent(v.Parent, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionRemoveResource:
-			if err := m.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.removeResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
@@ -712,7 +713,7 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 
 	// If any resource actions were taken, daemon-reload
 	if resourceChanged {
-		err := m.ReloadUnits(ctx)
+		err := m.modifyService(ctx, Action{Todo: ActionReloadUnits})
 		if err != nil {
 			return err
 		}
@@ -722,12 +723,12 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	for _, v := range plan {
 		switch v.Todo {
 		case ActionInstallVolumeResource:
-			err := m.InstallResource(v.Parent, v.Payload, m.sm)
+			err := m.installResource(v.Parent, v.Payload, m.sm)
 			if err != nil {
 				return err
 			}
 		case ActionStartService, ActionStopService, ActionRestartService:
-			err := m.ModifyService(ctx, v)
+			err := m.modifyService(ctx, v)
 			if err != nil {
 				return err
 			}

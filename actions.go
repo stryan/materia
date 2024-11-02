@@ -5,6 +5,7 @@ type ActionType int
 const (
 	ActionInstallComponent ActionType = iota
 	ActionRemoveComponent
+	ActionReloadUnits
 	ActionStartService
 	ActionStopService
 	ActionRestartService
