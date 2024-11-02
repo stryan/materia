@@ -32,7 +32,7 @@ type Materia struct {
 	source                            source.Source
 }
 
-func NewMateria(ctx context.Context, c Config) (*Materia, error) {
+func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -736,5 +736,18 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 			panic(fmt.Sprintf("unexpected main.ActionType: %#v", v.Todo))
 		}
 	}
+	return nil
+}
+
+func (m *Materia) Clean(ctx context.Context) error {
+	err := os.RemoveAll(m.sourcePath())
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(m.prefix)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
