@@ -1,4 +1,4 @@
-package main
+package materia
 
 import (
 	"bytes"
@@ -138,7 +138,7 @@ func (m *Materia) setupHost() error {
 	return nil
 }
 
-func (m *Materia) newDetermineDesiredComponents(ctx context.Context) (map[string]*Component, map[string]*Component, error) {
+func (m *Materia) newDetermineDesiredComponents(_ context.Context) (map[string]*Component, map[string]*Component, error) {
 	// Get existing Components
 	currentComponents := make(map[string]*Component)
 	newComponents := make(map[string]*Component)
@@ -162,7 +162,7 @@ func (m *Materia) newDetermineDesiredComponents(ctx context.Context) (map[string
 			newRes := Resource{
 				Path:     filepath.Join(m.componentDataPath(oldComp), v.Name()),
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-				Kind:     FindResourceType(v.Name()),
+				Kind:     findResourceType(v.Name()),
 				Template: isTemplate(v.Name()),
 			}
 			oldComp.Resources = append(oldComp.Resources, newRes)
@@ -176,7 +176,7 @@ func (m *Materia) newDetermineDesiredComponents(ctx context.Context) (map[string
 			newRes := Resource{
 				Path:     filepath.Join(m.quadletPath(oldComp), v.Name()),
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-				Kind:     FindResourceType(v.Name()),
+				Kind:     findResourceType(v.Name()),
 				Template: isTemplate(v.Name()),
 			}
 			oldComp.Resources = append(oldComp.Resources, newRes)
@@ -241,7 +241,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, sm secrets.SecretsManager,
 			if !ok {
 				return actions, errors.New("tried to replace component with nonexistent candidate")
 			}
-			resourceActions, err := v.Diff(candidate, sm)
+			resourceActions, err := v.diff(candidate, sm)
 			if err != nil {
 				return actions, err
 			}

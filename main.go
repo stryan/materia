@@ -2,30 +2,15 @@ package main
 
 import (
 	"context"
-	"errors"
 
+	"git.saintnet.tech/stryan/materia/internal/materia"
 	"github.com/charmbracelet/log"
 	"github.com/kelseyhightower/envconfig"
 )
 
-type Config struct {
-	GitRepo          string `envconfig:"GIT_REPO"`
-	Debug            bool   `envconfig:"DEBUG"`
-	Timeout          int
-	Secrets          string
-	SecretsAgeIdents string `envconfig:"SECRETS_AGE_IDENTS"`
-}
-
-func (c *Config) Validate() error {
-	if c.GitRepo == "" {
-		return errors.New("need git repo location")
-	}
-	return nil
-}
-
 func main() {
 	// Configure
-	var c Config
+	var c materia.Config
 
 	var err error
 	err = envconfig.Process("MATERIA", &c)
@@ -41,12 +26,11 @@ func main() {
 		log.Default().SetReportCaller(true)
 	}
 	ctx := context.Background()
-	m, err := NewMateria(ctx, c)
+	m, err := materia.NewMateria(ctx, c)
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Debug("dump", "materia", m)
-
 	log.Info("starting run")
 	// PLAN
 	plan, err := m.Plan(ctx)

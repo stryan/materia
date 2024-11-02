@@ -1,4 +1,4 @@
-package main
+package materia
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ func NewComponentFromSource(path string) *Component {
 		newRes := Resource{
 			Path:     filepath.Join(path, v.Name()),
 			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-			Kind:     FindResourceType(v.Name()),
+			Kind:     findResourceType(v.Name()),
 			Template: isTemplate(v.Name()),
 		}
 		d.Resources = append(d.Resources, newRes)
@@ -48,7 +48,7 @@ func NewComponentFromSource(path string) *Component {
 	return d
 }
 
-func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
+func (c *Component) diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
 	var diffActions []Action
 	if len(c.Resources) == 0 || len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -65,7 +65,7 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 	for k, cur := range currentResources {
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			diffs, err := cur.Diff(newRes, sm)
+			diffs, err := cur.diff(newRes, sm)
 			if err != nil {
 				return diffActions, err
 			}
@@ -102,7 +102,7 @@ func (c *Component) Diff(other *Component, sm secrets.SecretsManager) ([]Action,
 	return diffActions, nil
 }
 
-func FindResourceType(file string) ResourceType {
+func findResourceType(file string) ResourceType {
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
 	case ".pod":

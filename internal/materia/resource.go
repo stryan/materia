@@ -1,4 +1,4 @@
-package main
+package materia
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ const (
 	ResourceTypeService
 )
 
-func (cur Resource) Diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatchpatch.Diff, error) {
+func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	curFile, err := os.ReadFile(cur.Path)
