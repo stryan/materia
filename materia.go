@@ -22,9 +22,6 @@ import (
 
 type Materia struct {
 	prefix, quadletDestination, state string
-	Components                        map[string]*Component
-	newComponents                     map[string]*Component
-	User                              *user.User
 	Timeout                           int
 	SystemdConn                       *dbus.Conn
 	PodmanConn                        context.Context
@@ -86,9 +83,6 @@ func NewMateria(ctx context.Context, c Config) *Materia {
 		prefix:             prefix,
 		quadletDestination: destination,
 		state:              state,
-		Components:         make(map[string]*Component),
-		newComponents:      make(map[string]*Component),
-		User:               currentUser,
 		Timeout:            timeout,
 		SystemdConn:        conn,
 		PodmanConn:         podConn,
@@ -122,8 +116,10 @@ func (m *Materia) SetupHost() error {
 	return nil
 }
 
-func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
+func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) (map[string]*Component, map[string]*Component, error) {
 	// Get existing Components
+	currentComponents := make(map[string]*Component)
+	newComponents := make(map[string]*Component)
 	entries, err := os.ReadDir(m.AllComponentDataPaths())
 	if err != nil {
 		log.Fatal(err)
@@ -138,7 +134,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 		// load resources
 		entries, err := os.ReadDir(m.ComponentDataPath(oldComp))
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		for _, v := range entries {
 			newRes := Resource{
@@ -152,7 +148,7 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 		// load quadlets
 		entries, err = os.ReadDir(m.QuadletPath(oldComp))
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		for _, v := range entries {
 			newRes := Resource{
@@ -165,13 +161,13 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 		}
 		log.Debug("existing component", "component", oldComp)
 		oldComp.State = StateStale
-		m.Components[oldComp.Name] = oldComp
+		currentComponents[oldComp.Name] = oldComp
 	}
 	// figure out ones to add
 	// TODO: map components to host, for now we just apply all of them
 	entries, err = os.ReadDir(m.AllComponentSourcePaths())
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	var compPaths []string
 	for _, v := range entries {
@@ -181,30 +177,30 @@ func (m *Materia) NewDetermineDesiredComponents(ctx context.Context) error {
 	}
 	for _, v := range compPaths {
 		c := NewComponentFromSource(filepath.Join(m.AllComponentSourcePaths(), v))
-		existing, ok := m.Components[c.Name]
+		existing, ok := currentComponents[c.Name]
 		if !ok {
 			c.State = StateFresh
-			m.Components[c.Name] = c
+			currentComponents[c.Name] = c
 		} else {
-			m.newComponents[c.Name] = c
+			newComponents[c.Name] = c
 			existing.State = StateMayNeedUpdate
-			m.Components[c.Name] = existing
+			currentComponents[c.Name] = existing
 		}
 	}
-	for _, v := range m.Components {
+	for _, v := range currentComponents {
 		if v.State == StateStale {
 			// exists on disk but not in source, remove
 			v.State = StateNeedRemoval
 		}
 	}
 
-	return nil
+	return currentComponents, newComponents, nil
 }
 
-func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager) ([]Action, error) {
+func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
 
-	for _, v := range m.Components {
+	for _, v := range currentComponents {
 		switch v.State {
 		case StateFresh:
 			actions = append(actions, Action{
@@ -219,7 +215,7 @@ func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager)
 				})
 			}
 		case StateMayNeedUpdate:
-			candidate, ok := m.newComponents[v.Name]
+			candidate, ok := newComponents[v.Name]
 			if !ok {
 				return actions, errors.New("tried to replace component with nonexistent candidate")
 			}
@@ -249,10 +245,10 @@ func (m *Materia) CalculateDiffs(ctx context.Context, sm secrets.SecretsManager)
 	return actions, nil
 }
 
-func (m *Materia) CalculateVolDiffs(ctx context.Context, sm secrets.SecretsManager) ([]Action, error) {
+func (m *Materia) CalculateVolDiffs(ctx context.Context, sm secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
 	var actions []Action
 
-	for _, v := range m.Components {
+	for _, v := range components {
 		for _, r := range v.Resources {
 			if r.Kind == ResourceTypeVolumeFile {
 				splitp := strings.Split(r.Path, ":")
@@ -383,20 +379,7 @@ func (m *Materia) ModifyService(ctx context.Context, command Action) error {
 }
 
 func (m *Materia) ReloadUnits(ctx context.Context) error {
-	var conn *dbus.Conn
-	var err error
-	if m.User.Username != "root" {
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	err = conn.ReloadContext(ctx)
+	err := m.SystemdConn.ReloadContext(ctx)
 	if err != nil {
 		return err
 	}

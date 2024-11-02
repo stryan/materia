@@ -32,7 +32,8 @@ func main() {
 	// Configure
 	var c Config
 
-	err := envconfig.Process("MATERIA", &c)
+	var err error
+	err = envconfig.Process("MATERIA", &c)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -76,12 +77,14 @@ func main() {
 
 	// Determine assigned components
 	// Determine existing components
-	if err := m.NewDetermineDesiredComponents(ctx); err != nil {
+	var components map[string]*Component
+	var newComponents map[string]*Component
+	if components, newComponents, err = m.NewDetermineDesiredComponents(ctx); err != nil {
 		log.Fatal(err)
 	}
 	log.Debug("component actions")
 	var installing, removing, updating, ok []string
-	for _, v := range m.Components {
+	for _, v := range components {
 		switch v.State {
 		case StateFresh:
 			installing = append(installing, v.Name)
@@ -110,13 +113,13 @@ func main() {
 	log.Info("updating components", "updating", updating)
 	log.Info("unchanged components", "unchanged", ok)
 	// Determine diff actions
-	diffActions, err := m.CalculateDiffs(ctx, sm)
+	diffActions, err := m.CalculateDiffs(ctx, sm, components, newComponents)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// determine volume actions
-	volResourceActions, err := m.CalculateVolDiffs(ctx, sm)
+	volResourceActions, err := m.CalculateVolDiffs(ctx, sm, components)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -148,7 +151,7 @@ func main() {
 			}
 		}
 	}
-	for _, c := range m.Components {
+	for _, c := range components {
 		if c.State == StateOK {
 			servs := GetServicesFromResources(c.Resources)
 			for _, s := range servs {
@@ -170,7 +173,7 @@ func main() {
 	}
 
 	for compName, servs := range potentialServices {
-		comp := m.Components[compName]
+		comp := components[compName]
 		if len(comp.Services) != 0 {
 			// already loaded from manifest, skip
 			continue
