@@ -11,7 +11,7 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-type Manifest struct {
+type MateriaManifest struct {
 	Secrets       string
 	SecretsConfig secrets.SecretsConfig
 	Hosts         map[string]Host
@@ -19,16 +19,15 @@ type Manifest struct {
 
 type Host struct {
 	Components []string
-	Order      []string
 }
 
-func LoadManifest(path string) (*Manifest, error) {
+func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 	k := koanf.New(".")
 	err := k.Load(file.Provider(path), toml.Parser())
 	if err != nil {
 		return nil, err
 	}
-	var m Manifest
+	var m MateriaManifest
 	err = k.Unmarshal("", &m)
 	if err != nil {
 		return nil, err
@@ -45,6 +44,24 @@ func LoadManifest(path string) (*Manifest, error) {
 	return &m, nil
 }
 
-func (m Manifest) Validate() error {
+func (m MateriaManifest) Validate() error {
 	return nil
+}
+
+type ComponentManifest struct {
+	Services []string
+}
+
+func LoadComponentManifest(path string) (*ComponentManifest, error) {
+	k := koanf.New(".")
+	err := k.Load(file.Provider(path), toml.Parser())
+	if err != nil {
+		return nil, err
+	}
+	var c ComponentManifest
+	err = k.Unmarshal("", &c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
@@ -41,26 +40,49 @@ func (c *Component) String() string {
 	return fmt.Sprintf("{c %v %v }", c.Name, c.State)
 }
 
-func NewComponentFromSource(path string) *Component {
-	d := &Component{}
-	d.Name = filepath.Base(path)
+func NewComponentFromSource(path string) (*Component, error) {
+	c := &Component{}
+	c.Name = filepath.Base(path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
 	}
+	var man *ComponentManifest
+	resources := make(map[string]Resource)
 	for _, v := range entries {
-		if slices.Contains(ReservedList, v.Name()) {
-			continue
+		resPath := filepath.Join(path, v.Name())
+		if v.Name() == "MANIFEST.toml" {
+			man, err = LoadComponentManifest(resPath)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			newRes := Resource{
+				Path:     resPath,
+				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+				Kind:     findResourceType(v.Name()),
+				Template: isTemplate(v.Name()),
+			}
+			c.Resources = append(c.Resources, newRes)
+			resources[newRes.Name] = newRes
 		}
-		newRes := Resource{
-			Path:     filepath.Join(path, v.Name()),
-			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-			Kind:     findResourceType(v.Name()),
-			Template: isTemplate(v.Name()),
-		}
-		d.Resources = append(d.Resources, newRes)
 	}
-	return d
+	log.Debug(resources)
+	if man != nil {
+		for _, s := range man.Services {
+			resName := fmt.Sprintf("%v.container", s)
+			_, ok := resources[resName]
+			if !ok {
+				log.Warn("tried to assign service to component but no matching resource", "component", c.Name, "service", resName)
+			}
+			c.Services = append(c.Services, Resource{
+				Name: fmt.Sprintf("%v.service", s),
+				Kind: ResourceTypeService,
+			})
+		}
+	}
+
+	return c, nil
 }
 
 func (c Component) Validate() error {

@@ -105,7 +105,7 @@ func (m *Materia) Close() {
 	// TODO do something with closing the podman context here
 }
 
-func (m *Materia) Prepare(ctx context.Context, man *Manifest) error {
+func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	if err := man.Validate(); err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ func (m *Materia) Prepare(ctx context.Context, man *Manifest) error {
 	return nil
 }
 
-func (m *Materia) determineDesiredComponents(_ context.Context, man *Manifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
+func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaManifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
 	// Get existing Components
 	currentComponents := make(map[string]*Component)
 	newComponents := make(map[string]*Component)
@@ -221,7 +221,10 @@ func (m *Materia) determineDesiredComponents(_ context.Context, man *Manifest, f
 		}
 	}
 	for _, v := range compPaths {
-		c := NewComponentFromSource(filepath.Join(m.allComponentSourcePaths(), v))
+		c, err := NewComponentFromSource(filepath.Join(m.allComponentSourcePaths(), v))
+		if err != nil {
+			return nil, nil, err
+		}
 		existing, ok := currentComponents[c.Name]
 		if !ok {
 			c.State = StateFresh
@@ -590,7 +593,7 @@ func (m *Materia) removeResource(comp *Component, res Resource, _ secrets.Secret
 	return nil
 }
 
-func (m *Materia) Plan(ctx context.Context, man *Manifest, f *Facts) ([]Action, error) {
+func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]Action, error) {
 	var actions []Action
 	var err error
 	if err := man.Validate(); err != nil {
@@ -694,13 +697,15 @@ func (m *Materia) Plan(ctx context.Context, man *Manifest, f *Facts) ([]Action, 
 		}
 	}
 
-	for compName, servs := range potentialServices {
+	for compName, reslist := range potentialServices {
 		comp := components[compName]
-		if len(comp.Services) != 0 {
-			// already loaded from manifest, skip
-			continue
+		var servs []Resource
+		if len(comp.Services) == 0 {
+			servs = getServicesFromResources(reslist)
+		} else {
+			// we have provided services so we should use that instead of gustimating it
+			servs = comp.Services
 		}
-		servs := getServicesFromResources(servs)
 		for _, s := range servs {
 			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
 			if err != nil {
@@ -810,12 +815,12 @@ func (m *Materia) Clean(ctx context.Context) error {
 	return nil
 }
 
-func (m *Materia) Facts(ctx context.Context, c *Config) (*Manifest, *Facts, error) {
+func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Facts, error) {
 	err := m.source.Sync(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	man, err := LoadManifest(fmt.Sprintf("%v/%v", m.sourcePath(), "MANIFEST.toml"))
+	man, err := LoadMateriaManifest(fmt.Sprintf("%v/%v", m.sourcePath(), "MANIFEST.toml"))
 	if err != nil {
 		return nil, nil, err
 	}
