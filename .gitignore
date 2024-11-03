@@ -1,3 +1,4 @@
 /materia
 .envrc
 key.txt
+*_string.go

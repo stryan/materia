@@ -19,7 +19,8 @@ type Resource struct {
 	Template bool
 }
 
-type ResourceType int
+//go:generate stringer -type ResourceType -trimprefix ResourceType
+type ResourceType uint
 
 const (
 	ResourceTypeUnknown ResourceType = iota

@@ -1,9 +1,8 @@
-BINFILE = materia
+materia:
+	go generate ./...
+	go build -o materia ./cmd/materia
 
-SOURCE=$(shell find . -iname "*.go")
-
-$(BINFILE): $(SOURCE)
-	@go build -o "$(BINFILE)"
-
+tools:
+	go install golang.org/x/tools/cmd/stringer@latest
 clean:
-	rm $(BINFILE)
+	rm materia

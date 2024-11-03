@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+//go:generate stringer -type ActionType -trimprefix Action
 type ActionType int
 
 const (

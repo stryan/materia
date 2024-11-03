@@ -21,6 +21,7 @@ type Component struct {
 	State     ComponentLifecycle
 }
 
+//go:generate stringer -type ComponentLifecycle -trimprefix State
 type ComponentLifecycle int
 
 const (

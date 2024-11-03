@@ -15,7 +15,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info(c)
 	err = c.Validate()
 	if err != nil {
 		log.Fatal(err)
@@ -32,7 +31,7 @@ func main() {
 	defer m.Close()
 	app := &cli.App{
 		Name:  "materia",
-		Usage: "Manage quadlet files",
+		Usage: "Manage quadlet files and resources",
 		Commands: []*cli.Command{
 			{
 				Name:    "facts",
