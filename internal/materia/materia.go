@@ -15,6 +15,7 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
 	"git.saintnet.tech/stryan/materia/internal/source"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
@@ -87,16 +88,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 	sourcePath := filepath.Join(prefix, "materia", "source")
 
 	source := git.NewGitSource(sourcePath, c.GitRepo)
-	var sm secrets.SecretsManager
-	if c.Secrets == "age" || c.Secrets == "" {
-		sm, err = age.NewAgeStore(age.Config{
-			IdentPath: c.SecretsAgeIdents,
-			RepoPath:  sourcePath,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return &Materia{
 		prefix:             prefix,
@@ -105,7 +96,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		Timeout:            timeout,
 		SystemdConn:        conn,
 		PodmanConn:         podConn,
-		sm:                 sm,
 		source:             source,
 	}, nil
 }
@@ -115,14 +105,18 @@ func (m *Materia) Close() {
 	// TODO do something with closing the podman context here
 }
 
-func (m *Materia) setupHost() error {
+func (m *Materia) Prepare(ctx context.Context, man *Manifest) error {
+	if err := man.Validate(); err != nil {
+		return err
+	}
+	var err error
 	if _, err := os.Stat(m.prefix); os.IsNotExist(err) {
 		return fmt.Errorf("prefix %v does not exist, setup manually", m.prefix)
 	}
 	if _, err := os.Stat(m.quadletDestination); os.IsNotExist(err) {
 		return fmt.Errorf("destination %v does not exist, setup manually", m.quadletDestination)
 	}
-	err := os.Mkdir(filepath.Join(m.prefix, "materia"), 0o755)
+	err = os.Mkdir(filepath.Join(m.prefix, "materia"), 0o755)
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
@@ -134,11 +128,35 @@ func (m *Materia) setupHost() error {
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
+	switch man.Secrets {
+	case "age":
+		conf, ok := man.SecretsConfig.(age.Config)
+		if !ok {
+			return errors.New("tried to create an age secrets manager but config was not for age")
+		}
+		m.sm, err = age.NewAgeStore(age.Config{
+			IdentPath: conf.IdentPath,
+			RepoPath:  m.sourcePath(),
+		})
+		if err != nil {
+			return err
+		}
 
+	case "mem":
+		m.sm = mem.NewMemoryManager()
+	default:
+		m.sm = mem.NewMemoryManager()
+	}
+	// Ensure local cache
+	log.Info("updating configured source cache")
+	err = m.source.Sync(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (m *Materia) newDetermineDesiredComponents(_ context.Context) (map[string]*Component, map[string]*Component, error) {
+func (m *Materia) determineDesiredComponents(_ context.Context, man *Manifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
 	// Get existing Components
 	currentComponents := make(map[string]*Component)
 	newComponents := make(map[string]*Component)
@@ -186,14 +204,19 @@ func (m *Materia) newDetermineDesiredComponents(_ context.Context) (map[string]*
 		currentComponents[oldComp.Name] = oldComp
 	}
 	// figure out ones to add
-	// TODO: map components to host, for now we just apply all of them
+	var whitelist []string
+	// TODO figure out role assignments
+	host, ok := man.Hosts[facts.Hostname]
+	if ok {
+		whitelist = append(whitelist, host.Components...)
+	}
 	entries, err = os.ReadDir(m.allComponentSourcePaths())
 	if err != nil {
 		return nil, nil, err
 	}
 	var compPaths []string
 	for _, v := range entries {
-		if v.IsDir() {
+		if v.IsDir() && slices.Contains(whitelist, v.Name()) {
 			compPaths = append(compPaths, v.Name())
 		}
 	}
@@ -204,6 +227,7 @@ func (m *Materia) newDetermineDesiredComponents(_ context.Context) (map[string]*
 			c.State = StateFresh
 			currentComponents[c.Name] = c
 		} else {
+			c.State = StateCanidate
 			newComponents[c.Name] = c
 			existing.State = StateMayNeedUpdate
 			currentComponents[c.Name] = existing
@@ -223,6 +247,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, sm secrets.SecretsManager,
 	var actions []Action
 
 	for _, v := range currentComponents {
+		if err := v.Validate(); err != nil {
+			return actions, err
+		}
 		switch v.State {
 		case StateFresh:
 			actions = append(actions, Action{
@@ -243,6 +270,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, sm secrets.SecretsManager,
 			}
 			resourceActions, err := v.diff(candidate, sm)
 			if err != nil {
+				log.Debugf("error diffing components: L (%v) R (%v)", v, candidate)
 				return actions, err
 			}
 			if len(resourceActions) != 0 {
@@ -271,7 +299,13 @@ func (m *Materia) calculateVolDiffs(ctx context.Context, sm secrets.SecretsManag
 	var actions []Action
 
 	for _, v := range components {
+		if err := v.Validate(); err != nil {
+			return actions, err
+		}
 		for _, r := range v.Resources {
+			if err := r.Validate(); err != nil {
+				return actions, err
+			}
 			if r.Kind == ResourceTypeVolumeFile {
 				splitp := strings.Split(r.Path, ":")
 				if len(splitp) != 2 {
@@ -361,10 +395,15 @@ func getServicesFromResources(servs []Resource) []Resource {
 
 func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	var err error
-	res := command.Payload
-	if res.Name == "" {
-		return errors.New("modified empty service")
+	if err := command.Validate(); err != nil {
+		return err
 	}
+
+	res := command.Payload
+	if err := res.Validate(); err != nil {
+		return err
+	}
+
 	if res.Kind != ResourceTypeService {
 		return errors.New("attempted to modify a non service resource")
 	}
@@ -454,6 +493,14 @@ func (m *Materia) installFile(path string, data *bytes.Buffer) error {
 }
 
 func (m *Materia) installComponent(comp *Component, _ secrets.SecretsManager) error {
+	if err := comp.Validate(); err != nil {
+		return err
+	}
+
+	if comp.State != StateFresh && comp.State != StateOK {
+		return errors.New("tried to install a stale component")
+	}
+
 	err := os.Mkdir(m.componentDataPath(comp), 0o755)
 	if err != nil {
 		return err
@@ -468,6 +515,9 @@ func (m *Materia) installComponent(comp *Component, _ secrets.SecretsManager) er
 }
 
 func (m *Materia) removeComponent(comp *Component, _ secrets.SecretsManager) error {
+	if err := comp.Validate(); err != nil {
+		return err
+	}
 	for _, v := range comp.Resources {
 		err := os.Remove(v.Path)
 		if err != nil {
@@ -484,6 +534,12 @@ func (m *Materia) removeComponent(comp *Component, _ secrets.SecretsManager) err
 }
 
 func (m *Materia) installResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
+	if err := comp.Validate(); err != nil {
+		return err
+	}
+	if err := res.Validate(); err != nil {
+		return err
+	}
 	path := m.installPath(comp, res)
 	var result *bytes.Buffer
 	data, err := os.ReadFile(res.Path)
@@ -515,6 +571,12 @@ func (m *Materia) installResource(comp *Component, res Resource, sm secrets.Secr
 }
 
 func (m *Materia) removeResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
+	if err := comp.Validate(); err != nil {
+		return err
+	}
+	if err := res.Validate(); err != nil {
+		return err
+	}
 	if strings.Contains(res.Path, m.sourcePath()) {
 		return fmt.Errorf("tried to remove resource %v for component %v from source", res.Name, comp.Name)
 	}
@@ -528,18 +590,10 @@ func (m *Materia) removeResource(comp *Component, res Resource, _ secrets.Secret
 	return nil
 }
 
-func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
+func (m *Materia) Plan(ctx context.Context, man *Manifest, f *Facts) ([]Action, error) {
 	var actions []Action
 	var err error
-	err = m.setupHost()
-	if err != nil {
-		return actions, err
-	}
-
-	// Ensure local cache
-	log.Info("updating configured source cache")
-	err = m.source.Sync(ctx)
-	if err != nil {
+	if err := man.Validate(); err != nil {
 		return actions, err
 	}
 
@@ -547,7 +601,7 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	// Determine existing components
 	var components map[string]*Component
 	var newComponents map[string]*Component
-	if components, newComponents, err = m.newDetermineDesiredComponents(ctx); err != nil {
+	if components, newComponents, err = m.determineDesiredComponents(ctx, man, f); err != nil {
 		return actions, err
 	}
 	log.Debug("component actions")
@@ -677,6 +731,10 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	// Template and install resources
 	resourceChanged := false
 	for _, v := range plan {
+		if err := v.Validate(); err != nil {
+			return err
+		}
+
 		switch v.Todo {
 		case ActionInstallComponent:
 			if err := m.installComponent(v.Parent, m.sm); err != nil {
@@ -750,4 +808,26 @@ func (m *Materia) Clean(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (m *Materia) Facts(ctx context.Context, c *Config) (*Manifest, *Facts, error) {
+	err := m.source.Sync(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	man, err := LoadManifest(fmt.Sprintf("%v/%v", m.sourcePath(), "MANIFEST.toml"))
+	if err != nil {
+		return nil, nil, err
+	}
+	facts := &Facts{}
+	if c.Hostname != "" {
+		facts.Hostname = c.Hostname
+	} else {
+		facts.Hostname, err = os.Hostname()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return man, facts, nil
 }

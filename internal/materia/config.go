@@ -2,36 +2,35 @@ package materia
 
 import (
 	"errors"
+	"strings"
 
-	"github.com/charmbracelet/log"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/v2"
 )
 
 type Config struct {
-	GitRepo          string `envconfig:"GIT_REPO"`
-	Debug            bool   `envconfig:"DEBUG"`
-	Timeout          int
-	Secrets          string
-	SecretsAgeIdents string `envconfig:"SECRETS_AGE_IDENTS"`
+	GitRepo  string
+	Debug    bool
+	Hostname string
+	Timeout  int
 }
 
-func NewConfig() *Config {
+func NewConfig() (*Config, error) {
+	k := koanf.New(".")
+	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
+		return strings.Replace(strings.ToLower(
+			strings.TrimPrefix(s, "MATERIA")), "_", ".", -1)
+	}), nil)
+	if err != nil {
+		return nil, err
+	}
 	var c Config
+	c.GitRepo = k.String(".gitrepo")
+	c.Debug = k.Bool(".debug")
+	c.Hostname = k.String(".hostname")
+	c.Timeout = k.Int(".timeout")
 
-	var err error
-	err = envconfig.Process("MATERIA", &c)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-	err = c.Validate()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if c.Debug {
-		log.Default().SetLevel(log.DebugLevel)
-		log.Default().SetReportCaller(true)
-	}
-	return &c
+	return &c, nil
 }
 
 func (c *Config) Validate() error {

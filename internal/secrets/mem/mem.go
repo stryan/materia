@@ -10,6 +10,12 @@ type MemoryManager struct {
 	secrets map[string]interface{}
 }
 
+type MemoryConfig struct{}
+
+func (m MemoryConfig) Validate() error { return nil }
+
+func (m MemoryConfig) SecretsType() string { return "memory" }
+
 func NewMemoryManager() *MemoryManager {
 	secrets := make(map[string]interface{})
 	return &MemoryManager{secrets}

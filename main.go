@@ -11,25 +11,56 @@ import (
 
 func main() {
 	// Configure
-	c := materia.NewConfig()
-
+	c, err := materia.NewConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Info(c)
+	err = c.Validate()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if c.Debug {
+		log.Default().SetLevel(log.DebugLevel)
+		log.Default().SetReportCaller(true)
+	}
 	ctx := context.Background()
 	m, err := materia.NewMateria(ctx, c)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer m.Close()
-	log.Debug("dump", "materia", m)
 	app := &cli.App{
 		Name:  "materia",
 		Usage: "Manage quadlet files",
 		Commands: []*cli.Command{
 			{
+				Name:    "facts",
+				Aliases: []string{"-f"},
+				Action: func(cCtx *cli.Context) error {
+					man, facts, err := m.Facts(ctx, c)
+					if err != nil {
+						return err
+					}
+					log.Info(man)
+					log.Info(facts)
+					return nil
+				},
+			},
+			{
 				Name:    "plan",
 				Aliases: []string{"-p"},
 				Usage:   "Show application plan",
 				Action: func(cCtx *cli.Context) error {
-					plan, err := m.Plan(ctx)
+					manifest, facts, err := m.Facts(ctx, c)
+					if err != nil {
+						return err
+					}
+					err = m.Prepare(ctx, manifest)
+					if err != nil {
+						return err
+					}
+					plan, err := m.Plan(ctx, manifest, facts)
 					if err != nil {
 						return err
 					}
@@ -42,7 +73,15 @@ func main() {
 				Aliases: []string{"-u"},
 				Usage:   "Plan and execute update",
 				Action: func(cCtx *cli.Context) error {
-					plan, err := m.Plan(ctx)
+					manifest, facts, err := m.Facts(ctx, c)
+					if err != nil {
+						return err
+					}
+					err = m.Prepare(ctx, manifest)
+					if err != nil {
+						return err
+					}
+					plan, err := m.Plan(ctx, manifest, facts)
 					if err != nil {
 						return err
 					}
@@ -50,14 +89,6 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return nil
-				},
-			},
-			{
-				Name:    "help",
-				Aliases: []string{"-h"},
-				Usage:   "show usage",
-				Action: func(cCtx *cli.Context) error {
 					return nil
 				},
 			},

@@ -3,6 +3,8 @@ package materia
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"html/template"
 	"os"
 
@@ -20,7 +22,8 @@ type Resource struct {
 type ResourceType int
 
 const (
-	ResourceTypeContainer ResourceType = iota
+	ResourceTypeUnknown ResourceType = iota
+	ResourceTypeContainer
 	ResourceTypeVolume
 	ResourceTypePod
 	ResourceTypeNetwork
@@ -32,9 +35,25 @@ const (
 	ResourceTypeService
 )
 
+func (r Resource) Validate() error {
+	if r.Kind == ResourceTypeUnknown {
+		return errors.New("unknown resource type")
+	}
+	if r.Name == "" {
+		return errors.New("resource without name")
+	}
+	return nil
+}
+
 func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
+	if err := cur.Validate(); err != nil {
+		return diffs, fmt.Errorf("self resource invalid during comparison: %w", err)
+	}
+	if err := newRes.Validate(); err != nil {
+		return diffs, fmt.Errorf("other resource invalid during comparison: %w", err)
+	}
 	curFile, err := os.ReadFile(cur.Path)
 	if err != nil {
 		return diffs, err

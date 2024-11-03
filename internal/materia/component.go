@@ -1,14 +1,18 @@
 package materia
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
 )
+
+var ReservedList = []string{"MANIFEST.toml"}
 
 type Component struct {
 	Name      string
@@ -27,6 +31,9 @@ const (
 	StateMayNeedUpdate
 	StateNeedRemoval
 	StateRemoved
+
+	// Special states
+	StateCanidate // a 'fake' component for resource comparison
 )
 
 func NewComponentFromSource(path string) *Component {
@@ -37,6 +44,9 @@ func NewComponentFromSource(path string) *Component {
 		log.Fatal(err)
 	}
 	for _, v := range entries {
+		if slices.Contains(ReservedList, v.Name()) {
+			continue
+		}
 		newRes := Resource{
 			Path:     filepath.Join(path, v.Name()),
 			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
@@ -48,11 +58,27 @@ func NewComponentFromSource(path string) *Component {
 	return d
 }
 
+func (c Component) Validate() error {
+	if c.Name == "" {
+		return errors.New("component without name")
+	}
+	if c.State == StateUnknown {
+		return errors.New("component with unknown state")
+	}
+	return nil
+}
+
 func (c *Component) diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
 	var diffActions []Action
 	if len(c.Resources) == 0 || len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
 		return diffActions, fmt.Errorf("one or both components is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
+	}
+	if err := c.Validate(); err != nil {
+		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)
+	}
+	if err := other.Validate(); err != nil {
+		return diffActions, fmt.Errorf("other component invalid during comparison: %w", err)
 	}
 	currentResources := make(map[string]Resource)
 	newResources := make(map[string]Resource)
