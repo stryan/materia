@@ -1,6 +1,9 @@
 package materia
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type ActionType int
 
@@ -32,4 +35,8 @@ func (a Action) Validate() error {
 		return errors.New("action without parent")
 	}
 	return nil
+}
+
+func (a *Action) String() string {
+	return fmt.Sprintf("{a %v %v %v }", a.Todo, a.Parent.Name, a.Payload.Name)
 }

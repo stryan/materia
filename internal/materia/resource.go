@@ -45,6 +45,10 @@ func (r Resource) Validate() error {
 	return nil
 }
 
+func (r *Resource) String() string {
+	return fmt.Sprintf("{r %v %v %v %v }", r.Name, r.Path, r.Kind, r.Template)
+}
+
 func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff

@@ -36,6 +36,10 @@ const (
 	StateCanidate // a 'fake' component for resource comparison
 )
 
+func (c *Component) String() string {
+	return fmt.Sprintf("{c %v %v }", c.Name, c.State)
+}
+
 func NewComponentFromSource(path string) *Component {
 	d := &Component{}
 	d.Name = filepath.Base(path)
