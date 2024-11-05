@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
 	"git.saintnet.tech/stryan/materia/internal/source"
+	"git.saintnet.tech/stryan/materia/internal/source/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v4/pkg/bindings"
@@ -31,6 +33,8 @@ type Materia struct {
 	PodmanConn                        context.Context
 	sm                                secrets.SecretsManager
 	source                            source.Source
+	rootComponent                     *Component
+	debug                             bool
 }
 
 func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
@@ -85,9 +89,23 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 			return nil, err
 		}
 	}
+	var source source.Source
 	sourcePath := filepath.Join(prefix, "materia", "source")
+	url, err := url.Parse(c.SourceURL)
+	if err != nil {
+		return nil, err
+	}
 
-	source := git.NewGitSource(sourcePath, c.GitRepo)
+	rawPath := strings.Split(c.SourceURL, "://")[1]
+	switch url.Scheme {
+	case "git":
+		source = git.NewGitSource(sourcePath, rawPath)
+	case "file":
+		source = file.NewFileSource(rawPath)
+	default:
+		return nil, errors.New("invalid source")
+
+	}
 
 	return &Materia{
 		prefix:             prefix,
@@ -97,6 +115,8 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		SystemdConn:        conn,
 		PodmanConn:         podConn,
 		source:             source,
+		debug:              c.Debug,
+		rootComponent:      &Component{Name: "root"},
 	}, nil
 }
 
@@ -191,6 +211,9 @@ func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaMani
 			return nil, nil, err
 		}
 		for _, v := range entries {
+			if v.Name() == ".materia_managed" {
+				continue
+			}
 			newRes := Resource{
 				Path:     filepath.Join(m.quadletPath(oldComp), v.Name()),
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
@@ -404,7 +427,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 
 	res := command.Payload
 	if err := res.Validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid resource when modifying service: %w", err)
 	}
 
 	if res.Kind != ResourceTypeService {
@@ -475,6 +498,10 @@ func (m *Materia) allComponentDataPaths() string {
 	return filepath.Join(m.prefix, "materia", "components")
 }
 
+func (m *Materia) dataPath() string {
+	return filepath.Join(m.prefix, "materia")
+}
+
 func (m *Materia) installPath(comp *Component, r Resource) string {
 	if r.Kind != ResourceTypeFile {
 		return filepath.Join(m.quadletDestination, comp.Name)
@@ -508,10 +535,16 @@ func (m *Materia) installComponent(comp *Component, _ secrets.SecretsManager) er
 	if err != nil {
 		return err
 	}
-	err = os.Mkdir(m.installPath(comp, Resource{}), 0o755)
+	path := m.installPath(comp, Resource{})
+	err = os.Mkdir(path, 0o755)
 	if err != nil {
 		return err
 	}
+	file, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", path), os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
 	log.Info("installed", "component", comp.Name)
 	return nil
@@ -690,6 +723,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 				if us[0].ActiveState != "active" {
 					serviceActions = append(serviceActions, Action{
 						Todo:    ActionStartService,
+						Parent:  c,
 						Payload: s,
 					})
 				}
@@ -698,7 +732,10 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	}
 
 	for compName, reslist := range potentialServices {
-		comp := components[compName]
+		comp, ok := components[compName]
+		if !ok {
+			return actions, fmt.Errorf("potential service for nonexistent component: %v", compName)
+		}
 		var servs []Resource
 		if len(comp.Services) == 0 {
 			servs = getServicesFromResources(reslist)
@@ -717,6 +754,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			if us[0].ActiveState != "active" {
 				serviceActions = append(serviceActions, Action{
 					Todo:    ActionStartService,
+					Parent:  comp,
 					Payload: s,
 				})
 			}
@@ -776,7 +814,10 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 
 	// If any resource actions were taken, daemon-reload
 	if resourceChanged {
-		err := m.modifyService(ctx, Action{Todo: ActionReloadUnits})
+		err := m.modifyService(ctx, Action{
+			Todo:   ActionReloadUnits,
+			Parent: m.rootComponent,
+		})
 		if err != nil {
 			return err
 		}
@@ -802,16 +843,42 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	return nil
 }
 
-func (m *Materia) Clean(ctx context.Context) error {
-	err := os.RemoveAll(m.sourcePath())
-	if err != nil {
-		return err
+func (m *Materia) deleteWrapper(path string) error {
+	if m.debug {
+		log.Debug("would delete path", "path", path)
+		return nil
 	}
-	err = os.RemoveAll(m.prefix)
-	if err != nil {
-		return err
-	}
+	return os.RemoveAll(m.sourcePath())
+}
 
+func (m *Materia) Clean(ctx context.Context) error {
+	err := m.deleteWrapper(m.sourcePath())
+	if err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(m.quadletDestination)
+	if err != nil {
+		return err
+	}
+	for _, v := range entries {
+		if v.IsDir() {
+			_, err := os.Stat(fmt.Sprintf("%v/%v/.materia_managed", m.quadletDestination, v.Name()))
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			err = m.deleteWrapper(fmt.Sprintf("%v/%v", m.quadletDestination, v.Name()))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	err = m.deleteWrapper(m.dataPath())
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

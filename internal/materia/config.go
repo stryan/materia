@@ -9,10 +9,10 @@ import (
 )
 
 type Config struct {
-	GitRepo  string
-	Debug    bool
-	Hostname string
-	Timeout  int
+	SourceURL string
+	Debug     bool
+	Hostname  string
+	Timeout   int
 }
 
 func NewConfig() (*Config, error) {
@@ -25,7 +25,7 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 	var c Config
-	c.GitRepo = k.String(".gitrepo")
+	c.SourceURL = k.String(".sourceurl")
 	c.Debug = k.Bool(".debug")
 	c.Hostname = k.String(".hostname")
 	c.Timeout = k.Int(".timeout")
@@ -34,8 +34,8 @@ func NewConfig() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
-	if c.GitRepo == "" {
-		return errors.New("need git repo location")
+	if c.SourceURL == "" {
+		return errors.New("need source location")
 	}
 	return nil
 }

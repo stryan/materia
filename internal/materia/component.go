@@ -11,8 +11,6 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var ReservedList = []string{"MANIFEST.toml"}
-
 type Component struct {
 	Name      string
 	Services  []Resource

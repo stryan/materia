@@ -45,3 +45,11 @@ func (g *GitSource) Sync(ctx context.Context) error {
 
 	return nil
 }
+
+func (g *GitSource) Close(ctx context.Context) error {
+	return nil
+}
+
+func (g *GitSource) Clean() (_ error) {
+	return os.RemoveAll(g.path)
+}
