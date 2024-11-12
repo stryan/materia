@@ -68,6 +68,9 @@ func NewComponentFromSource(path string) (*Component, error) {
 	log.Debug(resources)
 	if man != nil {
 		for _, s := range man.Services {
+			if s == "" {
+				continue
+			}
 			resName := fmt.Sprintf("%v.container", s)
 			_, ok := resources[resName]
 			if !ok {

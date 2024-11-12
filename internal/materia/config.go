@@ -13,6 +13,7 @@ type Config struct {
 	Debug     bool
 	Hostname  string
 	Timeout   int
+	Prefix    string
 }
 
 func NewConfig() (*Config, error) {
@@ -29,6 +30,7 @@ func NewConfig() (*Config, error) {
 	c.Debug = k.Bool(".debug")
 	c.Hostname = k.String(".hostname")
 	c.Timeout = k.Int(".timeout")
+	c.Prefix = k.String(".prefix")
 
 	return &c, nil
 }

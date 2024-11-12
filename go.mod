@@ -1,6 +1,6 @@
 module git.saintnet.tech/stryan/materia
 
-go 1.21.12
+go 1.23.2
 
 require (
 	filippo.io/age v1.2.0

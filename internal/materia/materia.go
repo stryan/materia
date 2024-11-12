@@ -1,11 +1,9 @@
 package materia
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"net/url"
 	"os"
 	"os/user"
@@ -27,14 +25,14 @@ import (
 )
 
 type Materia struct {
-	prefix, quadletDestination, state string
-	Timeout                           int
-	SystemdConn                       *dbus.Conn
-	PodmanConn                        context.Context
-	sm                                secrets.SecretsManager
-	source                            source.Source
-	rootComponent                     *Component
-	debug                             bool
+	Timeout       int
+	SystemdConn   *dbus.Conn
+	PodmanConn    context.Context
+	sm            secrets.SecretsManager
+	source        source.Source
+	files         Repository
+	rootComponent *Component
+	debug         bool
 }
 
 func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
@@ -43,7 +41,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		log.Fatal(err.Error())
 	}
 	prefix := "/var/lib"
-	state := "/var/lib"
 	destination := "/etc/systemd/system"
 	timeout := c.Timeout
 	if timeout == 0 {
@@ -66,10 +63,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		if !found {
 			prefix = fmt.Sprintf("%v/.local/share", home)
 		}
-		state, found = os.LookupEnv("XDG_DATA_STATE")
-		if !found {
-			state = fmt.Sprintf("%v/.local/state", home)
-		}
 		conn, err = dbus.NewUserConnectionContext(ctx)
 		if err != nil {
 			return nil, err
@@ -89,6 +82,9 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 			return nil, err
 		}
 	}
+	if c.Prefix != "" {
+		prefix = c.Prefix
+	}
 	var source source.Source
 	sourcePath := filepath.Join(prefix, "materia", "source")
 	url, err := url.Parse(c.SourceURL)
@@ -101,22 +97,21 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 	case "git":
 		source = git.NewGitSource(sourcePath, rawPath)
 	case "file":
-		source = file.NewFileSource(rawPath)
+		source = file.NewFileSource(sourcePath, rawPath)
 	default:
 		return nil, errors.New("invalid source")
 
 	}
+	prefix = fmt.Sprintf("%v/materia", prefix)
 
 	return &Materia{
-		prefix:             prefix,
-		quadletDestination: destination,
-		state:              state,
-		Timeout:            timeout,
-		SystemdConn:        conn,
-		PodmanConn:         podConn,
-		source:             source,
-		debug:              c.Debug,
-		rootComponent:      &Component{Name: "root"},
+		Timeout:       timeout,
+		SystemdConn:   conn,
+		PodmanConn:    podConn,
+		source:        source,
+		debug:         c.Debug,
+		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath),
+		rootComponent: &Component{Name: "root"},
 	}, nil
 }
 
@@ -129,25 +124,10 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	if err := man.Validate(); err != nil {
 		return err
 	}
+	if err := m.files.Setup(ctx); err != nil {
+		return err
+	}
 	var err error
-	if _, err := os.Stat(m.prefix); os.IsNotExist(err) {
-		return fmt.Errorf("prefix %v does not exist, setup manually", m.prefix)
-	}
-	if _, err := os.Stat(m.quadletDestination); os.IsNotExist(err) {
-		return fmt.Errorf("destination %v does not exist, setup manually", m.quadletDestination)
-	}
-	err = os.Mkdir(filepath.Join(m.prefix, "materia"), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
-	}
-	err = os.Mkdir(filepath.Join(m.prefix, "materia", "source"), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
-	}
-	err = os.Mkdir(filepath.Join(m.prefix, "materia", "components"), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
-	}
 	switch man.Secrets {
 	case "age":
 		conf, ok := man.SecretsConfig.(age.Config)
@@ -156,7 +136,7 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 		}
 		m.sm, err = age.NewAgeStore(age.Config{
 			IdentPath: conf.IdentPath,
-			RepoPath:  m.sourcePath(),
+			RepoPath:  m.files.SourcePath(),
 		})
 		if err != nil {
 			return err
@@ -176,55 +156,18 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	return nil
 }
 
-func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaManifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
-	// Get existing Components
+func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
 	currentComponents := make(map[string]*Component)
 	newComponents := make(map[string]*Component)
-	entries, err := os.ReadDir(m.allComponentDataPaths())
+
+	comps, err := m.files.GetAllInstalledComponents(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, v := range entries {
-		log.Debug("reading existing component", "component", v.Name())
-		oldComp := &Component{
-			Name:      v.Name(),
-			Resources: []Resource{},
-			State:     StateStale,
-		}
-		// load resources
-		entries, err := os.ReadDir(m.componentDataPath(oldComp))
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, v := range entries {
-			newRes := Resource{
-				Path:     filepath.Join(m.componentDataPath(oldComp), v.Name()),
-				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-				Kind:     findResourceType(v.Name()),
-				Template: isTemplate(v.Name()),
-			}
-			oldComp.Resources = append(oldComp.Resources, newRes)
-		}
-		// load quadlets
-		entries, err = os.ReadDir(m.quadletPath(oldComp))
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, v := range entries {
-			if v.Name() == ".materia_managed" {
-				continue
-			}
-			newRes := Resource{
-				Path:     filepath.Join(m.quadletPath(oldComp), v.Name()),
-				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-				Kind:     findResourceType(v.Name()),
-				Template: isTemplate(v.Name()),
-			}
-			oldComp.Resources = append(oldComp.Resources, newRes)
-		}
-		log.Debug("existing component", "component", oldComp)
-		oldComp.State = StateStale
-		currentComponents[oldComp.Name] = oldComp
+	log.Debug(comps)
+	for _, v := range comps {
+		v.State = StateStale
+		currentComponents[v.Name] = v
 	}
 	// figure out ones to add
 	var whitelist []string
@@ -233,30 +176,23 @@ func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaMani
 	if ok {
 		whitelist = append(whitelist, host.Components...)
 	}
-	entries, err = os.ReadDir(m.allComponentSourcePaths())
+	newComps, err := m.files.GetAllSourceComponents(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	var compPaths []string
-	for _, v := range entries {
-		if v.IsDir() && slices.Contains(whitelist, v.Name()) {
-			compPaths = append(compPaths, v.Name())
+	for _, v := range newComps {
+		if !slices.Contains(whitelist, v.Name) {
+			continue
 		}
-	}
-	for _, v := range compPaths {
-		c, err := NewComponentFromSource(filepath.Join(m.allComponentSourcePaths(), v))
-		if err != nil {
-			return nil, nil, err
-		}
-		existing, ok := currentComponents[c.Name]
+		existing, ok := currentComponents[v.Name]
 		if !ok {
-			c.State = StateFresh
-			currentComponents[c.Name] = c
+			v.State = StateFresh
+			currentComponents[v.Name] = v
 		} else {
-			c.State = StateCanidate
-			newComponents[c.Name] = c
+			v.State = StateCanidate
+			newComponents[v.Name] = v
 			existing.State = StateMayNeedUpdate
-			currentComponents[c.Name] = existing
+			currentComponents[v.Name] = existing
 		}
 	}
 	for _, v := range currentComponents {
@@ -269,7 +205,100 @@ func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaMani
 	return currentComponents, newComponents, nil
 }
 
-func (m *Materia) calculateDiffs(ctx context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
+// func (m *Materia) determineDesiredComponents(_ context.Context, man *MateriaManifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
+// 	// Get existing Components
+// 	currentComponents := make(map[string]*Component)
+// 	newComponents := make(map[string]*Component)
+// 	entries, err := os.ReadDir(m.allComponentDataPaths())
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	for _, v := range entries {
+// 		log.Debug("reading existing component", "component", v.Name())
+// 		oldComp := &Component{
+// 			Name:      v.Name(),
+// 			Resources: []Resource{},
+// 			State:     StateStale,
+// 		}
+// 		// load resources
+// 		entries, err := os.ReadDir(m.componentDataPath(oldComp))
+// 		if err != nil {
+// 			return nil, nil, err
+// 		}
+// 		for _, v := range entries {
+// 			newRes := Resource{
+// 				Path:     filepath.Join(m.componentDataPath(oldComp), v.Name()),
+// 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+// 				Kind:     findResourceType(v.Name()),
+// 				Template: isTemplate(v.Name()),
+// 			}
+// 			oldComp.Resources = append(oldComp.Resources, newRes)
+// 		}
+// 		// load quadlets
+// 		entries, err = os.ReadDir(m.quadletPath(oldComp))
+// 		if err != nil {
+// 			return nil, nil, err
+// 		}
+// 		for _, v := range entries {
+// 			if v.Name() == ".materia_managed" {
+// 				continue
+// 			}
+// 			newRes := Resource{
+// 				Path:     filepath.Join(m.quadletPath(oldComp), v.Name()),
+// 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+// 				Kind:     findResourceType(v.Name()),
+// 				Template: isTemplate(v.Name()),
+// 			}
+// 			oldComp.Resources = append(oldComp.Resources, newRes)
+// 		}
+// 		log.Debug("existing component", "component", oldComp)
+// 		oldComp.State = StateStale
+// 		currentComponents[oldComp.Name] = oldComp
+// 	}
+// 	// figure out ones to add
+// 	var whitelist []string
+// 	// TODO figure out role assignments
+// 	host, ok := man.Hosts[facts.Hostname]
+// 	if ok {
+// 		whitelist = append(whitelist, host.Components...)
+// 	}
+// 	entries, err = os.ReadDir(m.allComponentSourcePaths())
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	var compPaths []string
+// 	for _, v := range entries {
+// 		if v.IsDir() && slices.Contains(whitelist, v.Name()) {
+// 			compPaths = append(compPaths, v.Name())
+// 		}
+// 	}
+// 	for _, v := range compPaths {
+// 		c, err := NewComponentFromSource(filepath.Join(m.allComponentSourcePaths(), v))
+// 		if err != nil {
+// 			return nil, nil, err
+// 		}
+// 		existing, ok := currentComponents[c.Name]
+// 		if !ok {
+// 			c.State = StateFresh
+// 			currentComponents[c.Name] = c
+// 		} else {
+// 			c.State = StateCanidate
+// 			newComponents[c.Name] = c
+// 			existing.State = StateMayNeedUpdate
+// 			currentComponents[c.Name] = existing
+// 		}
+// 	}
+// 	for _, v := range currentComponents {
+// 		if v.State == StateStale {
+// 			// exists on disk but not in source, remove
+// 			v.State = StateNeedRemoval
+// 		}
+// 	}
+//
+// 	return currentComponents, newComponents, nil
+// }
+
+func (m *Materia) calculateDiffs(_ context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range currentComponents {
@@ -473,159 +502,6 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	return nil
 }
 
-//
-// func (m *Materia) statePath() string {
-// 	return filepath.Join(m.state, "materia")
-// }
-
-func (m *Materia) sourcePath() string {
-	return filepath.Join(m.prefix, "materia", "source")
-}
-
-func (m *Materia) allComponentSourcePaths() string {
-	return filepath.Join(m.sourcePath(), "components")
-}
-
-// func (m *Materia) componentSourcePath(component *Component) string {
-// 	return filepath.Join(m.allComponentSourcePaths(), component.Name)
-// }
-
-func (m *Materia) componentDataPath(component *Component) string {
-	return filepath.Join(m.prefix, "materia", "components", component.Name)
-}
-
-func (m *Materia) allComponentDataPaths() string {
-	return filepath.Join(m.prefix, "materia", "components")
-}
-
-func (m *Materia) dataPath() string {
-	return filepath.Join(m.prefix, "materia")
-}
-
-func (m *Materia) installPath(comp *Component, r Resource) string {
-	if r.Kind != ResourceTypeFile {
-		return filepath.Join(m.quadletDestination, comp.Name)
-	} else {
-		return filepath.Join(m.prefix, "materia", "components", comp.Name)
-	}
-}
-
-func (m *Materia) quadletPath(comp *Component) string {
-	return filepath.Join(m.quadletDestination, comp.Name)
-}
-
-func (m *Materia) installFile(path string, data *bytes.Buffer) error {
-	err := os.WriteFile(path, data.Bytes(), 0o755)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *Materia) installComponent(comp *Component, _ secrets.SecretsManager) error {
-	if err := comp.Validate(); err != nil {
-		return err
-	}
-
-	if comp.State != StateFresh && comp.State != StateOK {
-		return errors.New("tried to install a stale component")
-	}
-
-	err := os.Mkdir(m.componentDataPath(comp), 0o755)
-	if err != nil {
-		return err
-	}
-	path := m.installPath(comp, Resource{})
-	err = os.Mkdir(path, 0o755)
-	if err != nil {
-		return err
-	}
-	file, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", path), os.O_RDONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	log.Info("installed", "component", comp.Name)
-	return nil
-}
-
-func (m *Materia) removeComponent(comp *Component, _ secrets.SecretsManager) error {
-	if err := comp.Validate(); err != nil {
-		return err
-	}
-	for _, v := range comp.Resources {
-		err := os.Remove(v.Path)
-		if err != nil {
-			return err
-		}
-		log.Info("removed", "resource", v.Name)
-	}
-	err := os.Remove(m.componentDataPath(comp))
-	if err != nil {
-		return err
-	}
-	log.Info("removed", "component", comp.Name)
-	return nil
-}
-
-func (m *Materia) installResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
-	if err := comp.Validate(); err != nil {
-		return err
-	}
-	if err := res.Validate(); err != nil {
-		return err
-	}
-	path := m.installPath(comp, res)
-	var result *bytes.Buffer
-	data, err := os.ReadFile(res.Path)
-	if err != nil {
-		return err
-	}
-	if res.Template {
-		result = bytes.NewBuffer([]byte{})
-		log.Debug("applying template", "file", res.Name)
-		tmpl, err := template.New(res.Name).Parse(string(data))
-		if err != nil {
-			panic(err)
-		}
-		err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		result = bytes.NewBuffer(data)
-	}
-	log.Debug("writing file", "filename", res.Name, "destination", path)
-	err = m.installFile(fmt.Sprintf("%v/%v", path, res.Name), result)
-	if err != nil {
-		return err
-	}
-
-	log.Info("installed", "component", comp.Name, "resource", res.Name)
-	return nil
-}
-
-func (m *Materia) removeResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
-	if err := comp.Validate(); err != nil {
-		return err
-	}
-	if err := res.Validate(); err != nil {
-		return err
-	}
-	if strings.Contains(res.Path, m.sourcePath()) {
-		return fmt.Errorf("tried to remove resource %v for component %v from source", res.Name, comp.Name)
-	}
-
-	log.Debug("removing file", "filename", res.Name, "destination", res.Path)
-	err := os.Remove(res.Path)
-	if err != nil {
-		return err
-	}
-	log.Info("removed", "component", comp.Name, "resource", res.Name)
-	return nil
-}
-
 func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]Action, error) {
 	var actions []Action
 	var err error
@@ -637,7 +513,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	// Determine existing components
 	var components map[string]*Component
 	var newComponents map[string]*Component
-	if components, newComponents, err = m.determineDesiredComponents(ctx, man, f); err != nil {
+	if components, newComponents, err = m.newDetermineComponents(ctx, man, f); err != nil {
 		return actions, err
 	}
 	log.Debug("component actions")
@@ -749,7 +625,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 				return actions, err
 			}
 			if len(us) != 1 {
-				log.Warn("somethings funky with service", "service", s.Name)
+				return actions, fmt.Errorf("somethings funky with service %v", s.Name)
 			}
 			if us[0].ActiveState != "active" {
 				serviceActions = append(serviceActions, Action{
@@ -780,30 +656,30 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 
 		switch v.Todo {
 		case ActionInstallComponent:
-			if err := m.installComponent(v.Parent, m.sm); err != nil {
+			if err := m.files.InstallComponent(v.Parent, m.sm); err != nil {
 				return err
 			}
 			resourceChanged = true
 		case ActionInstallResource:
-			if err := m.installResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.files.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionUpdateResource:
-			if err := m.installResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.files.InstallResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionRemoveComponent:
-			if err := m.removeComponent(v.Parent, m.sm); err != nil {
+			if err := m.files.RemoveComponent(v.Parent, m.sm); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionRemoveResource:
-			if err := m.removeResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.files.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
 
@@ -827,7 +703,7 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	for _, v := range plan {
 		switch v.Todo {
 		case ActionInstallVolumeResource:
-			err := m.installResource(v.Parent, v.Payload, m.sm)
+			err := m.files.InstallResource(v.Parent, v.Payload, m.sm)
 			if err != nil {
 				return err
 			}
@@ -843,51 +719,12 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	return nil
 }
 
-func (m *Materia) deleteWrapper(path string) error {
-	if m.debug {
-		log.Debug("would delete path", "path", path)
-		return nil
-	}
-	return os.RemoveAll(m.sourcePath())
-}
-
-func (m *Materia) Clean(ctx context.Context) error {
-	err := m.deleteWrapper(m.sourcePath())
-	if err != nil {
-		return err
-	}
-	entries, err := os.ReadDir(m.quadletDestination)
-	if err != nil {
-		return err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			_, err := os.Stat(fmt.Sprintf("%v/%v/.materia_managed", m.quadletDestination, v.Name()))
-			if err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			err = m.deleteWrapper(fmt.Sprintf("%v/%v", m.quadletDestination, v.Name()))
-			if err != nil {
-				return err
-			}
-		}
-	}
-	err = m.deleteWrapper(m.dataPath())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Facts, error) {
 	err := m.source.Sync(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	man, err := LoadMateriaManifest(fmt.Sprintf("%v/%v", m.sourcePath(), "MANIFEST.toml"))
+	man, err := m.files.GetManifest(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -902,4 +739,8 @@ func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Fact
 	}
 
 	return man, facts, nil
+}
+
+func (m *Materia) Clean(ctx context.Context) error {
+	return m.files.Clean(ctx)
 }
