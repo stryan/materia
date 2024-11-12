@@ -1,0 +1,5 @@
+secrets = "age"
+age.idents = "key.txt"
+[hosts.vineta]
+components = ["hello","double"]
+order = ["hello"]

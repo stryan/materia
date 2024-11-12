@@ -1,0 +1,12 @@
+[Unit]
+Description=Goodbye World Service
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=goodbyeworld
+Image=docker.io/busybox:{{.container_tag}}
+Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Goodbye World; sleep 1; done"
+
+[Install]
+WantedBy=multi-user.target
