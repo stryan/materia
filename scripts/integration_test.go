@@ -92,6 +92,17 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+	// {Todo:InstallComponent Parent:{c double Fresh } Payload:{Path: Name: Kind:Unknown Template:false}}
+	// {Todo:InstallResource Parent:{c double Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/double/goodbye.container.gotmpl Name:goodbye.container Kind:Container Template:true}}
+	// {Todo:InstallResource Parent:{c double Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/double/hello.container.gotmpl Name:hello.container Kind:Container Template:true}}
+	// {Todo:InstallComponent Parent:{c hello Fresh } Payload:{Path: Name: Kind:Unknown Template:false}}
+	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.container.gotmpl Name:hello.container Kind:Container Template:true}}
+	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.env Name:hello.env Kind:File Template:false}}
+	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.volume Name:hello.volume Kind:Volume Template:false}}
+	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/test.env.gotmpl Name:test.env Kind:File Template:true}}
+	// {Todo:StartService Parent:{c hello Fresh } Payload:{Path: Name:hello-volume.service Kind:Service Template:false}}
+	// {Todo:StartService Parent:{c double Fresh } Payload:{Path: Name:goodbye.service Kind:Service Template:false}}
+	// {Todo:StartService Parent:{c hello Fresh } Payload:{Path: Name:hello.service Kind:Service Template:false}}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
