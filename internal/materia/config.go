@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	SourceURL string
-	Debug     bool
-	Hostname  string
-	Timeout   int
-	Prefix    string
+	SourceURL   string
+	Debug       bool
+	Hostname    string
+	Timeout     int
+	Prefix      string
+	Destination string
 }
 
 func NewConfig() (*Config, error) {
@@ -31,6 +32,7 @@ func NewConfig() (*Config, error) {
 	c.Hostname = k.String(".hostname")
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
+	c.Destination = k.String(".destination")
 
 	return &c, nil
 }

@@ -56,15 +56,15 @@ func (f *FileRepository) Setup(_ context.Context) error {
 	if _, err := os.Stat(f.quadletDestination); os.IsNotExist(err) {
 		return fmt.Errorf("destination %v does not exist, setup manually", f.quadletDestination)
 	}
-	err := os.Mkdir(filepath.Join(f.prefix, "materia"), 0o755)
+	err := os.Mkdir(filepath.Join(f.prefix), 0o755)
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
-	err = os.Mkdir(filepath.Join(f.prefix, "materia", "source"), 0o755)
+	err = os.Mkdir(filepath.Join(f.prefix, "source"), 0o755)
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
-	err = os.Mkdir(filepath.Join(f.prefix, "materia", "components"), 0o755)
+	err = os.Mkdir(filepath.Join(f.prefix, "components"), 0o755)
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
@@ -198,7 +198,8 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 
 func (f *FileRepository) GetAllInstalledComponents(_ context.Context) ([]*Component, error) {
 	var components []*Component
-	entries, err := os.ReadDir(filepath.Join(f.prefix, "components"))
+	intalledComponents := filepath.Join(f.prefix, "components")
+	entries, err := os.ReadDir(intalledComponents)
 	if err != nil {
 		return nil, err
 	}
@@ -410,12 +411,15 @@ func (f *FileRepository) SourcePath() string {
 	return f.source
 }
 
-func NewFileRepository(p, q, d, s string) *FileRepository {
+func NewFileRepository(p, q, d, s string, debug bool) *FileRepository {
+	if strings.HasSuffix(p, "materia") {
+		panic("BAD PREFIX")
+	}
 	return &FileRepository{
-		prefix:             p,
+		prefix:             filepath.Join(p, "materia"),
 		quadletDestination: q,
 		data:               d,
 		source:             s,
-		debug:              true,
+		debug:              debug,
 	}
 }

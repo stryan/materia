@@ -85,8 +85,11 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 	if c.Prefix != "" {
 		prefix = c.Prefix
 	}
+	if c.Destination != "" {
+		destination = c.Destination
+	}
 	var source source.Source
-	sourcePath := filepath.Join(prefix, "materia", "source")
+	sourcePath := filepath.Join(prefix, "source")
 	url, err := url.Parse(c.SourceURL)
 	if err != nil {
 		return nil, err
@@ -102,8 +105,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		return nil, errors.New("invalid source")
 
 	}
-	prefix = fmt.Sprintf("%v/materia", prefix)
-
 	return &Materia{
 		Timeout:       timeout,
 		SystemdConn:   conn,
@@ -135,7 +136,7 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 			return errors.New("tried to create an age secrets manager but config was not for age")
 		}
 		m.sm, err = age.NewAgeStore(age.Config{
-			IdentPath: conf.IdentPath,
+			IdentPath: filepath.Join(m.files.SourcePath(), conf.IdentPath),
 			RepoPath:  m.files.SourcePath(),
 		})
 		if err != nil {
@@ -162,7 +163,7 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 
 	comps, err := m.files.GetAllInstalledComponents(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error getting installed components: %w", err)
 	}
 	log.Debug(comps)
 	for _, v := range comps {
@@ -178,7 +179,7 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 	}
 	newComps, err := m.files.GetAllSourceComponents(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error getting source components: %w", err)
 	}
 	for _, v := range newComps {
 		if !slices.Contains(whitelist, v.Name) {
@@ -257,7 +258,7 @@ func (m *Materia) calculateDiffs(_ context.Context, sm secrets.SecretsManager, c
 	return actions, nil
 }
 
-func (m *Materia) calculateVolDiffs(ctx context.Context, sm secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
+func (m *Materia) calculateVolDiffs(ctx context.Context, _ secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range components {
@@ -421,7 +422,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	var components map[string]*Component
 	var newComponents map[string]*Component
 	if components, newComponents, err = m.newDetermineComponents(ctx, man, f); err != nil {
-		return actions, err
+		return actions, fmt.Errorf("error determining components: %w", err)
 	}
 	log.Debug("component actions")
 	var installing, removing, updating, ok []string
@@ -456,39 +457,23 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	// Determine diff actions
 	diffActions, err := m.calculateDiffs(ctx, m.sm, components, newComponents)
 	if err != nil {
-		return actions, err
+		return actions, fmt.Errorf("error calculating diffs: %w", err)
 	}
 
 	// determine volume actions
 	volResourceActions, err := m.calculateVolDiffs(ctx, m.sm, components)
 	if err != nil {
-		return actions, err
+		return actions, fmt.Errorf("error calculating volume diffs: %w", err)
 	}
 
 	// Determine response actions
 	var serviceActions []Action
 	// guestimate potentials
 	potentialServices := make(map[string][]Resource)
-	var volumeServiceActions []Action
 	for _, v := range diffActions {
 		if v.Todo == ActionInstallResource || v.Todo == ActionUpdateResource {
 			if v.Payload.Kind == ResourceTypeContainer || v.Payload.Kind == ResourceTypePod {
 				potentialServices[v.Parent.Name] = append(potentialServices[v.Parent.Name], v.Payload)
-			}
-			if v.Payload.Kind == ResourceTypeVolume {
-				// TODO maybe only do this if we have EnsureVolume actions, but we'll get to that
-				volName, found := strings.CutSuffix(v.Payload.Name, ".volume")
-				if !found {
-					log.Warn("invalid volume name", "raw_name", v.Parent.Name)
-				}
-				volumeServiceActions = append(volumeServiceActions, Action{
-					Todo:   ActionStartService,
-					Parent: v.Parent,
-					Payload: Resource{
-						Name: fmt.Sprintf("%v-volume.service", volName),
-						Kind: ResourceTypeService,
-					},
-				})
 			}
 		}
 	}
@@ -498,7 +483,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			for _, s := range servs {
 				us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
 				if err != nil {
-					return actions, err
+					return actions, fmt.Errorf("error getting systemd units: %w", err)
 				}
 				if len(us) != 1 {
 					log.Warn("somethings funky with service", "service", s.Name)
@@ -529,7 +514,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 		for _, s := range servs {
 			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
 			if err != nil {
-				return actions, err
+				return actions, fmt.Errorf("error listing systemd units: %w", err)
 			}
 			if len(us) != 1 {
 				return actions, fmt.Errorf("somethings funky with service %v", s.Name)
@@ -544,11 +529,10 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 		}
 	}
 
-	volumeActions := append(volumeServiceActions, volResourceActions...)
 	log.Debug("diff actions", "diffActions", diffActions)
-	log.Debug("volume actions", "volActions", volumeActions)
+	log.Debug("volume actions", "volResourceActions", volResourceActions)
 	log.Debug("service actions", "serviceActions", serviceActions)
-	actions = append(diffActions, volumeActions...)
+	actions = append(diffActions, volResourceActions...)
 	actions = append(actions, serviceActions...)
 	return actions, nil
 }
