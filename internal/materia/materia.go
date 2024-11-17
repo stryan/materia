@@ -111,7 +111,7 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		PodmanConn:    podConn,
 		source:        source,
 		debug:         c.Debug,
-		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath),
+		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath, c.Debug),
 		rootComponent: &Component{Name: "root"},
 	}, nil
 }

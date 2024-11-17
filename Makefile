@@ -10,6 +10,9 @@ generate:
 build-materia:
 	go build -o materia ./cmd/materia
 
+test: lint
+	go test ./scripts/
+
 lint:
 	golangci-lint run ./cmd/... ./internal/...
 tools:
@@ -17,4 +20,4 @@ tools:
 clean:
 	rm materia
 
-.PHONY: clean tools all
+.PHONY: clean tools all test
