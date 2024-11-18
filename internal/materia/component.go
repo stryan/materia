@@ -1,13 +1,14 @@
 package materia
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/charmbracelet/log"
 )
 
@@ -16,6 +17,7 @@ type Component struct {
 	Services  []Resource
 	Resources []Resource
 	State     ComponentLifecycle
+	Builtins  map[string]interface{}
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -41,6 +43,7 @@ func (c *Component) String() string {
 func NewComponentFromSource(path string) (*Component, error) {
 	c := &Component{}
 	c.Name = filepath.Base(path)
+	c.Builtins = make(map[string]interface{})
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
@@ -52,8 +55,9 @@ func NewComponentFromSource(path string) (*Component, error) {
 		if v.Name() == "MANIFEST.toml" {
 			man, err = LoadComponentManifest(resPath)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
+			maps.Copy(c.Builtins, man.Defaults)
 		} else {
 			newRes := Resource{
 				Path:     resPath,
@@ -65,7 +69,6 @@ func NewComponentFromSource(path string) (*Component, error) {
 			resources[newRes.Name] = newRes
 		}
 	}
-	log.Debug(resources)
 	if man != nil {
 		for _, s := range man.Services {
 			if s == "" {
@@ -96,7 +99,20 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) diff(other *Component, sm secrets.SecretsManager) ([]Action, error) {
+func (c *Component) test(ctx context.Context, vars map[string]interface{}) error {
+	diffVars := make(map[string]interface{})
+	maps.Copy(diffVars, c.Builtins)
+	maps.Copy(diffVars, vars)
+	for _, newRes := range c.Resources {
+		_, err := newRes.execute(diffVars)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Component) diff(other *Component, vars map[string]interface{}) ([]Action, error) {
 	var diffActions []Action
 	if len(c.Resources) == 0 || len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -110,6 +126,9 @@ func (c *Component) diff(other *Component, sm secrets.SecretsManager) ([]Action,
 	}
 	currentResources := make(map[string]Resource)
 	newResources := make(map[string]Resource)
+	diffVars := make(map[string]interface{})
+	maps.Copy(diffVars, c.Builtins)
+	maps.Copy(diffVars, vars)
 	for _, v := range c.Resources {
 		currentResources[v.Name] = v
 	}
@@ -119,7 +138,7 @@ func (c *Component) diff(other *Component, sm secrets.SecretsManager) ([]Action,
 	for k, cur := range currentResources {
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			diffs, err := cur.diff(newRes, sm)
+			diffs, err := cur.diff(newRes, diffVars)
 			if err != nil {
 				return diffActions, err
 			}

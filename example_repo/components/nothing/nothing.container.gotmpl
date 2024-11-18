@@ -5,7 +5,7 @@ After=network-online.target
 
 [Container]
 ContainerName=nothing
-Image=docker.io/busybox:{{.container_tag}}
+Image=docker.io/busybox:{{.containerTag}}
 Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo HATE HATE HATE; sleep 1; done"
 
 [Install]

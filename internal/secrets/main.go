@@ -5,7 +5,6 @@ import (
 )
 
 type SecretsManager interface {
-	All(context.Context) map[string]interface{}
 	Lookup(context.Context, SecretFilter) map[string]interface{}
 }
 
@@ -15,6 +14,14 @@ type SecretsConfig interface {
 }
 
 type SecretFilter struct {
-	Hostname string
-	Role     string
+	Hostname  string
+	Role      string
+	Component string
+}
+
+type SecretsVault struct {
+	Globals    map[string]interface{}
+	Components map[string]map[string]interface{}
+	Hosts      map[string]map[string]interface{}
+	Roles      map[string]map[string]interface{}
 }

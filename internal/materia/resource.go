@@ -2,13 +2,11 @@ package materia
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"html/template"
 	"os"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
@@ -50,7 +48,7 @@ func (r *Resource) String() string {
 	return fmt.Sprintf("{r %v %v %v %v }", r.Name, r.Path, r.Kind, r.Template)
 }
 
-func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatchpatch.Diff, error) {
+func (cur Resource) diff(newRes Resource, vars map[string]interface{}) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -70,13 +68,9 @@ func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatc
 		return diffs, err
 	}
 	var newString string
-	result := bytes.NewBuffer([]byte{})
+	var result *bytes.Buffer
 	if newRes.Template {
-		tmpl, err := template.New(newRes.Name).Parse(string(newFile))
-		if err != nil {
-			return diffs, err
-		}
-		err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
+		result, err = newRes.execute(vars)
 		if err != nil {
 			return diffs, err
 		}
@@ -86,4 +80,51 @@ func (cur Resource) diff(newRes Resource, sm secrets.SecretsManager) ([]diffmatc
 	}
 	newString = result.String()
 	return dmp.DiffMain(curString, newString, false), nil
+}
+
+func (cur Resource) execute(vars map[string]interface{}) (*bytes.Buffer, error) {
+	newFile, err := os.ReadFile(cur.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	result := bytes.NewBuffer([]byte{})
+	tmpl, err := template.New(cur.Name).Option("missingkey=error").Funcs(template.FuncMap{
+		"materia_defaults": func(arg string) string {
+			switch arg {
+			case "after":
+				if res, ok := vars["After"]; ok {
+					return res.(string)
+				} else {
+					return "local-fs.target network.target"
+				}
+			case "wants":
+				if res, ok := vars["Wants"]; ok {
+					return res.(string)
+				} else {
+					return "local-fs.target network.target"
+				}
+			case "requires":
+				if res, ok := vars["Requires"]; ok {
+					return res.(string)
+				} else {
+					return "local-fs.target network.target"
+				}
+			default:
+				return "ERR_BAD_DEFAULT"
+			}
+		},
+		"exists": func(arg string) bool {
+			_, ok := vars[arg]
+			return ok
+		},
+	}).Parse(string(newFile))
+	if err != nil {
+		return nil, err
+	}
+	err = tmpl.Execute(result, vars)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

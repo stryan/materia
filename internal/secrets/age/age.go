@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,31 +68,9 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 	return &a, nil
 }
 
-func (a *AgeStore) All(_ context.Context) map[string]interface{} {
-	results := make(map[string]interface{})
-	for _, v := range a.vaultfiles {
-		file, err := os.Open(v)
-		if err != nil {
-			log.Fatal(err)
-		}
-		decrypted, err := age.Decrypt(file, a.identities...)
-		if err != nil {
-			log.Fatal(err)
-		}
-		buf := new(bytes.Buffer)
-		_, err = buf.ReadFrom(decrypted)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = toml.Unmarshal(buf.Bytes(), &results)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	return results
-}
-
 func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]interface{} {
+	secrets := secrets.SecretsVault{}
+
 	results := make(map[string]interface{})
 	files := []string{}
 	for _, v := range a.vaultfiles {
@@ -114,10 +93,21 @@ func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = toml.Unmarshal(buf.Bytes(), &results)
+		err = toml.Unmarshal(buf.Bytes(), &secrets)
 		if err != nil {
 			log.Fatal(err)
 		}
+		maps.Copy(results, secrets.Globals)
+		if f.Component != "" {
+			maps.Copy(results, secrets.Components[f.Component])
+		}
+		if f.Hostname != "" {
+			maps.Copy(results, secrets.Hosts[f.Hostname])
+		}
+		if f.Role != "" {
+			maps.Copy(results, secrets.Roles[f.Role])
+		}
+
 	}
 	return results
 }

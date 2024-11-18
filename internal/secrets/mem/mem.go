@@ -21,10 +21,6 @@ func NewMemoryManager() *MemoryManager {
 	return &MemoryManager{secrets}
 }
 
-func (m *MemoryManager) All(_ context.Context) map[string]interface{} {
-	return m.secrets
-}
-
 func (m *MemoryManager) Lookup(_ context.Context, _ secrets.SecretFilter) map[string]interface{} {
 	return m.secrets
 }

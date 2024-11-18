@@ -87,7 +87,6 @@ func TestPlan(t *testing.T) {
 	err = m.Prepare(ctx, manifest)
 	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
 	plan, err := m.Plan(ctx, manifest, facts)
-	fmt.Fprintf(os.Stderr, "FBLTHP[7]: integration_test.go:96: plan=%+v\n", plan)
 	assert.Nil(t, err)
 	if err != nil {
 		t.Fail()

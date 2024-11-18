@@ -50,6 +50,7 @@ func (m MateriaManifest) Validate() error {
 
 type ComponentManifest struct {
 	Services []string
+	Defaults map[string]interface{}
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
@@ -53,15 +54,15 @@ func main() {
 				Action: func(cCtx *cli.Context) error {
 					manifest, facts, err := m.Facts(ctx, c)
 					if err != nil {
-						return err
+						return fmt.Errorf("error generating facts: %w", err)
 					}
 					err = m.Prepare(ctx, manifest)
 					if err != nil {
-						return err
+						return fmt.Errorf("error preparing system: %w", err)
 					}
 					plan, err := m.Plan(ctx, manifest, facts)
 					if err != nil {
-						return err
+						return fmt.Errorf("error planning actions: %w", err)
 					}
 					log.Info(plan)
 					return nil

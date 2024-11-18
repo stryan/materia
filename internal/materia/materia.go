@@ -89,7 +89,7 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		destination = c.Destination
 	}
 	var source source.Source
-	sourcePath := filepath.Join(prefix, "source")
+	sourcePath := filepath.Join(prefix, "materia", "source")
 	url, err := url.Parse(c.SourceURL)
 	if err != nil {
 		return nil, err
@@ -123,12 +123,18 @@ func (m *Materia) Close() {
 
 func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	if err := man.Validate(); err != nil {
-		return err
+		return fmt.Errorf("invalid manifest %w", err)
 	}
 	if err := m.files.Setup(ctx); err != nil {
-		return err
+		return fmt.Errorf("error setting up files: %w", err)
 	}
 	var err error
+	// Ensure local cache
+	log.Info("updating configured source cache")
+	err = m.source.Sync(ctx)
+	if err != nil {
+		return fmt.Errorf("error syncing source: %w", err)
+	}
 	switch man.Secrets {
 	case "age":
 		conf, ok := man.SecretsConfig.(age.Config)
@@ -140,7 +146,7 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 			RepoPath:  m.files.SourcePath(),
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating age store: %w", err)
 		}
 
 	case "mem":
@@ -148,18 +154,13 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	default:
 		m.sm = mem.NewMemoryManager()
 	}
-	// Ensure local cache
-	log.Info("updating configured source cache")
-	err = m.source.Sync(ctx)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
 func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManifest, facts *Facts) (map[string]*Component, map[string]*Component, error) {
 	currentComponents := make(map[string]*Component)
-	newComponents := make(map[string]*Component)
+	updatedComponents := make(map[string]*Component)
 
 	comps, err := m.files.GetAllInstalledComponents(ctx)
 	if err != nil {
@@ -172,7 +173,9 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 	}
 	// figure out ones to add
 	var whitelist []string
+	var found []string
 	// TODO figure out role assignments
+	// TODO add localhost (i.e. always applied) host?
 	host, ok := man.Hosts[facts.Hostname]
 	if ok {
 		whitelist = append(whitelist, host.Components...)
@@ -185,13 +188,14 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 		if !slices.Contains(whitelist, v.Name) {
 			continue
 		}
+		found = append(found, v.Name)
 		existing, ok := currentComponents[v.Name]
 		if !ok {
 			v.State = StateFresh
 			currentComponents[v.Name] = v
 		} else {
 			v.State = StateCanidate
-			newComponents[v.Name] = v
+			updatedComponents[v.Name] = v
 			existing.State = StateMayNeedUpdate
 			currentComponents[v.Name] = existing
 		}
@@ -202,11 +206,14 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 			v.State = StateNeedRemoval
 		}
 	}
+	if len(found) != len(whitelist) {
+		return nil, nil, fmt.Errorf("not all assigned components were found for this host")
+	}
 
-	return currentComponents, newComponents, nil
+	return currentComponents, updatedComponents, nil
 }
 
-func (m *Materia) calculateDiffs(_ context.Context, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
+func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
 
 	for _, v := range currentComponents {
@@ -220,6 +227,14 @@ func (m *Materia) calculateDiffs(_ context.Context, sm secrets.SecretsManager, c
 				Parent: v,
 			})
 			for _, r := range v.Resources {
+				err := v.test(ctx, sm.Lookup(ctx, secrets.SecretFilter{
+					Hostname:  f.Hostname,
+					Role:      f.Role,
+					Component: v.Name,
+				}))
+				if err != nil {
+					return actions, fmt.Errorf("missing variable for component: %w", err)
+				}
 				actions = append(actions, Action{
 					Todo:    ActionInstallResource,
 					Parent:  v,
@@ -231,7 +246,11 @@ func (m *Materia) calculateDiffs(_ context.Context, sm secrets.SecretsManager, c
 			if !ok {
 				return actions, errors.New("tried to replace component with nonexistent candidate")
 			}
-			resourceActions, err := v.diff(candidate, sm)
+			resourceActions, err := v.diff(candidate, sm.Lookup(ctx, secrets.SecretFilter{
+				Hostname:  f.Hostname,
+				Role:      f.Role,
+				Component: v.Name,
+			}))
 			if err != nil {
 				log.Debugf("error diffing components: L (%v) R (%v)", v, candidate)
 				return actions, err
@@ -455,7 +474,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	log.Info("updating components", "updating", updating)
 	log.Info("unchanged components", "unchanged", ok)
 	// Determine diff actions
-	diffActions, err := m.calculateDiffs(ctx, m.sm, components, newComponents)
+	diffActions, err := m.calculateDiffs(ctx, f, m.sm, components, newComponents)
 	if err != nil {
 		return actions, fmt.Errorf("error calculating diffs: %w", err)
 	}
@@ -613,11 +632,11 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Facts, error) {
 	err := m.source.Sync(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error syncing source: %w", err)
 	}
 	man, err := m.files.GetManifest(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error getting repo manifest %w", err)
 	}
 	facts := &Facts{}
 	if c.Hostname != "" {
@@ -625,7 +644,7 @@ func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Fact
 	} else {
 		facts.Hostname, err = os.Hostname()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("error getting hostname: %w", err)
 		}
 	}
 
