@@ -124,7 +124,7 @@ func TestPlan(t *testing.T) {
 			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
 		}
 		if expected.Payload.Name != v.Payload.Name {
-			t.Fatalf("failed on step %v:expected parent %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
 		}
 	}
 }

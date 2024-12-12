@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -215,8 +217,9 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 
 func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
-
-	for _, v := range currentComponents {
+	keys := sortedKeys(currentComponents)
+	for _, k := range keys {
+		v := currentComponents[k]
 		if err := v.Validate(); err != nil {
 			return actions, err
 		}
@@ -279,8 +282,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 
 func (m *Materia) calculateVolDiffs(ctx context.Context, _ secrets.SecretsManager, components map[string]*Component) ([]Action, error) {
 	var actions []Action
-
-	for _, v := range components {
+	keys := sortedKeys(components)
+	for _, k := range keys {
+		v := components[k]
 		if err := v.Validate(); err != nil {
 			return actions, err
 		}
@@ -445,7 +449,9 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 	}
 	log.Debug("component actions")
 	var installing, removing, updating, ok []string
-	for _, v := range components {
+	keys := sortedKeys(components)
+	for _, k := range keys {
+		v := components[k]
 		switch v.State {
 		case StateFresh:
 			installing = append(installing, v.Name)
@@ -496,7 +502,8 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			}
 		}
 	}
-	for _, c := range components {
+	for _, k := range keys {
+		c := components[k]
 		if c.State == StateOK {
 			servs := getServicesFromResources(c.Resources)
 			for _, s := range servs {
@@ -517,8 +524,9 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			}
 		}
 	}
-
-	for compName, reslist := range potentialServices {
+	pots := sortedKeys(potentialServices)
+	for _, compName := range pots {
+		reslist := potentialServices[compName]
 		comp, ok := components[compName]
 		if !ok {
 			return actions, fmt.Errorf("potential service for nonexistent component: %v", compName)
@@ -653,4 +661,15 @@ func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Fact
 
 func (m *Materia) Clean(ctx context.Context) error {
 	return m.files.Clean(ctx)
+}
+
+func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
+	keys := make([]K, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
 }

@@ -135,7 +135,9 @@ func (c *Component) diff(other *Component, vars map[string]interface{}) ([]Actio
 	for _, v := range other.Resources {
 		newResources[v.Name] = v
 	}
-	for k, cur := range currentResources {
+	keys := sortedKeys(currentResources)
+	for _, k := range keys {
+		cur := currentResources[k]
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
 			diffs, err := cur.diff(newRes, diffVars)
@@ -159,15 +161,15 @@ func (c *Component) diff(other *Component, vars map[string]interface{}) ([]Actio
 			})
 		}
 	}
-
-	for k, newRes := range newResources {
+	keys = sortedKeys(newResources)
+	for _, k := range keys {
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
-			log.Debug("installing new resource", "file", newRes.Name)
+			log.Debug("installing new resource", "file", k)
 			diffActions = append(diffActions, Action{
 				Todo:    ActionInstallResource,
 				Parent:  c,
-				Payload: newRes,
+				Payload: newResources[k],
 			})
 		}
 	}
