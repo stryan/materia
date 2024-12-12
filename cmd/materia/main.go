@@ -64,7 +64,9 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
-					log.Info(plan)
+					for _, p := range plan {
+						fmt.Println(p.Pretty())
+					}
 					return nil
 				},
 			},

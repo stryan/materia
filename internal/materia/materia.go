@@ -385,13 +385,16 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 		return err
 	}
 
-	res := command.Payload
-	if err := res.Validate(); err != nil {
-		return fmt.Errorf("invalid resource when modifying service: %w", err)
-	}
+	var res Resource
+	if command.Todo != ActionReloadUnits {
+		res = command.Payload
+		if err := res.Validate(); err != nil {
+			return fmt.Errorf("invalid resource when modifying service: %w", err)
+		}
 
-	if res.Kind != ResourceTypeService {
-		return errors.New("attempted to modify a non service resource")
+		if res.Kind != ResourceTypeService {
+			return errors.New("attempted to modify a non service resource")
+		}
 	}
 	callback := make(chan string)
 	switch command.Todo {
@@ -630,8 +633,6 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 			if err != nil {
 				return err
 			}
-		default:
-			panic(fmt.Sprintf("unexpected main.ActionType: %#v", v.Todo))
 		}
 	}
 	return nil

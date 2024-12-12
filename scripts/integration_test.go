@@ -129,6 +129,82 @@ func TestPlan(t *testing.T) {
 	}
 }
 
+func TestExecute(t *testing.T) {
+	m, err := materia.NewMateria(ctx, cfg)
+	assert.Nil(t, err)
+	manifest, facts, err := m.Facts(ctx, cfg)
+	assert.Nil(t, err)
+	assert.NotNil(t, manifest)
+	assert.NotNil(t, facts)
+	assert.Equal(t, facts, &materia.Facts{
+		Hostname: "localhost",
+		Role:     "",
+	})
+	expectedManifest := &materia.MateriaManifest{
+		Secrets: "age",
+		Hosts:   map[string]materia.Host{},
+	}
+	expectedManifest.Hosts["localhost"] = materia.Host{
+		Components: []string{"hello", "double"},
+	}
+	assert.Equal(t, expectedManifest.Hosts, manifest.Hosts)
+	assert.Equal(t, expectedManifest.Secrets, manifest.Secrets)
+	err = m.Prepare(ctx, manifest)
+	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
+	plan, err := m.Plan(ctx, manifest, facts)
+	assert.Nil(t, err)
+	if err != nil {
+		t.Fail()
+	}
+	expectedPlan := []materia.Action{
+		planHelper(materia.ActionInstallComponent, "double", ""),
+		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
+		planHelper(materia.ActionInstallResource, "double", "hello.container"),
+		planHelper(materia.ActionInstallComponent, "hello", ""),
+		planHelper(materia.ActionInstallResource, "hello", "hello.container"),
+		planHelper(materia.ActionInstallResource, "hello", "hello.env"),
+		planHelper(materia.ActionInstallResource, "hello", "hello.volume"),
+		planHelper(materia.ActionInstallResource, "hello", "test.env"),
+		planHelper(materia.ActionStartService, "double", "goodbye.service"),
+		planHelper(materia.ActionStartService, "hello", "hello.service"),
+	}
+	assert.Equal(t, len(expectedPlan), len(plan))
+	for k, v := range plan {
+		expected := expectedPlan[k]
+		if expected.Todo != v.Todo {
+			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
+		}
+		if expected.Parent.Name != v.Parent.Name {
+			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
+		}
+		if expected.Payload.Name != v.Payload.Name {
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
+		}
+	}
+	err = m.Execute(ctx, plan)
+	assert.Nil(t, err, fmt.Sprintf("error executing plan: %v", err))
+	// verify all the files are in place
+	for _, v := range plan {
+		switch v.Todo {
+		case materia.ActionInstallComponent:
+			_, err := os.Stat(fmt.Sprintf("%v/components/%v", cfg.Prefix, v.Parent.Name))
+			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
+			_, err = os.Stat(fmt.Sprintf("%v/%v", cfg.Destination, v.Parent.Name))
+			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
+		case materia.ActionInstallResource:
+			var dest string
+			if v.Payload.Kind == materia.ResourceTypeFile {
+				dest = fmt.Sprintf("%v/components/%v/%v", cfg.Prefix, v.Parent.Name, v.Payload.Name)
+			} else {
+				dest = fmt.Sprintf("%v/%v/%v", cfg.Destination, v.Parent.Name, v.Payload.Name)
+			}
+			_, err := os.Stat(dest)
+			assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Name))
+		}
+	}
+	// TODO verify services
+}
+
 func planHelper(todo materia.ActionType, name, res string) materia.Action {
 	act := materia.Action{
 		Todo: todo,
