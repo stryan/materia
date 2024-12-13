@@ -401,29 +401,24 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	case ActionStartService:
 		log.Info("starting service", "unit", res.Name)
 		_, err = m.SystemdConn.StartUnitContext(ctx, res.Name, "fail", callback)
-		if err != nil {
-			log.Warn(err)
-		}
+
 	case ActionStopService:
 		log.Info("stopping service", "unit", res.Name)
 		_, err = m.SystemdConn.StopUnitContext(ctx, res.Name, "fail", callback)
-		if err != nil {
-			log.Warn(err)
-		}
+
 	case ActionRestartService:
 		log.Info("restarting service", "unit", res.Name)
 		_, err = m.SystemdConn.RestartUnitContext(ctx, res.Name, "fail", callback)
-		if err != nil {
-			log.Warn(err)
-		}
+
 	case ActionReloadUnits:
 		log.Info("restarting service", "unit", res.Name)
 		err = m.SystemdConn.ReloadContext(ctx)
-		if err != nil {
-			log.Warn(err)
-		}
+
 	default:
 		return errors.New("invalid service command")
+	}
+	if err != nil {
+		return err
 	}
 	if command.Todo != ActionReloadUnits {
 		select {
