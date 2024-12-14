@@ -4,4 +4,4 @@
 *_string.go
 *recipient
 test_repo/
-*.age
+**/*.age
