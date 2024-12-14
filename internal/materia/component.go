@@ -99,7 +99,7 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(ctx context.Context, vars map[string]interface{}) error {
+func (c *Component) test(_ context.Context, vars map[string]interface{}) error {
 	diffVars := make(map[string]interface{})
 	maps.Copy(diffVars, c.Builtins)
 	maps.Copy(diffVars, vars)

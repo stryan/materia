@@ -12,7 +12,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
@@ -22,14 +21,13 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v4/pkg/bindings"
-	"github.com/containers/podman/v4/pkg/bindings/volumes"
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
 type Materia struct {
-	Timeout       int
-	SystemdConn   *dbus.Conn
+	Services      Services
 	PodmanConn    context.Context
+	Containers    Containers
 	sm            secrets.SecretsManager
 	source        source.Source
 	files         Repository
@@ -108,9 +106,8 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 
 	}
 	return &Materia{
-		Timeout:       timeout,
-		SystemdConn:   conn,
-		PodmanConn:    podConn,
+		Services:      &ServiceManager{conn, timeout},
+		Containers:    &PodmanManager{podConn},
 		source:        source,
 		debug:         c.Debug,
 		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath, c.Debug),
@@ -119,7 +116,7 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 }
 
 func (m *Materia) Close() {
-	m.SystemdConn.Close()
+	m.Services.Close()
 	// TODO do something with closing the podman context here
 }
 
@@ -300,18 +297,11 @@ func (m *Materia) calculateVolDiffs(ctx context.Context, _ secrets.SecretsManage
 				volName := splitp[0]
 				volResource := splitp[1]
 				// ensure volume exists
-				callback := make(chan string)
-				_, err := m.SystemdConn.StartUnitContext(ctx, volName, "fail", callback)
+				err := m.Services.Start(ctx, volName)
 				if err != nil {
 					return actions, err
 				}
-				select {
-				case result := <-callback:
-					log.Debug("modified volume unit", "unit", volName, "result", result)
-				case <-time.After(time.Duration(m.Timeout) * time.Second):
-					log.Warn("timeout while starting volume unit", "unit", volName)
-				}
-				resp, err := volumes.Inspect(m.PodmanConn, fmt.Sprintf("systemd-%v", volName), nil)
+				resp, err := m.Containers.Inspect(volName)
 				if err != nil {
 					return actions, err
 				}
@@ -396,37 +386,36 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 			return errors.New("attempted to modify a non service resource")
 		}
 	}
-	callback := make(chan string)
 	switch command.Todo {
 	case ActionStartService:
 		log.Info("starting service", "unit", res.Name)
-		_, err = m.SystemdConn.StartUnitContext(ctx, res.Name, "fail", callback)
-
+		err = m.Services.Start(ctx, res.Name)
+		if err != nil {
+			log.Warn("error starting service: %w", err)
+		}
 	case ActionStopService:
 		log.Info("stopping service", "unit", res.Name)
-		_, err = m.SystemdConn.StopUnitContext(ctx, res.Name, "fail", callback)
+		err = m.Services.Stop(ctx, res.Name)
+		if err != nil {
+			log.Warn("error starting service: %w", err)
+		}
 
 	case ActionRestartService:
 		log.Info("restarting service", "unit", res.Name)
-		_, err = m.SystemdConn.RestartUnitContext(ctx, res.Name, "fail", callback)
+		err = m.Services.Restart(ctx, res.Name)
+		if err != nil {
+			log.Warn("error starting service: %w", err)
+		}
 
 	case ActionReloadUnits:
 		log.Info("restarting service", "unit", res.Name)
-		err = m.SystemdConn.ReloadContext(ctx)
+		err = m.Services.Reload(ctx)
+		if err != nil {
+			log.Warn("error reloading units")
+		}
 
 	default:
 		return errors.New("invalid service command")
-	}
-	if err != nil {
-		return err
-	}
-	if command.Todo != ActionReloadUnits {
-		select {
-		case result := <-callback:
-			log.Debug("modified unit", "unit", res.Name, "result", result)
-		case <-time.After(time.Duration(m.Timeout) * time.Second):
-			log.Warn("timeout while starting unit", "unit", res.Name)
-		}
 	}
 	return nil
 }
@@ -505,14 +494,11 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 		if c.State == StateOK {
 			servs := getServicesFromResources(c.Resources)
 			for _, s := range servs {
-				us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+				unit, err := m.Services.Get(ctx, s.Name)
 				if err != nil {
-					return actions, fmt.Errorf("error getting systemd units: %w", err)
+					return actions, err
 				}
-				if len(us) != 1 {
-					log.Warn("somethings funky with service", "service", s.Name)
-				}
-				if us[0].ActiveState != "active" {
+				if unit.State != "active" {
 					serviceActions = append(serviceActions, Action{
 						Todo:    ActionStartService,
 						Parent:  c,
@@ -537,14 +523,11 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			servs = comp.Services
 		}
 		for _, s := range servs {
-			us, err := m.SystemdConn.ListUnitsByNamesContext(ctx, []string{s.Name})
+			unit, err := m.Services.Get(ctx, s.Name)
 			if err != nil {
-				return actions, fmt.Errorf("error listing systemd units: %w", err)
+				return actions, err
 			}
-			if len(us) != 1 {
-				return actions, fmt.Errorf("somethings funky with service %v", s.Name)
-			}
-			if us[0].ActiveState != "active" {
+			if unit.State != "active" {
 				serviceActions = append(serviceActions, Action{
 					Todo:    ActionStartService,
 					Parent:  comp,
