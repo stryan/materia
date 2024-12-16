@@ -19,6 +19,21 @@ var (
 	prefix, installdir string
 )
 
+func testMateria(services []string) *materia.Materia {
+	m, err := materia.NewMateria(ctx, cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var mockservices MockServices
+	mockservices.Services = make(map[string]string)
+	m.Containers = &MockContainers{make(map[string]string)}
+	for _, v := range services {
+		mockservices.Services[v] = "unknown"
+	}
+	m.Services = &mockservices
+	return m
+}
+
 func TestMain(m *testing.M) {
 	testPrefix := fmt.Sprintf("/tmp/materia-test-%v", time.Now().Unix())
 	prefix = filepath.Join(testPrefix, "materia")
@@ -47,13 +62,12 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	os.RemoveAll(testPrefix)
+	// os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
 func TestFacts(t *testing.T) {
-	m, err := materia.NewMateria(ctx, cfg)
-	assert.Nil(t, err)
+	m := testMateria([]string{})
 	manifest, facts, err := m.Facts(ctx, cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, manifest)
@@ -65,8 +79,7 @@ func TestFacts(t *testing.T) {
 }
 
 func TestPlan(t *testing.T) {
-	m, err := materia.NewMateria(ctx, cfg)
-	assert.Nil(t, err)
+	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
 	manifest, facts, err := m.Facts(ctx, cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, manifest)
@@ -130,8 +143,7 @@ func TestPlan(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	m, err := materia.NewMateria(ctx, cfg)
-	assert.Nil(t, err)
+	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
 	manifest, facts, err := m.Facts(ctx, cfg)
 	assert.Nil(t, err)
 	assert.NotNil(t, manifest)
@@ -187,16 +199,16 @@ func TestExecute(t *testing.T) {
 	for _, v := range plan {
 		switch v.Todo {
 		case materia.ActionInstallComponent:
-			_, err := os.Stat(fmt.Sprintf("%v/components/%v", cfg.Prefix, v.Parent.Name))
+			_, err := os.Stat(fmt.Sprintf("%v/components/%v", prefix, v.Parent.Name))
 			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
-			_, err = os.Stat(fmt.Sprintf("%v/%v", cfg.Destination, v.Parent.Name))
+			_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
 			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
 		case materia.ActionInstallResource:
 			var dest string
 			if v.Payload.Kind == materia.ResourceTypeFile {
-				dest = fmt.Sprintf("%v/components/%v/%v", cfg.Prefix, v.Parent.Name, v.Payload.Name)
+				dest = fmt.Sprintf("%v/components/%v/%v", prefix, v.Parent.Name, v.Payload.Name)
 			} else {
-				dest = fmt.Sprintf("%v/%v/%v", cfg.Destination, v.Parent.Name, v.Payload.Name)
+				dest = fmt.Sprintf("%v/%v/%v", installdir, v.Parent.Name, v.Payload.Name)
 			}
 			_, err := os.Stat(dest)
 			assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Name))

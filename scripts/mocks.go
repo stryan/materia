@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
 )
@@ -10,34 +11,59 @@ type MockServices struct {
 	Services map[string]string
 }
 
-func (mockservices *MockServices) Start(_ context.Context, _ string) error {
-	panic("not implemented") // TODO: Implement
+func (mockservices *MockServices) Start(_ context.Context, name string) error {
+	if _, ok := mockservices.Services[name]; ok {
+		mockservices.Services[name] = "active"
+		return nil
+	}
+	return errors.New("service not found")
 }
 
-func (mockservices *MockServices) Stop(_ context.Context, _ string) error {
-	panic("not implemented") // TODO: Implement
+func (mockservices *MockServices) Stop(_ context.Context, name string) error {
+	if _, ok := mockservices.Services[name]; ok {
+		mockservices.Services[name] = "stopped"
+		return nil
+	}
+	return errors.New("service not found")
 }
 
-func (mockservices *MockServices) Restart(_ context.Context, _ string) error {
-	panic("not implemented") // TODO: Implement
+func (mockservices *MockServices) Restart(_ context.Context, name string) error {
+	if _, ok := mockservices.Services[name]; ok {
+		mockservices.Services[name] = "restarted"
+		return nil
+	}
+	return errors.New("service not found")
 }
 
 func (mockservices *MockServices) Reload(_ context.Context) error {
-	panic("not implemented") // TODO: Implement
+	return nil
 }
 
-func (mockservices *MockServices) Get(_ context.Context, _ string) (*materia.Service, error) {
-	panic("not implemented") // TODO: Implement
+func (mockservices *MockServices) Get(_ context.Context, name string) (*materia.Service, error) {
+	if state, ok := mockservices.Services[name]; !ok {
+		return nil, errors.New("service not found")
+	} else {
+		return &materia.Service{
+			Name:  name,
+			State: state,
+		}, nil
+	}
 }
 
 func (mockservices *MockServices) Close() {
-	panic("not implemented") // TODO: Implement
 }
 
 type MockContainers struct {
 	Volumes map[string]string
 }
 
-func (mockcontainers *MockContainers) Inspect(_ string) (*materia.Volume, error) {
-	panic("not implemented") // TODO: Implement
+func (mockcontainers *MockContainers) Inspect(name string) (*materia.Volume, error) {
+	if mount, ok := mockcontainers.Volumes[name]; !ok {
+		return nil, errors.New("volume not found")
+	} else {
+		return &materia.Volume{
+			Name:       name,
+			Mountpoint: mount,
+		}, nil
+	}
 }
