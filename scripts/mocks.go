@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
 )
@@ -12,14 +14,21 @@ type MockServices struct {
 }
 
 func (mockservices *MockServices) Start(_ context.Context, name string) error {
+	if !strings.HasSuffix(name, ".service") {
+		name = fmt.Sprintf("%v.service", name)
+	}
 	if _, ok := mockservices.Services[name]; ok {
 		mockservices.Services[name] = "active"
 		return nil
 	}
+
 	return errors.New("service not found")
 }
 
 func (mockservices *MockServices) Stop(_ context.Context, name string) error {
+	if !strings.HasSuffix(name, ".service") {
+		name = fmt.Sprintf("%v.service", name)
+	}
 	if _, ok := mockservices.Services[name]; ok {
 		mockservices.Services[name] = "stopped"
 		return nil
@@ -28,6 +37,9 @@ func (mockservices *MockServices) Stop(_ context.Context, name string) error {
 }
 
 func (mockservices *MockServices) Restart(_ context.Context, name string) error {
+	if !strings.HasSuffix(name, ".service") {
+		name = fmt.Sprintf("%v.service", name)
+	}
 	if _, ok := mockservices.Services[name]; ok {
 		mockservices.Services[name] = "restarted"
 		return nil
@@ -40,6 +52,10 @@ func (mockservices *MockServices) Reload(_ context.Context) error {
 }
 
 func (mockservices *MockServices) Get(_ context.Context, name string) (*materia.Service, error) {
+	if !strings.HasSuffix(name, ".service") {
+		name = fmt.Sprintf("%v.service", name)
+	}
+
 	if state, ok := mockservices.Services[name]; !ok {
 		return nil, errors.New("service not found")
 	} else {

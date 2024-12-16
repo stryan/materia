@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	// os.RemoveAll(testPrefix)
+	os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -203,6 +203,7 @@ func TestExecute(t *testing.T) {
 			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
 			_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
 			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
+
 		case materia.ActionInstallResource:
 			var dest string
 			if v.Payload.Kind == materia.ResourceTypeFile {
@@ -212,9 +213,12 @@ func TestExecute(t *testing.T) {
 			}
 			_, err := os.Stat(dest)
 			assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Name))
+		case materia.ActionStartService:
+			state, err := m.Services.Get(ctx, v.Payload.Name)
+			assert.Nil(t, err, "error getting service state")
+			assert.Equal(t, "active", state.State)
 		}
 	}
-	// TODO verify services
 }
 
 func planHelper(todo materia.ActionType, name, res string) materia.Action {

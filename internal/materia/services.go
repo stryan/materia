@@ -3,6 +3,8 @@ package materia
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -84,6 +86,9 @@ func (s *ServiceManager) Reload(ctx context.Context) error {
 }
 
 func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error) {
+	if !strings.HasSuffix(name, ".service") {
+		name = fmt.Sprintf("%v.service", name)
+	}
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return nil, err
