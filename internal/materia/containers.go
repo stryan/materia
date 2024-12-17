@@ -1,31 +1,41 @@
 package materia
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/containers/podman/v4/pkg/bindings/volumes"
+	"encoding/json"
+	"os/exec"
 )
 
 type Containers interface {
-	Inspect(string) (*Volume, error)
+	InspectVolume(string) (*Volume, error)
+	Close()
 }
 
-type PodmanManager struct {
-	Conn context.Context
-}
+type PodmanManager struct{}
 
 type Volume struct {
-	Name, Mountpoint string
+	Name       string `json:"Name"`
+	Mountpoint string `json:"Mountpoint"`
 }
 
-func (p *PodmanManager) Inspect(name string) (*Volume, error) {
-	vol, err := volumes.Inspect(p.Conn, fmt.Sprintf("systemd-%v", name), nil)
+func NewPodmanManager(cfg *Config) (*PodmanManager, error) {
+	return &PodmanManager{}, nil
+}
+
+func (p *PodmanManager) InspectVolume(name string) (*Volume, error) {
+	cmd := exec.Command("podman", "volume", "inspect", "--format", "json", name)
+	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
-	return &Volume{
-		Name:       vol.Name,
-		Mountpoint: vol.Mountpoint,
-	}, nil
+
+	var volume []Volume
+
+	if err := json.Unmarshal(output, &volume); err != nil {
+		return nil, err
+	}
+
+	return &volume[0], nil
+}
+
+func (p *PodmanManager) Close() {
 }

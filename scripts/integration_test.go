@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
 	"testing"
 	"time"
@@ -20,17 +21,16 @@ var (
 )
 
 func testMateria(services []string) *materia.Materia {
-	m, err := materia.NewMateria(ctx, cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var mockservices MockServices
+	mockservices := &MockServices{}
 	mockservices.Services = make(map[string]string)
-	m.Containers = &MockContainers{make(map[string]string)}
+	mockcontainers := &MockContainers{make(map[string]string)}
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
 	}
-	m.Services = &mockservices
+	m, err := materia.NewMateria(ctx, cfg, mockservices, mockcontainers)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return m
 }
 
@@ -45,6 +45,12 @@ func TestMain(m *testing.M) {
 		Timeout:     0,
 		Prefix:      testPrefix,
 		Destination: installdir,
+		User: &user.User{
+			Uid:      "100",
+			Gid:      "100",
+			Username: "nonroot",
+			HomeDir:  "",
+		},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
 	if err != nil {

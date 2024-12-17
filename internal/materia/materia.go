@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -20,8 +19,6 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/source/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
-	"github.com/containers/podman/v4/pkg/bindings"
-	"github.com/coreos/go-systemd/v22/dbus"
 )
 
 type Materia struct {
@@ -35,24 +32,14 @@ type Materia struct {
 	debug         bool
 }
 
-func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Materia, error) {
 	prefix := "/var/lib"
 	destination := "/etc/systemd/system"
-	timeout := c.Timeout
-	if timeout == 0 {
-		timeout = 30
-	}
-	var conn *dbus.Conn
-	var podConn context.Context
+	var err error
 
-	if currentUser.Username != "root" {
-		home := currentUser.HomeDir
+	if c.User.Username != "root" {
+		home := c.User.HomeDir
 		var found bool
-
 		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
 		if !found {
 			destination = fmt.Sprintf("%v/.config/containers/systemd/", home)
@@ -63,24 +50,6 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		if !found {
 			prefix = fmt.Sprintf("%v/.local/share", home)
 		}
-		conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		podConn, err = bindings.NewConnection(context.Background(), fmt.Sprintf("unix:///run/user/%v/podman/podman.sock", currentUser.Uid))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		conn, err = dbus.NewSystemConnectionContext(ctx)
-		if err != nil {
-			return nil, err
-		}
-		podConn, err = bindings.NewConnection(context.Background(), "unix:///run/podman/podman.sock")
-		if err != nil {
-			return nil, err
-		}
 	}
 	if c.Prefix != "" {
 		prefix = c.Prefix
@@ -88,6 +57,7 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 	if c.Destination != "" {
 		destination = c.Destination
 	}
+
 	var source source.Source
 	sourcePath := filepath.Join(prefix, "materia", "source")
 	url, err := url.Parse(c.SourceURL)
@@ -103,11 +73,10 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 		source = file.NewFileSource(sourcePath, rawPath)
 	default:
 		return nil, errors.New("invalid source")
-
 	}
 	return &Materia{
-		Services:      &ServiceManager{conn, timeout},
-		Containers:    &PodmanManager{podConn},
+		Services:      sm,
+		Containers:    cm,
 		source:        source,
 		debug:         c.Debug,
 		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath, c.Debug),
@@ -117,6 +86,7 @@ func NewMateria(ctx context.Context, c *Config) (*Materia, error) {
 
 func (m *Materia) Close() {
 	m.Services.Close()
+	m.Containers.Close()
 	// TODO do something with closing the podman context here
 }
 
@@ -301,7 +271,7 @@ func (m *Materia) calculateVolDiffs(ctx context.Context, _ secrets.SecretsManage
 				if err != nil {
 					return actions, err
 				}
-				resp, err := m.Containers.Inspect(volName)
+				resp, err := m.Containers.InspectVolume(volName)
 				if err != nil {
 					return actions, err
 				}

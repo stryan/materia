@@ -25,7 +25,15 @@ func main() {
 		log.Default().SetReportCaller(true)
 	}
 	ctx := context.Background()
-	m, err := materia.NewMateria(ctx, c)
+	sm, err := materia.NewServices(ctx, c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cm, err := materia.NewPodmanManager(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	m, err := materia.NewMateria(ctx, c, sm, cm)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -73,7 +73,7 @@ type MockContainers struct {
 	Volumes map[string]string
 }
 
-func (mockcontainers *MockContainers) Inspect(name string) (*materia.Volume, error) {
+func (mockcontainers *MockContainers) InspectVolume(name string) (*materia.Volume, error) {
 	if mount, ok := mockcontainers.Volumes[name]; !ok {
 		return nil, errors.New("volume not found")
 	} else {
@@ -83,3 +83,5 @@ func (mockcontainers *MockContainers) Inspect(name string) (*materia.Volume, err
 		}, nil
 	}
 }
+
+func (mockcontainers *MockContainers) Close() {}

@@ -2,6 +2,7 @@ package materia
 
 import (
 	"errors"
+	"os/user"
 	"strings"
 
 	"github.com/knadh/koanf/providers/env"
@@ -15,6 +16,7 @@ type Config struct {
 	Timeout     int
 	Prefix      string
 	Destination string
+	User        *user.User
 }
 
 func NewConfig() (*Config, error) {
@@ -33,6 +35,11 @@ func NewConfig() (*Config, error) {
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
 	c.Destination = k.String(".destination")
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	c.User = currentUser
 
 	return &c, nil
 }

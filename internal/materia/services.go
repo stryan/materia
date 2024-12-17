@@ -29,6 +29,30 @@ type Service struct {
 	State string
 }
 
+func NewServices(ctx context.Context, cfg *Config) (*ServiceManager, error) {
+	var conn *dbus.Conn
+	var err error
+	timeout := cfg.Timeout
+	if timeout == 0 {
+		timeout = 30
+	}
+	if cfg.User.Username != "root" {
+		conn, err = dbus.NewUserConnectionContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		conn, err = dbus.NewSystemConnectionContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &ServiceManager{
+		Conn:    conn,
+		Timeout: timeout,
+	}, nil
+}
+
 func (s *ServiceManager) Start(ctx context.Context, name string) error {
 	callback := make(chan string)
 	_, err := s.Conn.StartUnitContext(ctx, name, "fail", callback)
