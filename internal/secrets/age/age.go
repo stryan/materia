@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"maps"
 	"os"
@@ -44,6 +45,7 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 		return nil, err
 	}
 	var a AgeStore
+	fmt.Fprintf(os.Stderr, "FBLTHP[7]: age.go:47: IdentPath=%+v\n", c.IdentPath)
 	ifile, err := os.Open(c.IdentPath)
 	if err != nil {
 		return nil, err

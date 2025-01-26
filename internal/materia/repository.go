@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -24,27 +26,28 @@ type Repository interface {
 	GetAllSourceComponents(context.Context) ([]*Component, error)
 	GetInstalledComponent(context.Context, string) (*Component, error)
 	GetAllInstalledComponents(context.Context) ([]*Component, error)
-	InstallResource(comp *Component, res Resource, sm secrets.SecretsManager) error
+	InstallResource(ctx context.Context, comp *Component, res Resource, funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error
 	RemoveResource(comp *Component, res Resource, _ secrets.SecretsManager) error
 	InstallComponent(comp *Component, _ secrets.SecretsManager) error
 	RemoveComponent(comp *Component, _ secrets.SecretsManager) error
 	SourcePath() string
+	DataPath(string) string
 	GetManifest(context.Context) (*MateriaManifest, error)
 	GetComponentManifest(context.Context, string) (*ComponentManifest, error)
 	Clean(context.Context) error
 }
 
 type FileRepository struct {
-	prefix, quadletDestination, data, source string
-	debug                                    bool
+	prefix, quadletDestination, data, source, scriptsLocation string
+	debug                                                     bool
 }
 
 func (f *FileRepository) Setup(_ context.Context) error {
 	if _, err := os.Stat(filepath.Join(f.source, "MANIFEST.toml")); err != nil {
-		return err
+		return fmt.Errorf("no manifest found: %w", err)
 	}
 	if res, err := os.Stat(filepath.Join(f.source, "components")); err != nil {
-		return err
+		return fmt.Errorf("no components found: %w", err)
 	} else {
 		if !res.IsDir() {
 			return errors.New("source components is not a directory")
@@ -56,17 +59,20 @@ func (f *FileRepository) Setup(_ context.Context) error {
 	if _, err := os.Stat(f.quadletDestination); os.IsNotExist(err) {
 		return fmt.Errorf("destination %v does not exist, setup manually", f.quadletDestination)
 	}
+	if _, err := os.Stat(f.scriptsLocation); os.IsNotExist(err) {
+		return fmt.Errorf("scripts location %v does not exist, setup manually", f.scriptsLocation)
+	}
 	err := os.Mkdir(filepath.Join(f.prefix), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating prefix: %w", err)
 	}
 	err = os.Mkdir(filepath.Join(f.prefix, "source"), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating source repo: %w", err)
 	}
 	err = os.Mkdir(filepath.Join(f.prefix, "components"), 0o755)
-	if err != nil && os.IsNotExist(err) {
-		return err
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating components in prefix: %w", err)
 	}
 	return nil
 }
@@ -210,8 +216,13 @@ func (f *FileRepository) GetAllInstalledComponents(_ context.Context) ([]*Compon
 			State:     StateStale,
 		}
 		// load resources
+		// TODO add "degraded" state for existing components that are missing their quadlet or data folder
+		// and just remove existing files and reinstall manually
 		entries, err := os.ReadDir(filepath.Join(f.prefix, "components", v.Name()))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			return nil, err
 		}
 		for _, r := range entries {
@@ -226,6 +237,9 @@ func (f *FileRepository) GetAllInstalledComponents(_ context.Context) ([]*Compon
 		// load quadlets
 		entries, err = os.ReadDir(filepath.Join(f.quadletDestination, v.Name()))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			return nil, err
 		}
 		for _, r := range entries {
@@ -253,11 +267,21 @@ func (f *FileRepository) installFile(path string, data *bytes.Buffer) error {
 	return nil
 }
 
+func (f *FileRepository) linkFile(path, destination string) error {
+	return os.Symlink(path, destination)
+}
+
 func (f *FileRepository) installPath(comp *Component, r Resource) string {
-	if r.Kind != ResourceTypeFile {
-		return filepath.Join(f.quadletDestination, comp.Name)
-	} else {
+	switch r.Kind {
+	case ResourceTypeFile, ResourceTypeScript:
 		return filepath.Join(f.prefix, "components", comp.Name)
+	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
+		return filepath.Join(f.quadletDestination, comp.Name)
+	case ResourceTypeVolumeFile:
+		// TODO I guess this needs to be handled?
+		return "/tmp/"
+	default:
+		return ""
 	}
 }
 
@@ -272,16 +296,16 @@ func (f *FileRepository) InstallComponent(comp *Component, _ secrets.SecretsMana
 
 	err := os.Mkdir(filepath.Join(f.prefix, "components", comp.Name), 0o755)
 	if err != nil {
-		return err
+		return fmt.Errorf("error installing component %v: %w", filepath.Join(f.prefix, "components", comp.Name), err)
 	}
-	path := f.installPath(comp, Resource{})
+	path := filepath.Join(f.quadletDestination, comp.Name)
 	err = os.Mkdir(path, 0o755)
 	if err != nil {
-		return err
+		return fmt.Errorf("error installing component: %w", err)
 	}
 	file, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", path), os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
-		return err
+		return fmt.Errorf("error installing component: %w", err)
 	}
 	defer file.Close()
 
@@ -306,7 +330,7 @@ func (f *FileRepository) RemoveComponent(comp *Component, _ secrets.SecretsManag
 	return nil
 }
 
-func (f *FileRepository) InstallResource(comp *Component, res Resource, sm secrets.SecretsManager) error {
+func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, res Resource, funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
 	if err := comp.Validate(); err != nil {
 		return err
 	}
@@ -320,22 +344,24 @@ func (f *FileRepository) InstallResource(comp *Component, res Resource, sm secre
 		return err
 	}
 	if res.Template {
-		result = bytes.NewBuffer([]byte{})
 		log.Debug("applying template", "file", res.Name)
-		tmpl, err := template.New(res.Name).Parse(string(data))
+		result, err = res.execute(funcMap, vars)
 		if err != nil {
-			panic(err)
-		}
-		err = tmpl.Execute(result, sm.Lookup(context.Background(), secrets.SecretFilter{}))
-		if err != nil {
-			panic(err)
+			return err
 		}
 	} else {
 		result = bytes.NewBuffer(data)
 	}
-	err = f.installFile(fmt.Sprintf("%v/%v", path, res.Name), result)
+	fileLocation := fmt.Sprintf("%v/%v", path, res.Name)
+	err = f.installFile(fileLocation, result)
 	if err != nil {
 		return err
+	}
+	if res.Kind == ResourceTypeScript {
+		err = f.linkFile(fileLocation, f.scriptsLocation)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -350,6 +376,14 @@ func (f *FileRepository) RemoveResource(comp *Component, res Resource, _ secrets
 	}
 	if strings.Contains(res.Path, f.source) {
 		return fmt.Errorf("tried to remove resource %v for component %v from source", res.Name, comp.Name)
+	}
+
+	if res.Kind == ResourceTypeScript {
+		// unlink first
+		err := os.Remove(path.Join(f.scriptsLocation, res.Name))
+		if err != nil {
+			return err
+		}
 	}
 
 	err := os.Remove(res.Path)
@@ -395,6 +429,7 @@ func (f *FileRepository) Clean(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO remove scripts too?
 	// clean prefix too?
 	return nil
 }
@@ -411,6 +446,10 @@ func (f *FileRepository) SourcePath() string {
 	return f.source
 }
 
+func (f *FileRepository) DataPath(c string) string {
+	return filepath.Join(f.prefix, "components", c)
+}
+
 func NewFileRepository(p, q, d, s string, debug bool) *FileRepository {
 	if strings.HasSuffix(p, "materia") {
 		panic("BAD PREFIX")
@@ -420,6 +459,7 @@ func NewFileRepository(p, q, d, s string, debug bool) *FileRepository {
 		quadletDestination: q,
 		data:               d,
 		source:             s,
+		scriptsLocation:    "/usr/local/bin",
 		debug:              debug,
 	}
 }

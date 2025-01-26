@@ -96,17 +96,7 @@ func (s *ServiceManager) Restart(ctx context.Context, name string) error {
 }
 
 func (s *ServiceManager) Reload(ctx context.Context) error {
-	callback := make(chan string)
-	err := s.Conn.ReloadContext(ctx)
-	if err != nil {
-		return err
-	}
-	select {
-	case <-callback:
-		return nil
-	case <-time.After(time.Duration(s.Timeout) * time.Second):
-		return errors.New("timeout starting unit")
-	}
+	return s.Conn.ReloadContext(ctx)
 }
 
 func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error) {

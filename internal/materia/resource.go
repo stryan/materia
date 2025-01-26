@@ -29,6 +29,7 @@ const (
 	ResourceTypeKube
 	ResourceTypeFile
 	ResourceTypeVolumeFile
+	ResourceTypeScript
 
 	// special types that exist after systemctl daemon-reload
 	ResourceTypeService
@@ -48,7 +49,7 @@ func (r *Resource) String() string {
 	return fmt.Sprintf("{r %v %v %v %v }", r.Name, r.Path, r.Kind, r.Template)
 }
 
-func (cur Resource) diff(newRes Resource, vars map[string]interface{}) ([]diffmatchpatch.Diff, error) {
+func (cur Resource) diff(fmap func(map[string]interface{}) template.FuncMap, newRes Resource, vars map[string]interface{}) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -70,7 +71,7 @@ func (cur Resource) diff(newRes Resource, vars map[string]interface{}) ([]diffma
 	var newString string
 	var result *bytes.Buffer
 	if newRes.Template {
-		result, err = newRes.execute(vars)
+		result, err = newRes.execute(fmap, vars)
 		if err != nil {
 			return diffs, err
 		}
@@ -82,43 +83,14 @@ func (cur Resource) diff(newRes Resource, vars map[string]interface{}) ([]diffma
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (cur Resource) execute(vars map[string]interface{}) (*bytes.Buffer, error) {
+func (cur Resource) execute(funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) (*bytes.Buffer, error) {
 	newFile, err := os.ReadFile(cur.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	result := bytes.NewBuffer([]byte{})
-	tmpl, err := template.New(cur.Name).Option("missingkey=error").Funcs(template.FuncMap{
-		"materia_defaults": func(arg string) string {
-			switch arg {
-			case "after":
-				if res, ok := vars["After"]; ok {
-					return res.(string)
-				} else {
-					return "local-fs.target network.target"
-				}
-			case "wants":
-				if res, ok := vars["Wants"]; ok {
-					return res.(string)
-				} else {
-					return "local-fs.target network.target"
-				}
-			case "requires":
-				if res, ok := vars["Requires"]; ok {
-					return res.(string)
-				} else {
-					return "local-fs.target network.target"
-				}
-			default:
-				return "ERR_BAD_DEFAULT"
-			}
-		},
-		"exists": func(arg string) bool {
-			_, ok := vars[arg]
-			return ok
-		},
-	}).Parse(string(newFile))
+	tmpl, err := template.New(cur.Name).Option("missingkey=error").Funcs(funcMap(vars)).Parse(string(newFile))
 	if err != nil {
 		return nil, err
 	}

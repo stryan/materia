@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"maps"
 	"os"
 	"path/filepath"
@@ -99,12 +100,12 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(_ context.Context, vars map[string]interface{}) error {
+func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
 	diffVars := make(map[string]interface{})
 	maps.Copy(diffVars, c.Builtins)
 	maps.Copy(diffVars, vars)
 	for _, newRes := range c.Resources {
-		_, err := newRes.execute(diffVars)
+		_, err := newRes.execute(fmap, diffVars)
 		if err != nil {
 			return err
 		}
@@ -112,11 +113,11 @@ func (c *Component) test(_ context.Context, vars map[string]interface{}) error {
 	return nil
 }
 
-func (c *Component) diff(other *Component, vars map[string]interface{}) ([]Action, error) {
+func (c *Component) diff(other *Component, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) ([]Action, error) {
 	var diffActions []Action
-	if len(c.Resources) == 0 || len(other.Resources) == 0 {
+	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
-		return diffActions, fmt.Errorf("one or both components is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
+		return diffActions, fmt.Errorf("canidate component is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
 	}
 	if err := c.Validate(); err != nil {
 		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)
@@ -140,7 +141,7 @@ func (c *Component) diff(other *Component, vars map[string]interface{}) ([]Actio
 		cur := currentResources[k]
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			diffs, err := cur.diff(newRes, diffVars)
+			diffs, err := cur.diff(fmap, newRes, diffVars)
 			if err != nil {
 				return diffActions, err
 			}

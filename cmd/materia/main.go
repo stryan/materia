@@ -4,13 +4,26 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 )
 
-func main() {
+var Commit = func() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				return setting.Value
+			}
+		}
+	}
+
+	return ""
+}()
+
+func setup(ctx context.Context) (*materia.Materia, *materia.Config, error) {
 	// Configure
 	c, err := materia.NewConfig()
 	if err != nil {
@@ -24,7 +37,6 @@ func main() {
 		log.Default().SetLevel(log.DebugLevel)
 		log.Default().SetReportCaller(true)
 	}
-	ctx := context.Background()
 	sm, err := materia.NewServices(ctx, c)
 	if err != nil {
 		log.Fatal(err)
@@ -37,7 +49,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer m.Close()
+	return m, c, nil
+}
+
+func main() {
+	ctx := context.Background()
 	app := &cli.App{
 		Name:  "materia",
 		Usage: "Manage quadlet files and resources",
@@ -46,6 +62,10 @@ func main() {
 				Name:    "facts",
 				Aliases: []string{"-f"},
 				Action: func(cCtx *cli.Context) error {
+					m, c, err := setup(ctx)
+					if err != nil {
+						return err
+					}
 					man, facts, err := m.Facts(ctx, c)
 					if err != nil {
 						return err
@@ -60,6 +80,10 @@ func main() {
 				Aliases: []string{"-p"},
 				Usage:   "Show application plan",
 				Action: func(cCtx *cli.Context) error {
+					m, c, err := setup(ctx)
+					if err != nil {
+						return err
+					}
 					manifest, facts, err := m.Facts(ctx, c)
 					if err != nil {
 						return fmt.Errorf("error generating facts: %w", err)
@@ -83,6 +107,10 @@ func main() {
 				Aliases: []string{"-u"},
 				Usage:   "Plan and execute update",
 				Action: func(cCtx *cli.Context) error {
+					m, c, err := setup(ctx)
+					if err != nil {
+						return err
+					}
 					manifest, facts, err := m.Facts(ctx, c)
 					if err != nil {
 						return err
@@ -95,7 +123,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					err = m.Execute(ctx, plan)
+					err = m.Execute(ctx, facts, plan)
 					if err != nil {
 						return err
 					}
@@ -107,7 +135,19 @@ func main() {
 				Aliases: []string{},
 				Usage:   "remove all related file paths",
 				Action: func(_ *cli.Context) error {
+					m, _, err := setup(ctx)
+					if err != nil {
+						return err
+					}
 					return m.Clean(ctx)
+				},
+			},
+			{
+				Name:  "version",
+				Usage: "show version",
+				Action: func(_ *cli.Context) error {
+					fmt.Printf("materia version git-%v", Commit)
+					return nil
 				},
 			},
 		},

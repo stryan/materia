@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -103,6 +104,7 @@ func TestPlan(t *testing.T) {
 	}
 	assert.Equal(t, expectedManifest.Hosts, manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, manifest.Secrets)
+	fixAgeManifest(manifest)
 	err = m.Prepare(ctx, manifest)
 	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
 	plan, err := m.Plan(ctx, manifest, facts)
@@ -110,17 +112,6 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	// {Todo:InstallComponent Parent:{c double Fresh } Payload:{Path: Name: Kind:Unknown Template:false}}
-	// {Todo:InstallResource Parent:{c double Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/double/goodbye.container.gotmpl Name:goodbye.container Kind:Container Template:true}}
-	// {Todo:InstallResource Parent:{c double Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/double/hello.container.gotmpl Name:hello.container Kind:Container Template:true}}
-	// {Todo:InstallComponent Parent:{c hello Fresh } Payload:{Path: Name: Kind:Unknown Template:false}}
-	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.container.gotmpl Name:hello.container Kind:Container Template:true}}
-	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.env Name:hello.env Kind:File Template:false}}
-	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/hello.volume Name:hello.volume Kind:Volume Template:false}}
-	// {Todo:InstallResource Parent:{c hello Fresh } Payload:{Path:/tmp/materia-test-1731883729/source/components/hello/test.env.gotmpl Name:test.env Kind:File Template:true}}
-	// {Todo:StartService Parent:{c hello Fresh } Payload:{Path: Name:hello-volume.service Kind:Service Template:false}}
-	// {Todo:StartService Parent:{c double Fresh } Payload:{Path: Name:goodbye.service Kind:Service Template:false}}
-	// {Todo:StartService Parent:{c hello Fresh } Payload:{Path: Name:hello.service Kind:Service Template:false}}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
@@ -167,6 +158,7 @@ func TestExecute(t *testing.T) {
 	}
 	assert.Equal(t, expectedManifest.Hosts, manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, manifest.Secrets)
+	fixAgeManifest(manifest)
 	err = m.Prepare(ctx, manifest)
 	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
 	plan, err := m.Plan(ctx, manifest, facts)
@@ -199,8 +191,11 @@ func TestExecute(t *testing.T) {
 			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
 		}
 	}
-	err = m.Execute(ctx, plan)
+	err = m.Execute(ctx, facts, plan)
 	assert.Nil(t, err, fmt.Sprintf("error executing plan: %v", err))
+	if err != nil {
+		log.Fatal(err)
+	}
 	// verify all the files are in place
 	for _, v := range plan {
 		switch v.Todo {
@@ -238,4 +233,10 @@ func planHelper(todo materia.ActionType, name, res string) materia.Action {
 		},
 	}
 	return act
+}
+
+func fixAgeManifest(m *materia.MateriaManifest) {
+	config := m.SecretsConfig.(age.Config)
+	config.IdentPath = fmt.Sprintf("%v/source/key.txt", prefix)
+	m.SecretsConfig = config
 }

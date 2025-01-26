@@ -1,3 +1,5 @@
+REPOHOST = ${MATERIA_TEST_REPO_HOST}
+REPO = ${MATERIA_TEST_REPO_URL}
 all: build
 
 
@@ -22,4 +24,14 @@ tools:
 clean:
 	rm materia
 
-.PHONY: clean tools all test
+test-vm: build test test-vm-build test-vm-update
+test-vm-build:
+	virter vm run --name materia-test-alma-9 --id 101 --wait-ssh alma-9
+test-vm-update: build
+	virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$(REPO) --set values.RemoteHost=$(REPOHOST)
+test-vm-connect:
+	virter vm ssh materia-test-alma-9
+rm-test-vm:
+	virter vm rm materia-test-alma-9
+
+.PHONY: clean tools all test test-vm test-vm-connect rm-test-vm

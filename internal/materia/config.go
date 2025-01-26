@@ -16,14 +16,15 @@ type Config struct {
 	Timeout     int
 	Prefix      string
 	Destination string
+	PrivateKey  string
 	User        *user.User
 }
 
 func NewConfig() (*Config, error) {
 	k := koanf.New(".")
 	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
-		return strings.Replace(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA")), "_", ".", -1)
+		return strings.ReplaceAll(strings.ToLower(
+			strings.TrimPrefix(s, "MATERIA")), "_", ".")
 	}), nil)
 	if err != nil {
 		return nil, err
@@ -35,6 +36,7 @@ func NewConfig() (*Config, error) {
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
 	c.Destination = k.String(".destination")
+	c.PrivateKey = k.String(".privatekey")
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err

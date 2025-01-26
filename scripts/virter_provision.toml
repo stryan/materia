@@ -1,0 +1,41 @@
+version = 1
+
+[values]
+Repo = "git@github.com:materia/materia_repo"
+RemoteHost = "github.com"
+AgeKeyLocation = "scripts/vm/auth/key.txt"
+
+[env]
+MATERIA_SOURCEURL = "{{ .Repo }}"
+MATERIA_PRIVATEKEY = ".ssh/materia_key"
+REMOTEHOST = "{{ .RemoteHost }}"
+
+[[steps]]
+[steps.shell]
+script = """
+yum install -y make rsync podman git
+"""
+
+[[steps]]
+[steps.rsync]
+source = "materia"
+dest = "/usr/local/bin/materia"
+
+[[steps]]
+[steps.rsync]
+source = "scripts/vm/auth/*"
+dest = "/root/.ssh/"
+
+[[steps]]
+[steps.rsync]
+source = "{{ .AgeKeyLocation }}"
+dest = "/root/"
+
+[[steps]]
+[steps.shell]
+script = """
+ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
+/usr/local/bin/materia version
+/usr/local/bin/materia plan
+"""
+
