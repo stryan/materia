@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
 	cfg = &materia.Config{
-		SourceURL:   "file://../example_repo",
+		SourceURL:   "file://./testrepo",
 		Debug:       false,
 		Hostname:    "localhost",
 		Timeout:     0,

@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"errors"
 	"path/filepath"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
@@ -45,6 +46,16 @@ func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 }
 
 func (m MateriaManifest) Validate() error {
+	for k, v := range m.Hosts {
+		if k == "" {
+			return errors.New("materia manifest can't have empty host name")
+		}
+		for _, c := range v.Components {
+			if c == "" {
+				return errors.New("materia manifest can't have empty component name")
+			}
+		}
+	}
 	return nil
 }
 

@@ -38,6 +38,7 @@ type Repository interface {
 }
 
 type FileRepository struct {
+	// defaults: /var/lib/materia, /etc/containers/systemd, /var/lib/materia/components, /var/lib/materia/source, /usr/local/bin/
 	prefix, quadletDestination, data, source, scriptsLocation string
 	debug                                                     bool
 }
@@ -323,11 +324,17 @@ func (f *FileRepository) RemoveComponent(comp *Component, _ secrets.SecretsManag
 		}
 		log.Info("removed", "resource", v.Name)
 	}
-	err := os.Remove(filepath.Join(f.prefix, "components", comp.Name))
+
+	err := os.Remove(filepath.Join(f.data, comp.Name))
 	if err != nil {
 		return err
 	}
-	return nil
+	err = os.Remove(filepath.Join(f.quadletDestination, comp.Name, ".materia_managed"))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(f.quadletDestination, comp.Name))
+	return err
 }
 
 func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, res Resource, funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {

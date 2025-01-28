@@ -25,3 +25,12 @@ type SecretsVault struct {
 	Hosts      map[string]map[string]interface{}
 	Roles      map[string]map[string]interface{}
 }
+
+func MergeSecrets(higher map[string]interface{}, lower map[string]interface{}) map[string]interface{} {
+	for k, v := range lower {
+		if _, ok := higher[k]; !ok {
+			higher[k] = v
+		}
+	}
+	return higher
+}

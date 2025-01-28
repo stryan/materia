@@ -18,7 +18,7 @@ type Component struct {
 	Services  []Resource
 	Resources []Resource
 	State     ComponentLifecycle
-	Builtins  map[string]interface{}
+	Defaults  map[string]interface{}
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -38,13 +38,13 @@ const (
 )
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v }", c.Name, c.State)
+	return fmt.Sprintf("{c %v %v D: [%v]}", c.Name, c.State, c.Defaults)
 }
 
 func NewComponentFromSource(path string) (*Component, error) {
 	c := &Component{}
 	c.Name = filepath.Base(path)
-	c.Builtins = make(map[string]interface{})
+	c.Defaults = make(map[string]interface{})
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
@@ -54,11 +54,12 @@ func NewComponentFromSource(path string) (*Component, error) {
 	for _, v := range entries {
 		resPath := filepath.Join(path, v.Name())
 		if v.Name() == "MANIFEST.toml" {
+			log.Debugf("loading component manifest %v", c.Name)
 			man, err = LoadComponentManifest(resPath)
 			if err != nil {
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
-			maps.Copy(c.Builtins, man.Defaults)
+			maps.Copy(c.Defaults, man.Defaults)
 		} else {
 			newRes := Resource{
 				Path:     resPath,
@@ -102,7 +103,7 @@ func (c Component) Validate() error {
 
 func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
 	diffVars := make(map[string]interface{})
-	maps.Copy(diffVars, c.Builtins)
+	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, newRes := range c.Resources {
 		_, err := newRes.execute(fmap, diffVars)
@@ -128,7 +129,7 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 	currentResources := make(map[string]Resource)
 	newResources := make(map[string]Resource)
 	diffVars := make(map[string]interface{})
-	maps.Copy(diffVars, c.Builtins)
+	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, v := range c.Resources {
 		currentResources[v.Name] = v

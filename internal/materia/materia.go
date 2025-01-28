@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -74,7 +75,7 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		Containers:    cm,
 		source:        source,
 		debug:         c.Debug,
-		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "components"), sourcePath, c.Debug),
+		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "materia", "components"), sourcePath, c.Debug),
 		rootComponent: &Component{Name: "root"},
 	}
 	m.templateFunctions = func(vars map[string]interface{}) template.FuncMap {
@@ -102,6 +103,9 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 				default:
 					return "ERR_BAD_DEFAULT"
 				}
+			},
+			"materia_auto_update": func(arg string) string {
+				return fmt.Sprintf("Label=io.containers.autoupdate=%v", arg)
 			},
 			"quadletDataDir": func(arg string) string {
 				return m.files.DataPath(arg)
@@ -202,6 +206,7 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 			v.State = StateCanidate
 			updatedComponents[v.Name] = v
 			existing.State = StateMayNeedUpdate
+			existing.Defaults = v.Defaults
 			currentComponents[v.Name] = existing
 		}
 	}
@@ -397,27 +402,27 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 		log.Info("starting service", "unit", res.Name)
 		err = m.Services.Start(ctx, res.Name)
 		if err != nil {
-			log.Warn("error starting service: %w", err)
+			log.Warnf("error starting service: %v", err)
 		}
 	case ActionStopService:
 		log.Info("stopping service", "unit", res.Name)
 		err = m.Services.Stop(ctx, res.Name)
 		if err != nil {
-			log.Warn("error starting service: %w", err)
+			log.Warnf("error starting service: %v", err)
 		}
 
 	case ActionRestartService:
 		log.Info("restarting service", "unit", res.Name)
 		err = m.Services.Restart(ctx, res.Name)
 		if err != nil {
-			log.Warn("error starting service: %w", err)
+			log.Warnf("error starting service: %v", err)
 		}
 
 	case ActionReloadUnits:
 		log.Info("reloading units")
 		err = m.Services.Reload(ctx)
 		if err != nil {
-			log.Warn("error reloading units")
+			log.Warnf("error reloading units")
 		}
 
 	default:
@@ -451,7 +456,7 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 			log.Debug("fresh:", "component", v.Name)
 		case StateMayNeedUpdate:
 			updating = append(updating, v.Name)
-			log.Debug("update:", "component", v.Name)
+			log.Debug("may update:", "component", v.Name)
 		case StateNeedRemoval:
 			removing = append(removing, v.Name)
 			log.Debug("remove:", "component", v.Name)
@@ -497,8 +502,11 @@ func (m *Materia) Plan(ctx context.Context, man *MateriaManifest, f *Facts) ([]A
 		}
 		if v.Todo == ActionRemoveResource {
 			if v.Payload.Kind == ResourceTypeContainer || v.Payload.Kind == ResourceTypePod {
-				potentialRemovedServices[v.Parent.Name] = append(potentialRemovedServices[v.Parent.Name], v.Payload)
+				potentialRemovedServices[v.Parent.Name] = []Resource{}
 			}
+		}
+		if v.Todo == ActionRemoveComponent {
+			potentialRemovedServices[v.Parent.Name] = v.Parent.Resources
 		}
 	}
 	for _, k := range keys {
@@ -589,9 +597,18 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 	// Template and install resources
 	resourceChanged := false
 	for _, v := range plan {
+		vars := make(map[string]interface{})
 		if err := v.Validate(); err != nil {
 			return err
 		}
+		vaultVars := m.sm.Lookup(ctx, secrets.SecretFilter{
+			Hostname:  f.Hostname,
+			Role:      f.Role,
+			Component: v.Parent.Name,
+		})
+		maps.Copy(vars, v.Parent.Defaults)
+
+		maps.Copy(vars, vaultVars)
 
 		switch v.Todo {
 		case ActionInstallComponent:
@@ -600,21 +617,13 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 			}
 			resourceChanged = true
 		case ActionInstallResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, m.sm.Lookup(ctx, secrets.SecretFilter{
-				Hostname:  f.Hostname,
-				Role:      f.Role,
-				Component: v.Parent.Name,
-			})); err != nil {
+			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, vars); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionUpdateResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, m.sm.Lookup(ctx, secrets.SecretFilter{
-				Hostname:  f.Hostname,
-				Role:      f.Role,
-				Component: v.Parent.Name,
-			})); err != nil {
+			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, vars); err != nil {
 				return err
 			}
 
