@@ -28,6 +28,7 @@ const (
 	ResourceTypeNetwork
 	ResourceTypeKube
 	ResourceTypeFile
+	ResourceTypeManifest
 	ResourceTypeVolumeFile
 	ResourceTypeScript
 

@@ -33,7 +33,7 @@ test-vm-connect:
 	virter vm ssh materia-test-alma-9
 test-vm-local:
 	virter vm run --name materia-local-alma-9 --id 102 --wait-ssh alma-9
-	virter vm exec materia-local-alma-9 --provision ./scripts/virter_local_testing.toml --set values.Repo="$MATERIA_LOCAL_REPO_URL" --set vaules.LocalRepo="$MATERIAL_LOCAL_REPO"
+	virter vm exec materia-local-alma-9 --provision ./scripts/virter_local_testing.toml --set values.Repo="$MATERIA_LOCAL_REPO_URL" --set vaules.LocalRepo="$MATERIA_LOCAL_REPO"
 rm-test-vm:
 	virter vm rm materia-test-alma-9
 

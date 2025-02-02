@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -168,8 +169,12 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 		Name:      name,
 		Resources: []Resource{},
 		State:     StateStale,
+		Services:  []Resource{},
+		Defaults:  make(map[string]interface{}),
 	}
 	// load resources
+
+	var man *ComponentManifest
 	entries, err := os.ReadDir(filepath.Join(f.prefix, "components", name))
 	if err != nil {
 		return nil, err
@@ -181,7 +186,16 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 			Kind:     findResourceType(r.Name()),
 			Template: isTemplate(r.Name()),
 		}
+
 		oldComp.Resources = append(oldComp.Resources, newRes)
+		if r.Name() == "MANIFEST.toml" {
+			log.Debugf("loading installed component manifest %v", oldComp.Name)
+			man, err = LoadComponentManifest(newRes.Path)
+			if err != nil {
+				return nil, fmt.Errorf("error loading component manifest: %w", err)
+			}
+			maps.Copy(oldComp.Defaults, man.Defaults)
+		}
 	}
 	// load quadlets
 	entries, err = os.ReadDir(filepath.Join(f.quadletDestination, name))
@@ -200,10 +214,22 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 		}
 		oldComp.Resources = append(oldComp.Resources, newRes)
 	}
+	if man != nil {
+		for _, s := range man.Services {
+			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target")) {
+				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+			}
+			oldComp.Services = append(oldComp.Services, Resource{
+				Name: s,
+				Kind: ResourceTypeService,
+			})
+		}
+	}
+
 	return oldComp, nil
 }
 
-func (f *FileRepository) GetAllInstalledComponents(_ context.Context) ([]*Component, error) {
+func (f *FileRepository) GetAllInstalledComponents(ctx context.Context) ([]*Component, error) {
 	var components []*Component
 	intalledComponents := filepath.Join(f.prefix, "components")
 	entries, err := os.ReadDir(intalledComponents)
@@ -211,49 +237,9 @@ func (f *FileRepository) GetAllInstalledComponents(_ context.Context) ([]*Compon
 		return nil, err
 	}
 	for _, v := range entries {
-		oldComp := &Component{
-			Name:      v.Name(),
-			Resources: []Resource{},
-			State:     StateStale,
-		}
-		// load resources
-		// TODO add "degraded" state for existing components that are missing their quadlet or data folder
-		// and just remove existing files and reinstall manually
-		entries, err := os.ReadDir(filepath.Join(f.prefix, "components", v.Name()))
+		oldComp, err := f.GetInstalledComponent(ctx, v.Name())
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
 			return nil, err
-		}
-		for _, r := range entries {
-			newRes := Resource{
-				Path:     filepath.Join(filepath.Join(f.prefix, "components", v.Name(), r.Name())),
-				Name:     strings.TrimSuffix(r.Name(), ".gotmpl"),
-				Kind:     findResourceType(r.Name()),
-				Template: isTemplate(r.Name()),
-			}
-			oldComp.Resources = append(oldComp.Resources, newRes)
-		}
-		// load quadlets
-		entries, err = os.ReadDir(filepath.Join(f.quadletDestination, v.Name()))
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return nil, err
-		}
-		for _, r := range entries {
-			if r.Name() == ".materia_managed" {
-				continue
-			}
-			newRes := Resource{
-				Path:     filepath.Join(f.quadletDestination, v.Name(), r.Name()),
-				Name:     strings.TrimSuffix(r.Name(), ".gotmpl"),
-				Kind:     findResourceType(r.Name()),
-				Template: isTemplate(r.Name()),
-			}
-			oldComp.Resources = append(oldComp.Resources, newRes)
 		}
 		components = append(components, oldComp)
 	}
@@ -274,7 +260,7 @@ func (f *FileRepository) linkFile(path, destination string) error {
 
 func (f *FileRepository) installPath(comp *Component, r Resource) string {
 	switch r.Kind {
-	case ResourceTypeFile, ResourceTypeScript:
+	case ResourceTypeManifest, ResourceTypeFile, ResourceTypeScript:
 		return filepath.Join(f.prefix, "components", comp.Name)
 	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
 		return filepath.Join(f.quadletDestination, comp.Name)

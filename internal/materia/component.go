@@ -30,6 +30,7 @@ const (
 	StateFresh
 	StateOK
 	StateMayNeedUpdate
+	StateNeedUpdate
 	StateNeedRemoval
 	StateRemoved
 
@@ -38,7 +39,7 @@ const (
 )
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v D: [%v]}", c.Name, c.State, c.Defaults)
+	return fmt.Sprintf("{c %v %v Rs: %v D: [%v]}", c.Name, c.State, len(c.Resources), c.Defaults)
 }
 
 func NewComponentFromSource(path string) (*Component, error) {
@@ -54,35 +55,29 @@ func NewComponentFromSource(path string) (*Component, error) {
 	for _, v := range entries {
 		resPath := filepath.Join(path, v.Name())
 		if v.Name() == "MANIFEST.toml" {
-			log.Debugf("loading component manifest %v", c.Name)
+			log.Debugf("loading source component manifest %v", c.Name)
 			man, err = LoadComponentManifest(resPath)
 			if err != nil {
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
 			maps.Copy(c.Defaults, man.Defaults)
-		} else {
-			newRes := Resource{
-				Path:     resPath,
-				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-				Kind:     findResourceType(v.Name()),
-				Template: isTemplate(v.Name()),
-			}
-			c.Resources = append(c.Resources, newRes)
-			resources[newRes.Name] = newRes
 		}
+		newRes := Resource{
+			Path:     resPath,
+			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+			Kind:     findResourceType(v.Name()),
+			Template: isTemplate(v.Name()),
+		}
+		c.Resources = append(c.Resources, newRes)
+		resources[newRes.Name] = newRes
 	}
 	if man != nil {
 		for _, s := range man.Services {
-			if s == "" {
-				continue
-			}
-			resName := fmt.Sprintf("%v.container", s)
-			_, ok := resources[resName]
-			if !ok {
-				log.Warn("tried to assign service to component but no matching resource", "component", c.Name, "service", resName)
+			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target")) {
+				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
 			}
 			c.Services = append(c.Services, Resource{
-				Name: fmt.Sprintf("%v.service", s),
+				Name: s,
 				Kind: ResourceTypeService,
 			})
 		}
@@ -156,6 +151,7 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			}
 		} else {
 			// in current resources but not source resources, remove old
+			log.Debug("removing current resource", "file", cur.Name)
 			diffActions = append(diffActions, Action{
 				Todo:    ActionRemoveResource,
 				Parent:  c,
@@ -192,6 +188,8 @@ func findResourceType(file string) ResourceType {
 		return ResourceTypeVolume
 	case ".kube":
 		return ResourceTypeKube
+	case ".toml":
+		return ResourceTypeManifest
 	default:
 		return ResourceTypeFile
 

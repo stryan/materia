@@ -38,4 +38,3 @@ ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
 /usr/local/bin/materia version
 /usr/local/bin/materia plan
 """
-
