@@ -107,7 +107,7 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 			"materia_auto_update": func(arg string) string {
 				return fmt.Sprintf("Label=io.containers.autoupdate=%v", arg)
 			},
-			"quadletDataDir": func(arg string) string {
+			"materiaDataDir": func(arg string) string {
 				return m.files.DataPath(arg)
 			},
 			"exists": func(arg string) bool {

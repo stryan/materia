@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 type Component struct {
@@ -141,7 +142,10 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			if err != nil {
 				return diffActions, err
 			}
-			if len(diffs) != 1 {
+			if len(diffs) < 1 {
+				return diffActions, errors.New("failed to calculate diff: no diffs returned")
+			}
+			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name)
 				diffActions = append(diffActions, Action{
 					Todo:    ActionUpdateResource,

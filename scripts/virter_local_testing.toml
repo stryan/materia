@@ -31,7 +31,12 @@ dest = "/root/.ssh/"
 source = "{{ .AgeKeyLocation }}"
 dest = "/root/"
 
+
 [[steps]]
+[steps.shell]
+script = """
+rm -rf /tmp/{{ .LocalRepo }}
+"""
 [steps.rsync]
 source = "{{ .LocalRepo }}"
 dest = "/tmp/"
