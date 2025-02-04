@@ -145,7 +145,6 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 		if !ok {
 			return errors.New("tried to create an age secrets manager but config was not for age")
 		}
-		// TODO IdentPath needs to be customized
 		m.sm, err = age.NewAgeStore(age.Config{
 			IdentPath: conf.IdentPath,
 			RepoPath:  m.files.SourcePath(),
@@ -225,7 +224,6 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 
 func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.SecretsManager, currentComponents, newComponents map[string]*Component) ([]Action, error) {
 	var actions []Action
-	var allServiceActions []Action
 	keys := sortedKeys(currentComponents)
 	for _, k := range keys {
 		v := currentComponents[k]
@@ -238,14 +236,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 				Todo:   ActionInstallComponent,
 				Parent: v,
 			})
-			serviceActions := []Action{}
-			for _, s := range v.Services {
-				serviceActions = append(serviceActions, Action{
-					Todo:    ActionStartService,
-					Parent:  v,
-					Payload: s,
-				})
-			}
+
 			for _, r := range v.Resources {
 				err := v.test(ctx, m.templateFunctions, sm.Lookup(ctx, secrets.SecretFilter{
 					Hostname:  f.Hostname,
@@ -260,19 +251,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 					Parent:  v,
 					Payload: r,
 				})
-				if len(serviceActions) == 0 && (r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod) {
-					serv, err := getServicefromResource(r)
-					if err != nil {
-						return actions, err
-					}
-					serviceActions = append(serviceActions, Action{
-						Todo:    ActionStartService,
-						Parent:  v,
-						Payload: serv,
-					})
-				}
 			}
-			allServiceActions = append(allServiceActions, serviceActions...)
 		case StateMayNeedUpdate:
 			candidate, ok := newComponents[v.Name]
 			if !ok {
@@ -289,29 +268,6 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 			}
 			if len(resourceActions) != 0 {
 				actions = append(actions, resourceActions...)
-				if len(v.Services) != 0 {
-					for _, s := range v.Services {
-						allServiceActions = append(allServiceActions, Action{
-							Todo:    ActionRestartService,
-							Parent:  v,
-							Payload: s,
-						})
-					}
-				} else {
-					for _, r := range resourceActions {
-						if r.Payload.Kind == ResourceTypeContainer || r.Payload.Kind == ResourceTypePod {
-							serv, err := getServicefromResource(r.Payload)
-							if err != nil {
-								return actions, err
-							}
-							allServiceActions = append(allServiceActions, Action{
-								Todo:    ActionRestartService,
-								Parent:  v,
-								Payload: serv,
-							})
-						}
-					}
-				}
 				v.State = StateNeedUpdate
 			} else {
 				v.State = StateOK
@@ -321,29 +277,6 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 				Todo:   ActionRemoveComponent,
 				Parent: v,
 			})
-			if len(v.Services) != 0 {
-				for _, s := range v.Services {
-					allServiceActions = append(allServiceActions, Action{
-						Todo:    ActionStopService,
-						Parent:  v,
-						Payload: s,
-					})
-				}
-			} else {
-				for _, r := range v.Resources {
-					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-						serv, err := getServicefromResource(r)
-						if err != nil {
-							return actions, err
-						}
-						allServiceActions = append(allServiceActions, Action{
-							Todo:    ActionStopService,
-							Parent:  v,
-							Payload: serv,
-						})
-					}
-				}
-			}
 		case StateRemoved:
 			continue
 		case StateUnknown:
@@ -352,7 +285,6 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
 		}
 	}
-	actions = append(actions, allServiceActions...)
 	return actions, nil
 }
 
@@ -489,7 +421,7 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 				c.State = StateNeedUpdate
 			}
 		case StateRemoved:
-			// need to install all services
+			// need to stop all services
 			if len(c.Services) != 0 {
 				for _, s := range c.Services {
 					actions = append(actions, Action{
@@ -524,7 +456,14 @@ func getServicefromResource(serv Resource) (Resource, error) {
 	var res Resource
 	switch serv.Kind {
 	case ResourceTypeContainer:
-
+		servicename, found := strings.CutSuffix(serv.Name, ".container")
+		if !found {
+			return res, fmt.Errorf("invalid container name for service: %v", serv.Name)
+		}
+		res = Resource{
+			Name: fmt.Sprintf("%v.service", servicename),
+			Kind: ResourceTypeService,
+		}
 	case ResourceTypePod:
 		podname, found := strings.CutSuffix(serv.Name, ".pod")
 		if !found {
@@ -532,15 +471,6 @@ func getServicefromResource(serv Resource) (Resource, error) {
 		}
 		res = Resource{
 			Name: fmt.Sprintf("%v-pod.service", podname),
-			Kind: ResourceTypeService,
-		}
-	case ResourceTypeService:
-		servicename, found := strings.CutSuffix(serv.Name, ".container")
-		if !found {
-			return res, fmt.Errorf("invalid container name for service: %v", serv.Name)
-		}
-		res = Resource{
-			Name: fmt.Sprintf("%v.service", servicename),
 			Kind: ResourceTypeService,
 		}
 	default:
@@ -745,6 +675,7 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 			serviceActions = append(serviceActions, v)
 		}
 	}
+	// verify services
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Payload.Name)
 		if err != nil {
