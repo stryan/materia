@@ -119,6 +119,13 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 			"m_dataDir": func(arg string) string {
 				return m.files.DataPath(arg)
 			},
+			"m_default": func(arg string, def string) string {
+				val, ok := vars[arg]
+				if ok {
+					return val.(string)
+				}
+				return def
+			},
 			"exists": func(arg string) bool {
 				_, ok := vars[arg]
 				return ok
