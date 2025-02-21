@@ -16,10 +16,14 @@ type MateriaManifest struct {
 	Secrets       string
 	SecretsConfig secrets.SecretsConfig
 	Hosts         map[string]Host
+	Snippets      []SnippetConfig
+	Roles         map[string][]string
+	RoleCommand   string
 }
 
 type Host struct {
 	Components []string
+	Roles      []string
 }
 
 func LoadMateriaManifest(path string) (*MateriaManifest, error) {
@@ -55,6 +59,11 @@ func (m MateriaManifest) Validate() error {
 				return errors.New("materia manifest can't have empty component name")
 			}
 		}
+		for _, r := range v.Roles {
+			if r == "" {
+				return errors.New("materia manifest can't have empty role name")
+			}
+		}
 	}
 	return nil
 }
@@ -62,6 +71,7 @@ func (m MateriaManifest) Validate() error {
 type ComponentManifest struct {
 	Services []string
 	Defaults map[string]interface{}
+	Snippets []SnippetConfig
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

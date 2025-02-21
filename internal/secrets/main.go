@@ -15,7 +15,7 @@ type SecretsConfig interface {
 
 type SecretFilter struct {
 	Hostname  string
-	Role      string
+	Roles     []string
 	Component string
 }
 

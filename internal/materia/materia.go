@@ -1,17 +1,19 @@
 package materia
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"text/template"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
@@ -19,19 +21,21 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/source"
 	"git.saintnet.tech/stryan/materia/internal/source/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
+	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 )
 
 type Materia struct {
-	Services          Services
-	PodmanConn        context.Context
-	Containers        Containers
-	sm                secrets.SecretsManager
-	source            source.Source
-	files             Repository
-	rootComponent     *Component
-	templateFunctions func(map[string]interface{}) template.FuncMap
-	debug             bool
+	Services      Services
+	PodmanConn    context.Context
+	Containers    Containers
+	sm            secrets.SecretsManager
+	source        source.Source
+	files         Repository
+	rootComponent *Component
+	macros        func(map[string]interface{}) template.FuncMap
+	snippets      map[string]*Snippet
+	debug         bool
 }
 
 func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Materia, error) {
@@ -70,17 +74,25 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 	default:
 		return nil, errors.New("invalid source")
 	}
+	files := NewFileRepository(prefix, destination, filepath.Join(prefix, "materia", "components"), sourcePath, c.Debug)
+	snips := make(map[string]*Snippet)
+	defaultSnippets := loadDefaultSnippets()
+	for _, v := range defaultSnippets {
+		snips[v.Name] = v
+	}
+
 	m := &Materia{
 		Services:      sm,
 		Containers:    cm,
 		source:        source,
 		debug:         c.Debug,
-		files:         NewFileRepository(prefix, destination, filepath.Join(prefix, "materia", "components"), sourcePath, c.Debug),
+		files:         files,
+		snippets:      snips,
 		rootComponent: &Component{Name: "root"},
 	}
-	m.templateFunctions = func(vars map[string]interface{}) template.FuncMap {
+	m.macros = func(vars map[string]interface{}) template.FuncMap {
 		return template.FuncMap{
-			"materia_defaults": func(arg string) string {
+			"m_defaults": func(arg string) string {
 				switch arg {
 				case "after":
 					if res, ok := vars["After"]; ok {
@@ -104,15 +116,26 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 					return "ERR_BAD_DEFAULT"
 				}
 			},
-			"materia_auto_update": func(arg string) string {
-				return fmt.Sprintf("Label=io.containers.autoupdate=%v", arg)
-			},
-			"materiaDataDir": func(arg string) string {
+			"m_dataDir": func(arg string) string {
 				return m.files.DataPath(arg)
 			},
 			"exists": func(arg string) bool {
 				_, ok := vars[arg]
 				return ok
+			},
+			"snippet": func(name string, args ...string) (string, error) {
+				s, ok := m.snippets[name]
+				if !ok {
+					return "", errors.New("snippet not found")
+				}
+				snipVars := make(map[string]string, len(s.Parameters))
+				for k, v := range s.Parameters {
+					snipVars[v] = args[k]
+				}
+
+				result := bytes.NewBuffer([]byte{})
+				err := s.Body.Execute(result, snipVars)
+				return result.String(), err
 			},
 		}
 	}
@@ -122,7 +145,6 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 func (m *Materia) Close() {
 	m.Services.Close()
 	m.Containers.Close()
-	// TODO do something with closing the podman context here
 }
 
 func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
@@ -158,7 +180,13 @@ func (m *Materia) Prepare(ctx context.Context, man *MateriaManifest) error {
 	default:
 		m.sm = mem.NewMemoryManager()
 	}
-
+	for _, v := range man.Snippets {
+		s, err := v.toSnippet()
+		if err != nil {
+			return err
+		}
+		m.snippets[s.Name] = s
+	}
 	return nil
 }
 
@@ -186,6 +214,11 @@ func (m *Materia) newDetermineComponents(ctx context.Context, man *MateriaManife
 	host, ok = man.Hosts[facts.Hostname]
 	if ok {
 		whitelist = append(whitelist, host.Components...)
+	}
+	for _, v := range facts.Roles {
+		if len(man.Roles[v]) != 0 {
+			whitelist = append(whitelist, man.Roles[v]...)
+		}
 	}
 
 	newComps, err := m.files.GetAllSourceComponents(ctx)
@@ -238,9 +271,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 			})
 
 			for _, r := range v.Resources {
-				err := v.test(ctx, m.templateFunctions, sm.Lookup(ctx, secrets.SecretFilter{
+				err := v.test(ctx, m.macros, sm.Lookup(ctx, secrets.SecretFilter{
 					Hostname:  f.Hostname,
-					Role:      f.Role,
+					Roles:     f.Roles,
 					Component: v.Name,
 				}))
 				if err != nil {
@@ -257,9 +290,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 			if !ok {
 				return actions, errors.New("tried to replace component with nonexistent candidate")
 			}
-			resourceActions, err := v.diff(candidate, m.templateFunctions, sm.Lookup(ctx, secrets.SecretFilter{
+			resourceActions, err := v.diff(candidate, m.macros, sm.Lookup(ctx, secrets.SecretFilter{
 				Hostname:  f.Hostname,
-				Role:      f.Role,
+				Roles:     f.Roles,
 				Component: v.Name,
 			}))
 			if err != nil {
@@ -347,7 +380,9 @@ func (m *Materia) calculateVolDiffs(ctx context.Context, _ secrets.SecretsManage
 
 func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*Component) ([]Action, error) {
 	var actions []Action
-	for _, c := range comps {
+	keys := sortedKeys(comps)
+	for _, v := range keys {
+		c := comps[v]
 		switch c.State {
 		case StateFresh:
 			// need to install all services
@@ -602,7 +637,7 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 		}
 		vaultVars := m.sm.Lookup(ctx, secrets.SecretFilter{
 			Hostname:  f.Hostname,
-			Role:      f.Role,
+			Roles:     f.Roles,
 			Component: v.Parent.Name,
 		})
 		maps.Copy(vars, v.Parent.Defaults)
@@ -616,13 +651,13 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 			}
 			resourceChanged = true
 		case ActionInstallResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, vars); err != nil {
+			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
 				return err
 			}
 
 			resourceChanged = true
 		case ActionUpdateResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, vars); err != nil {
+			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
 				return err
 			}
 
@@ -659,9 +694,9 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 	for _, v := range plan {
 		switch v.Todo {
 		case ActionInstallVolumeResource:
-			err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.templateFunctions, m.sm.Lookup(ctx, secrets.SecretFilter{
+			err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, m.sm.Lookup(ctx, secrets.SecretFilter{
 				Hostname:  f.Hostname,
-				Role:      f.Role,
+				Roles:     f.Roles,
 				Component: v.Parent.Name,
 			}))
 			if err != nil {
@@ -691,7 +726,7 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
 		default:
-			return errors.New("Unknown service action state")
+			return errors.New("unknown service action state")
 		}
 	}
 	return nil
@@ -713,6 +748,23 @@ func (m *Materia) Facts(ctx context.Context, c *Config) (*MateriaManifest, *Fact
 		facts.Hostname, err = os.Hostname()
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting hostname: %w", err)
+		}
+	}
+	if man.RoleCommand != "" {
+		roleStruct := struct{ Roles []string }{}
+		cmd := exec.Command(man.RoleCommand)
+		res, err := cmd.Output()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = toml.Unmarshal(res, &roleStruct)
+		if err != nil {
+			return nil, nil, err
+		}
+		facts.Roles = append(facts.Roles, roleStruct.Roles...)
+	} else if host, ok := man.Hosts[c.Hostname]; ok {
+		if len(host.Roles) != 0 {
+			facts.Roles = append(facts.Roles, host.Roles...)
 		}
 	}
 

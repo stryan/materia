@@ -114,7 +114,7 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
-		return diffActions, fmt.Errorf("canidate component is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
+		return diffActions, fmt.Errorf("candidate component is missing resources: L:%v R:%v", len(c.Resources), len(other.Resources))
 	}
 	if err := c.Validate(); err != nil {
 		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)

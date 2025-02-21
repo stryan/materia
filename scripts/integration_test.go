@@ -81,7 +81,7 @@ func TestFacts(t *testing.T) {
 	assert.NotNil(t, facts)
 	assert.Equal(t, facts, &materia.Facts{
 		Hostname: "localhost",
-		Role:     "",
+		Roles:    nil,
 	})
 }
 
@@ -93,7 +93,7 @@ func TestPlan(t *testing.T) {
 	assert.NotNil(t, facts)
 	assert.Equal(t, facts, &materia.Facts{
 		Hostname: "localhost",
-		Role:     "",
+		Roles:    nil,
 	})
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
@@ -114,6 +114,7 @@ func TestPlan(t *testing.T) {
 	}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
+		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallResource, "double", "hello.container"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
@@ -147,7 +148,7 @@ func TestExecute(t *testing.T) {
 	assert.NotNil(t, facts)
 	assert.Equal(t, facts, &materia.Facts{
 		Hostname: "localhost",
-		Role:     "",
+		Roles:    nil,
 	})
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
@@ -168,6 +169,7 @@ func TestExecute(t *testing.T) {
 	}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
+		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallResource, "double", "hello.container"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
@@ -207,7 +209,7 @@ func TestExecute(t *testing.T) {
 
 		case materia.ActionInstallResource:
 			var dest string
-			if v.Payload.Kind == materia.ResourceTypeFile {
+			if v.Payload.Kind == materia.ResourceTypeFile || v.Payload.Kind == materia.ResourceTypeManifest {
 				dest = fmt.Sprintf("%v/components/%v/%v", prefix, v.Parent.Name, v.Payload.Name)
 			} else {
 				dest = fmt.Sprintf("%v/%v/%v", installdir, v.Parent.Name, v.Payload.Name)

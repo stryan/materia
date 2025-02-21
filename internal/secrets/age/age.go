@@ -74,9 +74,13 @@ func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]
 	results := make(map[string]interface{})
 	files := []string{}
 	for _, v := range a.vaultfiles {
-		if strings.Contains(v, f.Hostname) || strings.Contains(v, f.Role) ||
-			filepath.Base(v) == "vault.age" || filepath.Base(v) == "secrets.age" {
+		if strings.Contains(v, f.Hostname) || filepath.Base(v) == "vault.age" || filepath.Base(v) == "secrets.age" {
 			files = append(files, v)
+		}
+		for _, r := range f.Roles {
+			if strings.Contains(v, r) {
+				files = append(files, v)
+			}
 		}
 	}
 	for _, v := range files {
@@ -105,8 +109,10 @@ func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]
 		if f.Hostname != "" {
 			maps.Copy(results, secrets.Hosts[f.Hostname])
 		}
-		if f.Role != "" {
-			maps.Copy(results, secrets.Roles[f.Role])
+		if len(f.Roles) != 0 {
+			for _, r := range f.Roles {
+				maps.Copy(results, secrets.Roles[r])
+			}
 		}
 
 	}
