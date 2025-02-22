@@ -179,6 +179,7 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 	if err != nil {
 		return nil, err
 	}
+	scripts := 0
 	for _, r := range entries {
 		newRes := Resource{
 			Path:     filepath.Join(filepath.Join(f.prefix, "components", name, r.Name())),
@@ -196,6 +197,15 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
 		}
+		if r.Name() == "install.sh" || r.Name() == "cleanup.sh" {
+			scripts++
+			oldComp.Scripted = true
+		}
+
+	}
+
+	if scripts != 0 && scripts != 2 {
+		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	// load quadlets
 	entries, err = os.ReadDir(filepath.Join(f.quadletDestination, name))
@@ -216,7 +226,7 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 	}
 	if man != nil {
 		for _, s := range man.Services {
-			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target")) {
+			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
 				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
 			}
 			oldComp.Services = append(oldComp.Services, Resource{
@@ -349,6 +359,17 @@ func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, r
 	err = f.installFile(fileLocation, result)
 	if err != nil {
 		return err
+	}
+	if res.Kind == ResourceTypeScript || res.Kind == ResourceTypeComponentScript {
+		err = os.Chmod(fileLocation, 0755)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = os.Chmod(fileLocation, 0644)
+		if err != nil {
+			return err
+		}
 	}
 	if res.Kind == ResourceTypeScript {
 		err = f.linkFile(fileLocation, f.scriptsLocation)

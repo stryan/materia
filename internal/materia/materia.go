@@ -292,6 +292,12 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 					Payload: r,
 				})
 			}
+			if v.Scripted {
+				actions = append(actions, Action{
+					Todo:   ActionInitComponent,
+					Parent: v,
+				})
+			}
 		case StateMayNeedUpdate:
 			candidate, ok := newComponents[v.Name]
 			if !ok {
@@ -313,6 +319,12 @@ func (m *Materia) calculateDiffs(ctx context.Context, f *Facts, sm secrets.Secre
 				v.State = StateOK
 			}
 		case StateStale, StateNeedRemoval:
+			if v.Scripted {
+				actions = append(actions, Action{
+					Todo:   ActionCleanupComponent,
+					Parent: v,
+				})
+			}
 			actions = append(actions, Action{
 				Todo:   ActionRemoveComponent,
 				Parent: v,
@@ -681,6 +693,20 @@ func (m *Materia) Execute(ctx context.Context, f *Facts, plan []Action) error {
 			}
 
 			resourceChanged = true
+		case ActionInitComponent:
+			cmd := exec.Command("sh", "-c", "init.sh")
+			cmd.Dir = m.files.DataPath(v.Parent.Name)
+			err := cmd.Run()
+			if err != nil {
+				return err
+			}
+		case ActionCleanupComponent:
+			cmd := exec.Command("sh", "-c", "cleanup.sh")
+			cmd.Dir = m.files.DataPath(v.Parent.Name)
+			err := cmd.Run()
+			if err != nil {
+				return err
+			}
 		default:
 		}
 	}

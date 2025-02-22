@@ -18,6 +18,7 @@ type Component struct {
 	Name      string
 	Services  []Resource
 	Resources []Resource
+	Scripted  bool
 	State     ComponentLifecycle
 	Defaults  map[string]interface{}
 }
@@ -53,6 +54,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	}
 	var man *ComponentManifest
 	resources := make(map[string]Resource)
+	scripts := 0
 	for _, v := range entries {
 		resPath := filepath.Join(path, v.Name())
 		if v.Name() == "MANIFEST.toml" {
@@ -63,18 +65,33 @@ func NewComponentFromSource(path string) (*Component, error) {
 			}
 			maps.Copy(c.Defaults, man.Defaults)
 		}
-		newRes := Resource{
-			Path:     resPath,
-			Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
-			Kind:     findResourceType(v.Name()),
-			Template: isTemplate(v.Name()),
+		var newRes Resource
+		if v.Name() == "init.sh" || v.Name() == "cleanup.sh" {
+			scripts++
+			c.Scripted = true
+			newRes = Resource{
+				Path:     resPath,
+				Name:     v.Name(),
+				Kind:     ResourceTypeComponentScript,
+				Template: false,
+			}
+		} else {
+			newRes = Resource{
+				Path:     resPath,
+				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
+				Kind:     findResourceType(v.Name()),
+				Template: isTemplate(v.Name()),
+			}
 		}
 		c.Resources = append(c.Resources, newRes)
 		resources[newRes.Name] = newRes
 	}
+	if scripts != 0 && scripts != 2 {
+		return nil, errors.New("scripted component is missing install or cleanup")
+	}
 	if man != nil {
 		for _, s := range man.Services {
-			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target")) {
+			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
 				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
 			}
 			c.Services = append(c.Services, Resource{

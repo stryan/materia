@@ -31,6 +31,7 @@ const (
 	ResourceTypeManifest
 	ResourceTypeVolumeFile
 	ResourceTypeScript
+	ResourceTypeComponentScript
 
 	// special types that exist after systemctl daemon-reload
 	ResourceTypeService
