@@ -39,9 +39,9 @@ type Repository interface {
 }
 
 type FileRepository struct {
-	// defaults: /var/lib/materia, /etc/containers/systemd, /var/lib/materia/components, /var/lib/materia/source, /usr/local/bin/
-	prefix, quadletDestination, data, source, scriptsLocation string
-	debug                                                     bool
+	// defaults: /var/lib/materia, /etc/containers/systemd, /var/lib/materia/components, /var/lib/materia/source, /usr/local/bin/, /etc/systemd/system
+	prefix, quadletDestination, data, source, scriptsLocation, servicesLocation string
+	debug                                                                       bool
 }
 
 func (f *FileRepository) Setup(_ context.Context) error {
@@ -63,6 +63,9 @@ func (f *FileRepository) Setup(_ context.Context) error {
 	}
 	if _, err := os.Stat(f.scriptsLocation); os.IsNotExist(err) {
 		return fmt.Errorf("scripts location %v does not exist, setup manually", f.scriptsLocation)
+	}
+	if _, err := os.Stat(f.servicesLocation); os.IsNotExist(err) {
+		return fmt.Errorf("services location %v does not exist, setup manually", f.servicesLocation)
 	}
 	err := os.Mkdir(filepath.Join(f.prefix), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
@@ -197,7 +200,7 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
 		}
-		if r.Name() == "install.sh" || r.Name() == "cleanup.sh" {
+		if r.Name() == "setup.sh" || r.Name() == "cleanup.sh" {
 			scripts++
 			oldComp.Scripted = true
 		}
@@ -227,7 +230,7 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 	if man != nil {
 		for _, s := range man.Services {
 			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+				return nil, fmt.Errorf("error loading component services: invalid service format %v", s)
 			}
 			oldComp.Services = append(oldComp.Services, Resource{
 				Name: s,
@@ -270,7 +273,7 @@ func (f *FileRepository) linkFile(path, destination string) error {
 
 func (f *FileRepository) installPath(comp *Component, r Resource) string {
 	switch r.Kind {
-	case ResourceTypeManifest, ResourceTypeFile, ResourceTypeScript:
+	case ResourceTypeManifest, ResourceTypeFile, ResourceTypeScript, ResourceTypeComponentScript, ResourceTypeService:
 		return filepath.Join(f.prefix, "components", comp.Name)
 	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
 		return filepath.Join(f.quadletDestination, comp.Name)
@@ -278,7 +281,7 @@ func (f *FileRepository) installPath(comp *Component, r Resource) string {
 		// TODO I guess this needs to be handled?
 		return "/tmp/"
 	default:
-		return ""
+		panic("calculating install path for unknown resource")
 	}
 }
 
@@ -295,16 +298,27 @@ func (f *FileRepository) InstallComponent(comp *Component, _ secrets.SecretsMana
 	if err != nil {
 		return fmt.Errorf("error installing component %v: %w", filepath.Join(f.prefix, "components", comp.Name), err)
 	}
-	path := filepath.Join(f.quadletDestination, comp.Name)
-	err = os.Mkdir(path, 0o755)
+	qpath := filepath.Join(f.quadletDestination, comp.Name)
+	spath := filepath.Join(f.servicesLocation, comp.Name)
+	err = os.Mkdir(qpath, 0o755)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
-	file, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", path), os.O_RDONLY|os.O_CREATE, 0666)
+
+	err = os.Mkdir(filepath.Join(f.servicesLocation, comp.Name), 0o755)
+	if err != nil {
+		return fmt.Errorf("error installing component services: %w", err)
+	}
+	qFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", qpath), os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
-	defer file.Close()
+	defer qFile.Close()
+	sFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", spath), os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return fmt.Errorf("error installing component: %w", err)
+	}
+	defer sFile.Close()
 
 	return nil
 }
@@ -330,6 +344,14 @@ func (f *FileRepository) RemoveComponent(comp *Component, _ secrets.SecretsManag
 		return err
 	}
 	err = os.Remove(filepath.Join(f.quadletDestination, comp.Name))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(f.servicesLocation, comp.Name, ".materia_managed"))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(f.servicesLocation, comp.Name))
 	return err
 }
 
@@ -372,7 +394,13 @@ func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, r
 		}
 	}
 	if res.Kind == ResourceTypeScript {
-		err = f.linkFile(fileLocation, f.scriptsLocation)
+		err = f.installFile(fmt.Sprintf("%v/%v", f.scriptsLocation, res.Name), result)
+		if err != nil {
+			return err
+		}
+	}
+	if res.Kind == ResourceTypeService {
+		err = f.installFile(fmt.Sprintf("%v/%v", f.servicesLocation, res.Name), result)
 		if err != nil {
 			return err
 		}
@@ -393,8 +421,13 @@ func (f *FileRepository) RemoveResource(comp *Component, res Resource, _ secrets
 	}
 
 	if res.Kind == ResourceTypeScript {
-		// unlink first
 		err := os.Remove(path.Join(f.scriptsLocation, res.Name))
+		if err != nil {
+			return err
+		}
+	}
+	if res.Kind == ResourceTypeService {
+		err := os.Remove(path.Join(f.servicesLocation, res.Name))
 		if err != nil {
 			return err
 		}
@@ -464,7 +497,7 @@ func (f *FileRepository) DataPath(c string) string {
 	return filepath.Join(f.prefix, "components", c)
 }
 
-func NewFileRepository(p, q, d, s string, debug bool) *FileRepository {
+func NewFileRepository(p, q, d, s, source string, debug bool) *FileRepository {
 	if strings.HasSuffix(p, "materia") {
 		panic("BAD PREFIX")
 	}
@@ -472,7 +505,8 @@ func NewFileRepository(p, q, d, s string, debug bool) *FileRepository {
 		prefix:             filepath.Join(p, "materia"),
 		quadletDestination: q,
 		data:               d,
-		source:             s,
+		servicesLocation:   s,
+		source:             source,
 		scriptsLocation:    "/usr/local/bin",
 		debug:              debug,
 	}

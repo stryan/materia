@@ -66,7 +66,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 			maps.Copy(c.Defaults, man.Defaults)
 		}
 		var newRes Resource
-		if v.Name() == "init.sh" || v.Name() == "cleanup.sh" {
+		if v.Name() == "setup.sh" || v.Name() == "cleanup.sh" {
 			scripts++
 			c.Scripted = true
 			newRes = Resource{
@@ -150,17 +150,20 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 	for _, v := range other.Resources {
 		newResources[v.Name] = v
 	}
+
 	keys := sortedKeys(currentResources)
 	for _, k := range keys {
 		cur := currentResources[k]
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
+			log.Debug("diffing resource", "file", cur.Name)
 			diffs, err := cur.diff(fmap, newRes, diffVars)
 			if err != nil {
 				return diffActions, err
 			}
 			if len(diffs) < 1 {
-				return diffActions, errors.New("failed to calculate diff: no diffs returned")
+				// comparing empty files
+				continue
 			}
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name)
@@ -211,6 +214,8 @@ func findResourceType(file string) ResourceType {
 		return ResourceTypeKube
 	case ".toml":
 		return ResourceTypeManifest
+	case ".service", ".timer", ".target":
+		return ResourceTypeService
 	default:
 		return ResourceTypeFile
 

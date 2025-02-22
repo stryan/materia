@@ -11,7 +11,7 @@ type ActionType int
 const (
 	ActionUnknown ActionType = iota
 	ActionInstallComponent
-	ActionInitComponent
+	ActionSetupComponent
 	ActionRemoveComponent
 	ActionCleanupComponent
 	ActionReloadUnits

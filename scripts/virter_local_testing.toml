@@ -7,6 +7,7 @@ AgeKeyLocation = "scripts/vm/auth/key.txt"
 
 [env]
 MATERIA_SOURCEURL = "{{ .Repo }}"
+MATERIA_LOCALREPO = "{{ .LocalRepo }}"
 MATERIA_PRIVATEKEY = ".ssh/materia_key"
 MATERIA_DEBUG = "true"
 
@@ -35,8 +36,10 @@ dest = "/root/"
 [[steps]]
 [steps.shell]
 script = """
-rm -rf /tmp/{{ .LocalRepo }}
+rm -rf "/tmp/$MATERIA_LOCALREPO"
 """
+
+[[steps]]
 [steps.rsync]
 source = "{{ .LocalRepo }}"
 dest = "/tmp/"

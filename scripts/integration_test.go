@@ -75,26 +75,18 @@ func TestMain(m *testing.M) {
 
 func TestFacts(t *testing.T) {
 	m := testMateria([]string{})
-	manifest, facts, err := m.Facts(ctx, cfg)
-	assert.Nil(t, err)
-	assert.NotNil(t, manifest)
-	assert.NotNil(t, facts)
-	assert.Equal(t, facts, &materia.Facts{
-		Hostname: "localhost",
-		Roles:    nil,
+	assert.NotNil(t, m.Manifest)
+	assert.NotNil(t, m.Facts)
+	assert.Equal(t, m.Facts, &materia.Facts{
+		Hostname:   "localhost",
+		Roles:      nil,
+		Components: []string{"hello", "double"},
 	})
 }
 
 func TestPlan(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
-	manifest, facts, err := m.Facts(ctx, cfg)
-	assert.Nil(t, err)
-	assert.NotNil(t, manifest)
-	assert.NotNil(t, facts)
-	assert.Equal(t, facts, &materia.Facts{
-		Hostname: "localhost",
-		Roles:    nil,
-	})
+
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
 		Hosts:   map[string]materia.Host{},
@@ -102,12 +94,12 @@ func TestPlan(t *testing.T) {
 	expectedManifest.Hosts["localhost"] = materia.Host{
 		Components: []string{"hello", "double"},
 	}
-	assert.Equal(t, expectedManifest.Hosts, manifest.Hosts)
-	assert.Equal(t, expectedManifest.Secrets, manifest.Secrets)
-	fixAgeManifest(manifest)
-	err = m.Prepare(ctx, manifest)
+	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
+	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
+	fixAgeManifest(m.Manifest)
+	err := m.Prepare(ctx)
 	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
-	plan, err := m.Plan(ctx, manifest, facts)
+	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
 		t.Fail()
@@ -142,14 +134,6 @@ func TestPlan(t *testing.T) {
 
 func TestExecute(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
-	manifest, facts, err := m.Facts(ctx, cfg)
-	assert.Nil(t, err)
-	assert.NotNil(t, manifest)
-	assert.NotNil(t, facts)
-	assert.Equal(t, facts, &materia.Facts{
-		Hostname: "localhost",
-		Roles:    nil,
-	})
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
 		Hosts:   map[string]materia.Host{},
@@ -157,12 +141,12 @@ func TestExecute(t *testing.T) {
 	expectedManifest.Hosts["localhost"] = materia.Host{
 		Components: []string{"hello", "double"},
 	}
-	assert.Equal(t, expectedManifest.Hosts, manifest.Hosts)
-	assert.Equal(t, expectedManifest.Secrets, manifest.Secrets)
-	fixAgeManifest(manifest)
-	err = m.Prepare(ctx, manifest)
+	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
+	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
+	fixAgeManifest(m.Manifest)
+	err := m.Prepare(ctx)
 	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
-	plan, err := m.Plan(ctx, manifest, facts)
+	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
 		t.Fail()
@@ -193,7 +177,7 @@ func TestExecute(t *testing.T) {
 			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
 		}
 	}
-	err = m.Execute(ctx, facts, plan)
+	err = m.Execute(ctx, plan)
 	assert.Nil(t, err, fmt.Sprintf("error executing plan: %v", err))
 	if err != nil {
 		log.Fatal(err)

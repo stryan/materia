@@ -16,6 +16,7 @@ type Config struct {
 	Timeout     int
 	Prefix      string
 	Destination string
+	Services    string
 	PrivateKey  string
 	User        *user.User
 }

@@ -17,13 +17,17 @@ type MateriaManifest struct {
 	SecretsConfig secrets.SecretsConfig
 	Hosts         map[string]Host
 	Snippets      []SnippetConfig
-	Roles         map[string][]string
+	Roles         map[string]Role
 	RoleCommand   string
 }
 
 type Host struct {
 	Components []string
 	Roles      []string
+}
+
+type Role struct {
+	Components []string
 }
 
 func LoadMateriaManifest(path string) (*MateriaManifest, error) {

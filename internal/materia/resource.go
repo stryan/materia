@@ -33,7 +33,6 @@ const (
 	ResourceTypeScript
 	ResourceTypeComponentScript
 
-	// special types that exist after systemctl daemon-reload
 	ResourceTypeService
 )
 

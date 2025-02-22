@@ -23,7 +23,7 @@ var Commit = func() string {
 	return ""
 }()
 
-func setup(ctx context.Context) (*materia.Materia, *materia.Config, error) {
+func setup(ctx context.Context) (*materia.Materia, error) {
 	// Configure
 	c, err := materia.NewConfig()
 	if err != nil {
@@ -49,7 +49,7 @@ func setup(ctx context.Context) (*materia.Materia, *materia.Config, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return m, c, nil
+	return m, nil
 }
 
 func main() {
@@ -59,40 +59,31 @@ func main() {
 		Usage: "Manage quadlet files and resources",
 		Commands: []*cli.Command{
 			{
-				Name:    "facts",
-				Aliases: []string{"-f"},
+				Name:  "facts",
+				Usage: "Display host facts",
 				Action: func(cCtx *cli.Context) error {
-					m, c, err := setup(ctx)
+					m, err := setup(ctx)
 					if err != nil {
 						return err
 					}
-					man, facts, err := m.Facts(ctx, c)
-					if err != nil {
-						return err
-					}
-					log.Info(man)
-					log.Info(facts)
+					log.Info(m.Manifest)
+					log.Info(m.Facts)
 					return nil
 				},
 			},
 			{
-				Name:    "plan",
-				Aliases: []string{"-p"},
-				Usage:   "Show application plan",
+				Name:  "plan",
+				Usage: "Show application plan",
 				Action: func(cCtx *cli.Context) error {
-					m, c, err := setup(ctx)
+					m, err := setup(ctx)
 					if err != nil {
 						return err
 					}
-					manifest, facts, err := m.Facts(ctx, c)
-					if err != nil {
-						return fmt.Errorf("error generating facts: %w", err)
-					}
-					err = m.Prepare(ctx, manifest)
+					err = m.Prepare(ctx)
 					if err != nil {
 						return fmt.Errorf("error preparing system: %w", err)
 					}
-					plan, err := m.Plan(ctx, manifest, facts)
+					plan, err := m.Plan(ctx)
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
@@ -103,27 +94,22 @@ func main() {
 				},
 			},
 			{
-				Name:    "update",
-				Aliases: []string{"-u"},
-				Usage:   "Plan and execute update",
+				Name:  "update",
+				Usage: "Plan and execute update",
 				Action: func(cCtx *cli.Context) error {
-					m, c, err := setup(ctx)
+					m, err := setup(ctx)
 					if err != nil {
 						return err
 					}
-					manifest, facts, err := m.Facts(ctx, c)
+					err = m.Prepare(ctx)
 					if err != nil {
 						return err
 					}
-					err = m.Prepare(ctx, manifest)
+					plan, err := m.Plan(ctx)
 					if err != nil {
 						return err
 					}
-					plan, err := m.Plan(ctx, manifest, facts)
-					if err != nil {
-						return err
-					}
-					err = m.Execute(ctx, facts, plan)
+					err = m.Execute(ctx, plan)
 					if err != nil {
 						return err
 					}
@@ -131,11 +117,10 @@ func main() {
 				},
 			},
 			{
-				Name:    "clean",
-				Aliases: []string{},
-				Usage:   "remove all related file paths",
+				Name:  "clean",
+				Usage: "remove all related file paths",
 				Action: func(_ *cli.Context) error {
-					m, _, err := setup(ctx)
+					m, err := setup(ctx)
 					if err != nil {
 						return err
 					}
