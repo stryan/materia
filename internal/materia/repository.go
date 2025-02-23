@@ -9,7 +9,6 @@ import (
 	"io/fs"
 	"maps"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -267,10 +266,6 @@ func (f *FileRepository) installFile(path string, data *bytes.Buffer) error {
 	return nil
 }
 
-func (f *FileRepository) linkFile(path, destination string) error {
-	return os.Symlink(path, destination)
-}
-
 func (f *FileRepository) installPath(comp *Component, r Resource) string {
 	switch r.Kind {
 	case ResourceTypeManifest, ResourceTypeFile, ResourceTypeScript, ResourceTypeComponentScript, ResourceTypeService:
@@ -299,36 +294,25 @@ func (f *FileRepository) InstallComponent(comp *Component, _ secrets.SecretsMana
 		return fmt.Errorf("error installing component %v: %w", filepath.Join(f.prefix, "components", comp.Name), err)
 	}
 	qpath := filepath.Join(f.quadletDestination, comp.Name)
-	spath := filepath.Join(f.servicesLocation, comp.Name)
 	err = os.Mkdir(qpath, 0o755)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
 
-	err = os.Mkdir(filepath.Join(f.servicesLocation, comp.Name), 0o755)
-	if err != nil {
-		return fmt.Errorf("error installing component services: %w", err)
-	}
 	qFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", qpath), os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
 	defer qFile.Close()
-	sFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", spath), os.O_RDONLY|os.O_CREATE, 0666)
-	if err != nil {
-		return fmt.Errorf("error installing component: %w", err)
-	}
-	defer sFile.Close()
-
 	return nil
 }
 
-func (f *FileRepository) RemoveComponent(comp *Component, _ secrets.SecretsManager) error {
+func (f *FileRepository) RemoveComponent(comp *Component, sm secrets.SecretsManager) error {
 	if err := comp.Validate(); err != nil {
 		return err
 	}
 	for _, v := range comp.Resources {
-		err := os.Remove(v.Path)
+		err := f.RemoveResource(comp, v, sm)
 		if err != nil {
 			return err
 		}
@@ -344,14 +328,6 @@ func (f *FileRepository) RemoveComponent(comp *Component, _ secrets.SecretsManag
 		return err
 	}
 	err = os.Remove(filepath.Join(f.quadletDestination, comp.Name))
-	if err != nil {
-		return err
-	}
-	err = os.Remove(filepath.Join(f.servicesLocation, comp.Name, ".materia_managed"))
-	if err != nil {
-		return err
-	}
-	err = os.Remove(filepath.Join(f.servicesLocation, comp.Name))
 	return err
 }
 
@@ -400,7 +376,7 @@ func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, r
 		}
 	}
 	if res.Kind == ResourceTypeService {
-		err = f.installFile(fmt.Sprintf("%v/%v", f.servicesLocation, res.Name), result)
+		err = f.installFile(filepath.Join(f.servicesLocation, res.Name), result)
 		if err != nil {
 			return err
 		}
@@ -421,13 +397,14 @@ func (f *FileRepository) RemoveResource(comp *Component, res Resource, _ secrets
 	}
 
 	if res.Kind == ResourceTypeScript {
-		err := os.Remove(path.Join(f.scriptsLocation, res.Name))
+		err := os.Remove(filepath.Join(f.scriptsLocation, res.Name))
 		if err != nil {
 			return err
 		}
 	}
 	if res.Kind == ResourceTypeService {
-		err := os.Remove(path.Join(f.servicesLocation, res.Name))
+		log.Debugf("removing service file %v", filepath.Join(f.servicesLocation, res.Name))
+		err := os.Remove(filepath.Join(f.servicesLocation, comp.Name, res.Name))
 		if err != nil {
 			return err
 		}
