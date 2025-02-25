@@ -11,12 +11,14 @@ import (
 )
 
 type Facts struct {
-	Hostname   string
-	Roles      []string
-	Components []string
+	Hostname            string
+	Roles               []string
+	AssignedComponents  []string
+	Volumes             []*Volume
+	InstalledComponents map[string]*Component
 }
 
-func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository) (*MateriaManifest, *Facts, error) {
+func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository, containers Containers) (*MateriaManifest, *Facts, error) {
 	err := source.Sync(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error syncing source: %w", err)
@@ -56,16 +58,30 @@ func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileR
 	}
 	host, ok := man.Hosts["all"]
 	if ok {
-		facts.Components = append(facts.Components, host.Components...)
+		facts.AssignedComponents = append(facts.AssignedComponents, host.Components...)
 	}
 	host, ok = man.Hosts[facts.Hostname]
 	if ok {
-		facts.Components = append(facts.Components, host.Components...)
+		facts.AssignedComponents = append(facts.AssignedComponents, host.Components...)
 	}
 	for _, v := range facts.Roles {
 		if len(man.Roles[v].Components) != 0 {
-			facts.Components = append(facts.Components, man.Roles[v].Components...)
+			facts.AssignedComponents = append(facts.AssignedComponents, man.Roles[v].Components...)
 		}
+	}
+	vols, err := containers.ListVolumes(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+	facts.Volumes = vols
+	facts.InstalledComponents = make(map[string]*Component)
+	comps, err := files.GetAllInstalledComponents(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting installed components: %w", err)
+	}
+	for _, v := range comps {
+		v.State = StateStale
+		facts.InstalledComponents[v.Name] = v
 	}
 	return man, facts, nil
 }

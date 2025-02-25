@@ -44,6 +44,11 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 		return nil, err
 	}
 	var a AgeStore
+	dir := filepath.Dir(c.IdentPath)
+	// TODO this was added for testing, is it needed?
+	if dir == "." {
+		c.IdentPath = filepath.Join(c.RepoPath, c.IdentPath)
+	}
 	ifile, err := os.Open(c.IdentPath)
 	if err != nil {
 		return nil, err

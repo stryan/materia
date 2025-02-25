@@ -168,11 +168,12 @@ func (f *FileRepository) GetAllSourceComponents(_ context.Context) ([]*Component
 
 func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (*Component, error) {
 	oldComp := &Component{
-		Name:      name,
-		Resources: []Resource{},
-		State:     StateStale,
-		Services:  []Resource{},
-		Defaults:  make(map[string]interface{}),
+		Name:            name,
+		Resources:       []Resource{},
+		State:           StateStale,
+		Services:        []Resource{},
+		Defaults:        make(map[string]interface{}),
+		VolumeResources: make(map[string]VolumeResourceConfig),
 	}
 	// load resources
 
@@ -198,6 +199,16 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
+			for _, s := range man.Services {
+				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
+					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+				}
+				oldComp.Services = append(oldComp.Services, Resource{
+					Name: s,
+					Kind: ResourceTypeService,
+				})
+			}
+
 		}
 		if r.Name() == "setup.sh" || r.Name() == "cleanup.sh" {
 			scripts++
@@ -226,25 +237,14 @@ func (f *FileRepository) GetInstalledComponent(_ context.Context, name string) (
 		}
 		oldComp.Resources = append(oldComp.Resources, newRes)
 	}
-	if man != nil {
-		for _, s := range man.Services {
-			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-				return nil, fmt.Errorf("error loading component services: invalid service format %v", s)
-			}
-			oldComp.Services = append(oldComp.Services, Resource{
-				Name: s,
-				Kind: ResourceTypeService,
-			})
-		}
-	}
 
 	return oldComp, nil
 }
 
 func (f *FileRepository) GetAllInstalledComponents(ctx context.Context) ([]*Component, error) {
 	var components []*Component
-	intalledComponents := filepath.Join(f.prefix, "components")
-	entries, err := os.ReadDir(intalledComponents)
+	installedComponents := filepath.Join(f.prefix, "components")
+	entries, err := os.ReadDir(installedComponents)
 	if err != nil {
 		return nil, err
 	}

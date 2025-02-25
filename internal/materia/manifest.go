@@ -72,10 +72,31 @@ func (m MateriaManifest) Validate() error {
 	return nil
 }
 
+type VolumeResourceConfig struct {
+	Volume      string
+	Resource    string
+	Path        string
+	Owner, Mode string
+}
+
+func (vrc VolumeResourceConfig) Validate() error {
+	if vrc.Volume == "" {
+		return errors.New("need volume")
+	}
+	if vrc.Resource == "" {
+		return errors.New("need resource")
+	}
+	if vrc.Path == "" {
+		return errors.New("need in-volume path")
+	}
+	return nil
+}
+
 type ComponentManifest struct {
-	Services []string
-	Defaults map[string]interface{}
-	Snippets []SnippetConfig
+	Services        []string
+	Defaults        map[string]interface{}
+	Snippets        []SnippetConfig
+	VolumeResources map[string]VolumeResourceConfig
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

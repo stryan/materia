@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	ctx                context.Context
-	cfg                *materia.Config
-	prefix, installdir string
+	ctx                            context.Context
+	cfg                            *materia.Config
+	prefix, installdir, servicedir string
 )
 
 func testMateria(services []string) *materia.Materia {
@@ -39,6 +39,7 @@ func TestMain(m *testing.M) {
 	testPrefix := fmt.Sprintf("/tmp/materia-test-%v", time.Now().Unix())
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
+	servicedir = filepath.Join(testPrefix, "services")
 	cfg = &materia.Config{
 		SourceURL:   "file://./testrepo",
 		Debug:       false,
@@ -46,18 +47,15 @@ func TestMain(m *testing.M) {
 		Timeout:     0,
 		Prefix:      testPrefix,
 		Destination: installdir,
-		User: &user.User{
-			Uid:      "100",
-			Gid:      "100",
-			Username: "nonroot",
-			HomeDir:  "",
-		},
+		Services:    servicedir,
+		PrivateKey:  "",
+		User:        &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.Mkdir(filepath.Join(testPrefix, "materia"), 0o755)
+	err = os.Mkdir(prefix, 0o755)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,11 +63,15 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = os.Mkdir(servicedir, 0o755)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	ctx = context.Background()
 
 	code := m.Run()
-	os.RemoveAll(testPrefix)
+	// os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -78,9 +80,10 @@ func TestFacts(t *testing.T) {
 	assert.NotNil(t, m.Manifest)
 	assert.NotNil(t, m.Facts)
 	assert.Equal(t, m.Facts, &materia.Facts{
-		Hostname:   "localhost",
-		Roles:      nil,
-		Components: []string{"hello", "double"},
+		Hostname:            "localhost",
+		Roles:               nil,
+		AssignedComponents:  []string{"hello", "double"},
+		InstalledComponents: make(map[string]*materia.Component),
 	})
 }
 
@@ -97,8 +100,6 @@ func TestPlan(t *testing.T) {
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
 	fixAgeManifest(m.Manifest)
-	err := m.Prepare(ctx)
-	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
 	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
@@ -144,8 +145,6 @@ func TestExecute(t *testing.T) {
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
 	fixAgeManifest(m.Manifest)
-	err := m.Prepare(ctx)
-	assert.Nil(t, err, fmt.Sprintf("error preparing: %v", err))
 	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {

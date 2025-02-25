@@ -79,10 +79,6 @@ func main() {
 					if err != nil {
 						return err
 					}
-					err = m.Prepare(ctx)
-					if err != nil {
-						return fmt.Errorf("error preparing system: %w", err)
-					}
 					plan, err := m.Plan(ctx)
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
@@ -98,10 +94,6 @@ func main() {
 				Usage: "Plan and execute update",
 				Action: func(cCtx *cli.Context) error {
 					m, err := setup(ctx)
-					if err != nil {
-						return err
-					}
-					err = m.Prepare(ctx)
 					if err != nil {
 						return err
 					}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"strings"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -100,4 +101,33 @@ func (cur Resource) execute(funcMap func(map[string]interface{}) template.FuncMa
 		return nil, err
 	}
 	return result, nil
+}
+
+func (r Resource) getServiceFromResource() (Resource, error) {
+	var res Resource
+	switch r.Kind {
+	case ResourceTypeContainer:
+		ricename, found := strings.CutSuffix(r.Name, ".container")
+		if !found {
+			return res, fmt.Errorf("invalid container name for rice: %v", r.Name)
+		}
+		res = Resource{
+			Name: fmt.Sprintf("%v.rice", ricename),
+			Kind: ResourceTypeService,
+		}
+	case ResourceTypePod:
+		podname, found := strings.CutSuffix(r.Name, ".pod")
+		if !found {
+			return res, fmt.Errorf("invalid pod name %v", r.Name)
+		}
+		res = Resource{
+			Name: fmt.Sprintf("%v-pod.rice", podname),
+			Kind: ResourceTypeService,
+		}
+	case ResourceTypeService:
+		return r, nil
+	default:
+		return res, errors.New("tried to convert a non container or pod to a rice")
+	}
+	return res, nil
 }

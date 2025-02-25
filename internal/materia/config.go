@@ -37,6 +37,7 @@ func NewConfig() (*Config, error) {
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
 	c.Destination = k.String(".destination")
+	c.Services = k.String(".services")
 	c.PrivateKey = k.String(".privatekey")
 	currentUser, err := user.Current()
 	if err != nil {

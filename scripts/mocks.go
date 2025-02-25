@@ -84,4 +84,23 @@ func (mockcontainers *MockContainers) InspectVolume(name string) (*materia.Volum
 	}
 }
 
+func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*materia.Volume, error) {
+	var vols []*materia.Volume
+	for k, v := range mockcontainers.Volumes {
+		vols = append(vols, &materia.Volume{
+			Name:       k,
+			Mountpoint: v,
+		})
+	}
+	return vols, nil
+}
+
+func (mc *MockContainers) InstallFile(_ context.Context, _ *materia.Component, _ materia.Resource) error {
+	return nil
+}
+
+func (mc *MockContainers) RemoveFile(_ context.Context, _ *materia.Component, _ materia.Resource) error {
+	return nil
+}
+
 func (mockcontainers *MockContainers) Close() {}

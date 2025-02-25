@@ -20,6 +20,8 @@ const (
 	ActionRestartService
 	ActionInstallResource
 	ActionInstallVolumeResource
+	ActionUpdateVolumeResource
+	ActionRemoveVolumeResource
 	ActionUpdateResource
 	ActionRemoveResource
 )
@@ -52,6 +54,10 @@ func (a *Action) Pretty() string {
 		return fmt.Sprintf("Installing resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionInstallVolumeResource:
 		return fmt.Sprintf("Installing volume resource %v", a.Payload.Name)
+	case ActionRemoveVolumeResource:
+		return fmt.Sprintf("Removing volume resource %v", a.Payload.Name)
+	case ActionUpdateVolumeResource:
+		return fmt.Sprintf("Updating volume resource %v", a.Payload.Name)
 	case ActionReloadUnits:
 		return "Reloading systemd units"
 	case ActionRemoveComponent:

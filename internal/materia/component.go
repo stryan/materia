@@ -15,12 +15,13 @@ import (
 )
 
 type Component struct {
-	Name      string
-	Services  []Resource
-	Resources []Resource
-	Scripted  bool
-	State     ComponentLifecycle
-	Defaults  map[string]interface{}
+	Name            string
+	Services        []Resource
+	Resources       []Resource
+	Scripted        bool
+	State           ComponentLifecycle
+	Defaults        map[string]interface{}
+	VolumeResources map[string]VolumeResourceConfig
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -48,6 +49,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	c := &Component{}
 	c.Name = filepath.Base(path)
 	c.Defaults = make(map[string]interface{})
+	c.VolumeResources = make(map[string]VolumeResourceConfig)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
@@ -64,6 +66,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
 			maps.Copy(c.Defaults, man.Defaults)
+			maps.Copy(c.VolumeResources, man.VolumeResources)
 		}
 		var newRes Resource
 		if v.Name() == "setup.sh" || v.Name() == "cleanup.sh" {
@@ -81,6 +84,11 @@ func NewComponentFromSource(path string) (*Component, error) {
 				Name:     strings.TrimSuffix(v.Name(), ".gotmpl"),
 				Kind:     findResourceType(v.Name()),
 				Template: isTemplate(v.Name()),
+			}
+		}
+		for _, vr := range c.VolumeResources {
+			if vr.Resource == newRes.Name {
+				newRes.Kind = ResourceTypeVolumeFile
 			}
 		}
 		c.Resources = append(c.Resources, newRes)
@@ -167,20 +175,28 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			}
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name)
-				diffActions = append(diffActions, Action{
+				a := Action{
 					Todo:    ActionUpdateResource,
 					Parent:  c,
 					Payload: newRes,
-				})
+				}
+				if newRes.Kind == ResourceTypeVolumeFile {
+					a.Todo = ActionUpdateVolumeResource
+				}
+				diffActions = append(diffActions, a)
 			}
 		} else {
 			// in current resources but not source resources, remove old
 			log.Debug("removing current resource", "file", cur.Name)
-			diffActions = append(diffActions, Action{
+			a := Action{
 				Todo:    ActionRemoveResource,
 				Parent:  c,
 				Payload: cur,
-			})
+			}
+			if cur.Kind == ResourceTypeVolumeFile {
+				a.Todo = ActionRemoveVolumeResource
+			}
+			diffActions = append(diffActions, a)
 		}
 	}
 	keys = sortedKeys(newResources)
@@ -188,11 +204,16 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
 			log.Debug("installing new resource", "file", k)
-			diffActions = append(diffActions, Action{
+			a := Action{
 				Todo:    ActionInstallResource,
 				Parent:  c,
 				Payload: newResources[k],
-			})
+			}
+			if newResources[k].Kind == ResourceTypeVolumeFile {
+				fmt.Fprintf(os.Stderr, "FBLTHP[71]: component.go:212 (after if newResources[k].Kind == ResourceTypeV…)\n")
+				a.Todo = ActionInstallVolumeResource
+			}
+			diffActions = append(diffActions, a)
 		}
 	}
 
