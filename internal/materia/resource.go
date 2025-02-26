@@ -107,12 +107,12 @@ func (r Resource) getServiceFromResource() (Resource, error) {
 	var res Resource
 	switch r.Kind {
 	case ResourceTypeContainer:
-		ricename, found := strings.CutSuffix(r.Name, ".container")
+		servicename, found := strings.CutSuffix(r.Name, ".container")
 		if !found {
-			return res, fmt.Errorf("invalid container name for rice: %v", r.Name)
+			return res, fmt.Errorf("invalid container name for service: %v", r.Name)
 		}
 		res = Resource{
-			Name: fmt.Sprintf("%v.rice", ricename),
+			Name: fmt.Sprintf("%v.service", servicename),
 			Kind: ResourceTypeService,
 		}
 	case ResourceTypePod:
@@ -121,7 +121,7 @@ func (r Resource) getServiceFromResource() (Resource, error) {
 			return res, fmt.Errorf("invalid pod name %v", r.Name)
 		}
 		res = Resource{
-			Name: fmt.Sprintf("%v-pod.rice", podname),
+			Name: fmt.Sprintf("%v-pod.service", podname),
 			Kind: ResourceTypeService,
 		}
 	case ResourceTypeService:

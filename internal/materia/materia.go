@@ -246,17 +246,17 @@ func (m *Materia) updateComponents(ctx context.Context) (map[string]*Component, 
 	return updatedComponents, nil
 }
 
-func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Component) ([]Action, map[string]*Component, error) {
-	var actions []Action
+func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Component) (*Plan, map[string]*Component, error) {
+	plan := NewPlan()
 	keys := sortedKeys(updates)
 	for _, k := range keys {
 		v := updates[k]
 		if err := v.Validate(); err != nil {
-			return actions, nil, err
+			return plan, nil, err
 		}
 		switch v.State {
 		case StateFresh:
-			actions = append(actions, Action{
+			plan.Add(Action{
 				Todo:   ActionInstallComponent,
 				Parent: v,
 			})
@@ -268,16 +268,16 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					Component: v.Name,
 				}))
 				if err != nil {
-					return actions, nil, fmt.Errorf("missing variable for component: %w", err)
+					return plan, nil, fmt.Errorf("missing variable for component: %w", err)
 				}
 				if r.Kind == ResourceTypeVolumeFile {
-					actions = append(actions, Action{
+					plan.Add(Action{
 						Todo:    ActionInstallVolumeResource,
 						Parent:  v,
 						Payload: r,
 					})
 				} else {
-					actions = append(actions, Action{
+					plan.Add(Action{
 						Todo:    ActionInstallResource,
 						Parent:  v,
 						Payload: r,
@@ -285,7 +285,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				}
 			}
 			if v.Scripted {
-				actions = append(actions, Action{
+				plan.Add(Action{
 					Todo:   ActionSetupComponent,
 					Parent: v,
 				})
@@ -293,7 +293,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 		case StateMayNeedUpdate:
 			original, ok := m.Facts.InstalledComponents[v.Name]
 			if !ok {
-				return actions, nil, errors.New("tried to replace component with nonexistent candidate")
+				return plan, nil, errors.New("tried to replace component with nonexistent candidate")
 			}
 			resourceActions, err := original.diff(v, m.macros, m.sm.Lookup(ctx, secrets.SecretFilter{
 				Hostname:  m.Facts.Hostname,
@@ -302,38 +302,38 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 			}))
 			if err != nil {
 				log.Debugf("error diffing components: L (%v) R (%v)", original, v)
-				return actions, nil, err
+				return plan, nil, err
 			}
 			if len(resourceActions) != 0 {
-				actions = append(actions, resourceActions...)
+				plan.Append(resourceActions)
 				v.State = StateNeedUpdate
 			} else {
 				v.State = StateOK
 			}
 		case StateStale, StateNeedRemoval:
 			if v.Scripted {
-				actions = append(actions, Action{
+				plan.Add(Action{
 					Todo:   ActionCleanupComponent,
 					Parent: v,
 				})
 			}
-			actions = append(actions, Action{
+			plan.Add(Action{
 				Todo:   ActionRemoveComponent,
 				Parent: v,
 			})
 		case StateRemoved:
 			continue
 		case StateUnknown:
-			return actions, nil, errors.New("found unknown component")
+			return plan, nil, errors.New("found unknown component")
 		default:
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
 		}
 	}
-	return actions, updates, nil
+	return plan, updates, nil
 }
 
-func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*Component) ([]Action, error) {
-	var actions []Action
+func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*Component) (*Plan, error) {
+	plan := NewPlan()
 	keys := sortedKeys(comps)
 	for _, v := range keys {
 		c := comps[v]
@@ -342,7 +342,7 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 			// need to install all services
 			if len(c.Services) != 0 {
 				for _, s := range c.Services {
-					actions = append(actions, Action{
+					plan.Add(Action{
 						Todo:    ActionStartService,
 						Parent:  c,
 						Payload: s,
@@ -353,9 +353,9 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
 						serv, err := r.getServiceFromResource()
 						if err != nil {
-							return actions, err
+							return plan, err
 						}
-						actions = append(actions, Action{
+						plan.Add(Action{
 							Todo:    ActionStartService,
 							Parent:  c,
 							Payload: serv,
@@ -367,7 +367,7 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 			// need to install all services
 			if len(c.Services) != 0 {
 				for _, s := range c.Services {
-					actions = append(actions, Action{
+					plan.Add(Action{
 						Todo:    ActionRestartService,
 						Parent:  c,
 						Payload: s,
@@ -378,9 +378,9 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
 						serv, err := r.getServiceFromResource()
 						if err != nil {
-							return actions, err
+							return plan, err
 						}
-						actions = append(actions, Action{
+						plan.Add(Action{
 							Todo:    ActionRestartService,
 							Parent:  c,
 							Payload: serv,
@@ -394,10 +394,10 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 				for _, s := range c.Services {
 					state, err := m.Services.Get(ctx, s.Name)
 					if err != nil {
-						return actions, err
+						return plan, err
 					}
 					if state.State != "active" {
-						actions = append(actions, Action{
+						plan.Add(Action{
 							Todo:    ActionStartService,
 							Parent:  c,
 							Payload: s,
@@ -413,7 +413,7 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 			// need to stop all services
 			if len(c.Services) != 0 {
 				for _, s := range c.Services {
-					actions = append(actions, Action{
+					plan.Add(Action{
 						Todo:    ActionStopService,
 						Parent:  c,
 						Payload: s,
@@ -424,9 +424,9 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
 						serv, err := r.getServiceFromResource()
 						if err != nil {
-							return actions, err
+							return plan, err
 						}
-						actions = append(actions, Action{
+						plan.Add(Action{
 							Todo:    ActionStopService,
 							Parent:  c,
 							Payload: serv,
@@ -438,7 +438,7 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 			continue
 		}
 	}
-	return actions, nil
+	return plan, nil
 }
 
 func (m *Materia) modifyService(ctx context.Context, command Action) error {
@@ -480,31 +480,35 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	return err
 }
 
-func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
-	var actions []Action
+func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
+	plan := NewPlan()
 	var err error
 
 	// Determine union of existing and new components
 	if len(m.Facts.InstalledComponents) == 0 && len(m.Facts.AssignedComponents) == 0 {
-		return actions, nil
+		return plan, nil
 	}
 
 	var newComponents map[string]*Component
 	if newComponents, err = m.updateComponents(ctx); err != nil {
-		return actions, fmt.Errorf("error determining components: %w", err)
+		return plan, fmt.Errorf("error determining components: %w", err)
 	}
 	// Determine diff actions
 	diffActions, finalComponents, err := m.calculateDiffs(ctx, newComponents)
 	if err != nil {
-		return actions, fmt.Errorf("error calculating diffs: %w", err)
+		return plan, fmt.Errorf("error calculating diffs: %w", err)
 	}
 
 	// determine service actions
 	serviceActions, err := m.calculateServiceDiffs(ctx, finalComponents)
 	if err != nil {
-		return actions, fmt.Errorf("error calculating service actions: %w", err)
+		return plan, fmt.Errorf("error calculating service actions: %w", err)
 	}
-	log.Debug("component actions")
+	plan.Merge(diffActions)
+	plan.Merge(serviceActions)
+	if err := plan.Validate(); err != nil {
+		return nil, fmt.Errorf("generated invalid plan: %w", err)
+	}
 	var installing, removing, updating, ok []string
 	keys := sortedKeys(finalComponents)
 	for _, k := range keys {
@@ -542,17 +546,17 @@ func (m *Materia) Plan(ctx context.Context) ([]Action, error) {
 	log.Debug("diff actions", "diffActions", diffActions)
 	// log.Debug("volume actions", "volResourceActions", volResourceActions)
 	log.Debug("service actions", "serviceActions", serviceActions)
-	actions = append(diffActions, serviceActions...)
-	return actions, nil
+
+	return plan, nil
 }
 
-func (m *Materia) Execute(ctx context.Context, plan []Action) error {
-	if len(plan) == 0 {
+func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
+	if plan.Empty() {
 		return nil
 	}
 	// Template and install resources
 	resourceChanged := false
-	for _, v := range plan {
+	for _, v := range plan.Actions {
 		vars := make(map[string]interface{})
 		if err := v.Validate(); err != nil {
 			return err
@@ -620,7 +624,7 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 		}
 	}
 	// Anything that needs updated unit list but pre-service starting
-	for _, v := range plan {
+	for _, v := range plan.Actions {
 		vars := make(map[string]interface{})
 		if err := v.Validate(); err != nil {
 			return err
@@ -669,7 +673,7 @@ func (m *Materia) Execute(ctx context.Context, plan []Action) error {
 	// Ensure volumes and volume resources
 	// start/stop services
 	serviceActions := []Action{}
-	for _, v := range plan {
+	for _, v := range plan.Actions {
 		if v.Todo == ActionStartService || v.Todo == ActionStopService || v.Todo == ActionRestartService {
 			err := m.modifyService(ctx, v)
 			if err != nil {

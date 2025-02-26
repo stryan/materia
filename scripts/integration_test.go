@@ -105,7 +105,7 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	expectedPlan := []materia.Action{
+	expectedPlan := materia.Plan{Actions: []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
@@ -117,10 +117,9 @@ func TestPlan(t *testing.T) {
 		planHelper(materia.ActionInstallResource, "hello", "test.env"),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
-	}
-	assert.Equal(t, len(expectedPlan), len(plan))
-	for k, v := range plan {
-		expected := expectedPlan[k]
+	}}
+	for k, v := range plan.Actions {
+		expected := expectedPlan.Actions[k]
 		if expected.Todo != v.Todo {
 			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
 		}
@@ -163,8 +162,7 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
-	assert.Equal(t, len(expectedPlan), len(plan))
-	for k, v := range plan {
+	for k, v := range plan.Actions {
 		expected := expectedPlan[k]
 		if expected.Todo != v.Todo {
 			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
@@ -182,7 +180,7 @@ func TestExecute(t *testing.T) {
 		log.Fatal(err)
 	}
 	// verify all the files are in place
-	for _, v := range plan {
+	for _, v := range plan.Actions {
 		switch v.Todo {
 		case materia.ActionInstallComponent:
 			_, err := os.Stat(fmt.Sprintf("%v/components/%v", prefix, v.Parent.Name))

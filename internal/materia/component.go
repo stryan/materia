@@ -210,7 +210,6 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 				Payload: newResources[k],
 			}
 			if newResources[k].Kind == ResourceTypeVolumeFile {
-				fmt.Fprintf(os.Stderr, "FBLTHP[71]: component.go:212 (after if newResources[k].Kind == ResourceTypeV…)\n")
 				a.Todo = ActionInstallVolumeResource
 			}
 			diffActions = append(diffActions, a)
