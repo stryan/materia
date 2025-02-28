@@ -36,9 +36,6 @@ const (
 	StateNeedUpdate
 	StateNeedRemoval
 	StateRemoved
-
-	// Special states
-	StateCanidate // a 'fake' component for resource comparison
 )
 
 func (c *Component) String() string {

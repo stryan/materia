@@ -105,7 +105,7 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	expectedPlan := materia.Plan{Actions: []materia.Action{
+	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
@@ -115,11 +115,16 @@ func TestPlan(t *testing.T) {
 		planHelper(materia.ActionInstallResource, "hello", "hello.env"),
 		planHelper(materia.ActionInstallResource, "hello", "hello.volume"),
 		planHelper(materia.ActionInstallResource, "hello", "test.env"),
+		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
-	}}
-	for k, v := range plan.Actions {
-		expected := expectedPlan.Actions[k]
+	}
+	expectedPlan := materia.NewPlan()
+	for _, e := range expectedActions {
+		expectedPlan.Add(e)
+	}
+	for k, v := range plan.Steps() {
+		expected := expectedPlan.Steps()[k]
 		if expected.Todo != v.Todo {
 			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
 		}
@@ -159,10 +164,11 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionInstallResource, "hello", "hello.env"),
 		planHelper(materia.ActionInstallResource, "hello", "hello.volume"),
 		planHelper(materia.ActionInstallResource, "hello", "test.env"),
+		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
-	for k, v := range plan.Actions {
+	for k, v := range plan.Steps() {
 		expected := expectedPlan[k]
 		if expected.Todo != v.Todo {
 			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
@@ -180,7 +186,7 @@ func TestExecute(t *testing.T) {
 		log.Fatal(err)
 	}
 	// verify all the files are in place
-	for _, v := range plan.Actions {
+	for _, v := range plan.Steps() {
 		switch v.Todo {
 		case materia.ActionInstallComponent:
 			_, err := os.Stat(fmt.Sprintf("%v/components/%v", prefix, v.Parent.Name))

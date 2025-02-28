@@ -83,7 +83,7 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
-					for _, p := range plan.Actions {
+					for _, p := range plan.Steps() {
 						fmt.Println(p.Pretty())
 					}
 					return nil
@@ -105,6 +105,26 @@ func main() {
 					if err != nil {
 						return err
 					}
+					return nil
+				},
+			},
+			{
+				Name:  "remove",
+				Usage: "Remove a component",
+				Action: func(cCtx *cli.Context) error {
+					comp := cCtx.Args().First()
+					if comp == "" {
+						return cli.Exit("specify a component to remove", 1)
+					}
+					m, err := setup(ctx)
+					if err != nil {
+						return err
+					}
+					err = m.CleanComponent(ctx, comp)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("error removing component: %v", err), 1)
+					}
+					fmt.Printf("component %v removed succesfully", comp)
 					return nil
 				},
 			},
