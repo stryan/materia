@@ -1,0 +1,33 @@
+name: build
+on:
+  push:
+    branches: ["master"]
+jobs:
+  # Build job
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go 1.24
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.24
+      - name: Install dependencies
+        run: go get .
+      - name: Build
+        run: make
+      - name: Test with the Go CLI
+        run: go test
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: git.saintnet.tech
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Build and push
+        env:
+          IMAGE_NAME: materia
+          REGISTRY: git.saintnet.tech
+          REPO_OWNER: stryan
+        run: "docker build -o type=docker -t ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest -f Containerfile .\ndocker push ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest          \n"
