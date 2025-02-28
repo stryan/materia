@@ -18,7 +18,7 @@ jobs:
       - name: Build
         run: make
       - name: Test with the Go CLI
-        run: go test
+        run: make test
       - name: Login to registry
         uses: docker/login-action@v3
         with:
