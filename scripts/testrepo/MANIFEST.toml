@@ -1,5 +1,5 @@
 secrets = "age"
-age.idents = "key.txt"
+age.idents = "./key.txt"
 [hosts.localhost]
 components = ["hello","double"]
 order = ["hello"]
