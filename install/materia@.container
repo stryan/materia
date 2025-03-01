@@ -9,13 +9,18 @@ Type=oneshot
 [Container]
 Image=git.saintnet.tech/stryan/materia:latest
 ContainerName=materia
+Environment=MATERIA_SOURCEURL=file:///tmp/test_repo
+SecurityLabelDisable=true
+HostName=%q
 Exec=$SCRIPT_ARGS
 Volume=/run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+Volume=/etc/hostname:/etc/hostname
 Volume=/run/podman/podman.sock:/run/podman/podman.sock
 Volume=/var/lib/materia:/var/lib/materia
 Volume=/etc/containers/systemd:/etc/containers/systemd
 Volume=/usr/local/bin:/usr/local/bin
 Volume=/usr/local/lib/systemd/system:/usr/local/lib/systemd/system
+Volume=/tmp/test_repo:/tmp/test_repo
 Label=io.containers.autoupdate=registry
 
 [Install]
