@@ -9,4 +9,4 @@ WORKDIR /app
 RUN mkdir -p /lib64
 COPY --from=builder /go/src/app/materia /app/
 
-CMD ["/app/materia"]
+ENTRYPOINT ["/app/materia"]
