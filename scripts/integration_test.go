@@ -8,7 +8,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +34,7 @@ func testMateria(services []string) *materia.Materia {
 }
 
 func TestMain(m *testing.M) {
-	testPrefix := fmt.Sprintf("/tmp/materia-test-%v", time.Now().Unix())
+	testPrefix := "/tmp/materia-test"
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
 	servicedir = filepath.Join(testPrefix, "services")
