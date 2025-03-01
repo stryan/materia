@@ -15,7 +15,7 @@ build-materia:
 test: build lint
 	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/vault.toml > scripts/testrepo/vault.age
 	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/localhost.toml > scripts/testrepo/localhost.age
-	go test ./scripts/
+	go test ./scripts/ ; ls -laR /tmp/materia-test
 
 lint:
 	golangci-lint run ./cmd/... ./internal/...

@@ -23,7 +23,7 @@ jobs:
             golangci-lint = "latest"
             "go:golang.org/x/tools/cmd/stringer" = "latest"
       - name: Test with the Go CLI
-        run: make test; ls /tmp/materia-test/source/
+        run: make test
       - name: Login to registry
         uses: docker/login-action@v3
         with:
