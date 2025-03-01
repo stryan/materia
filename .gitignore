@@ -1,6 +1,6 @@
 /materia
 .envrc
-*key.txt
+key.txt
 *_string.go
 *recipient
 test_repo/
