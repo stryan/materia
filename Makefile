@@ -21,6 +21,7 @@ lint:
 	golangci-lint run ./cmd/... ./internal/...
 tools:
 	go install golang.org/x/tools/cmd/stringer@latest
+	go install filippo.io/age/cmd/...@latest
 clean:
 	rm materia
 
