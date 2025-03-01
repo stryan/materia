@@ -1,0 +1,23 @@
+[Unit]
+Description=Materia: quadlet manager
+After=local-fs.target network.target
+
+[Service]
+Environment="SCRIPT_ARGS=%I"
+Type=oneshot
+
+[Container]
+Image=git.saintnet.tech/stryan/materia:latest
+ContainerName=materia
+Exec=$SCRIPT_ARGS
+Volume=/run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+Volume=/run/podman/podman.sock:/run/podman/podman.sock
+Volume=/var/lib/materia:/var/lib/materia
+Volume=/etc/containers/systemd:/etc/containers/systemd
+Volume=/usr/local/bin:/usr/local/bin
+Volume=/usr/local/lib/systemd/system:/usr/local/lib/systemd/system
+Label=io.containers.autoupdate=registry
+
+[Install]
+# Start by default on boot
+WantedBy=multi-user.target default.target

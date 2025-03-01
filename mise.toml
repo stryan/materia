@@ -3,3 +3,6 @@ age = "latest"
 go = "1.24"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 golangci-lint = "latest"
+
+[tasks]
+container = "podman build . -t git.saintnet.tech/stryan/materia:latest"
