@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
-	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -99,7 +98,7 @@ func TestPlan(t *testing.T) {
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
-	fixAgeManifest(m.Manifest)
+	// fixAgeManifest(m.Manifest)
 	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
@@ -148,7 +147,7 @@ func TestExecute(t *testing.T) {
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
-	fixAgeManifest(m.Manifest)
+	// fixAgeManifest(m.Manifest)
 	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
@@ -224,8 +223,8 @@ func planHelper(todo materia.ActionType, name, res string) materia.Action {
 	return act
 }
 
-func fixAgeManifest(m *materia.MateriaManifest) {
-	config := m.SecretsConfig.(age.Config)
-	config.IdentPath = fmt.Sprintf("%v/source/key.txt", prefix)
-	m.SecretsConfig = config
-}
+// func fixAgeManifest(m *materia.MateriaManifest) {
+// 	config := m.SecretsConfig.(age.Config)
+// 	config.IdentPath = fmt.Sprintf("%v/source/key.txt", prefix)
+// 	m.SecretsConfig = config
+// }
