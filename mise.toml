@@ -1,0 +1,5 @@
+[tools]
+age = "latest"
+go = "1.24"
+"go:golang.org/x/tools/cmd/stringer" = "latest"
+golangci-lint = "latest"
