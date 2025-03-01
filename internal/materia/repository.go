@@ -38,7 +38,7 @@ type Repository interface {
 }
 
 type FileRepository struct {
-	// defaults: /var/lib/materia, /etc/containers/systemd, /var/lib/materia/components, /var/lib/materia/source, /usr/local/bin/, /etc/systemd/system
+	// defaults: /var/lib/materia, /etc/containers/systemd, /var/lib/materia/components, /var/lib/materia/source, /usr/local/bin/, /usr/local/lib/systemd/system
 	prefix, quadletDestination, data, source, scriptsLocation, servicesLocation string
 	debug                                                                       bool
 }

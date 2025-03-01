@@ -42,7 +42,7 @@ type Materia struct {
 func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Materia, error) {
 	prefix := "/var/lib"
 	destination := "/etc/containers/systemd/"
-	services := "/etc/systemd/system/"
+	services := "/usr/local/lib/systemd/system/"
 
 	if c.User.Username != "root" {
 		home := c.User.HomeDir
