@@ -119,7 +119,7 @@ func TestPlan(t *testing.T) {
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
-	expectedPlan := materia.NewPlan()
+	expectedPlan := materia.NewPlan(m.Facts)
 	for _, e := range expectedActions {
 		expectedPlan.Add(e)
 	}
