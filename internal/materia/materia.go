@@ -559,7 +559,6 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 	if plan.Empty() {
 		return nil
 	}
-
 	serviceActions := []Action{}
 	// Template and install resources
 	for _, v := range plan.Steps() {
@@ -573,7 +572,6 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 			Component: v.Parent.Name,
 		})
 		maps.Copy(vars, v.Parent.Defaults)
-
 		maps.Copy(vars, vaultVars)
 
 		switch v.Todo {
@@ -650,89 +648,21 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 			if err != nil {
 				return err
 			}
-			if v.Todo == ActionStartService || v.Todo == ActionStopService || v.Todo == ActionRestartService {
-				err := m.modifyService(ctx, v)
-				if err != nil {
-					return err
-				}
-				serviceActions = append(serviceActions, v)
-			}
-
-		default:
-		}
-	}
-
-	// Anything that needs updated unit list but pre-service starting
-	for _, v := range plan.Steps() {
-		vars := make(map[string]interface{})
-		if err := v.Validate(); err != nil {
-			return err
-		}
-		vaultVars := m.sm.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.Facts.Hostname,
-			Roles:     m.Facts.Roles,
-			Component: v.Parent.Name,
-		})
-		maps.Copy(vars, v.Parent.Defaults)
-
-		maps.Copy(vars, vaultVars)
-		switch v.Todo {
-		case ActionEnsureVolume:
-			service := strings.TrimSuffix(v.Payload.Name, ".volume")
-			err := m.modifyService(ctx, Action{
-				Todo:   ActionStartService,
-				Parent: v.Parent,
-				Payload: Resource{
-					Name: fmt.Sprintf("%v-volume.service", service),
-					Kind: ResourceTypeService,
-				},
-			})
-			if err != nil {
-				return err
-			}
-		case ActionInstallVolumeResource:
-			err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars)
-			if err != nil {
-				return err
-			}
-			if err := m.Containers.InstallFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
-			}
-		case ActionUpdateVolumeResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
-				return err
-			}
-			if err := m.Containers.InstallFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
-			}
-		case ActionRemoveVolumeResource:
-			if err := m.files.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
-				return err
-			}
-			if err := m.Containers.RemoveFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
-			}
-		case ActionSetupComponent:
-			cmd := exec.Command(fmt.Sprintf("%v/setup.sh", m.files.DataPath(v.Parent.Name)))
-			cmd.Dir = m.files.DataPath(v.Parent.Name)
-			err := cmd.Run()
-			if err != nil {
-				return err
-			}
-
-		}
-	}
-	// Ensure volumes and volume resources
-	// start/stop services
-	for _, v := range plan.Steps() {
-		if v.Todo == ActionStartService || v.Todo == ActionStopService || v.Todo == ActionRestartService {
+		case ActionStartService, ActionStopService, ActionRestartService:
 			err := m.modifyService(ctx, v)
 			if err != nil {
 				return err
 			}
 			serviceActions = append(serviceActions, v)
+		case ActionReloadUnits:
+			err := m.modifyService(ctx, v)
+			if err != nil {
+				return err
+			}
+		default:
 		}
 	}
+
 	// verify services
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Payload.Name)

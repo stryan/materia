@@ -90,3 +90,13 @@ func (p *Plan) Validate() error {
 func (p *Plan) Steps() []Action {
 	return slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 }
+
+func (p *Plan) Pretty() string {
+	var result string
+	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	result += "Plan: \n"
+	for i, a := range steps {
+		result += fmt.Sprintf("%v. %v\n", i, a.Pretty())
+	}
+	return result
+}

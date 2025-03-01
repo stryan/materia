@@ -1,12 +1,12 @@
-FROM golang:1.24-alpine as builder
+FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
 WORKDIR /go/src/app
 COPY . .
-RUN apk add --no-cache ca-certificates make
 RUN CGO_ENABLED=0 make tools && make
 
-FROM alpine:latest as final
+FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
 WORKDIR /app
 RUN mkdir -p /lib64
+RUN zypper in -y podman
 COPY --from=builder /go/src/app/materia /app/
 
 ENTRYPOINT ["/app/materia"]

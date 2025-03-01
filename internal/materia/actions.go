@@ -75,6 +75,10 @@ func (a *Action) Pretty() string {
 		return "Unknown action"
 	case ActionUpdateResource:
 		return fmt.Sprintf("Updating resource %v/%v", a.Parent.Name, a.Payload.Name)
+	case ActionSetupComponent:
+		return fmt.Sprintf("Setting up component %v", a.Parent.Name)
+	case ActionCleanupComponent:
+		return fmt.Sprintf("Cleaning up component %v", a.Parent.Name)
 	default:
 		panic(fmt.Sprintf("unexpected materia.ActionType: %#v", a.Todo))
 	}

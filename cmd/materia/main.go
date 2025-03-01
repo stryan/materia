@@ -66,8 +66,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					log.Info(m.Manifest)
-					log.Info(m.Facts)
+					fmt.Println(m.Facts.Pretty())
 					return nil
 				},
 			},
@@ -83,9 +82,7 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
-					for _, p := range plan.Steps() {
-						fmt.Println(p.Pretty())
-					}
+					fmt.Println(plan.Pretty())
 					return nil
 				},
 			},

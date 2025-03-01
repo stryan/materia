@@ -96,3 +96,22 @@ func (f *Facts) Lookup(arg string) interface{} {
 		return ""
 	}
 }
+
+func (f *Facts) Pretty() string {
+	var result string
+	result += fmt.Sprintf("Hostname: %v\n", f.Hostname)
+	result += "Roles: "
+	for _, r := range f.Roles {
+		result += fmt.Sprintf("%v ", r)
+	}
+	result += "\nAssigned Components: "
+	for _, v := range f.AssignedComponents {
+		result += fmt.Sprintf("%v ", v)
+	}
+	result += "\nInstalled Components: "
+	for _, v := range f.InstalledComponents {
+		result += fmt.Sprintf("%v", v.Name)
+	}
+
+	return result
+}
