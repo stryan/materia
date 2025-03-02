@@ -32,6 +32,8 @@ jobs:
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+      - name: Install podman
+        run: "apt update && apt install -y podman"
       - name: Build and push
         env:
           IMAGE_NAME: materia
