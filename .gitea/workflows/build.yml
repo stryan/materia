@@ -40,6 +40,6 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm/v7
-          tags: ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest
+          tags: "${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest"
           push: true
           file: Containerfile
