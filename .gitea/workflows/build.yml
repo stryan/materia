@@ -11,7 +11,7 @@ jobs:
         uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
-          version: 2024.12.14 # [default: latest] mise version to install
+          version: latest # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
@@ -30,9 +30,11 @@ jobs:
           registry: git.saintnet.tech
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Build and push
         env:
           IMAGE_NAME: materia
           REGISTRY: git.saintnet.tech
           REPO_OWNER: stryan
-        run: "docker build -o type=docker -t ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest -f Containerfile .\ndocker push ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest          \n"
+        run: "podman manifest create ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}\n podman build --manifest ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME} --platform linux/amd64,linux/arm64 -f Containerfile .\npodman push ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest          \n"
