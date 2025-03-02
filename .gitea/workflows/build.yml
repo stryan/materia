@@ -32,11 +32,11 @@ jobs:
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
-      - name: Install podman
-        run: "apt update && apt install -y podman"
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
       - name: Build and push
-        env:
-          IMAGE_NAME: materia
-          REGISTRY: git.saintnet.tech
-          REPO_OWNER: stryan
-        run: "podman manifest create ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}\n podman build --manifest ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME} --platform linux/amd64,linux/arm64 -f Containerfile .\npodman push ${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest          \n"
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm/v7
