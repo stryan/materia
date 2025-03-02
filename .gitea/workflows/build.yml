@@ -40,6 +40,6 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm/v7
-          tags: "${REGISTRY}/${REPO_OWNER}/${IMAGE_NAME}:latest"
+          tags: "git.saintnet.tech/stryan/materia:latest"
           push: true
           file: Containerfile
