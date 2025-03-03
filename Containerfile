@@ -6,7 +6,9 @@ RUN CGO_ENABLED=0 make tools && make
 FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
 WORKDIR /app
 RUN mkdir -p /lib64
-RUN zypper in -y podman
+RUN touch /root/.ssh/known_hosts
+RUN zypper in -y podman git
+
 COPY --from=builder /go/src/app/materia /app/
 
 ENTRYPOINT ["/app/materia"]
