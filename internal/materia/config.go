@@ -18,6 +18,7 @@ type Config struct {
 	Destination string
 	Services    string
 	PrivateKey  string
+	Insecure    bool
 	User        *user.User
 }
 

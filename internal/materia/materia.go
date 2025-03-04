@@ -77,7 +77,7 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 	parsedPath := strings.Split(c.SourceURL, "://")
 	switch parsedPath[0] {
 	case "git":
-		source = git.NewGitSource(sourcePath, parsedPath[1], c.PrivateKey)
+		source = git.NewGitSource(sourcePath, parsedPath[1], c.PrivateKey, c.Insecure)
 	case "file":
 		source = file.NewFileSource(sourcePath, parsedPath[1])
 	default:
@@ -546,11 +546,11 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 		}
 	}
 
-	log.Info("installing components", "installing", installing)
-	log.Info("removing components", "removing", removing)
-	log.Info("updating components", "updating", updating)
-	log.Info("unchanged components", "unchanged", ok)
-	log.Info("plan", "plan", plan)
+	log.Debug("installing components", "installing", installing)
+	log.Debug("removing components", "removing", removing)
+	log.Debug("updating components", "updating", updating)
+	log.Debug("unchanged components", "unchanged", ok)
+	log.Debug("plan", "plan", plan)
 
 	return plan, nil
 }

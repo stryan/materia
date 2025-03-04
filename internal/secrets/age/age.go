@@ -62,6 +62,9 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 	}
 	a.identities = idents
 	err = filepath.WalkDir(c.RepoPath, func(path string, d fs.DirEntry, err error) error {
+		if d.Name() == ".git" {
+			return nil
+		}
 		if filepath.Ext(path) == ".age" {
 			a.vaultfiles = append(a.vaultfiles, path)
 		}

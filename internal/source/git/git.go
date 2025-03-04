@@ -8,19 +8,22 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	xssh "golang.org/x/crypto/ssh"
 )
 
 type GitSource struct {
 	repo       string
 	path       string
 	privateKey string
+	insecure   bool
 }
 
-func NewGitSource(path, repo, priv string) *GitSource {
+func NewGitSource(path, repo, priv string, insecure bool) *GitSource {
 	return &GitSource{
 		repo:       repo,
 		path:       path,
 		privateKey: priv,
+		insecure:   insecure,
 	}
 }
 
@@ -43,6 +46,9 @@ func (g *GitSource) Sync(ctx context.Context) error {
 		publicKeys, err := ssh.NewPublicKeysFromFile("git", g.privateKey, "")
 		if err != nil {
 			return err
+		}
+		if g.insecure {
+			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
 		}
 		options.Auth = publicKeys
 		pullOptions.Auth = publicKeys

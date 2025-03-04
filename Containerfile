@@ -10,7 +10,7 @@ RUN mkdir -p /root/.ssh && \
 	chmod 0700 /root/.ssh && \
 	touch /root/.ssh/known_hosts
 
-RUN zypper in -y podman git
+RUN zypper in -y podman git openssh openssh-clients
 
 COPY --from=builder /go/src/app/materia /app/
 

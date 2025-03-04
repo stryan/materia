@@ -13,8 +13,8 @@ build-materia:
 	go build -o materia ./cmd/materia
 
 test: build lint
-	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/vault.toml > scripts/testrepo/vault.age
-	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/localhost.toml > scripts/testrepo/localhost.age
+	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/vault.toml > scripts/testrepo/secrets/vault.age
+	age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/localhost.toml > scripts/testrepo/secrets/localhost.age
 	go test ./scripts/
 
 lint:
