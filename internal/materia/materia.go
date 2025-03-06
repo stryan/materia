@@ -73,11 +73,15 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 	}
 
 	var source source.Source
+	var err error
 	sourcePath := filepath.Join(prefix, "materia", "source")
 	parsedPath := strings.Split(c.SourceURL, "://")
 	switch parsedPath[0] {
 	case "git":
-		source = git.NewGitSource(sourcePath, parsedPath[1], c.PrivateKey, c.Insecure)
+		source, err = git.NewGitSource(sourcePath, parsedPath[1], c.GitConfig)
+		if err != nil {
+			return nil, fmt.Errorf("invalid git source: %w", err)
+		}
 	case "file":
 		source = file.NewFileSource(sourcePath, parsedPath[1])
 	default:
@@ -86,7 +90,7 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 
 	// Ensure local cache
 	log.Info("updating configured source cache")
-	err := source.Sync(ctx)
+	err = source.Sync(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
@@ -117,28 +121,28 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 	}
 	m.macros = func(vars map[string]interface{}) template.FuncMap {
 		return template.FuncMap{
-			"m_deps": func(arg string) string {
+			"m_deps": func(arg string) (string, error) {
 				switch arg {
 				case "after":
 					if res, ok := vars["After"]; ok {
-						return res.(string)
+						return res.(string), nil
 					} else {
-						return "local-fs.target network.target"
+						return "local-fs.target network.target", nil
 					}
 				case "wants":
 					if res, ok := vars["Wants"]; ok {
-						return res.(string)
+						return res.(string), nil
 					} else {
-						return "local-fs.target network.target"
+						return "local-fs.target network.target", nil
 					}
 				case "requires":
 					if res, ok := vars["Requires"]; ok {
-						return res.(string)
+						return res.(string), nil
 					} else {
-						return "local-fs.target network.target"
+						return "local-fs.target network.target", nil
 					}
 				default:
-					return "ERR_BAD_DEFAULT"
+					return "", errors.New("err bad default")
 				}
 			},
 			"m_dataDir": func(arg string) string {
@@ -181,10 +185,13 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		if !ok {
 			return nil, errors.New("tried to create an age secrets manager but config was not for age")
 		}
-		m.sm, err = age.NewAgeStore(age.Config{
-			IdentPath: conf.IdentPath,
-			RepoPath:  m.files.SourcePath(),
-		})
+		conf.RepoPath = files.SourcePath()
+		if c.AgeConfig != nil {
+			fmt.Fprintf(os.Stderr, "FBLTHP[96]: materia.go:189 (after if c.AgeConfig != nil )\n")
+			fmt.Fprintf(os.Stderr, "FBLTHP[99]: materia.go:191: AgeConfig=%+v\n", c.AgeConfig)
+			conf.Merge(c.AgeConfig)
+		}
+		m.sm, err = age.NewAgeStore(conf)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}

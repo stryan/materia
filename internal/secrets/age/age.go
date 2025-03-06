@@ -21,23 +21,6 @@ type AgeStore struct {
 	vaultfiles []string
 }
 
-type Config struct {
-	IdentPath string
-	RepoPath  string
-}
-
-func (c Config) Validate() error {
-	if c.RepoPath == "" {
-		return errors.New("invalid repo path for age")
-	}
-	if c.IdentPath == "" {
-		return errors.New("invalid identities location for age")
-	}
-	return nil
-}
-
-func (c Config) SecretsType() string { return "age" }
-
 func NewAgeStore(c Config) (*AgeStore, error) {
 	err := c.Validate()
 	if err != nil {

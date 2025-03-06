@@ -47,7 +47,6 @@ func TestMain(m *testing.M) {
 		Prefix:      testPrefix,
 		Destination: installdir,
 		Services:    servicedir,
-		PrivateKey:  "",
 		User:        &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)

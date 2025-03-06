@@ -5,6 +5,8 @@ import (
 	"os/user"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/v2"
 )
@@ -17,8 +19,8 @@ type Config struct {
 	Prefix      string
 	Destination string
 	Services    string
-	PrivateKey  string
-	Insecure    bool
+	GitConfig   *git.Config
+	AgeConfig   *age.Config
 	User        *user.User
 }
 
@@ -31,6 +33,7 @@ func NewConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	k.All()
 	var c Config
 	c.SourceURL = k.String(".sourceurl")
 	c.Debug = k.Bool(".debug")
@@ -39,7 +42,18 @@ func NewConfig() (*Config, error) {
 	c.Prefix = k.String(".prefix")
 	c.Destination = k.String(".destination")
 	c.Services = k.String(".services")
-	c.PrivateKey = k.String(".privatekey")
+	if k.Exists(".git") {
+		c.GitConfig, err = git.NewConfig(k.Cut("git"))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if k.Exists(".age") {
+		c.AgeConfig, err = age.NewConfig(k.Cut(".age"))
+		if err != nil {
+			return nil, err
+		}
+	}
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err

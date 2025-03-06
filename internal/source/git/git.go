@@ -7,54 +7,66 @@ import (
 	"os"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	xssh "golang.org/x/crypto/ssh"
 )
 
 type GitSource struct {
-	repo       string
-	path       string
-	privateKey string
-	insecure   bool
+	repo     string
+	path     string
+	auth     transport.AuthMethod
+	insecure bool
 }
 
-func NewGitSource(path, repo, priv string, insecure bool) *GitSource {
-	return &GitSource{
-		repo:       repo,
-		path:       path,
-		privateKey: priv,
-		insecure:   insecure,
+func NewGitSource(path, repo string, c *Config) (*GitSource, error) {
+	g := &GitSource{
+		repo: repo,
+		path: path,
 	}
+
+	if c.PrivateKey != "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		_, err = os.Stat(fmt.Sprintf("%v/.ssh/known_hosts", home))
+		if err != nil {
+			return nil, err
+		}
+		_, err = os.Stat(c.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
+		if err != nil {
+			return nil, err
+		}
+		if g.insecure {
+			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+		}
+		g.auth = publicKeys
+	} else if c.Username != "" {
+		g.auth = &http.BasicAuth{
+			Username: c.Username,
+			Password: c.Password,
+		}
+	} else {
+		return nil, errors.New("no valid authentication set for git")
+	}
+
+	return g, nil
 }
 
 func (g *GitSource) Sync(ctx context.Context) error {
 	var options git.CloneOptions
 	var pullOptions git.PullOptions
-	if g.privateKey != "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		_, err = os.Stat(fmt.Sprintf("%v/.ssh/known_hosts", home))
-		if err != nil {
-			return err
-		}
-		_, err = os.Stat(g.privateKey)
-		if err != nil {
-			return err
-		}
-		publicKeys, err := ssh.NewPublicKeysFromFile("git", g.privateKey, "")
-		if err != nil {
-			return err
-		}
-		if g.insecure {
-			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
-		}
-		options.Auth = publicKeys
-		pullOptions.Auth = publicKeys
-	}
+
 	options.URL = g.repo
 	options.Progress = os.Stdout
+	options.Auth = g.auth
+	pullOptions.Auth = g.auth
 	_, err := git.PlainCloneContext(ctx, g.path, false, &options)
 	if err != nil && !errors.Is(err, git.ErrRepositoryAlreadyExists) {
 		return err

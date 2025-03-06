@@ -32,7 +32,7 @@ func NewServices(ctx context.Context, cfg *Config) (*ServiceManager, error) {
 	var err error
 	timeout := cfg.Timeout
 	if timeout == 0 {
-		timeout = 30
+		timeout = 60
 	}
 	if cfg.User.Username != "root" {
 		conn, err = dbus.NewUserConnectionContext(ctx)
