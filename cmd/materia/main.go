@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -23,13 +24,10 @@ var Commit = func() string {
 	return ""
 }()
 
-func setup(ctx context.Context) (*materia.Materia, error) {
+func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	// Configure
-	c, err := materia.NewConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = c.Validate()
+
+	err := c.Validate()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -54,6 +52,11 @@ func setup(ctx context.Context) (*materia.Materia, error) {
 
 func main() {
 	ctx := context.Background()
+	c, err := materia.NewConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	app := &cli.App{
 		Name:  "materia",
 		Usage: "Manage quadlet files and resources",
@@ -62,7 +65,7 @@ func main() {
 				Name:  "facts",
 				Usage: "Display host facts",
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx)
+					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
@@ -74,7 +77,7 @@ func main() {
 				Name:  "plan",
 				Usage: "Show application plan",
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx)
+					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
@@ -90,7 +93,7 @@ func main() {
 				Name:  "update",
 				Usage: "Plan and execute update",
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx)
+					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
@@ -113,7 +116,8 @@ func main() {
 					if comp == "" {
 						return cli.Exit("specify a component to remove", 1)
 					}
-					m, err := setup(ctx)
+
+					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
@@ -126,10 +130,70 @@ func main() {
 				},
 			},
 			{
+				Name:  "validate",
+				Usage: "Validate a component/repo for a given host/role",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "component",
+						Aliases: []string{"c"},
+						Usage:   "component to validate",
+					},
+					&cli.StringFlag{
+						Name:    "hostname",
+						Aliases: []string{"n"},
+						Usage:   "hostname to use for facts generation",
+					},
+					&cli.StringFlag{
+						Name:    "source",
+						Aliases: []string{"s"},
+						Usage:   "Repo source directory",
+					},
+					&cli.StringSliceFlag{
+						Name:    "roles",
+						Aliases: []string{"r"},
+						Usage:   "roles to use for facts generation",
+					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"v"},
+						Usage:   "show full plan for each tested component",
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					comp := cCtx.String("component")
+					hostname := cCtx.String("hostname")
+					roles := cCtx.StringSlice("roles")
+					source := cCtx.String("source")
+					if hostname == "" && roles == nil {
+						return errors.New("validate needs at least one of hostname or roles specified")
+					}
+
+					if source == "" {
+						source = "./"
+					}
+					c.SourceURL = fmt.Sprintf("file://%v", source)
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
+					}
+					plan, err := m.ValidateComponent(ctx, comp, hostname, roles)
+					if err != nil {
+						return err
+					}
+					if cCtx.Bool("verbose") {
+						fmt.Println(plan.Pretty())
+					} else {
+						fmt.Println("OK")
+					}
+
+					return nil
+				},
+			},
+			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ *cli.Context) error {
-					m, err := setup(ctx)
+					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}

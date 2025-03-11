@@ -15,6 +15,7 @@ type Config struct {
 	SourceURL   string
 	Debug       bool
 	Hostname    string
+	Roles       []string
 	Timeout     int
 	Prefix      string
 	Destination string
@@ -40,10 +41,11 @@ func NewConfig() (*Config, error) {
 	c.Hostname = k.String(".hostname")
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
+	c.Roles = k.Strings(".roles")
 	c.Destination = k.String(".destination")
 	c.Services = k.String(".services")
 	if k.Exists(".git") {
-		c.GitConfig, err = git.NewConfig(k.Cut("git"))
+		c.GitConfig, err = git.NewConfig(k.Cut(".git"))
 		if err != nil {
 			return nil, err
 		}

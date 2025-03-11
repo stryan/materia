@@ -187,8 +187,6 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		}
 		conf.RepoPath = files.SourcePath()
 		if c.AgeConfig != nil {
-			fmt.Fprintf(os.Stderr, "FBLTHP[96]: materia.go:189 (after if c.AgeConfig != nil )\n")
-			fmt.Fprintf(os.Stderr, "FBLTHP[99]: materia.go:191: AgeConfig=%+v\n", c.AgeConfig)
 			conf.Merge(c.AgeConfig)
 		}
 		m.sm, err = age.NewAgeStore(conf)
@@ -702,6 +700,20 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 		return errors.New("component not installed")
 	}
 	return m.files.RemoveComponent(comp, nil)
+}
+
+func (m *Materia) ValidateComponent(ctx context.Context, name, hostname string, roles []string) (*Plan, error) {
+	if hostname != "" {
+		m.Facts.Hostname = hostname
+	}
+	if roles != nil {
+		m.Facts.Roles = roles
+	}
+	if name != "" {
+		m.Facts.AssignedComponents = []string{name}
+	}
+	m.Facts.InstalledComponents = make(map[string]*Component)
+	return m.Plan(ctx)
 }
 
 func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {

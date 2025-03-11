@@ -24,7 +24,6 @@ func (c Config) Validate() error {
 func (c Config) SecretsType() string { return "age" }
 
 func NewConfig(k *koanf.Koanf) (*Config, error) {
-	k.All()
 	var c Config
 	c.IdentPath = k.String("idents")
 	c.RepoPath = k.String("repo")
