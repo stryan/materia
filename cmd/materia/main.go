@@ -7,7 +7,9 @@ import (
 	"os"
 	"runtime/debug"
 
+	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 )
@@ -35,11 +37,13 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 		log.Default().SetLevel(log.DebugLevel)
 		log.Default().SetReportCaller(true)
 	}
-	sm, err := materia.NewServices(ctx, c)
+	sm, err := services.NewServices(ctx, &services.ServicesConfig{
+		Timeout: c.Timeout,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := materia.NewPodmanManager(c)
+	cm, err := containers.NewPodmanManager()
 	if err != nil {
 		log.Fatal(err)
 	}

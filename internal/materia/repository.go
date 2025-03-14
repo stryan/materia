@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"maps"
 	"os"
@@ -26,7 +25,8 @@ type Repository interface {
 	GetAllSourceComponents(context.Context) ([]*Component, error)
 	GetInstalledComponent(context.Context, string) (*Component, error)
 	GetAllInstalledComponents(context.Context) ([]*Component, error)
-	InstallResource(ctx context.Context, comp *Component, res Resource, funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error
+	InstallResource(ctx context.Context, comp *Component, res Resource, funcMap MacroMap, vars map[string]interface{}) error
+	InstallResourceReal(ctx context.Context, fileLocation string, data *bytes.Buffer) error
 	RemoveResource(comp *Component, res Resource, _ secrets.SecretsManager) error
 	InstallComponent(comp *Component, _ secrets.SecretsManager) error
 	RemoveComponent(comp *Component, _ secrets.SecretsManager) error
@@ -44,19 +44,6 @@ type FileRepository struct {
 }
 
 func (f *FileRepository) Setup(_ context.Context) error {
-	if _, err := os.Stat(filepath.Join(f.source, "MANIFEST.toml")); err != nil {
-		return fmt.Errorf("no manifest found: %w", err)
-	}
-	if res, err := os.Stat(filepath.Join(f.source, "components")); err != nil {
-		return fmt.Errorf("no components found: %w", err)
-	} else {
-		if !res.IsDir() {
-			return errors.New("source components is not a directory")
-		}
-	}
-	if _, err := os.Stat(f.prefix); os.IsNotExist(err) {
-		return fmt.Errorf("prefix %v does not exist, setup manually", f.prefix)
-	}
 	if _, err := os.Stat(f.quadletDestination); os.IsNotExist(err) {
 		return fmt.Errorf("destination %v does not exist, setup manually", f.quadletDestination)
 	}
@@ -331,7 +318,7 @@ func (f *FileRepository) RemoveComponent(comp *Component, sm secrets.SecretsMana
 	return err
 }
 
-func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, res Resource, funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
+func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, res Resource, funcMap MacroMap, vars map[string]interface{}) error {
 	if err := comp.Validate(); err != nil {
 		return err
 	}
@@ -381,6 +368,38 @@ func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, r
 			return err
 		}
 	}
+
+	return nil
+}
+
+func (f *FileRepository) InstallResourceReal(ctx context.Context, fileLocation string, result *bytes.Buffer) error {
+	err := f.installFile(fileLocation, result)
+	if err != nil {
+		return err
+	}
+	// if res.Kind == ResourceTypeScript || res.Kind == ResourceTypeComponentScript {
+	// 	err = os.Chmod(fileLocation, 0755)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	// 	err = os.Chmod(fileLocation, 0644)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// if res.Kind == ResourceTypeScript {
+	// 	err = f.installFile(fmt.Sprintf("%v/%v", f.scriptsLocation, res.Name), result)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// if res.Kind == ResourceTypeService {
+	// 	err = f.installFile(filepath.Join(f.servicesLocation, res.Name), result)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 }

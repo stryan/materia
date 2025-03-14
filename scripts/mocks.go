@@ -6,52 +6,42 @@ import (
 	"fmt"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/services"
 )
 
 type MockServices struct {
 	Services map[string]string
 }
 
-func (mockservices *MockServices) Start(_ context.Context, name string) error {
+func (mockservices *MockServices) Apply(_ context.Context, name string, cmd services.ServiceAction) error {
 	if !strings.HasSuffix(name, ".service") {
 		name = fmt.Sprintf("%v.service", name)
 	}
+	if cmd == services.ServiceReload {
+		return nil
+	}
 	if _, ok := mockservices.Services[name]; ok {
-		mockservices.Services[name] = "active"
+		state := ""
+		switch cmd {
+		case services.ServiceRestart:
+			state = "restarted"
+		case services.ServiceStart:
+			state = "active"
+		case services.ServiceStop:
+			state = "stopped"
+		default:
+			panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", cmd))
+		}
+		mockservices.Services[name] = state
 		return nil
 	}
 
 	return errors.New("service not found")
 }
 
-func (mockservices *MockServices) Stop(_ context.Context, name string) error {
-	if !strings.HasSuffix(name, ".service") {
-		name = fmt.Sprintf("%v.service", name)
-	}
-	if _, ok := mockservices.Services[name]; ok {
-		mockservices.Services[name] = "stopped"
-		return nil
-	}
-	return errors.New("service not found")
-}
-
-func (mockservices *MockServices) Restart(_ context.Context, name string) error {
-	if !strings.HasSuffix(name, ".service") {
-		name = fmt.Sprintf("%v.service", name)
-	}
-	if _, ok := mockservices.Services[name]; ok {
-		mockservices.Services[name] = "restarted"
-		return nil
-	}
-	return errors.New("service not found")
-}
-
-func (mockservices *MockServices) Reload(_ context.Context) error {
-	return nil
-}
-
-func (mockservices *MockServices) Get(_ context.Context, name string) (*materia.Service, error) {
+func (mockservices *MockServices) Get(_ context.Context, name string) (*services.Service, error) {
 	if !strings.HasSuffix(name, ".service") {
 		name = fmt.Sprintf("%v.service", name)
 	}
@@ -59,7 +49,7 @@ func (mockservices *MockServices) Get(_ context.Context, name string) (*materia.
 	if state, ok := mockservices.Services[name]; !ok {
 		return nil, errors.New("service not found")
 	} else {
-		return &materia.Service{
+		return &services.Service{
 			Name:  name,
 			State: state,
 		}, nil
@@ -73,21 +63,21 @@ type MockContainers struct {
 	Volumes map[string]string
 }
 
-func (mockcontainers *MockContainers) InspectVolume(name string) (*materia.Volume, error) {
+func (mockcontainers *MockContainers) InspectVolume(name string) (*containers.Volume, error) {
 	if mount, ok := mockcontainers.Volumes[name]; !ok {
 		return nil, errors.New("volume not found")
 	} else {
-		return &materia.Volume{
+		return &containers.Volume{
 			Name:       name,
 			Mountpoint: mount,
 		}, nil
 	}
 }
 
-func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*materia.Volume, error) {
-	var vols []*materia.Volume
+func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*containers.Volume, error) {
+	var vols []*containers.Volume
 	for k, v := range mockcontainers.Volumes {
-		vols = append(vols, &materia.Volume{
+		vols = append(vols, &containers.Volume{
 			Name:       k,
 			Mountpoint: v,
 		})

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/source"
 	"github.com/BurntSushi/toml"
 )
@@ -14,11 +15,11 @@ type Facts struct {
 	Hostname            string
 	Roles               []string
 	AssignedComponents  []string
-	Volumes             []*Volume
+	Volumes             []*containers.Volume
 	InstalledComponents map[string]*Component
 }
 
-func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository, containers Containers) (*MateriaManifest, *Facts, error) {
+func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository, containers containers.Containers) (*MateriaManifest, *Facts, error) {
 	err := source.Sync(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error syncing source: %w", err)

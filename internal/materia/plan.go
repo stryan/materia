@@ -26,7 +26,7 @@ func (p *Plan) Add(a Action) {
 	switch a.Todo {
 	case ActionCleanupComponent:
 		p.mainPhase = append(p.mainPhase, a)
-	case ActionInstallComponent, ActionInstallResource, ActionRemoveComponent, ActionRemoveResource, ActionUpdateResource:
+	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
 		p.mainPhase = append(p.mainPhase, a)
 	case ActionInstallVolumeResource:
 		p.secondMain = append(p.secondMain, a)

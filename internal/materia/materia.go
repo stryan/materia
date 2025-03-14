@@ -12,37 +12,48 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
+	"git.saintnet.tech/stryan/materia/internal/containers"
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
+	"git.saintnet.tech/stryan/materia/internal/services"
 	"git.saintnet.tech/stryan/materia/internal/source"
 	"git.saintnet.tech/stryan/materia/internal/source/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 )
 
+type MacroMap func(map[string]interface{}) template.FuncMap
+
 type Materia struct {
 	Facts         *Facts
 	Manifest      *MateriaManifest
-	Services      Services
+	Services      services.Services
 	PodmanConn    context.Context
-	Containers    Containers
+	Containers    containers.Containers
 	sm            secrets.SecretsManager
 	source        source.Source
 	files         Repository
+	CompRepo      repository.Repository
+	DataRepo      repository.Repository
+	QuadletRepo   repository.Repository
+	ScriptRepo    repository.Repository
+	ServiceRepo   repository.Repository
 	rootComponent *Component
-	macros        func(map[string]interface{}) template.FuncMap
+	macros        MacroMap
 	snippets      map[string]*Snippet
 	debug         bool
 }
 
-func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Materia, error) {
+func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.Containers) (*Materia, error) {
 	prefix := "/var/lib"
 	destination := "/etc/containers/systemd/"
-	services := "/usr/local/lib/systemd/system/"
+	servicePath := "/usr/local/lib/systemd/system/"
 
 	if c.User.Username != "root" {
 		home := c.User.HomeDir
@@ -56,10 +67,10 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		datadir, found := os.LookupEnv("XDG_DATA_HOME")
 		if !found {
 			prefix = fmt.Sprintf("%v/.local/share", home)
-			services = fmt.Sprintf("%v/.local/share/systemd/user", home)
+			servicePath = fmt.Sprintf("%v/.local/share/systemd/user", home)
 		} else {
 			prefix = datadir
-			services = fmt.Sprintf("%v/systemd/user", datadir)
+			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
 		}
 	}
 	if c.Prefix != "" {
@@ -69,12 +80,17 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		destination = c.Destination
 	}
 	if c.Services != "" {
-		services = c.Services
+		servicePath = c.Services
 	}
 
 	var source source.Source
 	var err error
 	sourcePath := filepath.Join(prefix, "materia", "source")
+	files := NewFileRepository(prefix, destination, filepath.Join(prefix, "materia", "components"), servicePath, sourcePath, c.Debug)
+
+	if err := files.Setup(ctx); err != nil {
+		return nil, fmt.Errorf("error setting up files: %w", err)
+	}
 	parsedPath := strings.Split(c.SourceURL, "://")
 	switch parsedPath[0] {
 	case "git":
@@ -94,11 +110,8 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 	if err != nil {
 		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
-	files := NewFileRepository(prefix, destination, filepath.Join(prefix, "materia", "components"), services, sourcePath, c.Debug)
 
-	if err := files.Setup(ctx); err != nil {
-		return nil, fmt.Errorf("error setting up files: %w", err)
-	}
+	log.Info("loading facts")
 	man, facts, err := NewFacts(ctx, c, source, files, cm)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
@@ -116,6 +129,11 @@ func NewMateria(ctx context.Context, c *Config, sm Services, cm Containers) (*Ma
 		source:        source,
 		debug:         c.Debug,
 		files:         files,
+		CompRepo:      &repository.ComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination},
+		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(prefix, "materia", "components")},
+		QuadletRepo:   &repository.FileRepository{Prefix: destination},
+		ScriptRepo:    &repository.FileRepository{Prefix: "/usr/local/bin"},
+		ServiceRepo:   &repository.FileRepository{Prefix: servicePath},
 		snippets:      snips,
 		rootComponent: &Component{Name: "root"},
 	}
@@ -266,29 +284,21 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				Todo:   ActionInstallComponent,
 				Parent: v,
 			})
-
+			vars := m.sm.Lookup(ctx, secrets.SecretFilter{
+				Hostname:  m.Facts.Hostname,
+				Roles:     m.Facts.Roles,
+				Component: v.Name,
+			})
 			for _, r := range v.Resources {
-				err := v.test(ctx, m.macros, m.sm.Lookup(ctx, secrets.SecretFilter{
-					Hostname:  m.Facts.Hostname,
-					Roles:     m.Facts.Roles,
-					Component: v.Name,
-				}))
+				err := v.test(ctx, m.macros, vars)
 				if err != nil {
 					return nil, fmt.Errorf("missing variable for component: %w", err)
 				}
-				if r.Kind == ResourceTypeVolumeFile {
-					plan.Add(Action{
-						Todo:    ActionInstallVolumeResource,
-						Parent:  v,
-						Payload: r,
-					})
-				} else {
-					plan.Add(Action{
-						Todo:    ActionInstallResource,
-						Parent:  v,
-						Payload: r,
-					})
-				}
+				plan.Add(Action{
+					Todo:    r.toAction("install"),
+					Parent:  v,
+					Payload: r,
+				})
 				needUpdate = true
 			}
 			if v.Scripted {
@@ -319,6 +329,13 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				v.State = StateOK
 			}
 		case StateStale, StateNeedRemoval:
+			for _, r := range v.Resources {
+				plan.Add(Action{
+					Todo:    r.toAction("remove"),
+					Parent:  v,
+					Payload: r,
+				})
+			}
 			if v.Scripted {
 				plan.Add(Action{
 					Todo:   ActionCleanupComponent,
@@ -456,11 +473,9 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 }
 
 func (m *Materia) modifyService(ctx context.Context, command Action) error {
-	var err error
 	if err := command.Validate(); err != nil {
 		return err
 	}
-
 	var res Resource
 	if command.Todo != ActionReloadUnits {
 		res = command.Payload
@@ -472,26 +487,24 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 			return errors.New("attempted to modify a non service resource")
 		}
 	}
+	var cmd services.ServiceAction
 	switch command.Todo {
 	case ActionStartService:
+		cmd = services.ServiceStart
 		log.Info("starting service", "unit", res.Name)
-		err = m.Services.Start(ctx, res.Name)
 	case ActionStopService:
 		log.Info("stopping service", "unit", res.Name)
-		err = m.Services.Stop(ctx, res.Name)
-
+		cmd = services.ServiceStop
 	case ActionRestartService:
 		log.Info("restarting service", "unit", res.Name)
-		err = m.Services.Restart(ctx, res.Name)
-
+		cmd = services.ServiceRestart
 	case ActionReloadUnits:
 		log.Info("reloading units")
-		err = m.Services.Reload(ctx)
-
+		cmd = services.ServiceReload
 	default:
 		return errors.New("invalid service command")
 	}
-	return err
+	return m.Services.Apply(ctx, res.Name, cmd)
 }
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
@@ -581,26 +594,83 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 
 		switch v.Todo {
 		case ActionInstallComponent:
-			if err := m.files.InstallComponent(v.Parent, m.sm); err != nil {
+			if err := m.CompRepo.Install(ctx, v.Parent.Name, nil); err != nil {
 				return err
 			}
-		case ActionInstallResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
+		case ActionInstallFile, ActionUpdateFile:
+			resourceData, err := v.Payload.execute(m.macros, vars)
+			if err != nil {
 				return err
 			}
-
-		case ActionUpdateResource:
-			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
+			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
 				return err
 			}
-
+		case ActionInstallQuadlet, ActionUpdateQuadlet:
+			resourceData, err := v.Payload.execute(m.macros, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.QuadletRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
+				return err
+			}
+		case ActionInstallScript, ActionUpdateScript:
+			resourceData, err := v.Payload.execute(m.macros, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
+				return err
+			}
+			if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+				return err
+			}
+		case ActionInstallService, ActionUpdateService:
+			resourceData, err := v.Payload.execute(m.macros, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
+				return err
+			}
+			if err := m.ServiceRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+				return err
+			}
+		case ActionInstallComponentScript, ActionUpdateComponentScript:
+			resourceData, err := v.Payload.execute(m.macros, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
+				return err
+			}
+		case ActionRemoveFile:
+			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
+				return err
+			}
+		case ActionRemoveQuadlet:
+			if err := m.QuadletRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
+				return err
+			}
+		case ActionRemoveScript:
+			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
+				return err
+			}
+			if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
+				return err
+			}
+		case ActionRemoveService:
+			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
+				return err
+			}
+			if err := m.ServiceRepo.Remove(ctx, v.Payload.Name); err != nil {
+				return err
+			}
+		case ActionRemoveComponentScript:
+			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
+				return err
+			}
 		case ActionRemoveComponent:
-			if err := m.files.RemoveComponent(v.Parent, m.sm); err != nil {
-				return err
-			}
-
-		case ActionRemoveResource:
-			if err := m.files.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
+			if err := m.CompRepo.Remove(ctx, v.Parent.Name); err != nil {
 				return err
 			}
 
@@ -629,21 +699,21 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 			if err != nil {
 				return err
 			}
-			if err := m.Containers.InstallFile(ctx, v.Parent, v.Payload); err != nil {
+			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
 				return err
 			}
 		case ActionUpdateVolumeResource:
 			if err := m.files.InstallResource(ctx, v.Parent, v.Payload, m.macros, vars); err != nil {
 				return err
 			}
-			if err := m.Containers.InstallFile(ctx, v.Parent, v.Payload); err != nil {
+			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
 				return err
 			}
 		case ActionRemoveVolumeResource:
 			if err := m.files.RemoveResource(v.Parent, v.Payload, m.sm); err != nil {
 				return err
 			}
-			if err := m.Containers.RemoveFile(ctx, v.Parent, v.Payload); err != nil {
+			if err := m.RemoveFile(ctx, v.Parent, v.Payload); err != nil {
 				return err
 			}
 		case ActionSetupComponent:
@@ -688,6 +758,92 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 		}
 	}
 	return nil
+}
+
+func (m *Materia) InstallVolumeFile(ctx context.Context, parent *Component, res Resource) error {
+	var vrConf *VolumeResourceConfig
+	for _, vr := range parent.VolumeResources {
+		if vr.Resource == res.Name {
+			vrConf = &vr
+			break
+		}
+	}
+	if vrConf == nil {
+		return fmt.Errorf("tried to install volume file for nonexistent volume resource: %v", res.Name)
+	}
+	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
+	volumes, err := m.Containers.ListVolumes(ctx)
+	if err != nil {
+		return err
+	}
+	var volume *containers.Volume
+	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
+		if v.Name == vrConf.Volume {
+			volume = v
+			return true
+		}
+		return false
+	}) {
+		return fmt.Errorf("tried to install volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
+	}
+	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
+	data, err := os.ReadFile(res.Path)
+	if err != nil {
+		return err
+	}
+	mode := vrConf.Mode
+	if mode == "" {
+		mode = "0o755"
+	}
+	parsedMode, err := strconv.ParseInt(mode, 8, 32)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(inVolumeLoc, bytes.NewBuffer(data).Bytes(), os.FileMode(parsedMode))
+	if err != nil {
+		return err
+	}
+	if vrConf.Owner != "" {
+		uid, err := strconv.ParseInt(vrConf.Owner, 10, 32)
+		if err != nil {
+			return err
+		}
+		err = os.Chown(inVolumeLoc, int(uid), -1)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Materia) RemoveFile(ctx context.Context, parent *Component, res Resource) error {
+	var vrConf *VolumeResourceConfig
+	for _, vr := range parent.VolumeResources {
+		if vr.Resource == res.Name {
+			vrConf = &vr
+		}
+	}
+	if vrConf == nil {
+		return fmt.Errorf("tried to remove volume file for nonexistent volume resource: /%v", res.Name)
+	}
+	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
+	volumes, err := m.Containers.ListVolumes(ctx)
+	if err != nil {
+		return err
+	}
+	var volume *containers.Volume
+	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
+		if v.Name == vrConf.Volume {
+			volume = v
+			return true
+		}
+		return false
+	}) {
+		return fmt.Errorf("tried to remove volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
+	}
+	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
+	return os.Remove(inVolumeLoc)
 }
 
 func (m *Materia) Clean(ctx context.Context) error {

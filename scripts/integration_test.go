@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 	servicedir = filepath.Join(testPrefix, "services")
 	cfg = &materia.Config{
 		SourceURL:   "file://./testrepo",
-		Debug:       false,
+		Debug:       true,
 		Hostname:    "localhost",
 		Timeout:     0,
 		Prefix:      testPrefix,
@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	os.RemoveAll(testPrefix)
+	// os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -105,14 +105,14 @@ func TestPlan(t *testing.T) {
 	}
 	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
-		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
-		planHelper(materia.ActionInstallResource, "double", "hello.container"),
+		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
+		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
+		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
-		planHelper(materia.ActionInstallResource, "hello", "hello.container"),
-		planHelper(materia.ActionInstallResource, "hello", "hello.env"),
-		planHelper(materia.ActionInstallResource, "hello", "hello.volume"),
-		planHelper(materia.ActionInstallResource, "hello", "test.env"),
+		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
+		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
+		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
+		planHelper(materia.ActionInstallFile, "hello", "test.env"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
@@ -154,14 +154,14 @@ func TestExecute(t *testing.T) {
 	}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallResource, "double", "MANIFEST.toml"),
-		planHelper(materia.ActionInstallResource, "double", "goodbye.container"),
-		planHelper(materia.ActionInstallResource, "double", "hello.container"),
+		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
+		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
+		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
-		planHelper(materia.ActionInstallResource, "hello", "hello.container"),
-		planHelper(materia.ActionInstallResource, "hello", "hello.env"),
-		planHelper(materia.ActionInstallResource, "hello", "hello.volume"),
-		planHelper(materia.ActionInstallResource, "hello", "test.env"),
+		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
+		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
+		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
+		planHelper(materia.ActionInstallFile, "hello", "test.env"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
@@ -192,7 +192,7 @@ func TestExecute(t *testing.T) {
 			_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
 			assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
 
-		case materia.ActionInstallResource:
+		case materia.ActionInstallFile, materia.ActionInstallQuadlet:
 			var dest string
 			if v.Payload.Kind == materia.ResourceTypeFile || v.Payload.Kind == materia.ResourceTypeManifest {
 				dest = fmt.Sprintf("%v/components/%v/%v", prefix, v.Parent.Name, v.Payload.Name)

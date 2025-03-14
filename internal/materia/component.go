@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"maps"
 	"os"
 	"path/filepath"
@@ -119,7 +118,7 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
+func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]interface{}) error {
 	diffVars := make(map[string]interface{})
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
@@ -132,7 +131,7 @@ func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) te
 	return nil
 }
 
-func (c *Component) diff(other *Component, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) ([]Action, error) {
+func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interface{}) ([]Action, error) {
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -173,26 +172,22 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name)
 				a := Action{
-					Todo:    ActionUpdateResource,
+					Todo:    newRes.toAction("update"),
 					Parent:  c,
 					Payload: newRes,
 				}
-				if newRes.Kind == ResourceTypeVolumeFile {
-					a.Todo = ActionUpdateVolumeResource
-				}
+
 				diffActions = append(diffActions, a)
 			}
 		} else {
 			// in current resources but not source resources, remove old
 			log.Debug("removing current resource", "file", cur.Name)
 			a := Action{
-				Todo:    ActionRemoveResource,
+				Todo:    newRes.toAction("remove"),
 				Parent:  c,
 				Payload: cur,
 			}
-			if cur.Kind == ResourceTypeVolumeFile {
-				a.Todo = ActionRemoveVolumeResource
-			}
+
 			diffActions = append(diffActions, a)
 		}
 	}
@@ -202,12 +197,9 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			// if new resource is not in old resource we need to install it
 			log.Debug("installing new resource", "file", k)
 			a := Action{
-				Todo:    ActionInstallResource,
+				Todo:    newResources[k].toAction("install"),
 				Parent:  c,
 				Payload: newResources[k],
-			}
-			if newResources[k].Kind == ResourceTypeVolumeFile {
-				a.Todo = ActionInstallVolumeResource
 			}
 			diffActions = append(diffActions, a)
 		}

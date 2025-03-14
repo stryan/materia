@@ -25,37 +25,37 @@ func NewGitSource(path, repo string, c *Config) (*GitSource, error) {
 		repo: repo,
 		path: path,
 	}
-
-	if c.PrivateKey != "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, err
+	if c != nil {
+		if c.PrivateKey != "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, err
+			}
+			_, err = os.Stat(fmt.Sprintf("%v/.ssh/known_hosts", home))
+			if err != nil {
+				return nil, err
+			}
+			_, err = os.Stat(c.PrivateKey)
+			if err != nil {
+				return nil, err
+			}
+			publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
+			if err != nil {
+				return nil, err
+			}
+			if g.insecure {
+				publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+			}
+			g.auth = publicKeys
+		} else if c.Username != "" {
+			g.auth = &http.BasicAuth{
+				Username: c.Username,
+				Password: c.Password,
+			}
+		} else {
+			return nil, errors.New("no valid authentication set for git")
 		}
-		_, err = os.Stat(fmt.Sprintf("%v/.ssh/known_hosts", home))
-		if err != nil {
-			return nil, err
-		}
-		_, err = os.Stat(c.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-		publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
-		if err != nil {
-			return nil, err
-		}
-		if g.insecure {
-			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
-		}
-		g.auth = publicKeys
-	} else if c.Username != "" {
-		g.auth = &http.BasicAuth{
-			Username: c.Username,
-			Password: c.Password,
-		}
-	} else {
-		return nil, errors.New("no valid authentication set for git")
 	}
-
 	return g, nil
 }
 

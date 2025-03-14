@@ -51,7 +51,7 @@ func (r *Resource) String() string {
 	return fmt.Sprintf("{r %v %v %v %v }", r.Name, r.Path, r.Kind, r.Template)
 }
 
-func (cur Resource) diff(fmap func(map[string]interface{}) template.FuncMap, newRes Resource, vars map[string]interface{}) ([]diffmatchpatch.Diff, error) {
+func (cur Resource) diff(fmap MacroMap, newRes Resource, vars map[string]interface{}) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -85,7 +85,7 @@ func (cur Resource) diff(fmap func(map[string]interface{}) template.FuncMap, new
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (cur Resource) execute(funcMap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) (*bytes.Buffer, error) {
+func (cur Resource) execute(funcMap MacroMap, vars map[string]interface{}) (*bytes.Buffer, error) {
 	newFile, err := os.ReadFile(cur.Path)
 	if err != nil {
 		return nil, err
@@ -130,4 +130,57 @@ func (r Resource) getServiceFromResource() (Resource, error) {
 		return res, errors.New("tried to convert a non container or pod to a rice")
 	}
 	return res, nil
+}
+
+func (r Resource) toAction(action string) ActionType {
+	todo := ActionUnknown
+	switch action {
+	case "install":
+		switch r.Kind {
+		case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
+			todo = ActionInstallQuadlet
+		case ResourceTypeFile, ResourceTypeManifest:
+			todo = ActionInstallFile
+		case ResourceTypeComponentScript:
+			todo = ActionInstallComponentScript
+		case ResourceTypeScript:
+			todo = ActionInstallScript
+		case ResourceTypeService:
+			todo = ActionInstallService
+		case ResourceTypeVolumeFile:
+			todo = ActionInstallVolumeResource
+
+		}
+	case "update":
+		switch r.Kind {
+		case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
+			todo = ActionUpdateQuadlet
+		case ResourceTypeFile, ResourceTypeManifest:
+			todo = ActionUpdateFile
+		case ResourceTypeScript:
+			todo = ActionUpdateScript
+		case ResourceTypeService:
+			todo = ActionUpdateService
+		case ResourceTypeVolumeFile:
+			todo = ActionUpdateVolumeResource
+		case ResourceTypeComponentScript:
+			todo = ActionUpdateComponentScript
+		}
+	case "remove":
+		switch r.Kind {
+		case ResourceTypeContainer, ResourceTypeKube, ResourceTypeNetwork, ResourceTypePod, ResourceTypeVolume:
+			todo = ActionRemoveQuadlet
+		case ResourceTypeFile, ResourceTypeManifest:
+			todo = ActionRemoveFile
+		case ResourceTypeScript:
+			todo = ActionRemoveScript
+		case ResourceTypeService:
+			todo = ActionRemoveService
+		case ResourceTypeVolumeFile:
+			todo = ActionRemoveVolumeResource
+		case ResourceTypeComponentScript:
+			todo = ActionRemoveComponentScript
+		}
+	}
+	return todo
 }
