@@ -372,38 +372,6 @@ func (f *FileRepository) InstallResource(ctx context.Context, comp *Component, r
 	return nil
 }
 
-func (f *FileRepository) InstallResourceReal(ctx context.Context, fileLocation string, result *bytes.Buffer) error {
-	err := f.installFile(fileLocation, result)
-	if err != nil {
-		return err
-	}
-	// if res.Kind == ResourceTypeScript || res.Kind == ResourceTypeComponentScript {
-	// 	err = os.Chmod(fileLocation, 0755)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	// 	err = os.Chmod(fileLocation, 0644)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// if res.Kind == ResourceTypeScript {
-	// 	err = f.installFile(fmt.Sprintf("%v/%v", f.scriptsLocation, res.Name), result)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// if res.Kind == ResourceTypeService {
-	// 	err = f.installFile(filepath.Join(f.servicesLocation, res.Name), result)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	return nil
-}
-
 func (f *FileRepository) RemoveResource(comp *Component, res Resource, _ secrets.SecretsManager) error {
 	if err := comp.Validate(); err != nil {
 		return err

@@ -38,3 +38,26 @@ func (filerepository *FileRepository) Exists(ctx context.Context, path string) (
 	}
 	return true, nil
 }
+
+func (f *FileRepository) Get(ctx context.Context, path string) (string, error) {
+	_, err := os.Stat(filepath.Join(f.Prefix, path))
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(f.Prefix, path), nil
+}
+
+func (f *FileRepository) List(ctx context.Context) ([]string, error) {
+	panic("unimplemented")
+}
+
+func (f *FileRepository) Clean(ctx context.Context) error {
+	entries, err := os.ReadDir(f.Prefix)
+	if err != nil {
+		return err
+	}
+	for _, v := range entries {
+		os.RemoveAll(v.Name())
+	}
+	return nil
+}

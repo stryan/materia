@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/source"
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/BurntSushi/toml"
 )
 
@@ -19,25 +19,15 @@ type Facts struct {
 	InstalledComponents map[string]*Component
 }
 
-func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository, containers containers.Containers) (*MateriaManifest, *Facts, error) {
-	err := source.Sync(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error syncing source: %w", err)
-	}
-	man, err := files.GetManifest(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting repo manifest %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, nil, err
-	}
+func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo repository.Repository, containers containers.Containers) (*Facts, error) {
 	facts := &Facts{}
+	var err error
 	if c.Hostname != "" {
 		facts.Hostname = c.Hostname
 	} else {
 		facts.Hostname, err = os.Hostname()
 		if err != nil {
-			return nil, nil, fmt.Errorf("error getting hostname: %w", err)
+			return nil, fmt.Errorf("error getting hostname: %w", err)
 		}
 	}
 	if man.RoleCommand != "" {
@@ -45,11 +35,11 @@ func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileR
 		cmd := exec.Command(man.RoleCommand)
 		res, err := cmd.Output()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		err = toml.Unmarshal(res, &roleStruct)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		facts.Roles = append(facts.Roles, roleStruct.Roles...)
 	} else if host, ok := man.Hosts[facts.Hostname]; ok {
@@ -72,19 +62,31 @@ func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileR
 	}
 	vols, err := containers.ListVolumes(context.Background())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	facts.Volumes = vols
 	facts.InstalledComponents = make(map[string]*Component)
-	comps, err := files.GetAllInstalledComponents(ctx)
+	installPaths, err := compRepo.List(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error getting installed components: %w", err)
+		return nil, fmt.Errorf("error getting source components: %w", err)
+	}
+	var comps []*Component
+	for _, v := range installPaths {
+		comp, err := NewComponentFromSource(v)
+		if err != nil {
+			return nil, fmt.Errorf("error creating component from source: %w", err)
+		}
+		comps = append(comps, comp)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error getting installed components: %w", err)
 	}
 	for _, v := range comps {
 		v.State = StateStale
 		facts.InstalledComponents[v.Name] = v
 	}
-	return man, facts, nil
+	return facts, nil
 }
 
 func (f *Facts) Lookup(arg string) interface{} {

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,6 +39,8 @@ func TestMain(m *testing.M) {
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
 	servicedir = filepath.Join(testPrefix, "services")
+	log.Default().SetLevel(log.DebugLevel)
+	log.Default().SetReportCaller(true)
 	cfg = &materia.Config{
 		SourceURL:   "file://./testrepo",
 		Debug:       true,

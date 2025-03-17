@@ -46,6 +46,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	c.Name = filepath.Base(path)
 	c.Defaults = make(map[string]interface{})
 	c.VolumeResources = make(map[string]VolumeResourceConfig)
+	fmt.Fprintf(os.Stderr, "FBLTHP[125]: component.go:49: path=%+v\n", path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
