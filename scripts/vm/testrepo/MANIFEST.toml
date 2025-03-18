@@ -1,0 +1,11 @@
+secrets = "age"
+age.idents = "./test-key.txt"
+[hosts.localhost]
+components = ["hello"]
+roles = ["base","double"]
+
+[roles.base]
+components = ["beszel-agent"]
+
+[roles.double]
+components = ["double"]

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/repository"
@@ -19,7 +20,7 @@ type Facts struct {
 	InstalledComponents map[string]*Component
 }
 
-func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo repository.Repository, containers containers.Containers) (*Facts, error) {
+func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *repository.ComponentRepository, containers containers.Containers) (*Facts, error) {
 	facts := &Facts{}
 	var err error
 	if c.Hostname != "" {
@@ -70,21 +71,13 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo rep
 	if err != nil {
 		return nil, fmt.Errorf("error getting source components: %w", err)
 	}
-	var comps []*Component
 	for _, v := range installPaths {
-		comp, err := NewComponentFromSource(v)
+		comp, err := NewComponentFromHost(filepath.Base(v), compRepo)
 		if err != nil {
-			return nil, fmt.Errorf("error creating component from source: %w", err)
+			return nil, fmt.Errorf("error creating component from install: %w", err)
 		}
-		comps = append(comps, comp)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("error getting installed components: %w", err)
-	}
-	for _, v := range comps {
-		v.State = StateStale
-		facts.InstalledComponents[v.Name] = v
+		comp.State = StateStale
+		facts.InstalledComponents[comp.Name] = comp
 	}
 	return facts, nil
 }
@@ -113,7 +106,7 @@ func (f *Facts) Pretty() string {
 	}
 	result += "\nInstalled Components: "
 	for _, v := range f.InstalledComponents {
-		result += fmt.Sprintf("%v", v.Name)
+		result += fmt.Sprintf("%v ", v.Name)
 	}
 
 	return result

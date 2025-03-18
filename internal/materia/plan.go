@@ -96,7 +96,7 @@ func (p *Plan) Pretty() string {
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 	result += "Plan: \n"
 	for i, a := range steps {
-		result += fmt.Sprintf("%v. %v\n", i, a.Pretty())
+		result += fmt.Sprintf("%v. %v\n", i+1, a.Pretty())
 	}
 	return result
 }

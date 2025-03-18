@@ -89,6 +89,10 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
+					if plan.Empty() {
+						fmt.Println("No changes being made")
+						return nil
+					}
 					fmt.Println(plan.Pretty())
 					return nil
 				},
@@ -208,7 +212,7 @@ func main() {
 				Name:  "version",
 				Usage: "show version",
 				Action: func(_ *cli.Context) error {
-					fmt.Printf("materia version git-%v", Commit)
+					fmt.Printf("materia version git-%v\n", Commit)
 					return nil
 				},
 			},

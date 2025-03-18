@@ -139,7 +139,8 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	}
 
 	log.Info("loading facts")
-	facts, err := NewFacts(ctx, c, man, &repository.ComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components")}, cm)
+	compRepo := &repository.ComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination}
+	facts, err := NewFacts(ctx, c, man, compRepo, cm)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
@@ -155,7 +156,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		Manifest:      man,
 		source:        source,
 		debug:         c.Debug,
-		CompRepo:      &repository.ComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination},
+		CompRepo:      compRepo,
 		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(prefix, "materia", "components")},
 		QuadletRepo:   &repository.FileRepository{Prefix: destination},
 		ScriptRepo:    &repository.FileRepository{Prefix: scriptsPath},
@@ -418,20 +419,6 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 						Payload: s,
 					})
 				}
-			} else {
-				for _, r := range c.Resources {
-					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-						serv, err := r.getServiceFromResource()
-						if err != nil {
-							return err
-						}
-						plan.Add(Action{
-							Todo:    ActionStartService,
-							Parent:  c,
-							Payload: serv,
-						})
-					}
-				}
 			}
 		case StateNeedUpdate:
 			// need to install all services
@@ -442,20 +429,6 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 						Parent:  c,
 						Payload: s,
 					})
-				}
-			} else {
-				for _, r := range c.Resources {
-					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-						serv, err := r.getServiceFromResource()
-						if err != nil {
-							return err
-						}
-						plan.Add(Action{
-							Todo:    ActionRestartService,
-							Parent:  c,
-							Payload: serv,
-						})
-					}
 				}
 			}
 		case StateOK:
@@ -488,20 +461,6 @@ func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*C
 						Parent:  c,
 						Payload: s,
 					})
-				}
-			} else {
-				for _, r := range c.Resources {
-					if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-						serv, err := r.getServiceFromResource()
-						if err != nil {
-							return err
-						}
-						plan.Add(Action{
-							Todo:    ActionStopService,
-							Parent:  c,
-							Payload: serv,
-						})
-					}
 				}
 			}
 		default:
