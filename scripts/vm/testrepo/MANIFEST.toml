@@ -1,7 +1,7 @@
 secrets = "age"
 age.idents = "./test-key.txt"
 [hosts.localhost]
-components = ["hello"]
+components = ["hello","freshrss"]
 roles = ["base","double"]
 
 [roles.base]

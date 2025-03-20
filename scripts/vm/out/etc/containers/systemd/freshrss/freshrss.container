@@ -1,0 +1,25 @@
+[Unit]
+Description=FreshRSS container
+After=local-fs.target network.target
+Wants=local-fs.target network.target
+Requires=local-fs.target network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+
+
+[Container]
+Image=docker.io/freshrss/freshrss:latest
+ContainerName=freshrss
+EnvironmentFile=/var/lib/materia/components/freshrss/freshrss.env
+Volume=freshrss-data.volume:/var/www/FreshRSS/data
+Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
+PublishPort=80:80
+Label=io.containers.autoupdate=registry
+[Install]
+# Start by default on boot
+WantedBy=multi-user.target default.target

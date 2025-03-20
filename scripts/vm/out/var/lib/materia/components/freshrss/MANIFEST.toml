@@ -1,0 +1,4 @@
+services = ["freshrss.service"]
+defaults.containerTag = "latest"
+defaults.Port = 80
+defaults.dataContents = "[Volume]"

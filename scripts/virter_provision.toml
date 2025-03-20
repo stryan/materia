@@ -42,10 +42,18 @@ source = "scripts/vm/testrepo/"
 dest = "/tmp/testrepo/"
 
 [[steps]]
+[steps.rsync]
+source = "scripts/vm/out/"
+dest = "/tmp/out/"
+
+[[steps]]
 [steps.shell]
 script = """
 ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
-/usr/local/bin/materia facts
-/usr/local/bin/materia plan
+/usr/local/bin/materia update
+set -e
+diff -r /tmp/out/etc/containers/systemd /etc/containers/systemd/
+diff -r /tmp/out/var/lib/materia/components /var/lib/materia/components/
+diff -r /tmp/out/usr/local/lib/systemd/system/ /usr/local/lib/systemd/system/
 """
 

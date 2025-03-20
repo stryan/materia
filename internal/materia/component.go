@@ -96,14 +96,16 @@ func NewComponentFromSource(path string) (*Component, error) {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	if man != nil {
-		for _, s := range man.Services {
-			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+		if !man.NoServices {
+			for _, s := range man.Services {
+				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
+					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+				}
+				c.Services = append(c.Services, Resource{
+					Name: s,
+					Kind: ResourceTypeService,
+				})
 			}
-			c.Services = append(c.Services, Resource{
-				Name: s,
-				Kind: ResourceTypeService,
-			})
 		}
 	} else {
 		for _, r := range c.Resources {
@@ -154,16 +156,18 @@ func NewComponentFromHost(name string, compRepo *repository.ComponentRepository)
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
-			for _, s := range man.Services {
-				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+			if !man.NoServices {
+				for _, s := range man.Services {
+					if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
+						return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+					}
+					oldComp.Services = append(oldComp.Services, Resource{
+						Name: s,
+						Kind: ResourceTypeService,
+					})
 				}
-				oldComp.Services = append(oldComp.Services, Resource{
-					Name: s,
-					Kind: ResourceTypeService,
-				})
 			}
-
+			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 		}
 		if resName == "setup.sh" || resName == "cleanup.sh" {
 			scripts++
