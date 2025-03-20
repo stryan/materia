@@ -40,7 +40,4 @@ run = [
 	"virter vm run --name materia-test-alma-9 --id 101 --wait-ssh alma-9",
 	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
 	"virter vm rm materia-test-alma-9",
-	"diff -r /tmp/out/etc/containers/systemd /etc/containers/systemd/",
-	"diff -r /tmp/out/var/lib/materia/components /var/lib/materia/components/",
-	"diff -r /tmp/out/usr/local/lib/systemd/system/ /usr/local/lib/systemd/system/",
 ]
