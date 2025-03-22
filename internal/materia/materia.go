@@ -884,10 +884,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	return m.CompRepo.Remove(ctx, comp.Name)
 }
 
-func (m *Materia) ValidateComponent(ctx context.Context, name, hostname string, roles []string) (*Plan, error) {
-	if hostname != "" {
-		m.Facts.Hostname = hostname
-	}
+func (m *Materia) ValidateComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
 	if roles != nil {
 		m.Facts.Roles = roles
 	}

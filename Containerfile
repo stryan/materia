@@ -1,7 +1,8 @@
 FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
 WORKDIR /go/src/app
 COPY . .
-RUN CGO_ENABLED=0 make tools && make
+RUN curl https://mise.run | sh && /root/.local/bin/mise trust
+RUN /root/.local/bin/mise build
 
 FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
 WORKDIR /app

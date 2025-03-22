@@ -5,6 +5,12 @@ go = "1.24"
 golangci-lint = "latest"
 gotestsum = "latest"
 
+[env]
+CGO_ENABLED = 0
+
+[settings]
+experimental = true
+
 [tasks]
 container = "podman build . -t git.saintnet.tech/stryan/materia:latest"
 
@@ -46,4 +52,5 @@ run = [
 [tasks.generate]
 description = "Run go:generate"
 sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = { auto = true }
 run = "go generate ./..."

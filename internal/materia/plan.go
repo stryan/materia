@@ -92,6 +92,9 @@ func (p *Plan) Steps() []Action {
 }
 
 func (p *Plan) Pretty() string {
+	if p.Empty() {
+		return "Nothing to do"
+	}
 	var result string
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 	result += "Plan: \n"

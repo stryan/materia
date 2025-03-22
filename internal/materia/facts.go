@@ -2,10 +2,15 @@ package materia
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/repository"
@@ -18,6 +23,7 @@ type Facts struct {
 	AssignedComponents  []string
 	Volumes             []*containers.Volume
 	InstalledComponents map[string]*Component
+	Interfaces          map[string]Interfaces
 }
 
 func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *repository.ComponentRepository, containers containers.Containers) (*Facts, error) {
@@ -30,6 +36,21 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 		if err != nil {
 			return nil, fmt.Errorf("error getting hostname: %w", err)
 		}
+	}
+	vols, err := containers.ListVolumes(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	facts.Volumes = vols
+	networks, err := GetInterfaceIPs()
+	if err != nil {
+		return nil, err
+	}
+	facts.Interfaces = networks
+
+	if man == nil {
+		// return just the host facts
+		return facts, nil
 	}
 	if man.RoleCommand != "" {
 		roleStruct := struct{ Roles []string }{}
@@ -48,6 +69,7 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 			facts.Roles = append(facts.Roles, host.Roles...)
 		}
 	}
+
 	host, ok := man.Hosts["all"]
 	if ok {
 		facts.AssignedComponents = append(facts.AssignedComponents, host.Components...)
@@ -61,11 +83,6 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 			facts.AssignedComponents = append(facts.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-	vols, err := containers.ListVolumes(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	facts.Volumes = vols
 	facts.InstalledComponents = make(map[string]*Component)
 	installPaths, err := compRepo.List(ctx)
 	if err != nil {
@@ -83,14 +100,42 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 }
 
 func (f *Facts) Lookup(arg string) interface{} {
-	switch arg {
+	input := strings.Split(arg, ".")
+	switch input[0] {
 	case "hostname":
 		return f.Hostname
 	case "roles":
 		return f.Roles
-	default:
-		return ""
+	case "interface":
+		if len(input) == 1 {
+			return f.Interfaces
+		}
+		if len(input) == 2 {
+			return f.Interfaces[input[1]]
+		}
+		if len(input) == 3 {
+			if input[2] == "ip4" {
+				return f.Interfaces[input[1]].Ip4
+			}
+			if input[2] == "ip6" {
+				return f.Interfaces[input[1]].Ip4
+			}
+			return ""
+		}
+		if len(input) == 4 {
+			index, err := strconv.Atoi(input[3])
+			if err != nil {
+				return errors.New("invalid interface index")
+			}
+			if input[2] == "ip4" {
+				return f.Interfaces[input[1]].Ip4[index]
+			}
+			if input[2] == "ip6" {
+				return f.Interfaces[input[1]].Ip4[index]
+			}
+		}
 	}
+	return errors.New("Invalid fact lookup")
 }
 
 func (f *Facts) Pretty() string {
@@ -108,6 +153,50 @@ func (f *Facts) Pretty() string {
 	for _, v := range f.InstalledComponents {
 		result += fmt.Sprintf("%v ", v.Name)
 	}
+	result += "\nNetworks: "
+	for i, v := range f.Interfaces {
+		result += fmt.Sprintf("\nInterface %v: %v", i, v)
+	}
 
 	return result
+}
+
+type Interfaces struct {
+	Name string
+	Ip4  []string
+	Ip6  []string
+}
+
+func GetInterfaceIPs() (map[string]Interfaces, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	results := make(map[string]Interfaces, len(interfaces))
+	for _, i := range interfaces {
+		n := Interfaces{
+			Ip4: []string{},
+			Ip6: []string{},
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range addrs {
+			ip, _, err := net.ParseCIDR(a.String())
+			if err != nil {
+				return nil, fmt.Errorf("invalid CIDR format: %w", err)
+			}
+			if ip4 := ip.To4(); ip4 != nil {
+				n.Ip4 = append(n.Ip4, ip.String())
+			} else {
+				n.Ip6 = append(n.Ip6, ip.String())
+			}
+		}
+		n.Ip4 = sort.StringSlice(n.Ip4)
+		n.Ip6 = sort.StringSlice(n.Ip6)
+		results[i.Name] = n
+
+	}
+	return results, nil
 }

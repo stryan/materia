@@ -68,12 +68,42 @@ func main() {
 			{
 				Name:  "facts",
 				Usage: "Display host facts",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "host",
+						Usage: "Return only host facts (i.e. no assigned roles)",
+					},
+					&cli.StringFlag{
+						Name:    "fact",
+						Usage:   "Lookup a fact",
+						Aliases: []string{"f"},
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx, c)
-					if err != nil {
-						return err
+					host := cCtx.Bool("host")
+					arg := cCtx.String("fact")
+					var facts *materia.Facts
+					if host {
+						cm, err := containers.NewPodmanManager()
+						if err != nil {
+							return err
+						}
+						facts, err = materia.NewFacts(ctx, c, nil, nil, cm)
+						if err != nil {
+							return err
+						}
+					} else {
+						m, err := setup(ctx, c)
+						if err != nil {
+							return err
+						}
+						facts = m.Facts
 					}
-					fmt.Println(m.Facts.Pretty())
+					if arg != "" {
+						fmt.Println(facts.Lookup(arg))
+						return nil
+					}
+					fmt.Println(facts.Pretty())
 					return nil
 				},
 			},
@@ -180,20 +210,21 @@ func main() {
 						source = "./"
 					}
 					c.SourceURL = fmt.Sprintf("file://%v", source)
+					if hostname != "" {
+						c.Hostname = hostname
+					}
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
-					plan, err := m.ValidateComponent(ctx, comp, hostname, roles)
+					plan, err := m.ValidateComponent(ctx, comp, roles)
 					if err != nil {
 						return err
 					}
 					if cCtx.Bool("verbose") {
 						fmt.Println(plan.Pretty())
-					} else {
-						fmt.Println("OK")
 					}
-
+					fmt.Println("OK")
 					return nil
 				},
 			},
