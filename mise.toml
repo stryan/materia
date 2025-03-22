@@ -9,10 +9,11 @@ gotestsum = "latest"
 container = "podman build . -t git.saintnet.tech/stryan/materia:latest"
 
 [tasks.build]
-run = [
-	"go generate ./...",
-	"go build -o materia ./cmd/materia"
-]
+depends = ["generate"]
+description = "Build the project"
+sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = ["materia"]
+run = "go build -o materia ./cmd/materia/"
 
 [tasks.lint]
 run = "golangci-lint run ./cmd/... ./internal/..."
@@ -41,3 +42,8 @@ run = [
 	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
 	"virter vm rm materia-test-alma-9",
 ]
+
+[tasks.generate]
+description = "Run go:generate"
+sources = ["go.mod", "go.sum", "**/*.go"]
+run = "go generate ./..."
