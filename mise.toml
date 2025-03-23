@@ -5,21 +5,21 @@ go = "1.24"
 golangci-lint = "latest"
 gotestsum = "latest"
 
-[env]
-CGO_ENABLED = 0
-
 [settings]
 experimental = true
 
 [tasks]
-container = "podman build . -t git.saintnet.tech/stryan/materia:latest"
+
+[vars]
+container_engine = "podman"
+
+[tasks.container]
+depends = ["build","lint","test"]
+run = '{{ vars.container_engine }} build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t git.saintnet.tech/stryan/materia:latest .'
+
 
 [tasks.build]
-depends = ["generate"]
-description = "Build the project"
-sources = ["go.mod", "go.sum", "**/*.go"]
-outputs = ["materia"]
-run = "go build -o materia ./cmd/materia/"
+depends = ["generate","build-arm64","build-amd64"]
 
 [tasks.lint]
 run = "golangci-lint run ./cmd/... ./internal/..."
@@ -40,7 +40,7 @@ run = [
 
 
 [tasks.virter-test]
-depends = ['build','lint','test',"virter-age"]
+depends = ['build-amd64','lint','test',"virter-age"]
 env = {	REPO = 'file:///tmp/testrepo' }
 run = [
 	"if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
@@ -54,3 +54,21 @@ description = "Run go:generate"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = { auto = true }
 run = "go generate ./..."
+
+[tasks.build-arm64]
+depends = ["generate"]
+description = "Build the project for arm64"
+sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = ["./bin/materia-arm64"]
+env = { GOOS="linux", GOARCH="arm64", CGO_ENABLED=0 }
+run = "go build -o bin/materia-arm64 ./cmd/materia/"
+
+
+[tasks.build-amd64]
+depends = ["generate"]
+description = "Build the project for amd64"
+sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = ["./bin/materia-amd64"]
+env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
+run = "go build -o bin/materia-amd64 ./cmd/materia/"
+

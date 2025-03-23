@@ -1,0 +1,19 @@
+FROM registry.opensuse.org/opensuse/tumbleweed:latest
+WORKDIR /app
+ARG TARGETARCH
+
+ENV TARGETARCH=${TARGETARCH} \
+	ZYPP_PCK_PRELOAD=1 \
+	ZYPP_CURL2=1
+
+WORKDIR /app
+RUN mkdir -p /lib64
+RUN mkdir -p /root/.ssh && \
+	chmod 0700 /root/.ssh && \
+	touch /root/.ssh/known_hosts
+
+RUN zypper in -y podman git openssh openssh-clients
+
+COPY ./bin/materia-${TARGETARCH} /app/materia
+
+ENTRYPOINT ["/app/materia"]

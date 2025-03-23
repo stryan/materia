@@ -1,0 +1,2 @@
+[vars]
+container_engine = "docker buildx"

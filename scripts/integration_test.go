@@ -79,12 +79,10 @@ func TestFacts(t *testing.T) {
 	m := testMateria([]string{})
 	assert.NotNil(t, m.Manifest)
 	assert.NotNil(t, m.Facts)
-	assert.Equal(t, m.Facts, &materia.Facts{
-		Hostname:            "localhost",
-		Roles:               nil,
-		AssignedComponents:  []string{"hello", "double"},
-		InstalledComponents: make(map[string]*materia.Component),
-	})
+	assert.Equal(t, m.Facts.Hostname, "localhost")
+	assert.Equal(t, m.Facts.Roles, []string(nil))
+	assert.Equal(t, m.Facts.AssignedComponents, []string{"hello", "double"})
+	assert.Equal(t, m.Facts.InstalledComponents, make(map[string]*materia.Component))
 }
 
 func TestPlan(t *testing.T) {
