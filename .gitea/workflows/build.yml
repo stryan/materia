@@ -31,18 +31,6 @@ jobs:
       - name: Login to registry
         run: docker login git.saintnet.tech --username ${REGISTRY_USER} --password ${REGISTRY_PASSWORD}
       - name: Push container
-        run: docker push git.saintnet.tech/stryan/materia:latest
-    # - name: Log in to registry
-    #   uses: redhat-actions/podman-login@v1
-    #   with:
-    #     username: ${{ env.REGISTRY_USER }}
-    #     password: ${{ env.REGISTRY_PASSWORD }}
-    #     registry: ${{ env.IMAGE_REGISTRY }}
-    # - name: Build and push
-    #   uses: docker/build-push-action@v3
-    #   with:
-    #     context: .
-    #     platforms: linux/amd64,linux/arm64
-    #     tags: "git.saintnet.tech/stryan/materia:latest"
-    #     push: true
-    #     file: Containerfile
+        run: docker push git.saintnet.tech/stryan/materia:${TAG}
+        env:
+          TAG: "${{ gitea.ref == 'master' && 'latest' || gitea.ref  }}"
