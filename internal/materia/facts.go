@@ -39,12 +39,12 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 	}
 	vols, err := containers.ListVolumes(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting container volumes: %w", err)
 	}
 	facts.Volumes = vols
 	networks, err := GetInterfaceIPs()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting network interfaces: %w", err)
 	}
 	facts.Interfaces = networks
 
