@@ -15,23 +15,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Check
-        run: "echo ${TAG}"
-    # - name: Checkout
-    #   uses: actions/checkout@v4
-    # - uses: jdx/mise-action@v2
-    #   with:
-    #     # version: "latest" # [default: latest] mise version to install
-    #     install: true # [default: true] run `mise install`
-    #     cache: true # [default: true] cache mise using GitHub's cache
-    #     experimental: true # [default: false] enable experimental features
-    # - name: Setup qemu
-    #   run: "docker run --rm --privileged multiarch/qemu-user-static --reset -p yes"
-    # - name: Setup docker buildx
-    #   run: "docker buildx create --use"
-    # - name: Build container
-    #   run: mise container
-    # - name: Login to registry
-    #   run: docker login git.saintnet.tech --username ${REGISTRY_USER} --password ${REGISTRY_PASSWORD}
-    # - name: Push container
-    #   run: docker push git.saintnet.tech/stryan/materia:${TAG}
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          # version: "latest" # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+      - name: Setup qemu
+        run: "docker run --rm --privileged multiarch/qemu-user-static --reset -p yes"
+      - name: Setup docker buildx
+        run: "docker buildx create --use"
+      - name: Build container
+        run: mise container
+      - name: Login to registry
+        run: docker login git.saintnet.tech --username ${REGISTRY_USER} --password ${REGISTRY_PASSWORD}
+      - name: Push container
+        run: docker push git.saintnet.tech/stryan/materia:${TAG}
