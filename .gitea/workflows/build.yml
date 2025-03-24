@@ -14,6 +14,9 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture: [linux/amd64, linux/arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,13 +26,16 @@ jobs:
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
+      - name: Login to registry
+        run: |
+          echo "${{ REGISTRY_PASSWORD }}" | docker login -u "${{ REGISTRY_USER }}" --password-stdin git.saintnet.tech
       - name: Setup qemu
         run: "docker run --rm --privileged multiarch/qemu-user-static --reset -p yes"
       - name: Setup docker buildx
-        run: "docker buildx create --use"
+        run: "docker buildx create --name multi-platform-builder --driver docker-container --use"
       - name: Build container
         run: mise container
-      - name: Login to registry
-        run: docker login git.saintnet.tech --username ${REGISTRY_USER} --password ${REGISTRY_PASSWORD}
       - name: Push container
         run: docker push git.saintnet.tech/stryan/materia:${TAG}
+      - name: Logout registry
+        run: docker logout git.saintnet.tech

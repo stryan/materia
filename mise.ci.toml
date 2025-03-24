@@ -1,4 +1,4 @@
 [vars]
 container_engine = "docker buildx"
 container_tag = "${TAG}"
-container_args = "--output type=docker --push --builder multi-platform-builder -t git.saintnet.tech/stryan/materia:${TAG}"
+container_args = "--platform ${{ matrix.architecture }} --output type=docker --push  -t git.saintnet.tech/stryan/materia:${TAG}"
