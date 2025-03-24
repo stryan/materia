@@ -27,7 +27,9 @@ jobs:
         run: "docker run --rm --privileged multiarch/qemu-user-static --reset -p yes"
       - name: Setup docker buildx
         run: "docker buildx create --name multi-platform-builder --driver docker-container --use"
+      - name: Login to registry
+        run: docker login -u "${{ REGISTRY_USER }}" --builder multi-platform-builder --password "${{ REGISTRY_PASSWORD }}" git.saintnet.tech
       - name: Build container
-        run: docker login -u "${{ REGISTRY_USER }}" --password  "${{ REGISTRY_PASSWORD }}" git.saintnet.tech && mise ci
+        run: mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech
