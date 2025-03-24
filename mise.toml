@@ -13,12 +13,11 @@ experimental = true
 [vars]
 container_engine = "podman"
 container_tag = "latest"
-container_args = ""
+container_args = "-t git.saintnet.tech/stryan/materia:latest"
 
 [tasks.container]
 depends = ["build","lint","test"]
-run = '{{ vars.container_engine }} build -f Containerfile.ci --platform linux/arm64,linux/amd64 {{ vars.container_args }} -t git.saintnet.tech/stryan/materia:latest .'
-
+run = '{{ vars.container_engine }} build -f Containerfile.ci --platform linux/arm64,linux/amd64 {{ vars.container_args }}  .'
 
 [tasks.build]
 depends = ["generate","build-arm64","build-amd64"]
