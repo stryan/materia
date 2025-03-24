@@ -1,2 +1,3 @@
 [vars]
 container_engine = "docker buildx"
+container_tag = "${TAG}"
