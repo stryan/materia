@@ -28,6 +28,6 @@ jobs:
       - name: Setup docker buildx
         run: "docker buildx create --name multi-platform-builder --driver docker-container --use"
       - name: Build container
-        run: echo "${{ REGISTRY_PASSWORD }}" | docker login -u "${{ REGISTRY_USER }}" --password-stdin git.saintnet.tech && mise ci
+        run: docker login -u "${{ REGISTRY_USER }}" --password  "${{ REGISTRY_PASSWORD }}" git.saintnet.tech && mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech
