@@ -1,4 +1,6 @@
 [vars]
-container_engine = "docker buildx"
 container_tag = "${TAG}"
-container_args = "--platform ${{ matrix.architecture }} --output type=docker --push  -t git.saintnet.tech/stryan/materia:${TAG}"
+
+[tasks.ci]
+depends = ["build","lint","test"]
+run = 'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t git.saintnet.tech/stryan/materia:{{vars.container_tag}} .'
