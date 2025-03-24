@@ -1,3 +1,4 @@
 [vars]
 container_engine = "docker buildx"
 container_tag = "${TAG}"
+container_args = "--output type=docker"
