@@ -31,7 +31,7 @@ jobs:
       - name: Setup docker buildx
         run: "docker buildx create --name multi-platform-builder --driver docker-container --use"
       - name: Build container
-        run: mise container
+        run: mise ci
       - name: Push container
         run: docker push git.saintnet.tech/stryan/materia:${TAG}
       - name: Logout registry
