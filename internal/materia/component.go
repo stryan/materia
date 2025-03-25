@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html/template"
 	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -47,6 +47,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	c.Name = filepath.Base(path)
 	c.Defaults = make(map[string]interface{})
 	c.VolumeResources = make(map[string]VolumeResourceConfig)
+	log.Debugf("loading component %v from path %v", c.Name, path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
@@ -95,18 +96,90 @@ func NewComponentFromSource(path string) (*Component, error) {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	if man != nil {
-		for _, s := range man.Services {
-			if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-				return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+		if !man.NoServices {
+			for _, s := range man.Services {
+				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
+					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+				}
+				c.Services = append(c.Services, Resource{
+					Name: s,
+					Kind: ResourceTypeService,
+				})
 			}
-			c.Services = append(c.Services, Resource{
-				Name: s,
-				Kind: ResourceTypeService,
-			})
+		}
+	} else {
+		for _, r := range c.Resources {
+			if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
+				serv, err := r.getServiceFromResource()
+				if err != nil {
+					return nil, fmt.Errorf("error guestimating component service: %w", err)
+				}
+				c.Services = append(c.Services, serv)
+			}
 		}
 	}
 
 	return c, nil
+}
+
+func NewComponentFromHost(name string, compRepo *repository.ComponentRepository) (*Component, error) {
+	oldComp := &Component{
+		Name:            name,
+		Resources:       []Resource{},
+		State:           StateStale,
+		Services:        []Resource{},
+		Defaults:        make(map[string]interface{}),
+		VolumeResources: make(map[string]VolumeResourceConfig),
+	}
+	// load resources
+
+	var man *ComponentManifest
+	entries, err := compRepo.ListResources(context.Background(), name)
+	if err != nil {
+		return nil, fmt.Errorf("error listing resources: %w", err)
+	}
+	scripts := 0
+	for _, e := range entries {
+		resName := filepath.Base(e)
+		newRes := Resource{
+			Path:     e,
+			Name:     strings.TrimSuffix(resName, ".gotmpl"),
+			Kind:     findResourceType(resName),
+			Template: isTemplate(resName),
+		}
+
+		oldComp.Resources = append(oldComp.Resources, newRes)
+		if resName == "MANIFEST.toml" {
+			log.Debugf("loading installed component manifest %v", oldComp.Name)
+			man, err = LoadComponentManifest(newRes.Path)
+			if err != nil {
+				return nil, fmt.Errorf("error loading component manifest: %w", err)
+			}
+			maps.Copy(oldComp.Defaults, man.Defaults)
+			if !man.NoServices {
+				for _, s := range man.Services {
+					if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
+						return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+					}
+					oldComp.Services = append(oldComp.Services, Resource{
+						Name: s,
+						Kind: ResourceTypeService,
+					})
+				}
+			}
+			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
+		}
+		if resName == "setup.sh" || resName == "cleanup.sh" {
+			scripts++
+			oldComp.Scripted = true
+		}
+
+	}
+
+	if scripts != 0 && scripts != 2 {
+		return nil, errors.New("scripted component is missing install or cleanup")
+	}
+	return oldComp, nil
 }
 
 func (c Component) Validate() error {
@@ -119,7 +192,7 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) error {
+func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]interface{}) error {
 	diffVars := make(map[string]interface{})
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
@@ -132,7 +205,9 @@ func (c *Component) test(_ context.Context, fmap func(map[string]interface{}) te
 	return nil
 }
 
-func (c *Component) diff(other *Component, fmap func(map[string]interface{}) template.FuncMap, vars map[string]interface{}) ([]Action, error) {
+func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interface{}) ([]Action, error) {
+	fmt.Fprintf(os.Stderr, "FBLTHP[128]: component.go:145: other=%+v\n", other)
+	fmt.Fprintf(os.Stderr, "FBLTHP[127]: component.go:145: c=%+v\n", c)
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -161,7 +236,7 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 		cur := currentResources[k]
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			log.Debug("diffing resource", "file", cur.Name)
+			log.Debug("diffing resource", "component", c.Name, "file", cur.Name)
 			diffs, err := cur.diff(fmap, newRes, diffVars)
 			if err != nil {
 				return diffActions, err
@@ -173,26 +248,22 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name)
 				a := Action{
-					Todo:    ActionUpdateResource,
+					Todo:    newRes.toAction("update"),
 					Parent:  c,
 					Payload: newRes,
 				}
-				if newRes.Kind == ResourceTypeVolumeFile {
-					a.Todo = ActionUpdateVolumeResource
-				}
+
 				diffActions = append(diffActions, a)
 			}
 		} else {
 			// in current resources but not source resources, remove old
 			log.Debug("removing current resource", "file", cur.Name)
 			a := Action{
-				Todo:    ActionRemoveResource,
+				Todo:    newRes.toAction("remove"),
 				Parent:  c,
 				Payload: cur,
 			}
-			if cur.Kind == ResourceTypeVolumeFile {
-				a.Todo = ActionRemoveVolumeResource
-			}
+
 			diffActions = append(diffActions, a)
 		}
 	}
@@ -202,12 +273,9 @@ func (c *Component) diff(other *Component, fmap func(map[string]interface{}) tem
 			// if new resource is not in old resource we need to install it
 			log.Debug("installing new resource", "file", k)
 			a := Action{
-				Todo:    ActionInstallResource,
+				Todo:    newResources[k].toAction("install"),
 				Parent:  c,
 				Payload: newResources[k],
-			}
-			if newResources[k].Kind == ResourceTypeVolumeFile {
-				a.Todo = ActionInstallVolumeResource
 			}
 			diffActions = append(diffActions, a)
 		}

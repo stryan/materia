@@ -7,7 +7,9 @@ import (
 	"os"
 	"runtime/debug"
 
+	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 )
@@ -35,11 +37,13 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 		log.Default().SetLevel(log.DebugLevel)
 		log.Default().SetReportCaller(true)
 	}
-	sm, err := materia.NewServices(ctx, c)
+	sm, err := services.NewServices(ctx, &services.ServicesConfig{
+		Timeout: c.Timeout,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := materia.NewPodmanManager(c)
+	cm, err := containers.NewPodmanManager()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,12 +68,42 @@ func main() {
 			{
 				Name:  "facts",
 				Usage: "Display host facts",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "host",
+						Usage: "Return only host facts (i.e. no assigned roles)",
+					},
+					&cli.StringFlag{
+						Name:    "fact",
+						Usage:   "Lookup a fact",
+						Aliases: []string{"f"},
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx, c)
-					if err != nil {
-						return err
+					host := cCtx.Bool("host")
+					arg := cCtx.String("fact")
+					var facts *materia.Facts
+					if host {
+						cm, err := containers.NewPodmanManager()
+						if err != nil {
+							return err
+						}
+						facts, err = materia.NewFacts(ctx, c, nil, nil, cm)
+						if err != nil {
+							return err
+						}
+					} else {
+						m, err := setup(ctx, c)
+						if err != nil {
+							return err
+						}
+						facts = m.Facts
 					}
-					fmt.Println(m.Facts.Pretty())
+					if arg != "" {
+						fmt.Println(facts.Lookup(arg))
+						return nil
+					}
+					fmt.Println(facts.Pretty())
 					return nil
 				},
 			},
@@ -84,6 +118,10 @@ func main() {
 					plan, err := m.Plan(ctx)
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
+					}
+					if plan.Empty() {
+						fmt.Println("No changes being made")
+						return nil
 					}
 					fmt.Println(plan.Pretty())
 					return nil
@@ -172,20 +210,21 @@ func main() {
 						source = "./"
 					}
 					c.SourceURL = fmt.Sprintf("file://%v", source)
+					if hostname != "" {
+						c.Hostname = hostname
+					}
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
 					}
-					plan, err := m.ValidateComponent(ctx, comp, hostname, roles)
+					plan, err := m.ValidateComponent(ctx, comp, roles)
 					if err != nil {
 						return err
 					}
 					if cCtx.Bool("verbose") {
 						fmt.Println(plan.Pretty())
-					} else {
-						fmt.Println("OK")
 					}
-
+					fmt.Println("OK")
 					return nil
 				},
 			},
@@ -204,7 +243,7 @@ func main() {
 				Name:  "version",
 				Usage: "show version",
 				Action: func(_ *cli.Context) error {
-					fmt.Printf("materia version git-%v", Commit)
+					fmt.Printf("materia version git-%v\n", Commit)
 					return nil
 				},
 			},

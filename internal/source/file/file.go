@@ -2,7 +2,9 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/log"
 )
@@ -26,9 +28,26 @@ func NewFileSource(path, repo string) *FileSource {
 }
 
 func (f *FileSource) Sync(ctx context.Context) error {
-	if err := os.RemoveAll(f.path); err != nil {
+	if _, err := os.Stat(f.path); os.IsNotExist(err) {
+		return fmt.Errorf("source destination path %v does not exist", f.path)
+	}
+	if _, err := os.Stat(f.repo); os.IsNotExist(err) {
+		return fmt.Errorf("source repo %v does not exist", f.repo)
+	}
+	entries, err := os.ReadDir(f.path)
+	if err != nil {
 		return err
 	}
+	for _, e := range entries {
+		if err := os.RemoveAll(filepath.Join(f.path, e.Name())); err != nil {
+			return fmt.Errorf("error syncing filesystem: can't clear path: %w", err)
+		}
+	}
+
 	repoFS := os.DirFS(f.repo)
-	return os.CopyFS(f.path, repoFS)
+	err = os.CopyFS(f.path, repoFS)
+	if err != nil {
+		return fmt.Errorf("error syncing filesystem: can't copy fs: %w", err)
+	}
+	return nil
 }

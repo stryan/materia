@@ -13,6 +13,7 @@ Environment=MATERIA_SOURCEURL=file:///tmp/test_repo
 SecurityLabelDisable=true
 HostName=%q
 Exec=$SCRIPT_ARGS
+Network=host
 Volume=/etc/materia:/etc/materia
 Volume=/run/dbus/system_bus_socket:/run/dbus/system_bus_socket
 Volume=/run/podman/podman.sock:/run/podman/podman.sock

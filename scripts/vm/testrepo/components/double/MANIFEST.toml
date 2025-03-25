@@ -1,0 +1,3 @@
+services = ["goodbye.service"]
+components.hello.containerTag = "stable"
+components.double.containerTag = "latest"

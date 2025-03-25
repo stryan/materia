@@ -18,13 +18,28 @@ const (
 	ActionStartService
 	ActionStopService
 	ActionRestartService
-	ActionInstallResource
 	ActionEnsureVolume
 	ActionInstallVolumeResource
 	ActionUpdateVolumeResource
 	ActionRemoveVolumeResource
-	ActionUpdateResource
-	ActionRemoveResource
+
+	ActionInstallFile
+	ActionInstallQuadlet
+	ActionInstallScript
+	ActionInstallService
+	ActionInstallComponentScript
+
+	ActionUpdateFile
+	ActionUpdateQuadlet
+	ActionUpdateScript
+	ActionUpdateService
+	ActionUpdateComponentScript
+
+	ActionRemoveFile
+	ActionRemoveQuadlet
+	ActionRemoveScript
+	ActionRemoveService
+	ActionRemoveComponentScript
 )
 
 type Action struct {
@@ -51,7 +66,7 @@ func (a *Action) Pretty() string {
 	switch a.Todo {
 	case ActionInstallComponent:
 		return fmt.Sprintf("Installing component %v", a.Parent.Name)
-	case ActionInstallResource:
+	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript:
 		return fmt.Sprintf("Installing resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionInstallVolumeResource:
 		return fmt.Sprintf("Installing volume resource %v", a.Payload.Name)
@@ -63,7 +78,7 @@ func (a *Action) Pretty() string {
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
 		return fmt.Sprintf("Removing component %v", a.Parent.Name)
-	case ActionRemoveResource:
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
 		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionRestartService:
 		return fmt.Sprintf("Restarting service %v", a.Payload.Name)
@@ -73,7 +88,7 @@ func (a *Action) Pretty() string {
 		return fmt.Sprintf("Stopping service %v", a.Payload.Name)
 	case ActionUnknown:
 		return "Unknown action"
-	case ActionUpdateResource:
+	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript:
 		return fmt.Sprintf("Updating resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionSetupComponent:
 		return fmt.Sprintf("Setting up component %v", a.Parent.Name)

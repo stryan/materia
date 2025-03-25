@@ -2,11 +2,18 @@ package materia
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/source"
+	"git.saintnet.tech/stryan/materia/internal/containers"
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/BurntSushi/toml"
 )
 
@@ -14,41 +21,47 @@ type Facts struct {
 	Hostname            string
 	Roles               []string
 	AssignedComponents  []string
-	Volumes             []*Volume
+	Volumes             []*containers.Volume
 	InstalledComponents map[string]*Component
+	Interfaces          map[string]Interfaces
 }
 
-func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileRepository, containers Containers) (*MateriaManifest, *Facts, error) {
-	err := source.Sync(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error syncing source: %w", err)
-	}
-	man, err := files.GetManifest(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error getting repo manifest %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, nil, err
-	}
+func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *repository.ComponentRepository, containers containers.Containers) (*Facts, error) {
 	facts := &Facts{}
+	var err error
 	if c.Hostname != "" {
 		facts.Hostname = c.Hostname
 	} else {
 		facts.Hostname, err = os.Hostname()
 		if err != nil {
-			return nil, nil, fmt.Errorf("error getting hostname: %w", err)
+			return nil, fmt.Errorf("error getting hostname: %w", err)
 		}
+	}
+	vols, err := containers.ListVolumes(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("error getting container volumes: %w", err)
+	}
+	facts.Volumes = vols
+	networks, err := GetInterfaceIPs()
+	if err != nil {
+		return nil, fmt.Errorf("error getting network interfaces: %w", err)
+	}
+	facts.Interfaces = networks
+
+	if man == nil {
+		// return just the host facts
+		return facts, nil
 	}
 	if man.RoleCommand != "" {
 		roleStruct := struct{ Roles []string }{}
 		cmd := exec.Command(man.RoleCommand)
 		res, err := cmd.Output()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		err = toml.Unmarshal(res, &roleStruct)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		facts.Roles = append(facts.Roles, roleStruct.Roles...)
 	} else if host, ok := man.Hosts[facts.Hostname]; ok {
@@ -56,6 +69,7 @@ func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileR
 			facts.Roles = append(facts.Roles, host.Roles...)
 		}
 	}
+
 	host, ok := man.Hosts["all"]
 	if ok {
 		facts.AssignedComponents = append(facts.AssignedComponents, host.Components...)
@@ -69,32 +83,59 @@ func NewFacts(ctx context.Context, c *Config, source source.Source, files *FileR
 			facts.AssignedComponents = append(facts.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-	vols, err := containers.ListVolumes(context.Background())
-	if err != nil {
-		return nil, nil, err
-	}
-	facts.Volumes = vols
 	facts.InstalledComponents = make(map[string]*Component)
-	comps, err := files.GetAllInstalledComponents(ctx)
+	installPaths, err := compRepo.List(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error getting installed components: %w", err)
+		return nil, fmt.Errorf("error getting source components: %w", err)
 	}
-	for _, v := range comps {
-		v.State = StateStale
-		facts.InstalledComponents[v.Name] = v
+	for _, v := range installPaths {
+		comp, err := NewComponentFromHost(filepath.Base(v), compRepo)
+		if err != nil {
+			return nil, fmt.Errorf("error creating component from install: %w", err)
+		}
+		comp.State = StateStale
+		facts.InstalledComponents[comp.Name] = comp
 	}
-	return man, facts, nil
+	return facts, nil
 }
 
 func (f *Facts) Lookup(arg string) interface{} {
-	switch arg {
+	input := strings.Split(arg, ".")
+	switch input[0] {
 	case "hostname":
 		return f.Hostname
 	case "roles":
 		return f.Roles
-	default:
-		return ""
+	case "interface":
+		if len(input) == 1 {
+			return f.Interfaces
+		}
+		if len(input) == 2 {
+			return f.Interfaces[input[1]]
+		}
+		if len(input) == 3 {
+			if input[2] == "ip4" {
+				return f.Interfaces[input[1]].Ip4
+			}
+			if input[2] == "ip6" {
+				return f.Interfaces[input[1]].Ip4
+			}
+			return ""
+		}
+		if len(input) == 4 {
+			index, err := strconv.Atoi(input[3])
+			if err != nil {
+				return errors.New("invalid interface index")
+			}
+			if input[2] == "ip4" {
+				return f.Interfaces[input[1]].Ip4[index]
+			}
+			if input[2] == "ip6" {
+				return f.Interfaces[input[1]].Ip4[index]
+			}
+		}
 	}
+	return errors.New("Invalid fact lookup")
 }
 
 func (f *Facts) Pretty() string {
@@ -110,8 +151,52 @@ func (f *Facts) Pretty() string {
 	}
 	result += "\nInstalled Components: "
 	for _, v := range f.InstalledComponents {
-		result += fmt.Sprintf("%v", v.Name)
+		result += fmt.Sprintf("%v ", v.Name)
+	}
+	result += "\nNetworks: "
+	for i, v := range f.Interfaces {
+		result += fmt.Sprintf("\nInterface %v: %v", i, v)
 	}
 
 	return result
+}
+
+type Interfaces struct {
+	Name string
+	Ip4  []string
+	Ip6  []string
+}
+
+func GetInterfaceIPs() (map[string]Interfaces, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	results := make(map[string]Interfaces, len(interfaces))
+	for _, i := range interfaces {
+		n := Interfaces{
+			Ip4: []string{},
+			Ip6: []string{},
+		}
+		addrs, err := i.Addrs()
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range addrs {
+			ip, _, err := net.ParseCIDR(a.String())
+			if err != nil {
+				return nil, fmt.Errorf("invalid CIDR format: %w", err)
+			}
+			if ip4 := ip.To4(); ip4 != nil {
+				n.Ip4 = append(n.Ip4, ip.String())
+			} else {
+				n.Ip6 = append(n.Ip6, ip.String())
+			}
+		}
+		n.Ip4 = sort.StringSlice(n.Ip4)
+		n.Ip6 = sort.StringSlice(n.Ip6)
+		results[i.Name] = n
+
+	}
+	return results, nil
 }

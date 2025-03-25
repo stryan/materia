@@ -26,7 +26,7 @@ func (p *Plan) Add(a Action) {
 	switch a.Todo {
 	case ActionCleanupComponent:
 		p.mainPhase = append(p.mainPhase, a)
-	case ActionInstallComponent, ActionInstallResource, ActionRemoveComponent, ActionRemoveResource, ActionUpdateResource:
+	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
 		p.mainPhase = append(p.mainPhase, a)
 	case ActionInstallVolumeResource:
 		p.secondMain = append(p.secondMain, a)
@@ -92,11 +92,14 @@ func (p *Plan) Steps() []Action {
 }
 
 func (p *Plan) Pretty() string {
+	if p.Empty() {
+		return "Nothing to do"
+	}
 	var result string
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 	result += "Plan: \n"
 	for i, a := range steps {
-		result += fmt.Sprintf("%v. %v\n", i, a.Pretty())
+		result += fmt.Sprintf("%v. %v\n", i+1, a.Pretty())
 	}
 	return result
 }

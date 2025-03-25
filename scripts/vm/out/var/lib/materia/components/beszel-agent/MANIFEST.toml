@@ -1,0 +1,4 @@
+services = [""]
+noservices = true
+defaults.containerTag = "latest"
+defaults.port = 45876

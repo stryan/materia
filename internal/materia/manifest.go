@@ -94,6 +94,7 @@ func (vrc VolumeResourceConfig) Validate() error {
 
 type ComponentManifest struct {
 	Services        []string
+	NoServices      bool
 	Defaults        map[string]interface{}
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
