@@ -20,6 +20,9 @@ jobs:
       - name: Get PR title
         run: echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
         if: github.event_name == 'pull_request'
+      - name: Set PR latest
+        run: echo "TAG=latest" >> $GITHUB_ENV
+        if: github.event_name == 'push'
       - uses: jdx/mise-action@v2
         with:
           # version: "latest" # [default: latest] mise version to install
@@ -36,7 +39,7 @@ jobs:
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Build container
         env:
-          TAG: ${{ github.event.pull_request.title }}
+          TAG: ${{ env.TAG }}
         run: mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech
