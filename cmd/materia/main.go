@@ -33,6 +33,9 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if c.UseStdout {
+		log.Default().SetOutput(os.Stdout)
+	}
 	if c.Debug {
 		log.Default().SetLevel(log.DebugLevel)
 		log.Default().SetReportCaller(true)

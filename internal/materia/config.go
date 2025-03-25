@@ -14,6 +14,7 @@ import (
 type Config struct {
 	SourceURL   string
 	Debug       bool
+	UseStdout   bool
 	Hostname    string
 	Roles       []string
 	Timeout     int
@@ -42,6 +43,7 @@ func NewConfig() (*Config, error) {
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
 	c.Roles = k.Strings(".roles")
+	c.UseStdout = k.Bool(".stdout")
 	c.Destination = k.String(".destination")
 	c.Services = k.String(".services")
 	if k.Exists(".git") {

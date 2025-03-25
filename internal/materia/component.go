@@ -206,8 +206,6 @@ func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]inter
 }
 
 func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interface{}) ([]Action, error) {
-	fmt.Fprintf(os.Stderr, "FBLTHP[128]: component.go:145: other=%+v\n", other)
-	fmt.Fprintf(os.Stderr, "FBLTHP[127]: component.go:145: c=%+v\n", c)
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -246,7 +244,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 				continue
 			}
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
-				log.Debug("updating current resource", "file", cur.Name)
+				log.Debug("updating current resource", "file", cur.Name, "diffs", diffs)
 				a := Action{
 					Todo:    newRes.toAction("update"),
 					Parent:  c,
