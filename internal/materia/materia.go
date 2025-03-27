@@ -509,7 +509,6 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	plan := NewPlan(m.Facts)
 	var err error
 
-	// Determine union of existing and new components
 	if len(m.Facts.InstalledComponents) == 0 && len(m.Facts.AssignedComponents) == 0 {
 		return plan, nil
 	}
@@ -570,7 +569,6 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	log.Debug("removing components", "removing", removing)
 	log.Debug("updating components", "updating", updating)
 	log.Debug("unchanged components", "unchanged", ok)
-	log.Debug("plan", "plan", plan)
 
 	return plan, nil
 }
@@ -753,6 +751,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 				return err
 			}
 		default:
+			panic("invalid action")
 		}
 	}
 

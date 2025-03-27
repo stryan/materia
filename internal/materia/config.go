@@ -15,6 +15,7 @@ type Config struct {
 	SourceURL   string
 	Debug       bool
 	UseStdout   bool
+	Diffs       bool
 	Hostname    string
 	Roles       []string
 	Timeout     int
@@ -43,6 +44,7 @@ func NewConfig() (*Config, error) {
 	c.Timeout = k.Int(".timeout")
 	c.Prefix = k.String(".prefix")
 	c.Roles = k.Strings(".roles")
+	c.Diffs = k.Bool(".diffs")
 	c.UseStdout = k.Bool(".stdout")
 	c.Destination = k.String(".destination")
 	c.Services = k.String(".services")
