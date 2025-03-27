@@ -27,6 +27,7 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/source/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 type MacroMap func(map[string]interface{}) template.FuncMap
@@ -49,6 +50,7 @@ type Materia struct {
 	macros        MacroMap
 	snippets      map[string]*Snippet
 	debug         bool
+	diffs         bool
 }
 
 func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.Containers) (*Materia, error) {
@@ -156,6 +158,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		Manifest:      man,
 		source:        source,
 		debug:         c.Debug,
+		diffs:         c.Diffs,
 		CompRepo:      compRepo,
 		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(prefix, "materia", "components")},
 		QuadletRepo:   &repository.FileRepository{Prefix: destination},
@@ -365,6 +368,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				plan.Append(resourceActions)
 				v.State = StateNeedUpdate
 				needUpdate = true
+				if m.diffs {
+					for _, d := range resourceActions {
+						if d.Category() == ActionCategoryUpdate {
+							diffs := d.Content.([]diffmatchpatch.Diff)
+							fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
+						}
+					}
+				}
 			} else {
 				v.State = StateOK
 			}

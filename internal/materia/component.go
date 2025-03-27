@@ -14,6 +14,8 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
+var errCorruptComponent = errors.New("error corrupt component")
+
 type Component struct {
 	Name            string
 	Services        []Resource
@@ -36,6 +38,7 @@ const (
 	StateNeedUpdate
 	StateNeedRemoval
 	StateRemoved
+	StateCorrupt
 )
 
 func (c *Component) String() string {
@@ -53,7 +56,6 @@ func NewComponentFromSource(path string) (*Component, error) {
 		log.Fatal(err)
 	}
 	var man *ComponentManifest
-	resources := make(map[string]Resource)
 	scripts := 0
 	for _, v := range entries {
 		resPath := filepath.Join(path, v.Name())
@@ -65,6 +67,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 			}
 			maps.Copy(c.Defaults, man.Defaults)
 			maps.Copy(c.VolumeResources, man.VolumeResources)
+			continue
 		}
 		var newRes Resource
 		if v.Name() == "setup.sh" || v.Name() == "cleanup.sh" {
@@ -90,13 +93,15 @@ func NewComponentFromSource(path string) (*Component, error) {
 			}
 		}
 		c.Resources = append(c.Resources, newRes)
-		resources[newRes.Name] = newRes
+	}
+	if man == nil {
+		return nil, errCorruptComponent
 	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
-	if man != nil {
-		if !man.NoServices {
+	if !man.NoServices {
+		if len(man.Services) > 0 {
 			for _, s := range man.Services {
 				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
 					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
@@ -106,18 +111,24 @@ func NewComponentFromSource(path string) (*Component, error) {
 					Kind: ResourceTypeService,
 				})
 			}
-		}
-	} else {
-		for _, r := range c.Resources {
-			if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-				serv, err := r.getServiceFromResource()
-				if err != nil {
-					return nil, fmt.Errorf("error guestimating component service: %w", err)
+		} else {
+			for _, r := range c.Resources {
+				if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
+					serv, err := r.getServiceFromResource()
+					if err != nil {
+						return nil, fmt.Errorf("error guestimating component service: %w", err)
+					}
+					c.Services = append(c.Services, serv)
 				}
-				c.Services = append(c.Services, serv)
 			}
 		}
 	}
+	c.Resources = append(c.Resources, Resource{
+		Path:     filepath.Join(path, "MANIFEST.toml"),
+		Name:     "MANIFEST.toml",
+		Kind:     ResourceTypeManifest,
+		Template: false,
+	})
 
 	return c, nil
 }
@@ -136,6 +147,9 @@ func NewComponentFromHost(name string, compRepo *repository.ComponentRepository)
 	var man *ComponentManifest
 	entries, err := compRepo.ListResources(context.Background(), name)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errCorruptComponent
+		}
 		return nil, fmt.Errorf("error listing resources: %w", err)
 	}
 	scripts := 0
@@ -175,7 +189,9 @@ func NewComponentFromHost(name string, compRepo *repository.ComponentRepository)
 		}
 
 	}
-
+	if man == nil {
+		return nil, errCorruptComponent
+	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
@@ -249,6 +265,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 					Todo:    newRes.toAction("update"),
 					Parent:  c,
 					Payload: newRes,
+					Content: diffs,
 				}
 
 				diffActions = append(diffActions, a)
@@ -269,7 +286,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 	for _, k := range keys {
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
-			log.Debug("installing new resource", "file", k)
+			fmt.Printf("Creating new resource %v", k)
 			a := Action{
 				Todo:    newResources[k].toAction("install"),
 				Parent:  c,
