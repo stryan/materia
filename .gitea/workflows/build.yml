@@ -38,8 +38,6 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Build container
-        env:
-          TAG: ${{ env.TAG }}
         run: mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech
