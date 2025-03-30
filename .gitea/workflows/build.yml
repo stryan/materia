@@ -16,13 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set TAG based on event type
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-          else
-            echo "TAG=latest" >> $GITHUB_ENV
-          fi
       - uses: jdx/mise-action@v2
         with:
           # version: "latest" # [default: latest] mise version to install
@@ -38,6 +31,13 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Build container
-        run: mise ci
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+            export TAG=${{ github.event.pull_request.title }}
+          else
+            export TAG=latest
+          fi
+          mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech
