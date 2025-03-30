@@ -71,6 +71,7 @@ func (p *Plan) Empty() bool {
 
 func (p *Plan) Validate() error {
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	components := []string{}
 	for _, a := range steps {
 		if a.Todo == ActionInstallVolumeResource || a.Todo == ActionUpdateVolumeResource || a.Todo == ActionRemoveVolumeResource {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
@@ -81,6 +82,15 @@ func (p *Plan) Validate() error {
 				continue
 			}
 			return fmt.Errorf("invalid plan: no volume for resource %v", a.Payload)
+		}
+		if a.Category() == ActionCategoryInstall {
+			if a.Todo == ActionInstallComponent {
+				components = append(components, a.Parent.Name)
+			} else {
+				if !slices.Contains(components, a.Parent.Name) {
+					return fmt.Errorf("invalid plan: installed resource %v before parent component %v", a.Payload, a.Parent.Name)
+				}
+			}
 		}
 	}
 

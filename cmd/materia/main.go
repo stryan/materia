@@ -220,7 +220,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					plan, err := m.ValidateComponent(ctx, comp, roles)
+					plan, err := m.PlanComponent(ctx, comp, roles)
 					if err != nil {
 						return err
 					}
@@ -228,6 +228,40 @@ func main() {
 						fmt.Println(plan.Pretty())
 					}
 					fmt.Println("OK")
+					return nil
+				},
+			},
+			{
+				Name:  "doctor",
+				Usage: "remove corrupted installed components. Dry run by default",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "remove",
+						Aliases: []string{"r"},
+						Usage:   "Actually remove corrupted components",
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
+					}
+					corruped, err := m.ValidateComponents(ctx)
+					if err != nil {
+						return err
+					}
+					for _, v := range corruped {
+						fmt.Printf("Corrupted component: %v\n", v)
+					}
+					if !cCtx.Bool("remove") {
+						return nil
+					}
+					for _, v := range corruped {
+						err := m.PurgeComponenet(ctx, v)
+						if err != nil {
+							return err
+						}
+					}
 					return nil
 				},
 			},

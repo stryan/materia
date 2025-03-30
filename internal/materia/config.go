@@ -12,18 +12,21 @@ import (
 )
 
 type Config struct {
-	SourceURL   string
-	Debug       bool
-	UseStdout   bool
-	Hostname    string
-	Roles       []string
-	Timeout     int
-	Prefix      string
-	Destination string
-	Services    string
-	GitConfig   *git.Config
-	AgeConfig   *age.Config
-	User        *user.User
+	SourceURL  string
+	Debug      bool
+	UseStdout  bool
+	Diffs      bool
+	Cleanup    bool
+	Hostname   string
+	Roles      []string
+	Timeout    int
+	MateriaDir string
+	QuadletDir string
+	ServiceDir string
+	ScriptDir  string
+	GitConfig  *git.Config
+	AgeConfig  *age.Config
+	User       *user.User
 }
 
 func NewConfig() (*Config, error) {
@@ -39,13 +42,15 @@ func NewConfig() (*Config, error) {
 	var c Config
 	c.SourceURL = k.String(".sourceurl")
 	c.Debug = k.Bool(".debug")
+	c.Cleanup = k.Bool(".cleanup")
 	c.Hostname = k.String(".hostname")
 	c.Timeout = k.Int(".timeout")
-	c.Prefix = k.String(".prefix")
 	c.Roles = k.Strings(".roles")
+	c.Diffs = k.Bool(".diffs")
 	c.UseStdout = k.Bool(".stdout")
-	c.Destination = k.String(".destination")
-	c.Services = k.String(".services")
+	c.MateriaDir = k.String(".prefix")
+	c.QuadletDir = k.String(".destination")
+	c.ServiceDir = k.String(".services")
 	if k.Exists(".git") {
 		c.GitConfig, err = git.NewConfig(k.Cut(".git"))
 		if err != nil {

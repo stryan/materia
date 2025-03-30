@@ -8,6 +8,16 @@ import (
 //go:generate stringer -type ActionType -trimprefix Action
 type ActionType int
 
+//go:generate stringer -type ActionCategory -trimprefix Action
+type ActionCategory int
+
+const (
+	ActionCategoryInstall ActionCategory = iota
+	ActionCategoryUpdate
+	ActionCategoryRemove
+	ActionCategoryOther
+)
+
 const (
 	ActionUnknown ActionType = iota
 	ActionInstallComponent
@@ -46,6 +56,7 @@ type Action struct {
 	Todo    ActionType
 	Parent  *Component
 	Payload Resource
+	Content any
 }
 
 func (a Action) Validate() error {
@@ -96,5 +107,18 @@ func (a *Action) Pretty() string {
 		return fmt.Sprintf("Cleaning up component %v", a.Parent.Name)
 	default:
 		panic(fmt.Sprintf("unexpected materia.ActionType: %#v", a.Todo))
+	}
+}
+
+func (a *Action) Category() ActionCategory {
+	switch a.Todo {
+	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeResource:
+		return ActionCategoryInstall
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeResource, ActionRemoveComponent:
+		return ActionCategoryRemove
+	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeResource:
+		return ActionCategoryUpdate
+	default:
+		return ActionCategoryOther
 	}
 }

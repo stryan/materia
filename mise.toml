@@ -2,7 +2,7 @@
 age = "latest"
 go = "1.24"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
-golangci-lint = "latest"
+golangci-lint = "1.64.8"
 gotestsum = "latest"
 
 [settings]
@@ -28,6 +28,7 @@ run = [
 ]
 
 [tasks.test]
+depends = ["generate"]
 run = [
 	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/vault.toml > scripts/testrepo/secrets/vault.age",
 	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/localhost.toml > scripts/testrepo/secrets/localhost.age",
@@ -40,7 +41,7 @@ depends = ['build-amd64','lint','test',"virter-age"]
 env = {	REPO = 'file:///tmp/testrepo' }
 run = [
 	"if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
-	"virter vm run --name materia-test-alma-9 --id 101 --wait-ssh alma-9",
+	"virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
 	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
 	"virter vm rm materia-test-alma-9",
 ]

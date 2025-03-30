@@ -9,7 +9,6 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
   IMAGE_REGISTRY: git.saintnet.tech/${{ github.repository_owner }}
   MISE_ENV: ci
-  TAG: latest
 jobs:
   # Build job
   build:
@@ -17,12 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Get PR title
-        run: echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-        if: github.event_name == 'pull_request'
-      - name: Set PR latest
-        run: echo "TAG=latest" >> $GITHUB_ENV
-        if: github.event_name == 'push'
       - uses: jdx/mise-action@v2
         with:
           # version: "latest" # [default: latest] mise version to install
@@ -38,8 +31,13 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Build container
-        env:
-          TAG: ${{ env.TAG }}
-        run: mise ci
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+            export TAG=${{ github.event.pull_request.title }}
+          else
+            export TAG=latest
+          fi
+          mise ci
       - name: Logout registry
         run: docker logout git.saintnet.tech

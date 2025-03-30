@@ -42,14 +42,14 @@ func TestMain(m *testing.M) {
 	log.Default().SetLevel(log.DebugLevel)
 	log.Default().SetReportCaller(true)
 	cfg = &materia.Config{
-		SourceURL:   "file://./testrepo",
-		Debug:       true,
-		Hostname:    "localhost",
-		Timeout:     0,
-		Prefix:      testPrefix,
-		Destination: installdir,
-		Services:    servicedir,
-		User:        &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
+		SourceURL:  "file://./testrepo",
+		Debug:      true,
+		Hostname:   "localhost",
+		Timeout:    0,
+		MateriaDir: testPrefix,
+		QuadletDir: installdir,
+		ServiceDir: servicedir,
+		User:       &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
 	if err != nil {
@@ -105,14 +105,15 @@ func TestPlan(t *testing.T) {
 	}
 	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
 		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
 		planHelper(materia.ActionInstallFile, "hello", "test.env"),
+		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
@@ -154,18 +155,20 @@ func TestExecute(t *testing.T) {
 	}
 	expectedPlan := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
 		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
 		planHelper(materia.ActionInstallFile, "hello", "test.env"),
+		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
+
 	for k, v := range plan.Steps() {
 		expected := expectedPlan[k]
 		if expected.Todo != v.Todo {
