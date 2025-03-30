@@ -40,17 +40,18 @@ type Materia struct {
 	Containers    containers.Containers
 	sm            secrets.SecretsManager
 	source        source.Source
-	CompRepo      repository.Repository
+	CompRepo      *repository.HostComponentRepository
 	DataRepo      repository.Repository
 	QuadletRepo   repository.Repository
 	ScriptRepo    repository.Repository
 	ServiceRepo   repository.Repository
-	SourceRepo    repository.Repository
+	SourceRepo    *repository.SourceComponentRepository
 	rootComponent *Component
 	macros        MacroMap
 	snippets      map[string]*Snippet
 	debug         bool
 	diffs         bool
+	cleanup       bool
 }
 
 func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.Containers) (*Materia, error) {
@@ -77,14 +78,14 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
 		}
 	}
-	if c.Prefix != "" {
-		prefix = c.Prefix
+	if c.MateriaDir != "" {
+		prefix = c.MateriaDir
 	}
-	if c.Destination != "" {
-		destination = c.Destination
+	if c.QuadletDir != "" {
+		destination = c.QuadletDir
 	}
-	if c.Services != "" {
-		servicePath = c.Services
+	if c.ServiceDir != "" {
+		servicePath = c.ServiceDir
 	}
 
 	sourcePath := filepath.Join(prefix, "materia", "source")
@@ -141,7 +142,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	}
 
 	log.Info("loading facts")
-	compRepo := &repository.ComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination}
+	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination}
 	facts, err := NewFacts(ctx, c, man, compRepo, cm)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
@@ -159,12 +160,13 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		source:        source,
 		debug:         c.Debug,
 		diffs:         c.Diffs,
+		cleanup:       c.Cleanup,
 		CompRepo:      compRepo,
 		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(prefix, "materia", "components")},
 		QuadletRepo:   &repository.FileRepository{Prefix: destination},
 		ScriptRepo:    &repository.FileRepository{Prefix: scriptsPath},
 		ServiceRepo:   &repository.FileRepository{Prefix: servicePath},
-		SourceRepo:    &repository.ComponentRepository{DataPrefix: filepath.Join(sourcePath, "components")},
+		SourceRepo:    &repository.SourceComponentRepository{DataPrefix: filepath.Join(sourcePath, "components")},
 		snippets:      snips,
 		rootComponent: &Component{Name: "root"},
 	}
@@ -588,6 +590,21 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 	if plan.Empty() {
 		return nil
 	}
+	defer func() {
+		if !m.cleanup {
+			return
+		}
+		problems, err := m.ValidateComponents(ctx)
+		if err != nil {
+			log.Warnf("error cleaning up execution: %v", err)
+		}
+		for _, v := range problems {
+			err := m.CompRepo.Purge(ctx, v)
+			if err != nil {
+				log.Warnf("error purging component: %v", err)
+			}
+		}
+	}()
 	serviceActions := []Action{}
 	// Template and install resources
 	for _, v := range plan.Steps() {
@@ -894,7 +911,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	return m.CompRepo.Remove(ctx, comp.Name)
 }
 
-func (m *Materia) ValidateComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
+func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
 	if roles != nil {
 		m.Facts.Roles = roles
 	}
@@ -903,6 +920,27 @@ func (m *Materia) ValidateComponent(ctx context.Context, name string, roles []st
 	}
 	m.Facts.InstalledComponents = make(map[string]*Component)
 	return m.Plan(ctx)
+}
+
+func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
+	var invalidComps []string
+	dcomps, err := m.CompRepo.List(ctx)
+	if err != nil {
+		return invalidComps, fmt.Errorf("can't get components from prefix: %w", err)
+	}
+	for _, v := range dcomps {
+		// TODO function for this?
+		name := filepath.Base(v)
+		exists, err := m.CompRepo.Exists(ctx, filepath.Join(name, "MANIFEST.TOML"))
+		if err != nil {
+			return invalidComps, fmt.Errorf("can't validate %v: %w", v, err)
+		}
+		if !exists {
+			invalidComps = append(invalidComps, name)
+		}
+	}
+
+	return invalidComps, nil
 }
 
 func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {

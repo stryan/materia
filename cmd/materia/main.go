@@ -220,7 +220,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					plan, err := m.ValidateComponent(ctx, comp, roles)
+					plan, err := m.PlanComponent(ctx, comp, roles)
 					if err != nil {
 						return err
 					}

@@ -42,14 +42,14 @@ func TestMain(m *testing.M) {
 	log.Default().SetLevel(log.DebugLevel)
 	log.Default().SetReportCaller(true)
 	cfg = &materia.Config{
-		SourceURL:   "file://./testrepo",
-		Debug:       true,
-		Hostname:    "localhost",
-		Timeout:     0,
-		Prefix:      testPrefix,
-		Destination: installdir,
-		Services:    servicedir,
-		User:        &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
+		SourceURL:  "file://./testrepo",
+		Debug:      true,
+		Hostname:   "localhost",
+		Timeout:    0,
+		MateriaDir: testPrefix,
+		QuadletDir: installdir,
+		ServiceDir: servicedir,
+		User:       &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
 	if err != nil {

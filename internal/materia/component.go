@@ -133,7 +133,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	return c, nil
 }
 
-func NewComponentFromHost(name string, compRepo *repository.ComponentRepository) (*Component, error) {
+func NewComponentFromHost(name string, compRepo *repository.HostComponentRepository) (*Component, error) {
 	oldComp := &Component{
 		Name:            name,
 		Resources:       []Resource{},
