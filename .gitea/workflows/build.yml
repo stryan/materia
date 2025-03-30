@@ -9,7 +9,6 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
   IMAGE_REGISTRY: git.saintnet.tech/${{ github.repository_owner }}
   MISE_ENV: ci
-  TAG: latest
 jobs:
   # Build job
   build:
@@ -17,12 +16,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Get PR title
-        run: echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-        if: github.event_name == 'pull_request'
-      - name: Set PR latest
-        run: echo "TAG=latest" >> $GITHUB_ENV
-        if: github.event_name == 'push'
+      - name: Set TAG based on event type
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
+          else
+            echo "TAG=latest" >> $GITHUB_ENV
+          fi
       - uses: jdx/mise-action@v2
         with:
           # version: "latest" # [default: latest] mise version to install
