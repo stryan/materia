@@ -232,6 +232,40 @@ func main() {
 				},
 			},
 			{
+				Name:  "doctor",
+				Usage: "remove corrupted installed components. Dry run by default",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "remove",
+						Aliases: []string{"r"},
+						Usage:   "Actually remove corrupted components",
+					},
+				},
+				Action: func(cCtx *cli.Context) error {
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
+					}
+					corruped, err := m.ValidateComponents(ctx)
+					if err != nil {
+						return err
+					}
+					for _, v := range corruped {
+						fmt.Printf("Corrupted component: %v\n", v)
+					}
+					if !cCtx.Bool("remove") {
+						return nil
+					}
+					for _, v := range corruped {
+						err := m.PurgeComponenet(ctx, v)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			},
+			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ *cli.Context) error {

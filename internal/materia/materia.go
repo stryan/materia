@@ -943,6 +943,10 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 	return invalidComps, nil
 }
 
+func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
+	return m.CompRepo.Purge(ctx, name)
+}
+
 func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
 	keys := make([]K, len(m))
 	i := 0
