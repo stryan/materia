@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime/debug"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
@@ -242,9 +244,9 @@ func main() {
 					},
 				},
 				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx, c)
-					if err != nil {
-						return err
+					// use a fake materia since we can't generate valid facts
+					m := &materia.Materia{
+						CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
 					}
 					corruped, err := m.ValidateComponents(ctx)
 					if err != nil {
