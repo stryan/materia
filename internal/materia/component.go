@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/repository"
@@ -129,6 +130,12 @@ func NewComponentFromSource(path string) (*Component, error) {
 		Kind:     ResourceTypeManifest,
 		Template: false,
 	})
+	for k, r := range c.Resources {
+		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+			r.Kind = ResourceTypeScript
+			c.Resources[k] = r
+		}
+	}
 
 	return c, nil
 }
@@ -195,6 +202,13 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
+	for k, r := range oldComp.Resources {
+		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+			r.Kind = ResourceTypeScript
+			oldComp.Resources[k] = r
+		}
+	}
+
 	return oldComp, nil
 }
 
@@ -316,6 +330,8 @@ func findResourceType(file string) ResourceType {
 		return ResourceTypeManifest
 	case ".service", ".timer", ".target":
 		return ResourceTypeService
+	case ".sh":
+		return ResourceTypeScript
 	default:
 		return ResourceTypeFile
 

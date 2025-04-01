@@ -98,6 +98,7 @@ type ComponentManifest struct {
 	Defaults        map[string]interface{}
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
+	Scripts         []string
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

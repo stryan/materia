@@ -3,6 +3,7 @@ package materia
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 //go:generate stringer -type ActionType -trimprefix Action
@@ -78,7 +79,11 @@ func (a *Action) Pretty() string {
 	case ActionInstallComponent:
 		return fmt.Sprintf("Installing component %v", a.Parent.Name)
 	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript:
-		return fmt.Sprintf("Installing resource %v/%v", a.Parent.Name, a.Payload.Name)
+		act := "Installing"
+		if a.Payload.Template {
+			act = "Templating"
+		}
+		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Name)
 	case ActionInstallVolumeResource:
 		return fmt.Sprintf("Installing volume resource %v", a.Payload.Name)
 	case ActionRemoveVolumeResource:
