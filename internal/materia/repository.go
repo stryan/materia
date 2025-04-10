@@ -290,7 +290,7 @@ func (f *FileRepository) InstallComponent(comp *Component, _ secrets.SecretsMana
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
-	defer qFile.Close()
+	defer func() { _ = qFile.Close() }()
 	return nil
 }
 
@@ -303,7 +303,7 @@ func (f *FileRepository) RemoveComponent(comp *Component, sm secrets.SecretsMana
 		if err != nil {
 			return err
 		}
-		log.Info("removed", "resource", v.Name)
+		log.Debug("removed", "component", comp.Name, "resource", v.Name)
 	}
 
 	err := os.Remove(filepath.Join(f.data, comp.Name))

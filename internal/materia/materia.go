@@ -127,12 +127,12 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	}
 
 	// Ensure local cache
-	log.Info("updating configured source cache")
+	log.Debug("updating configured source cache")
 	err = source.Sync(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
-	log.Info("pulling manifest")
+	log.Debug("pulling manifest")
 	man, err := LoadMateriaManifest(filepath.Join(sourcePath, "MANIFEST.toml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
@@ -141,7 +141,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		return nil, err
 	}
 
-	log.Info("loading facts")
+	log.Debug("loading facts")
 	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination}
 	facts, err := NewFacts(ctx, c, man, compRepo, cm)
 	if err != nil {
@@ -502,15 +502,15 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	switch command.Todo {
 	case ActionStartService:
 		cmd = services.ServiceStart
-		log.Info("starting service", "unit", res.Name)
+		log.Debug("starting service", "unit", res.Name)
 	case ActionStopService:
-		log.Info("stopping service", "unit", res.Name)
+		log.Debug("stopping service", "unit", res.Name)
 		cmd = services.ServiceStop
 	case ActionRestartService:
-		log.Info("restarting service", "unit", res.Name)
+		log.Debug("restarting service", "unit", res.Name)
 		cmd = services.ServiceRestart
 	case ActionReloadUnits:
-		log.Info("reloading units")
+		log.Debug("reloading units")
 		cmd = services.ServiceReload
 	default:
 		return errors.New("invalid service command")
@@ -586,9 +586,9 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
+func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	if plan.Empty() {
-		return nil
+		return -1, nil
 	}
 	defer func() {
 		if !m.cleanup {
@@ -599,6 +599,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 			log.Warnf("error cleaning up execution: %v", err)
 		}
 		for _, v := range problems {
+			log.Infof("component %v failed to install, purging", v)
 			err := m.CompRepo.Purge(ctx, v)
 			if err != nil {
 				log.Warnf("error purging component: %v", err)
@@ -606,11 +607,12 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 		}
 	}()
 	serviceActions := []Action{}
+	steps := 0
 	// Template and install resources
 	for _, v := range plan.Steps() {
 		vars := make(map[string]interface{})
 		if err := v.Validate(); err != nil {
-			return err
+			return steps, err
 		}
 		vaultVars := m.sm.Lookup(ctx, secrets.SecretFilter{
 			Hostname:  m.Facts.Hostname,
@@ -623,96 +625,96 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 		switch v.Todo {
 		case ActionInstallComponent:
 			if err := m.CompRepo.Install(ctx, v.Parent.Name, nil); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallFile, ActionUpdateFile:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallQuadlet, ActionUpdateQuadlet:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.QuadletRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallScript, ActionUpdateScript:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallService, ActionUpdateService:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.ServiceRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallComponentScript, ActionUpdateComponentScript:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveFile:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveQuadlet:
 			if err := m.QuadletRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveScript:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveService:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.ServiceRepo.Remove(ctx, v.Payload.Name); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveComponentScript:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveComponent:
 			if err := m.CompRepo.Remove(ctx, v.Parent.Name); err != nil {
-				return err
+				return steps, err
 			}
 
 		case ActionCleanupComponent:
 			path, err := m.DataRepo.Get(ctx, v.Parent.Name)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			cmd := exec.Command(fmt.Sprintf("%v/cleanup.sh", path))
 
 			cmd.Dir = path
 			err = cmd.Run()
 			if err != nil {
-				return err
+				return steps, err
 			}
 		case ActionEnsureVolume:
 			service := strings.TrimSuffix(v.Payload.Name, ".volume")
@@ -725,69 +727,70 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 				},
 			})
 			if err != nil {
-				return err
+				return steps, err
 			}
 		case ActionInstallVolumeResource:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionUpdateVolumeResource:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.DataRepo.Install(ctx, filepath.Join(v.Parent.Name, v.Payload.Name), resourceData); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionRemoveVolumeResource:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
-				return err
+				return steps, err
 			}
 			if err := m.RemoveVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
+				return steps, err
 			}
 		case ActionSetupComponent:
 			path, err := m.DataRepo.Get(ctx, v.Parent.Name)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			cmd := exec.Command(fmt.Sprintf("%v/setup.sh", path))
 			cmd.Dir = path
 			err = cmd.Run()
 			if err != nil {
-				return err
+				return steps, err
 			}
 		case ActionStartService, ActionStopService, ActionRestartService:
 			err := m.modifyService(ctx, v)
 			if err != nil {
-				return err
+				return steps, err
 			}
 			serviceActions = append(serviceActions, v)
 		case ActionReloadUnits:
 			err := m.modifyService(ctx, v)
 			if err != nil {
-				return err
+				return steps, err
 			}
 		default:
 			panic("invalid action")
 		}
+		steps++
 	}
 
 	// verify services
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Payload.Name)
 		if err != nil {
-			return err
+			return steps, err
 		}
 		switch v.Todo {
 		case ActionRestartService, ActionStartService:
@@ -799,10 +802,10 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) error {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
 		default:
-			return errors.New("unknown service action state")
+			return steps, errors.New("unknown service action state")
 		}
 	}
-	return nil
+	return steps, nil
 }
 
 func (m *Materia) InstallVolumeFile(ctx context.Context, parent *Component, res Resource) error {

@@ -135,11 +135,12 @@ func (f *Facts) Lookup(arg string) interface{} {
 			}
 		}
 	}
-	return errors.New("Invalid fact lookup")
+	return errors.New("invalid fact lookup")
 }
 
 func (f *Facts) Pretty() string {
 	var result string
+	result += "Facts\n"
 	result += fmt.Sprintf("Hostname: %v\n", f.Hostname)
 	result += "Roles: "
 	for _, r := range f.Roles {

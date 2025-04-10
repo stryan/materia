@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -78,15 +79,19 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	case ServiceRestart:
 		_, err = s.Conn.RestartUnitContext(ctx, name, "fail", callback)
 	case ServiceStart:
-		_, _, err = s.Conn.EnableUnitFilesContext(ctx, []string{name}, false, false)
-		if err != nil {
-			return err
+		if strings.HasSuffix(name, ".timer") {
+			_, _, err = s.Conn.EnableUnitFilesContext(ctx, []string{name}, false, false)
+			if err != nil {
+				return err
+			}
 		}
 		_, err = s.Conn.StartUnitContext(ctx, name, "fail", callback)
 	case ServiceStop:
-		_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
-		if err != nil {
-			return err
+		if strings.HasSuffix(name, ".timer") {
+			_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
+			if err != nil {
+				return err
+			}
 		}
 		_, err = s.Conn.StopUnitContext(ctx, name, "fail", callback)
 	default:

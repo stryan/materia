@@ -57,7 +57,10 @@ func (f *FileRepository) Clean(ctx context.Context) error {
 		return err
 	}
 	for _, v := range entries {
-		os.RemoveAll(v.Name())
+		err := os.RemoveAll(v.Name())
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

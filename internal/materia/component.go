@@ -39,7 +39,6 @@ const (
 	StateNeedUpdate
 	StateNeedRemoval
 	StateRemoved
-	StateCorrupt
 )
 
 func (c *Component) String() string {
@@ -251,6 +250,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 	newResources := make(map[string]Resource)
 	diffVars := make(map[string]interface{})
 	maps.Copy(diffVars, c.Defaults)
+	maps.Copy(diffVars, other.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, v := range c.Resources {
 		currentResources[v.Name] = v

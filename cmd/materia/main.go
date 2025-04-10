@@ -105,7 +105,7 @@ func main() {
 						facts = m.Facts
 					}
 					if arg != "" {
-						fmt.Println(facts.Lookup(arg))
+						fmt.Printf("Fact %v: %v", arg, facts.Lookup(arg))
 						return nil
 					}
 					fmt.Println(facts.Pretty())
@@ -135,7 +135,15 @@ func main() {
 			{
 				Name:  "update",
 				Usage: "Plan and execute update",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "quiet",
+						Aliases: []string{"q"},
+						Usage:   "Minimize output",
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
+					quiet := cCtx.Bool("quiet")
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
@@ -144,8 +152,12 @@ func main() {
 					if err != nil {
 						return err
 					}
-					err = m.Execute(ctx, plan)
+					if !quiet {
+						fmt.Println(plan.Pretty())
+					}
+					steps, err := m.Execute(ctx, plan)
 					if err != nil {
+						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
 						return err
 					}
 					return nil

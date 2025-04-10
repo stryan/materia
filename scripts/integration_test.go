@@ -181,11 +181,12 @@ func TestExecute(t *testing.T) {
 			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
 		}
 	}
-	err = m.Execute(ctx, plan)
+	count, err := m.Execute(ctx, plan)
 	assert.Nil(t, err, fmt.Sprintf("error executing plan: %v", err))
 	if err != nil {
 		log.Fatal(err)
 	}
+	assert.Equal(t, len(plan.Steps()), count, "not every step completed")
 	// verify all the files are in place
 	for _, v := range plan.Steps() {
 		switch v.Todo {

@@ -26,7 +26,9 @@ const (
 	ActionRemoveComponent
 	ActionCleanupComponent
 	ActionReloadUnits
+	ActionEnableService
 	ActionStartService
+	ActionDisableService
 	ActionStopService
 	ActionRestartService
 	ActionEnsureVolume

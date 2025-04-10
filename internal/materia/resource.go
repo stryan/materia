@@ -65,21 +65,10 @@ func (cur Resource) diff(fmap MacroMap, newRes Resource, vars map[string]interfa
 		return diffs, err
 	}
 	curString := string(curFile)
-	// parse if template
-	newFile, err := os.ReadFile(newRes.Path)
+	var newString string
+	result, err := newRes.execute(fmap, vars)
 	if err != nil {
 		return diffs, err
-	}
-	var newString string
-	var result *bytes.Buffer
-	if newRes.Template {
-		result, err = newRes.execute(fmap, vars)
-		if err != nil {
-			return diffs, err
-		}
-
-	} else {
-		result = bytes.NewBuffer(newFile)
 	}
 	newString = result.String()
 	return dmp.DiffMain(curString, newString, false), nil
@@ -89,6 +78,9 @@ func (cur Resource) execute(funcMap MacroMap, vars map[string]interface{}) (*byt
 	newFile, err := os.ReadFile(cur.Path)
 	if err != nil {
 		return nil, err
+	}
+	if !cur.Template {
+		return bytes.NewBuffer(newFile), nil
 	}
 
 	result := bytes.NewBuffer([]byte{})

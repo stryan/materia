@@ -54,7 +54,7 @@ func (c *HostComponentRepository) Install(ctx context.Context, path string, _ *b
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
-	defer qFile.Close()
+	defer func() { _ = qFile.Close() }()
 	return nil
 }
 

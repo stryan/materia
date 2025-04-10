@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/charmbracelet/log"
 )
 
 type FileSource struct {
@@ -23,7 +21,6 @@ func (f *FileSource) Clean() (_ error) {
 }
 
 func NewFileSource(path, repo string) *FileSource {
-	log.Info("file source", "path", path, "repo", repo)
 	return &FileSource{repo, path}
 }
 
