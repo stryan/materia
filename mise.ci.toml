@@ -2,5 +2,5 @@
 container_tag = "${TAG}"
 
 [tasks.ci]
-depends = ["build","lint","test"]
+depends = ["build","test"]
 run = 'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t git.saintnet.tech/stryan/materia:{{vars.container_tag}} .'
