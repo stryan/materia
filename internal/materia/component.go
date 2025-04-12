@@ -18,13 +18,13 @@ import (
 var errCorruptComponent = errors.New("error corrupt component")
 
 type Component struct {
-	Name            string
-	Services        []Resource
-	Resources       []Resource
-	Scripted        bool
-	State           ComponentLifecycle
-	Defaults        map[string]interface{}
-	VolumeResources map[string]VolumeResourceConfig
+	Name             string
+	Resources        []Resource
+	Scripted         bool
+	State            ComponentLifecycle
+	Defaults         map[string]interface{}
+	VolumeResources  map[string]VolumeResourceConfig
+	ServiceResources map[string]ServiceResourceConfig
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -42,7 +42,7 @@ const (
 )
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v Rs: %v D: [%v]}", c.Name, c.State, len(c.Resources), c.Defaults)
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, len(c.Resources), len(c.ServiceResources), c.Defaults)
 }
 
 func NewComponentFromSource(path string) (*Component, error) {
@@ -50,6 +50,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 	c.Name = filepath.Base(path)
 	c.Defaults = make(map[string]interface{})
 	c.VolumeResources = make(map[string]VolumeResourceConfig)
+	c.ServiceResources = make(map[string]ServiceResourceConfig)
 	log.Debugf("loading component %v from path %v", c.Name, path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -102,14 +103,22 @@ func NewComponentFromSource(path string) (*Component, error) {
 	}
 	if !man.NoServices {
 		if len(man.Services) > 0 {
-			for _, s := range man.Services {
-				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+			for k, s := range man.Services {
+				if s.Resource == "" {
+					c.ServiceResources[fmt.Sprintf("%v.service", k)] = ServiceResourceConfig{
+						Resource: fmt.Sprintf("%v.service", k),
+					}
+					continue
 				}
-				c.Services = append(c.Services, Resource{
-					Name: s,
-					Kind: ResourceTypeService,
-				})
+				serv, err := Resource{
+					Name: s.Resource,
+					Kind: findResourceType(s.Resource),
+				}.getServiceFromResource()
+				if err != nil {
+					return nil, fmt.Errorf("invalid service name: %w", err)
+				}
+				s.generated = isQuadlet(s.Resource)
+				c.ServiceResources[serv.Name] = s
 			}
 		} else {
 			for _, r := range c.Resources {
@@ -118,7 +127,7 @@ func NewComponentFromSource(path string) (*Component, error) {
 					if err != nil {
 						return nil, fmt.Errorf("error guestimating component service: %w", err)
 					}
-					c.Services = append(c.Services, serv)
+					c.ServiceResources[serv.Name] = ServiceResourceConfig{Resource: serv.Name, generated: true}
 				}
 			}
 		}
@@ -141,12 +150,12 @@ func NewComponentFromSource(path string) (*Component, error) {
 
 func NewComponentFromHost(name string, compRepo *repository.HostComponentRepository) (*Component, error) {
 	oldComp := &Component{
-		Name:            name,
-		Resources:       []Resource{},
-		State:           StateStale,
-		Services:        []Resource{},
-		Defaults:        make(map[string]interface{}),
-		VolumeResources: make(map[string]VolumeResourceConfig),
+		Name:             name,
+		Resources:        []Resource{},
+		State:            StateStale,
+		Defaults:         make(map[string]interface{}),
+		VolumeResources:  make(map[string]VolumeResourceConfig),
+		ServiceResources: make(map[string]ServiceResourceConfig),
 	}
 	// load resources
 
@@ -177,14 +186,22 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
 			if !man.NoServices {
-				for _, s := range man.Services {
-					if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-						return nil, fmt.Errorf("error loading component services: invalid format %v", s)
+				for k, s := range man.Services {
+					if s.Resource == "" {
+						oldComp.ServiceResources[fmt.Sprintf("%v.service", k)] = ServiceResourceConfig{
+							Resource: fmt.Sprintf("%v.service", k),
+						}
+						continue
 					}
-					oldComp.Services = append(oldComp.Services, Resource{
-						Name: s,
-						Kind: ResourceTypeService,
-					})
+					serv, err := Resource{
+						Name: s.Resource,
+						Kind: findResourceType(s.Resource),
+					}.getServiceFromResource()
+					if err != nil {
+						return nil, fmt.Errorf("invalid service name: %w", err)
+					}
+					s.generated = isQuadlet(s.Resource)
+					oldComp.ServiceResources[serv.Name] = s
 				}
 			}
 			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
@@ -340,4 +357,13 @@ func findResourceType(file string) ResourceType {
 
 func isTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
+}
+
+func isQuadlet(file string) bool {
+	filename := strings.TrimSuffix(file, ".gotmpl")
+	switch filepath.Ext(filename) {
+	case ".pod", ".container", ".network", ".volume", ".kube":
+		return true
+	}
+	return false
 }

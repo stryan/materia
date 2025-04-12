@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os/user"
-	"strings"
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -35,6 +34,8 @@ const (
 	ServiceStop
 	ServiceRestart
 	ServiceReload
+	ServiceEnable
+	ServiceDisable
 )
 
 type ServicesConfig struct {
@@ -78,21 +79,19 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	switch action {
 	case ServiceRestart:
 		_, err = s.Conn.RestartUnitContext(ctx, name, "fail", callback)
-	case ServiceStart:
-		if strings.HasSuffix(name, ".timer") {
-			_, _, err = s.Conn.EnableUnitFilesContext(ctx, []string{name}, false, false)
-			if err != nil {
-				return err
-			}
+	case ServiceEnable:
+		_, _, err = s.Conn.EnableUnitFilesContext(ctx, []string{name}, false, false)
+		if err != nil {
+			return err
 		}
+	case ServiceDisable:
+		_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
+		if err != nil {
+			return err
+		}
+	case ServiceStart:
 		_, err = s.Conn.StartUnitContext(ctx, name, "fail", callback)
 	case ServiceStop:
-		if strings.HasSuffix(name, ".timer") {
-			_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
-			if err != nil {
-				return err
-			}
-		}
 		_, err = s.Conn.StopUnitContext(ctx, name, "fail", callback)
 	default:
 		panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", action))

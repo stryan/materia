@@ -79,6 +79,13 @@ type VolumeResourceConfig struct {
 	Owner, Mode string
 }
 
+type ServiceResourceConfig struct {
+	Resource     string
+	Dependencies []string
+	Disabled     bool
+	generated    bool
+}
+
 func (vrc VolumeResourceConfig) Validate() error {
 	if vrc.Volume == "" {
 		return errors.New("need volume")
@@ -93,12 +100,11 @@ func (vrc VolumeResourceConfig) Validate() error {
 }
 
 type ComponentManifest struct {
-	Services        []string
-	Enabled         []string
 	NoServices      bool
 	Defaults        map[string]interface{}
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
+	Services        map[string]ServiceResourceConfig `toml:"services"`
 	Scripts         []string
 }
 

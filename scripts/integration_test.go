@@ -71,7 +71,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	// os.RemoveAll(testPrefix)
+	_ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -103,10 +103,13 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+
+	fmt.Fprintf(os.Stderr, "FBLTHP[141]: integration_test.go:101: plan=%+v\n", plan.Pretty())
 	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallService, "double", "hello.timer"),
 		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
@@ -116,6 +119,8 @@ func TestPlan(t *testing.T) {
 		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
+		planHelper(materia.ActionEnableService, "double", "hello.timer"),
+		planHelper(materia.ActionStartService, "double", "hello.timer"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
 	expectedPlan := materia.NewPlan(m.Facts)
@@ -137,7 +142,7 @@ func TestPlan(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
+	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
 		Hosts:   map[string]materia.Host{},
@@ -157,6 +162,7 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallService, "double", "hello.timer"),
 		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
@@ -166,9 +172,10 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
+		planHelper(materia.ActionEnableService, "double", "hello.timer"),
+		planHelper(materia.ActionStartService, "double", "hello.timer"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
-
 	for k, v := range plan.Steps() {
 		expected := expectedPlan[k]
 		if expected.Todo != v.Todo {

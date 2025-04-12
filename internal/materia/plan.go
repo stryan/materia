@@ -54,12 +54,12 @@ func (p *Plan) Add(a Action) {
 			return
 		}
 		p.combatPhase = append(p.combatPhase, a)
-	case ActionRestartService, ActionStartService, ActionStopService:
+	case ActionRestartService, ActionStartService, ActionStopService, ActionEnableService, ActionDisableService:
 		p.endStep = append(p.endStep, a)
 	case ActionSetupComponent:
 		p.secondMain = append(p.secondMain, a)
 	default:
-		panic(fmt.Sprintf("unexpected materia.ActionType: %#v", a.Todo))
+		panic(fmt.Sprintf("unexpected materia.ActionType: %v", a.Todo))
 	}
 }
 

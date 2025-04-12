@@ -16,7 +16,7 @@ type MockServices struct {
 }
 
 func (mockservices *MockServices) Apply(_ context.Context, name string, cmd services.ServiceAction) error {
-	if !strings.HasSuffix(name, ".service") {
+	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
 	if cmd == services.ServiceReload {
@@ -31,6 +31,7 @@ func (mockservices *MockServices) Apply(_ context.Context, name string, cmd serv
 			state = "active"
 		case services.ServiceStop:
 			state = "stopped"
+		case services.ServiceEnable, services.ServiceDisable:
 		default:
 			panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", cmd))
 		}
@@ -42,7 +43,7 @@ func (mockservices *MockServices) Apply(_ context.Context, name string, cmd serv
 }
 
 func (mockservices *MockServices) Get(_ context.Context, name string) (*services.Service, error) {
-	if !strings.HasSuffix(name, ".service") {
+	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
 

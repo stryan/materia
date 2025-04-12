@@ -119,7 +119,7 @@ func (r Resource) getServiceFromResource() (Resource, error) {
 	case ResourceTypeService:
 		return r, nil
 	default:
-		return res, errors.New("tried to convert a non container or pod to a rice")
+		return res, errors.New("tried to convert a non container or pod to a service")
 	}
 	return res, nil
 }

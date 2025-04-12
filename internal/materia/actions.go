@@ -99,11 +99,15 @@ func (a *Action) Pretty() string {
 	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
 		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionRestartService:
-		return fmt.Sprintf("Restarting service %v", a.Payload.Name)
+		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStartService:
-		return fmt.Sprintf("Starting service %v", a.Payload.Name)
+		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStopService:
-		return fmt.Sprintf("Stopping service %v", a.Payload.Name)
+		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Name)
+	case ActionEnableService:
+		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Name)
+	case ActionDisableService:
+		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionUnknown:
 		return "Unknown action"
 	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript:

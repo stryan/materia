@@ -19,6 +19,8 @@ depends = ["generate","build-arm64","build-amd64"]
 
 [tasks.lint]
 depends = ["generate"]
+sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = { auto = true }
 run = "golangci-lint run ./cmd/... ./internal/..."
 
 [tasks.virter-age]
