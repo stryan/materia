@@ -6,7 +6,8 @@ import (
 )
 
 type Plan struct {
-	volumes []string
+	volumes    []string
+	components []string
 
 	mainPhase   []Action
 	combatPhase []Action
@@ -18,6 +19,9 @@ func NewPlan(facts *Facts) *Plan {
 	p := &Plan{}
 	for _, v := range facts.Volumes {
 		p.volumes = append(p.volumes, v.Name)
+	}
+	for _, v := range facts.InstalledComponents {
+		p.components = append(p.components, v.Name)
 	}
 	return p
 }
@@ -71,7 +75,7 @@ func (p *Plan) Empty() bool {
 
 func (p *Plan) Validate() error {
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
-	components := []string{}
+	components := p.components
 	for _, a := range steps {
 		if a.Todo == ActionInstallVolumeResource || a.Todo == ActionUpdateVolumeResource || a.Todo == ActionRemoveVolumeResource {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
