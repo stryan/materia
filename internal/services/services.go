@@ -22,8 +22,9 @@ type ServiceManager struct {
 }
 
 type Service struct {
-	Name  string
-	State string
+	Name    string
+	State   string
+	Enabled bool
 }
 
 //go:generate stringer -type ServiceAction -trimprefix Service
