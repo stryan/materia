@@ -32,14 +32,14 @@ func (p *Plan) Add(a Action) {
 		p.mainPhase = append(p.mainPhase, a)
 	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
 		p.mainPhase = append(p.mainPhase, a)
-	case ActionInstallVolumeResource:
+	case ActionInstallVolumeFile:
 		p.secondMain = append(p.secondMain, a)
 		vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
 		if !ok {
 			return
 		}
 		p.volumes = append(p.volumes, vcr.Volume)
-	case ActionRemoveVolumeResource, ActionUpdateVolumeResource:
+	case ActionRemoveVolumeFile, ActionUpdateVolumeFile:
 		p.secondMain = append(p.secondMain, a)
 	case ActionReloadUnits:
 		if len(p.combatPhase) == 0 || p.combatPhase[0].Todo != ActionReloadUnits {
@@ -77,7 +77,7 @@ func (p *Plan) Validate() error {
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 	components := p.components
 	for _, a := range steps {
-		if a.Todo == ActionInstallVolumeResource || a.Todo == ActionUpdateVolumeResource || a.Todo == ActionRemoveVolumeResource {
+		if a.Todo == ActionInstallVolumeFile || a.Todo == ActionUpdateVolumeFile || a.Todo == ActionRemoveVolumeFile {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
 			if !ok {
 				return fmt.Errorf("invalid plan: no volume resource for %v", a.Payload)

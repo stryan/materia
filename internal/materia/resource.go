@@ -140,7 +140,7 @@ func (r Resource) toAction(action string) ActionType {
 		case ResourceTypeService:
 			todo = ActionInstallService
 		case ResourceTypeVolumeFile:
-			todo = ActionInstallVolumeResource
+			todo = ActionInstallVolumeFile
 
 		}
 	case "update":
@@ -154,7 +154,7 @@ func (r Resource) toAction(action string) ActionType {
 		case ResourceTypeService:
 			todo = ActionUpdateService
 		case ResourceTypeVolumeFile:
-			todo = ActionUpdateVolumeResource
+			todo = ActionUpdateVolumeFile
 		case ResourceTypeComponentScript:
 			todo = ActionUpdateComponentScript
 		}
@@ -169,7 +169,7 @@ func (r Resource) toAction(action string) ActionType {
 		case ResourceTypeService:
 			todo = ActionRemoveService
 		case ResourceTypeVolumeFile:
-			todo = ActionRemoveVolumeResource
+			todo = ActionRemoveVolumeFile
 		case ResourceTypeComponentScript:
 			todo = ActionRemoveComponentScript
 		}

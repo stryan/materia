@@ -729,7 +729,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			if err != nil {
 				return steps, err
 			}
-		case ActionInstallVolumeResource:
+		case ActionInstallVolumeFile:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
 				return steps, err
@@ -740,7 +740,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
 				return steps, err
 			}
-		case ActionUpdateVolumeResource:
+		case ActionUpdateVolumeFile:
 			resourceData, err := v.Payload.execute(m.macros, vars)
 			if err != nil {
 				return steps, err
@@ -751,7 +751,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			if err := m.InstallVolumeFile(ctx, v.Parent, v.Payload); err != nil {
 				return steps, err
 			}
-		case ActionRemoveVolumeResource:
+		case ActionRemoveVolumeFile:
 			if err := m.DataRepo.Remove(ctx, filepath.Join(v.Parent.Name, v.Payload.Name)); err != nil {
 				return steps, err
 			}

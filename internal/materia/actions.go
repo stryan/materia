@@ -32,9 +32,9 @@ const (
 	ActionStopService
 	ActionRestartService
 	ActionEnsureVolume
-	ActionInstallVolumeResource
-	ActionUpdateVolumeResource
-	ActionRemoveVolumeResource
+	ActionInstallVolumeFile
+	ActionUpdateVolumeFile
+	ActionRemoveVolumeFile
 
 	ActionInstallFile
 	ActionInstallQuadlet
@@ -86,12 +86,12 @@ func (a *Action) Pretty() string {
 			act = "Templating"
 		}
 		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Name)
-	case ActionInstallVolumeResource:
-		return fmt.Sprintf("Installing volume resource %v", a.Payload.Name)
-	case ActionRemoveVolumeResource:
-		return fmt.Sprintf("Removing volume resource %v", a.Payload.Name)
-	case ActionUpdateVolumeResource:
-		return fmt.Sprintf("Updating volume resource %v", a.Payload.Name)
+	case ActionInstallVolumeFile:
+		return fmt.Sprintf("Installing volume file %v", a.Payload.Name)
+	case ActionRemoveVolumeFile:
+		return fmt.Sprintf("Removing volume file %v", a.Payload.Name)
+	case ActionUpdateVolumeFile:
+		return fmt.Sprintf("Updating volume file %v", a.Payload.Name)
 	case ActionReloadUnits:
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
@@ -119,11 +119,11 @@ func (a *Action) Pretty() string {
 
 func (a *Action) Category() ActionCategory {
 	switch a.Todo {
-	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeResource:
+	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeFile:
 		return ActionCategoryInstall
-	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeResource, ActionRemoveComponent:
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeFile, ActionRemoveComponent:
 		return ActionCategoryRemove
-	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeResource:
+	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeFile:
 		return ActionCategoryUpdate
 	default:
 		return ActionCategoryOther
