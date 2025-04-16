@@ -99,43 +99,43 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 	return facts, nil
 }
 
-func (f *Facts) Lookup(arg string) interface{} {
+func (f *Facts) Lookup(arg string) (interface{}, error) {
 	input := strings.Split(arg, ".")
 	switch input[0] {
 	case "hostname":
-		return f.Hostname
+		return f.Hostname, nil
 	case "roles":
-		return f.Roles
+		return f.Roles, nil
 	case "interface":
 		if len(input) == 1 {
-			return f.Interfaces
+			return f.Interfaces, nil
 		}
 		if len(input) == 2 {
-			return f.Interfaces[input[1]]
+			return f.Interfaces[input[1]], nil
 		}
 		if len(input) == 3 {
 			if input[2] == "ip4" {
-				return f.Interfaces[input[1]].Ip4
+				return f.Interfaces[input[1]].Ip4, nil
 			}
 			if input[2] == "ip6" {
-				return f.Interfaces[input[1]].Ip4
+				return f.Interfaces[input[1]].Ip6, nil
 			}
-			return ""
+			return nil, errors.New("invalid ip type")
 		}
 		if len(input) == 4 {
 			index, err := strconv.Atoi(input[3])
 			if err != nil {
-				return errors.New("invalid interface index")
+				return nil, errors.New("invalid interface index")
 			}
 			if input[2] == "ip4" {
-				return f.Interfaces[input[1]].Ip4[index]
+				return f.Interfaces[input[1]].Ip4[index], nil
 			}
 			if input[2] == "ip6" {
-				return f.Interfaces[input[1]].Ip4[index]
+				return f.Interfaces[input[1]].Ip4[index], nil
 			}
 		}
 	}
-	return errors.New("invalid fact lookup")
+	return nil, errors.New("invalid fact lookup")
 }
 
 func (f *Facts) Pretty() string {
