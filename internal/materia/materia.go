@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -30,7 +29,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-type MacroMap func(map[string]interface{}) template.FuncMap
+type MacroMap func(map[string]any) template.FuncMap
 
 type Materia struct {
 	Facts         *Facts
@@ -170,7 +169,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		snippets:      snips,
 		rootComponent: &Component{Name: "root"},
 	}
-	m.macros = func(vars map[string]interface{}) template.FuncMap {
+	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
 			"m_deps": func(arg string) (string, error) {
 				switch arg {
@@ -196,14 +195,14 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 					return "", errors.New("err bad default")
 				}
 			},
-			"m_dataDir": func(arg string) string {
+			"m_dataDir": func(arg string) (string, error) {
 				path, err := m.DataRepo.Get(ctx, arg)
 				if err != nil {
-					return "UNKNOWN"
+					return "", err
 				}
-				return path
+				return path, nil
 			},
-			"m_facts": func(arg string) interface{} {
+			"m_facts": func(arg string) (any, error) {
 				return m.Facts.Lookup(arg)
 			},
 			"m_default": func(arg string, def string) string {
@@ -610,7 +609,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	steps := 0
 	// Template and install resources
 	for _, v := range plan.Steps() {
-		vars := make(map[string]interface{})
+		vars := make(map[string]any)
 		if err := v.Validate(); err != nil {
 			return steps, err
 		}
@@ -957,6 +956,6 @@ func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {
 		keys[i] = k
 		i++
 	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	slices.Sort(keys)
 	return keys
 }

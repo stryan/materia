@@ -105,7 +105,11 @@ func main() {
 						facts = m.Facts
 					}
 					if arg != "" {
-						fmt.Printf("Fact %v: %v", arg, facts.Lookup(arg))
+						fact, err := facts.Lookup(arg)
+						if err != nil {
+							return err
+						}
+						fmt.Printf("Fact %v: %v", arg, fact)
 						return nil
 					}
 					fmt.Println(facts.Pretty())
