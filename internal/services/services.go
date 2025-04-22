@@ -10,6 +10,8 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
+var ErrServiceNotFound = errors.New("no service found")
+
 type Services interface {
 	Apply(context.Context, string, ServiceAction) error
 	Get(context.Context, string) (*Service, error)
@@ -25,6 +27,10 @@ type Service struct {
 	Name    string
 	State   string
 	Enabled bool
+}
+
+func (s Service) Started() bool {
+	return s.State == "active"
 }
 
 //go:generate stringer -type ServiceAction -trimprefix Service
@@ -113,15 +119,31 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 	if err != nil {
 		return nil, err
 	}
+	if len(us) == 0 {
+		return nil, ErrServiceNotFound
+	}
 	if len(us) != 1 {
 		return nil, errors.New("too many units returned")
 	}
+	file, err := s.Conn.ListUnitFilesByPatternsContext(ctx, []string{"enabled"}, []string{name})
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
-		Name:  us[0].Name,
-		State: us[0].ActiveState,
+		Name:    us[0].Name,
+		State:   us[0].ActiveState,
+		Enabled: len(file) > 0,
 	}, nil
 }
 
 func (s *ServiceManager) Close() {
 	s.Conn.Close()
+}
+
+type PlannedServiceManager struct {
+	ServiceManager
+}
+
+func (p *PlannedServiceManager) Get(ctx context.Context, name string) (*Service, error) {
+	return nil, ErrServiceNotFound
 }

@@ -358,18 +358,30 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					Name: k,
 					Kind: ResourceTypeService,
 				}
-				if !s.Disabled && !s.generated {
+				liveService, err := m.Services.Get(ctx, k)
+				if errors.Is(err, services.ErrServiceNotFound) {
+					liveService = &services.Service{
+						Name:    k,
+						State:   "non-existent",
+						Enabled: false,
+					}
+				} else if err != nil {
+					return nil, err
+				}
+				if !s.Disabled && !s.generated && !liveService.Enabled {
 					plan.Add(Action{
 						Todo:    ActionEnableService,
 						Parent:  v,
 						Payload: res,
 					})
 				}
-				plan.Add(Action{
-					Todo:    ActionStartService,
-					Parent:  v,
-					Payload: res,
-				})
+				if !liveService.Started() {
+					plan.Add(Action{
+						Todo:    ActionStartService,
+						Parent:  v,
+						Payload: res,
+					})
+				}
 
 			}
 		case StateMayNeedUpdate:
@@ -413,6 +425,39 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					}
 
 				}
+				sortedSrcs := sortedKeys(v.ServiceResources)
+				for _, k := range sortedSrcs {
+					s := v.ServiceResources[k]
+					res := Resource{
+						Name: k,
+						Kind: ResourceTypeService,
+					}
+					liveService, err := m.Services.Get(ctx, k)
+					if errors.Is(err, services.ErrServiceNotFound) {
+						liveService = &services.Service{
+							Name:    k,
+							State:   "non-existent",
+							Enabled: false,
+						}
+					} else if err != nil {
+						return nil, err
+					}
+					if !s.Disabled && !s.generated && !liveService.Enabled {
+						plan.Add(Action{
+							Todo:    ActionEnableService,
+							Parent:  v,
+							Payload: res,
+						})
+					}
+					if !liveService.Started() {
+						plan.Add(Action{
+							Todo:    ActionStartService,
+							Parent:  v,
+							Payload: res,
+						})
+					}
+
+				}
 			} else {
 				v.State = StateOK
 			}
@@ -435,11 +480,17 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					Name: s.Resource,
 					Kind: ResourceTypeService,
 				}
-				plan.Add(Action{
-					Todo:    ActionStopService,
-					Parent:  v,
-					Payload: res,
-				})
+				liveService, err := m.Services.Get(ctx, k)
+				if err != nil {
+					return nil, err
+				}
+				if liveService.Started() {
+					plan.Add(Action{
+						Todo:    ActionStopService,
+						Parent:  v,
+						Payload: res,
+					})
+				}
 			}
 			plan.Add(Action{
 				Todo:   ActionRemoveComponent,
@@ -462,65 +513,6 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 	}
 	return updates, nil
 }
-
-// func (m *Materia) calculateServiceDiffs(ctx context.Context, comps map[string]*Component, plan *Plan) error {
-// 	keys := sortedKeys(comps)
-// 	for _, v := range keys {
-// 		c := comps[v]
-// 		switch c.State {
-// 		case StateFresh:
-// 			// need to install all services
-// 			for _, s := range c.ServiceResources {
-// 				res
-// 				plan.Add(Action{
-// 					Todo:    ActionStartService,
-// 					Parent:  c,
-// 					Payload: s,
-// 				})
-// 			}
-// 		case StateNeedUpdate:
-// 			// need to install all services
-// 			for _, s := range c.Services {
-// 				plan.Add(Action{
-// 					Todo:    ActionRestartService,
-// 					Parent:  c,
-// 					Payload: s,
-// 				})
-// 			}
-// 		case StateOK:
-// 			modified := false
-// 			for _, s := range c.Services {
-// 				state, err := m.Services.Get(ctx, s.Name)
-// 				if err != nil {
-// 					return err
-// 				}
-// 				if state.State != "active" {
-// 					plan.Add(Action{
-// 						Todo:    ActionStartService,
-// 						Parent:  c,
-// 						Payload: s,
-// 					})
-// 					modified = true
-// 				}
-// 			}
-// 			if modified {
-// 				c.State = StateNeedUpdate
-// 			}
-// 		case StateRemoved:
-// 			// need to stop all services
-// 			for _, s := range c.Services {
-// 				plan.Add(Action{
-// 					Todo:    ActionStopService,
-// 					Parent:  c,
-// 					Payload: s,
-// 				})
-// 			}
-// 		default:
-// 			continue
-// 		}
-// 	}
-// 	return nil
-// }
 
 func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	if err := command.Validate(); err != nil {
@@ -583,14 +575,6 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	if err != nil {
 		return plan, fmt.Errorf("error calculating diffs: %w", err)
 	}
-
-	// determine service actions
-
-	// log.Debug("calculating service differences")
-	// err = m.calculateServiceDiffs(ctx, finalComponents, plan)
-	// if err != nil {
-	// 	return plan, fmt.Errorf("error calculating service actions: %w", err)
-	// }
 	if err := plan.Validate(); err != nil {
 		return nil, fmt.Errorf("generated invalid plan: %w", err)
 	}
@@ -967,6 +951,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	if name != "" {
 		m.Facts.AssignedComponents = []string{name}
 	}
+	m.Services = &services.PlannedServiceManager{}
 	m.Facts.InstalledComponents = make(map[string]*Component)
 	return m.Plan(ctx)
 }
