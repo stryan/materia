@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
@@ -15,6 +16,7 @@ import (
 
 type GitSource struct {
 	repo     string
+	ref      string
 	path     string
 	auth     transport.AuthMethod
 	insecure bool
@@ -26,6 +28,7 @@ func NewGitSource(path, repo string, c *Config) (*GitSource, error) {
 		path: path,
 	}
 	if c != nil {
+		g.ref = c.Ref
 		if c.PrivateKey != "" {
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -76,9 +79,23 @@ func (g *GitSource) Sync(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		ref, err := r.Head()
+		if err != nil {
+			return err
+		}
+		gHash := plumbing.NewHash(g.ref)
+
 		w, err := r.Worktree()
 		if err != nil {
 			return err
+		}
+		if g.ref != "" && gHash != ref.Hash() {
+			err = w.Checkout(&git.CheckoutOptions{
+				Hash: gHash,
+			})
+			if err != nil {
+				return err
+			}
 		}
 		err = w.PullContext(ctx, &pullOptions)
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
