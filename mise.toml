@@ -47,6 +47,14 @@ run = [
 	"virter vm rm materia-test-alma-9",
 ]
 
+[tasks.virter-explore]
+depends = ['build-amd64','lint','test',"virter-age"]
+run = [
+	"if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
+	"virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
+	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+]
+
 [tasks.generate]
 description = "Run go:generate"
 sources = ["go.mod", "go.sum", "**/*.go"]
