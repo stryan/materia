@@ -70,7 +70,6 @@ func (g *GitSource) Sync(ctx context.Context) error {
 	repoURL := g.repo
 	stale := false
 	// Clone the repository
-	fmt.Printf("Cloning repository %s into %s...\n", repoURL, localPath)
 	r, err := git.PlainClone(localPath, false, &git.CloneOptions{
 		URL:               repoURL,
 		Auth:              g.auth,
@@ -85,10 +84,8 @@ func (g *GitSource) Sync(ctx context.Context) error {
 		stale = true
 	}
 	if err != nil && !errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		fmt.Printf("Failed to clone repository: %s\n", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to clone repository: %w", err)
 	}
-	fmt.Println("Repository cloned successfully")
 	// Get the worktree
 	w, err := r.Worktree()
 	if err != nil {
