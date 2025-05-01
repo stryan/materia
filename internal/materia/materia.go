@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
@@ -336,7 +337,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 			for _, r := range v.Resources {
 				err := v.test(ctx, m.macros, vars)
 				if err != nil {
-					return nil, fmt.Errorf("missing variable for component: %w", err)
+					return nil, fmt.Errorf("unable to template component resource %v: %w", r.Name, err)
 				}
 				plan.Add(Action{
 					Todo:    r.toAction("install"),
@@ -368,7 +369,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				} else if err != nil {
 					return nil, err
 				}
-				if !s.Disabled && !s.generated && !liveService.Enabled {
+				if !s.Disabled && s.Static && !liveService.Enabled {
 					plan.Add(Action{
 						Todo:    ActionEnableService,
 						Parent:  v,
@@ -398,10 +399,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				log.Debugf("error diffing components: L (%v) R (%v)", original, v)
 				return nil, err
 			}
-			servicemap := make(map[string]ServiceResourceConfig)
+			restartmap := make(map[string]ServiceResourceConfig)
+			reloadmap := make(map[string]ServiceResourceConfig)
 			for _, src := range v.ServiceResources {
-				for _, trigger := range src.Dependencies {
-					servicemap[trigger] = src
+				for _, trigger := range src.RestartedBy {
+					restartmap[trigger] = src
+				}
+				for _, trigger := range src.ReloadedBy {
+					reloadmap[trigger] = src
 				}
 			}
 			if len(resourceActions) != 0 {
@@ -409,12 +414,22 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				needUpdate = true
 				for _, d := range resourceActions {
 					plan.Add(d)
-					if updatedService, ok := servicemap[d.Payload.Name]; ok {
+					if updatedService, ok := restartmap[d.Payload.Name]; ok {
 						plan.Add(Action{
 							Todo:   ActionRestartService,
 							Parent: v,
 							Payload: Resource{
-								Name: updatedService.Resource,
+								Name: updatedService.Service,
+								Kind: ResourceTypeService,
+							},
+						})
+					}
+					if updatedService, ok := reloadmap[d.Payload.Name]; ok {
+						plan.Add(Action{
+							Todo:   ActionReloadService,
+							Parent: v,
+							Payload: Resource{
+								Name: updatedService.Service,
 								Kind: ResourceTypeService,
 							},
 						})
@@ -427,6 +442,13 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				}
 				sortedSrcs := sortedKeys(v.ServiceResources)
 				for _, k := range sortedSrcs {
+					// skip services that are triggered
+					if _, ok := reloadmap[k]; ok {
+						continue
+					}
+					if _, ok := restartmap[k]; ok {
+						continue
+					}
 					s := v.ServiceResources[k]
 					res := Resource{
 						Name: k,
@@ -442,7 +464,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					} else if err != nil {
 						return nil, err
 					}
-					if !s.Disabled && !s.generated && !liveService.Enabled {
+					if !s.Disabled && s.Static && !liveService.Enabled {
 						plan.Add(Action{
 							Todo:    ActionEnableService,
 							Parent:  v,
@@ -459,7 +481,45 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 
 				}
 			} else {
-				v.State = StateOK
+				serviceChanged := false
+				for _, s := range original.ServiceResources {
+					liveService, err := m.Services.Get(ctx, s.Service)
+					if errors.Is(err, services.ErrServiceNotFound) {
+						liveService = &services.Service{
+							Name:    s.Service,
+							State:   "non-existent",
+							Enabled: false,
+						}
+					} else if err != nil {
+						return nil, err
+					}
+					res := Resource{
+						Name: s.Service,
+						Kind: ResourceTypeService,
+					}
+					if !s.Disabled && s.Static && !liveService.Enabled {
+						serviceChanged = true
+						plan.Add(Action{
+							Todo:    ActionEnableService,
+							Parent:  v,
+							Payload: res,
+						})
+					}
+					if !liveService.Started() {
+						serviceChanged = true
+						plan.Add(Action{
+							Todo:    ActionStartService,
+							Parent:  v,
+							Payload: res,
+						})
+					}
+
+				}
+				if !serviceChanged {
+					v.State = StateOK
+				} else {
+					v.State = StateNeedUpdate
+				}
 			}
 		case StateStale, StateNeedRemoval:
 			for _, r := range v.Resources {
@@ -477,7 +537,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 			}
 			for _, s := range v.ServiceResources {
 				res := Resource{
-					Name: s.Resource,
+					Name: s.Service,
 					Kind: ResourceTypeService,
 				}
 				liveService, err := m.Services.Get(ctx, k)
@@ -542,13 +602,16 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 		cmd = services.ServiceRestart
 	case ActionReloadUnits:
 		log.Debug("reloading units")
-		cmd = services.ServiceReload
+		cmd = services.ServiceReloadUnits
 	case ActionEnableService:
 		log.Debug("enabling service", "unit", res.Name)
 		cmd = services.ServiceEnable
 	case ActionDisableService:
-		log.Debug("enabling service", "unit", res.Name)
+		log.Debug("disabling service", "unit", res.Name)
 		cmd = services.ServiceDisable
+	case ActionReloadService:
+		log.Debug("reloading service", "unit", res.Name)
+		cmd = services.ServiceReloadService
 
 	default:
 		return errors.New("invalid service command")
@@ -816,6 +879,8 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}
 
 	// verify services
+	activating := []string{}
+	deactivating := []string{}
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Payload.Name)
 		if err != nil {
@@ -823,11 +888,15 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 		switch v.Todo {
 		case ActionRestartService, ActionStartService:
-			if serv.State != "active" {
+			if serv.State == "activating" {
+				activating = append(activating, v.Payload.Name)
+			} else if serv.State != "active" {
 				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
 			}
 		case ActionStopService:
-			if serv.State != "inactive" {
+			if serv.State == "deactivating" {
+				deactivating = append(deactivating, v.Payload.Name)
+			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
 		case ActionEnableService, ActionDisableService:
@@ -835,6 +904,28 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, errors.New("unknown service action state")
 		}
 	}
+	var servWG sync.WaitGroup
+	for _, v := range activating {
+		servWG.Add(1)
+		go func() {
+			defer servWG.Done()
+			err := m.Services.WaitUntilState(ctx, v, "active")
+			if err != nil {
+				log.Warn(err)
+			}
+		}()
+	}
+	for _, v := range deactivating {
+		servWG.Add(1)
+		go func() {
+			defer servWG.Done()
+			err := m.Services.WaitUntilState(ctx, v, "inactive")
+			if err != nil {
+				log.Warn(err)
+			}
+		}()
+	}
+	servWG.Wait()
 	return steps, nil
 }
 

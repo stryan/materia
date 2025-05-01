@@ -31,6 +31,7 @@ const (
 	ActionDisableService
 	ActionStopService
 	ActionRestartService
+	ActionReloadService
 	ActionEnsureVolume
 	ActionInstallVolumeFile
 	ActionUpdateVolumeFile

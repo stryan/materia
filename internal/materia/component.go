@@ -101,37 +101,13 @@ func NewComponentFromSource(path string) (*Component, error) {
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
-	if !man.NoServices {
-		if len(man.Services) > 0 {
-			for k, s := range man.Services {
-				if s.Resource == "" {
-					c.ServiceResources[fmt.Sprintf("%v.service", k)] = ServiceResourceConfig{
-						Resource: fmt.Sprintf("%v.service", k),
-					}
-					continue
-				}
-				serv, err := Resource{
-					Name: s.Resource,
-					Kind: findResourceType(s.Resource),
-				}.getServiceFromResource()
-				if err != nil {
-					return nil, fmt.Errorf("invalid service name: %w", err)
-				}
-				s.generated = isQuadlet(s.Resource)
-				c.ServiceResources[serv.Name] = s
-			}
-		} else {
-			for _, r := range c.Resources {
-				if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-					serv, err := r.getServiceFromResource()
-					if err != nil {
-						return nil, fmt.Errorf("error guestimating component service: %w", err)
-					}
-					c.ServiceResources[serv.Name] = ServiceResourceConfig{Resource: serv.Name, generated: true}
-				}
-			}
+	for _, s := range man.Services {
+		if err := s.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid service for component: %w", err)
 		}
+		c.ServiceResources[s.Service] = s
 	}
+
 	c.Resources = append(c.Resources, Resource{
 		Path:     filepath.Join(path, "MANIFEST.toml"),
 		Name:     "MANIFEST.toml",
@@ -153,7 +129,7 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		Name:             name,
 		Resources:        []Resource{},
 		State:            StateStale,
-		Defaults:         make(map[string]interface{}),
+		Defaults:         make(map[string]any),
 		VolumeResources:  make(map[string]VolumeResourceConfig),
 		ServiceResources: make(map[string]ServiceResourceConfig),
 	}
@@ -185,24 +161,11 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
 			maps.Copy(oldComp.Defaults, man.Defaults)
-			if !man.NoServices {
-				for k, s := range man.Services {
-					if s.Resource == "" {
-						oldComp.ServiceResources[fmt.Sprintf("%v.service", k)] = ServiceResourceConfig{
-							Resource: fmt.Sprintf("%v.service", k),
-						}
-						continue
-					}
-					serv, err := Resource{
-						Name: s.Resource,
-						Kind: findResourceType(s.Resource),
-					}.getServiceFromResource()
-					if err != nil {
-						return nil, fmt.Errorf("invalid service name: %w", err)
-					}
-					s.generated = isQuadlet(s.Resource)
-					oldComp.ServiceResources[serv.Name] = s
+			for _, s := range man.Services {
+				if err := s.Validate(); err != nil {
+					return nil, fmt.Errorf("invalid service for component: %w", err)
 				}
+				oldComp.ServiceResources[s.Service] = s
 			}
 			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 		}
@@ -238,8 +201,8 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]interface{}) error {
-	diffVars := make(map[string]interface{})
+func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]any) error {
+	diffVars := make(map[string]any)
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, newRes := range c.Resources {
@@ -251,7 +214,7 @@ func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]inter
 	return nil
 }
 
-func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interface{}) ([]Action, error) {
+func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]any) ([]Action, error) {
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -265,7 +228,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 	}
 	currentResources := make(map[string]Resource)
 	newResources := make(map[string]Resource)
-	diffVars := make(map[string]interface{})
+	diffVars := make(map[string]any)
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, other.Defaults)
 	maps.Copy(diffVars, vars)
@@ -359,11 +322,11 @@ func isTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
 }
 
-func isQuadlet(file string) bool {
-	filename := strings.TrimSuffix(file, ".gotmpl")
-	switch filepath.Ext(filename) {
-	case ".pod", ".container", ".network", ".volume", ".kube":
-		return true
-	}
-	return false
-}
+// func isQuadlet(file string) bool {
+// 	filename := strings.TrimSuffix(file, ".gotmpl")
+// 	switch filepath.Ext(filename) {
+// 	case ".pod", ".container", ".network", ".volume", ".kube":
+// 		return true
+// 	}
+// 	return false
+// }

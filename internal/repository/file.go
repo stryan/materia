@@ -40,10 +40,6 @@ func (filerepository *FileRepository) Exists(ctx context.Context, path string) (
 }
 
 func (f *FileRepository) Get(ctx context.Context, path string) (string, error) {
-	_, err := os.Stat(filepath.Join(f.Prefix, path))
-	if err != nil {
-		return "", err
-	}
 	return filepath.Join(f.Prefix, path), nil
 }
 

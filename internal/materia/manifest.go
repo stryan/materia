@@ -3,6 +3,7 @@ package materia
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
@@ -58,15 +59,11 @@ func (m MateriaManifest) Validate() error {
 		if k == "" {
 			return errors.New("materia manifest can't have empty host name")
 		}
-		for _, c := range v.Components {
-			if c == "" {
-				return errors.New("materia manifest can't have empty component name")
-			}
+		if slices.Contains(v.Components, "") {
+			return errors.New("materia manifest can't have empty component name")
 		}
-		for _, r := range v.Roles {
-			if r == "" {
-				return errors.New("materia manifest can't have empty role name")
-			}
+		if slices.Contains(v.Roles, "") {
+			return errors.New("materia manifest can't have empty role name")
 		}
 	}
 	return nil
@@ -80,10 +77,15 @@ type VolumeResourceConfig struct {
 }
 
 type ServiceResourceConfig struct {
-	Resource     string
-	Dependencies []string
-	Disabled     bool
-	generated    bool
+	Service     string
+	RestartedBy []string
+	ReloadedBy  []string
+	Disabled    bool
+	Static      bool
+}
+
+func (src ServiceResourceConfig) Validate() error {
+	return nil
 }
 
 func (vrc VolumeResourceConfig) Validate() error {
@@ -101,10 +103,10 @@ func (vrc VolumeResourceConfig) Validate() error {
 
 type ComponentManifest struct {
 	NoServices      bool
-	Defaults        map[string]interface{}
+	Defaults        map[string]any
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
-	Services        map[string]ServiceResourceConfig `toml:"services"`
+	Services        []ServiceResourceConfig `toml:"services"`
 	Scripts         []string
 }
 

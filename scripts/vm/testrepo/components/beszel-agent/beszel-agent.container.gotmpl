@@ -17,7 +17,6 @@ Image=docker.io/henrygd/beszel-agent:{{.containerTag}}
 ContainerName=beszel-agent
 Environment=PORT={{.port}}
 Environment=KEY={{.key}}
-Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
 SecurityLabelDisable=true
 Network=host
 {{ snippet "autoUpdate" "registry"}}

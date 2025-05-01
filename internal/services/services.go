@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
@@ -15,6 +16,7 @@ var ErrServiceNotFound = errors.New("no service found")
 type Services interface {
 	Apply(context.Context, string, ServiceAction) error
 	Get(context.Context, string) (*Service, error)
+	WaitUntilState(context.Context, string, string) error
 	Close()
 }
 
@@ -40,9 +42,10 @@ const (
 	ServiceStart ServiceAction = iota
 	ServiceStop
 	ServiceRestart
-	ServiceReload
+	ServiceReloadUnits
 	ServiceEnable
 	ServiceDisable
+	ServiceReloadService
 )
 
 type ServicesConfig struct {
@@ -78,7 +81,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 }
 
 func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction) error {
-	if action == ServiceReload {
+	if action == ServiceReloadUnits {
 		return s.Conn.ReloadContext(ctx)
 	}
 	callback := make(chan string)
@@ -91,8 +94,15 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		if err != nil {
 			return err
 		}
+		return nil
 	case ServiceDisable:
 		_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
+		if err != nil {
+			return err
+		}
+		return nil
+	case ServiceReloadService:
+		_, err = s.Conn.ReloadUnitContext(ctx, name, "", callback)
 		if err != nil {
 			return err
 		}
@@ -110,7 +120,7 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	case <-callback:
 		return nil
 	case <-time.After(time.Duration(s.Timeout) * time.Second):
-		return fmt.Errorf("error applying service change: %w", errors.New("timeout restarting unit"))
+		return fmt.Errorf("error applying service change for %v: %w", name, errors.New("timeout modifying unit"))
 	}
 }
 
@@ -134,6 +144,49 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 		State:   us[0].ActiveState,
 		Enabled: len(file) > 0,
 	}, nil
+}
+
+func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string) error {
+	ticker := time.NewTicker(1 * time.Second)
+	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
+	if err != nil {
+		return err
+	}
+	if len(us) == 0 {
+		return ErrServiceNotFound
+	}
+	serv := us[0]
+	if serv.ActiveState == state {
+		return nil
+	}
+	log.Debugf("waiting on %v to reach %v", name, state)
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
+		case <-time.After(time.Duration(s.Timeout) * time.Second):
+			return fmt.Errorf("service %v did not reach state %v", name, state)
+		case <-ticker.C:
+			us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
+			if err != nil {
+				return err
+			}
+			if len(us) == 0 {
+				return ErrServiceNotFound
+			}
+			serv := us[0]
+			if serv.ActiveState == state {
+				return nil
+			}
+
+			if serv.ActiveState == state {
+				return nil
+			}
+			if serv.ActiveState == "failed" {
+				return fmt.Errorf("service %v in failed state", name)
+			}
+		}
+	}
 }
 
 func (s *ServiceManager) Close() {

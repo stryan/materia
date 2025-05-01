@@ -1,7 +1,7 @@
 components.hello.containerTag = "stable"
 components.double.containerTag = "latest"
-[services.goodbye]
-resource = "goodbye.container"
-[services.hello]
-resource = "hello.timer"
-dependencies = ["hello.container"]
+[[services]]
+service = "goodbye.service"
+[[services]]
+service = "hello.timer"
+static = true

@@ -16,8 +16,7 @@ RestartSec=5s
 Image=docker.io/henrygd/beszel-agent:latest
 ContainerName=beszel-agent
 Environment=PORT=45876
-Environment=KEY=big key
-Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
+Environment=KEY=ssh-ed25519 AAADEADBEEFlZDI1NTE5AATHISISGIBBERISHGIBBERISHONTHEFLOOR5HViyD9E3gVr
 SecurityLabelDisable=true
 Network=host
 Label=io.containers.autoupdate=registry
