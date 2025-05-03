@@ -161,7 +161,7 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 	}
 	if versionFileExists {
 		k := koanf.New(".")
-		err := k.Load(file.Provider(".component_version"), toml.Parser())
+		err := k.Load(file.Provider(filepath.Join(name, ".component_version")), toml.Parser())
 		if err != nil {
 			return nil, err
 		}
@@ -186,21 +186,23 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		}
 
 		oldComp.Resources = append(oldComp.Resources, newRes)
-		if resName == "MANIFEST.toml" && oldComp.Version == DefaultComponentVersion {
+		if resName == "MANIFEST.toml" {
 			manifestFound = true
-			log.Debugf("loading installed component manifest %v", oldComp.Name)
-			man, err = LoadComponentManifest(newRes.Path)
-			if err != nil {
-				return nil, fmt.Errorf("error loading component manifest: %w", err)
-			}
-			maps.Copy(oldComp.Defaults, man.Defaults)
-			for _, s := range man.Services {
-				if err := s.Validate(); err != nil {
-					return nil, fmt.Errorf("invalid service for component: %w", err)
+			if oldComp.Version == DefaultComponentVersion {
+				log.Debugf("loading installed component manifest %v", oldComp.Name)
+				man, err = LoadComponentManifest(newRes.Path)
+				if err != nil {
+					return nil, fmt.Errorf("error loading component manifest: %w", err)
 				}
-				oldComp.ServiceResources[s.Service] = s
+				maps.Copy(oldComp.Defaults, man.Defaults)
+				for _, s := range man.Services {
+					if err := s.Validate(); err != nil {
+						return nil, fmt.Errorf("invalid service for component: %w", err)
+					}
+					oldComp.ServiceResources[s.Service] = s
+				}
+				maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 			}
-			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 		}
 		if resName == "setup.sh" || resName == "cleanup.sh" {
 			scripts++
@@ -327,7 +329,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]any) (
 }
 
 func (c *Component) VersonData() (*bytes.Buffer, error) {
-	vd := make(map[string]interface{})
+	vd := make(map[string]any)
 	vd["Version"] = c.Version
 	buffer, err := toml.Parser().Marshal(vd)
 	if err != nil {
