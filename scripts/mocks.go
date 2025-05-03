@@ -16,21 +16,22 @@ type MockServices struct {
 }
 
 func (mockservices *MockServices) Apply(_ context.Context, name string, cmd services.ServiceAction) error {
-	if !strings.HasSuffix(name, ".service") {
+	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
-	if cmd == services.ServiceReload {
+	if cmd == services.ServiceReloadUnits {
 		return nil
 	}
 	if _, ok := mockservices.Services[name]; ok {
 		state := ""
 		switch cmd {
 		case services.ServiceRestart:
-			state = "restarted"
+			state = "active"
 		case services.ServiceStart:
 			state = "active"
 		case services.ServiceStop:
-			state = "stopped"
+			state = "inactive"
+		case services.ServiceEnable, services.ServiceDisable:
 		default:
 			panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", cmd))
 		}
@@ -42,18 +43,25 @@ func (mockservices *MockServices) Apply(_ context.Context, name string, cmd serv
 }
 
 func (mockservices *MockServices) Get(_ context.Context, name string) (*services.Service, error) {
-	if !strings.HasSuffix(name, ".service") {
+	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
 
 	if state, ok := mockservices.Services[name]; !ok {
-		return nil, errors.New("service not found")
+		return nil, services.ErrServiceNotFound
 	} else {
 		return &services.Service{
 			Name:  name,
 			State: state,
 		}, nil
 	}
+}
+
+func (ms *MockServices) WaitUntilState(_ context.Context, name string, state string) error {
+	if ms.Services[name] == state {
+		return nil
+	}
+	return errors.New("not in state")
 }
 
 func (mockservices *MockServices) Close() {

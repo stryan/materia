@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,19 +13,23 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 var errCorruptComponent = errors.New("error corrupt component")
 
 type Component struct {
-	Name            string
-	Services        []Resource
-	Resources       []Resource
-	Scripted        bool
-	State           ComponentLifecycle
-	Defaults        map[string]interface{}
-	VolumeResources map[string]VolumeResourceConfig
+	Name             string
+	Resources        []Resource
+	Scripted         bool
+	State            ComponentLifecycle
+	Defaults         map[string]any
+	VolumeResources  map[string]VolumeResourceConfig
+	ServiceResources map[string]ServiceResourceConfig
+	Version          int
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -41,15 +46,23 @@ const (
 	StateRemoved
 )
 
+type ComponentVersion struct {
+	Version int
+}
+
+const DefaultComponentVersion = 1
+
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v Rs: %v D: [%v]}", c.Name, c.State, len(c.Resources), c.Defaults)
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, len(c.Resources), len(c.ServiceResources), c.Defaults)
 }
 
 func NewComponentFromSource(path string) (*Component, error) {
 	c := &Component{}
 	c.Name = filepath.Base(path)
-	c.Defaults = make(map[string]interface{})
+	c.Defaults = make(map[string]any)
+	c.Version = DefaultComponentVersion
 	c.VolumeResources = make(map[string]VolumeResourceConfig)
+	c.ServiceResources = make(map[string]ServiceResourceConfig)
 	log.Debugf("loading component %v from path %v", c.Name, path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -100,29 +113,13 @@ func NewComponentFromSource(path string) (*Component, error) {
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
-	if !man.NoServices {
-		if len(man.Services) > 0 {
-			for _, s := range man.Services {
-				if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-					return nil, fmt.Errorf("error loading component services: invalid format %v", s)
-				}
-				c.Services = append(c.Services, Resource{
-					Name: s,
-					Kind: ResourceTypeService,
-				})
-			}
-		} else {
-			for _, r := range c.Resources {
-				if r.Kind == ResourceTypeContainer || r.Kind == ResourceTypePod {
-					serv, err := r.getServiceFromResource()
-					if err != nil {
-						return nil, fmt.Errorf("error guestimating component service: %w", err)
-					}
-					c.Services = append(c.Services, serv)
-				}
-			}
+	for _, s := range man.Services {
+		if err := s.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid service for component: %w", err)
 		}
+		c.ServiceResources[s.Service] = s
 	}
+
 	c.Resources = append(c.Resources, Resource{
 		Path:     filepath.Join(path, "MANIFEST.toml"),
 		Name:     "MANIFEST.toml",
@@ -141,24 +138,44 @@ func NewComponentFromSource(path string) (*Component, error) {
 
 func NewComponentFromHost(name string, compRepo *repository.HostComponentRepository) (*Component, error) {
 	oldComp := &Component{
-		Name:            name,
-		Resources:       []Resource{},
-		State:           StateStale,
-		Services:        []Resource{},
-		Defaults:        make(map[string]interface{}),
-		VolumeResources: make(map[string]VolumeResourceConfig),
+		Name:             name,
+		Resources:        []Resource{},
+		State:            StateStale,
+		Defaults:         make(map[string]any),
+		VolumeResources:  make(map[string]VolumeResourceConfig),
+		ServiceResources: make(map[string]ServiceResourceConfig),
 	}
 	// load resources
-
+	ctx := context.Background()
 	var man *ComponentManifest
-	entries, err := compRepo.ListResources(context.Background(), name)
+	entries, err := compRepo.ListResources(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errCorruptComponent
+			return nil, fmt.Errorf("%w: missing component %v data", errCorruptComponent, name)
 		}
 		return nil, fmt.Errorf("error listing resources: %w", err)
 	}
+	versionFileExists, err := compRepo.Exists(ctx, filepath.Join(name, ".component_version"))
+	if err != nil {
+		return nil, err
+	}
+	if versionFileExists {
+		k := koanf.New(".")
+		err := k.Load(file.Provider(filepath.Join(name, ".component_version")), toml.Parser())
+		if err != nil {
+			return nil, err
+		}
+		var c ComponentVersion
+		err = k.Unmarshal("", &c)
+		if err != nil {
+			return nil, err
+		}
+		oldComp.Version = c.Version
+	} else {
+		oldComp.Version = -1
+	}
 	scripts := 0
+	manifestFound := false
 	for _, e := range entries {
 		resName := filepath.Base(e)
 		newRes := Resource{
@@ -170,24 +187,22 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 
 		oldComp.Resources = append(oldComp.Resources, newRes)
 		if resName == "MANIFEST.toml" {
-			log.Debugf("loading installed component manifest %v", oldComp.Name)
-			man, err = LoadComponentManifest(newRes.Path)
-			if err != nil {
-				return nil, fmt.Errorf("error loading component manifest: %w", err)
-			}
-			maps.Copy(oldComp.Defaults, man.Defaults)
-			if !man.NoServices {
-				for _, s := range man.Services {
-					if s == "" || (!strings.HasSuffix(s, ".service") && !strings.HasSuffix(s, ".target") && !strings.HasSuffix(s, ".timer")) {
-						return nil, fmt.Errorf("error loading component services: invalid format %v", s)
-					}
-					oldComp.Services = append(oldComp.Services, Resource{
-						Name: s,
-						Kind: ResourceTypeService,
-					})
+			manifestFound = true
+			if oldComp.Version == DefaultComponentVersion {
+				log.Debugf("loading installed component manifest %v", oldComp.Name)
+				man, err = LoadComponentManifest(newRes.Path)
+				if err != nil {
+					return nil, fmt.Errorf("error loading component manifest: %w", err)
 				}
+				maps.Copy(oldComp.Defaults, man.Defaults)
+				for _, s := range man.Services {
+					if err := s.Validate(); err != nil {
+						return nil, fmt.Errorf("invalid service for component: %w", err)
+					}
+					oldComp.ServiceResources[s.Service] = s
+				}
+				maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 			}
-			maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 		}
 		if resName == "setup.sh" || resName == "cleanup.sh" {
 			scripts++
@@ -195,14 +210,14 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		}
 
 	}
-	if man == nil {
+	if !manifestFound {
 		return nil, errCorruptComponent
 	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	for k, r := range oldComp.Resources {
-		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+		if man != nil && r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
 			r.Kind = ResourceTypeScript
 			oldComp.Resources[k] = r
 		}
@@ -221,8 +236,8 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]interface{}) error {
-	diffVars := make(map[string]interface{})
+func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]any) error {
+	diffVars := make(map[string]any)
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, newRes := range c.Resources {
@@ -234,7 +249,7 @@ func (c *Component) test(_ context.Context, fmap MacroMap, vars map[string]inter
 	return nil
 }
 
-func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interface{}) ([]Action, error) {
+func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]any) ([]Action, error) {
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", c, "right", other)
@@ -248,7 +263,7 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 	}
 	currentResources := make(map[string]Resource)
 	newResources := make(map[string]Resource)
-	diffVars := make(map[string]interface{})
+	diffVars := make(map[string]any)
 	maps.Copy(diffVars, c.Defaults)
 	maps.Copy(diffVars, other.Defaults)
 	maps.Copy(diffVars, vars)
@@ -313,6 +328,16 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]interf
 	return diffActions, nil
 }
 
+func (c *Component) VersonData() (*bytes.Buffer, error) {
+	vd := make(map[string]any)
+	vd["Version"] = c.Version
+	buffer, err := toml.Parser().Marshal(vd)
+	if err != nil {
+		return nil, errors.New("can't create version data")
+	}
+	return bytes.NewBuffer(buffer), nil
+}
+
 func findResourceType(file string) ResourceType {
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
@@ -341,3 +366,12 @@ func findResourceType(file string) ResourceType {
 func isTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
 }
+
+// func isQuadlet(file string) bool {
+// 	filename := strings.TrimSuffix(file, ".gotmpl")
+// 	switch filepath.Ext(filename) {
+// 	case ".pod", ".container", ".network", ".volume", ".kube":
+// 		return true
+// 	}
+// 	return false
+// }

@@ -1,0 +1,9 @@
+[Unit]
+Description=hello!
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 America/New_York
+Unit=hello.service
+
+[Install]
+WantedBy=hello.service

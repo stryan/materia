@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"os"
-	"strings"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -74,7 +73,7 @@ func (cur Resource) diff(fmap MacroMap, newRes Resource, vars map[string]interfa
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (cur Resource) execute(funcMap MacroMap, vars map[string]interface{}) (*bytes.Buffer, error) {
+func (cur Resource) execute(funcMap MacroMap, vars map[string]any) (*bytes.Buffer, error) {
 	newFile, err := os.ReadFile(cur.Path)
 	if err != nil {
 		return nil, err
@@ -95,34 +94,34 @@ func (cur Resource) execute(funcMap MacroMap, vars map[string]interface{}) (*byt
 	return result, nil
 }
 
-func (r Resource) getServiceFromResource() (Resource, error) {
-	var res Resource
-	switch r.Kind {
-	case ResourceTypeContainer:
-		servicename, found := strings.CutSuffix(r.Name, ".container")
-		if !found {
-			return res, fmt.Errorf("invalid container name for service: %v", r.Name)
-		}
-		res = Resource{
-			Name: fmt.Sprintf("%v.service", servicename),
-			Kind: ResourceTypeService,
-		}
-	case ResourceTypePod:
-		podname, found := strings.CutSuffix(r.Name, ".pod")
-		if !found {
-			return res, fmt.Errorf("invalid pod name %v", r.Name)
-		}
-		res = Resource{
-			Name: fmt.Sprintf("%v-pod.service", podname),
-			Kind: ResourceTypeService,
-		}
-	case ResourceTypeService:
-		return r, nil
-	default:
-		return res, errors.New("tried to convert a non container or pod to a rice")
-	}
-	return res, nil
-}
+// func (r Resource) getServiceFromResource() (Resource, error) {
+// 	var res Resource
+// 	switch r.Kind {
+// 	case ResourceTypeContainer:
+// 		servicename, found := strings.CutSuffix(r.Name, ".container")
+// 		if !found {
+// 			return res, fmt.Errorf("invalid container name for service: %v", r.Name)
+// 		}
+// 		res = Resource{
+// 			Name: fmt.Sprintf("%v.service", servicename),
+// 			Kind: ResourceTypeService,
+// 		}
+// 	case ResourceTypePod:
+// 		podname, found := strings.CutSuffix(r.Name, ".pod")
+// 		if !found {
+// 			return res, fmt.Errorf("invalid pod name %v", r.Name)
+// 		}
+// 		res = Resource{
+// 			Name: fmt.Sprintf("%v-pod.service", podname),
+// 			Kind: ResourceTypeService,
+// 		}
+// 	case ResourceTypeService:
+// 		return r, nil
+// 	default:
+// 		return res, errors.New("tried to convert a non container or pod to a service")
+// 	}
+// 	return res, nil
+// }
 
 func (r Resource) toAction(action string) ActionType {
 	todo := ActionUnknown

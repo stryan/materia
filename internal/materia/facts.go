@@ -89,9 +89,10 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 		return nil, fmt.Errorf("error getting source components: %w", err)
 	}
 	for _, v := range installPaths {
-		comp, err := NewComponentFromHost(filepath.Base(v), compRepo)
+		name := filepath.Base(v)
+		comp, err := NewComponentFromHost(name, compRepo)
 		if err != nil {
-			return nil, fmt.Errorf("error creating component from install: %w", err)
+			return nil, fmt.Errorf("error creating component %v from install: %w", name, err)
 		}
 		comp.State = StateStale
 		facts.InstalledComponents[comp.Name] = comp
@@ -99,7 +100,7 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 	return facts, nil
 }
 
-func (f *Facts) Lookup(arg string) (interface{}, error) {
+func (f *Facts) Lookup(arg string) (any, error) {
 	input := strings.Split(arg, ".")
 	switch input[0] {
 	case "hostname":

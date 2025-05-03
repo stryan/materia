@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ctx                            context.Context
-	cfg                            *materia.Config
-	prefix, installdir, servicedir string
+	ctx                                                  context.Context
+	cfg                                                  *materia.Config
+	prefix, installdir, servicedir, scriptdir, sourcedir string
 )
 
 func testMateria(services []string) *materia.Materia {
@@ -39,6 +39,8 @@ func TestMain(m *testing.M) {
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
 	servicedir = filepath.Join(testPrefix, "services")
+	scriptdir = filepath.Join(testPrefix, "scripts")
+	sourcedir = filepath.Join(testPrefix, "materia", "source")
 	log.Default().SetLevel(log.DebugLevel)
 	log.Default().SetReportCaller(true)
 	cfg = &materia.Config{
@@ -49,6 +51,8 @@ func TestMain(m *testing.M) {
 		MateriaDir: testPrefix,
 		QuadletDir: installdir,
 		ServiceDir: servicedir,
+		ScriptDir:  scriptdir,
+		SourceDir:  sourcedir,
 		User:       &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
@@ -67,11 +71,14 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	err = os.Mkdir(scriptdir, 0o755)
+	if err != nil {
+		log.Fatal(err)
+	}
 	ctx = context.Background()
 
 	code := m.Run()
-	// os.RemoveAll(testPrefix)
+	_ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -103,10 +110,13 @@ func TestPlan(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+
+	fmt.Fprintf(os.Stderr, "FBLTHP[141]: integration_test.go:101: plan=%+v\n", plan.Pretty())
 	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallService, "double", "hello.timer"),
 		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
@@ -116,8 +126,11 @@ func TestPlan(t *testing.T) {
 		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
+		planHelper(materia.ActionEnableService, "double", "hello.timer"),
+		planHelper(materia.ActionStartService, "double", "hello.timer"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
+
 	expectedPlan := materia.NewPlan(m.Facts)
 	for _, e := range expectedActions {
 		expectedPlan.Add(e)
@@ -137,7 +150,7 @@ func TestPlan(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
+	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
 	expectedManifest := &materia.MateriaManifest{
 		Secrets: "age",
 		Hosts:   map[string]materia.Host{},
@@ -157,6 +170,7 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
 		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
+		planHelper(materia.ActionInstallService, "double", "hello.timer"),
 		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
 		planHelper(materia.ActionInstallComponent, "hello", ""),
 		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
@@ -166,9 +180,10 @@ func TestExecute(t *testing.T) {
 		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
 		planHelper(materia.ActionReloadUnits, "root", ""),
 		planHelper(materia.ActionStartService, "double", "goodbye.service"),
+		planHelper(materia.ActionEnableService, "double", "hello.timer"),
+		planHelper(materia.ActionStartService, "double", "hello.timer"),
 		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
-
 	for k, v := range plan.Steps() {
 		expected := expectedPlan[k]
 		if expected.Todo != v.Todo {
