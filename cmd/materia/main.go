@@ -264,17 +264,17 @@ func main() {
 					m := &materia.Materia{
 						CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
 					}
-					corruped, err := m.ValidateComponents(ctx)
+					corrupted, err := m.ValidateComponents(ctx)
 					if err != nil {
 						return err
 					}
-					for _, v := range corruped {
+					for _, v := range corrupted {
 						fmt.Printf("Corrupted component: %v\n", v)
 					}
 					if !cCtx.Bool("remove") {
 						return nil
 					}
-					for _, v := range corruped {
+					for _, v := range corrupted {
 						err := m.PurgeComponenet(ctx, v)
 						if err != nil {
 							return err

@@ -37,7 +37,7 @@ func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *re
 			return nil, fmt.Errorf("error getting hostname: %w", err)
 		}
 	}
-	vols, err := containers.ListVolumes(context.Background())
+	vols, err := containers.ListVolumes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting container volumes: %w", err)
 	}
