@@ -151,13 +151,13 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 	entries, err := compRepo.ListResources(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errCorruptComponent
+			return nil, fmt.Errorf("%w: missing component %v data", errCorruptComponent, name)
 		}
 		return nil, fmt.Errorf("error listing resources: %w", err)
 	}
 	versionFileExists, err := compRepo.Exists(ctx, filepath.Join(name, ".component_version"))
 	if err != nil {
-		return nil, errCorruptComponent
+		return nil, err
 	}
 	if versionFileExists {
 		k := koanf.New(".")
