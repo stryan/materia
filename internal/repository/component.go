@@ -33,7 +33,7 @@ func (c HostComponentRepository) Validate() error {
 	return nil
 }
 
-func (c *HostComponentRepository) Install(ctx context.Context, path string, _ *bytes.Buffer) error {
+func (c *HostComponentRepository) Install(ctx context.Context, path string, versionData *bytes.Buffer) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
@@ -55,6 +55,10 @@ func (c *HostComponentRepository) Install(ctx context.Context, path string, _ *b
 		return fmt.Errorf("error installing component: %w", err)
 	}
 	defer func() { _ = qFile.Close() }()
+	err = os.WriteFile(filepath.Join(c.DataPrefix, path, ".component_version"), versionData.Bytes(), 0o755)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -115,12 +119,13 @@ func (c *HostComponentRepository) Exists(ctx context.Context, path string) (bool
 	if path == "" {
 		return false, errors.New("no path specified")
 	}
+	// TODO handle quadletDir too
 	_, err := os.Stat(filepath.Join(c.DataPrefix, path))
-	if err != nil {
-		return false, err
-	}
 	if os.IsNotExist(err) {
 		return false, nil
+	}
+	if err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -171,6 +176,9 @@ func (c *HostComponentRepository) ListResources(ctx context.Context, name string
 		return results, err
 	}
 	for _, r := range resources {
+		if r.Name() == ".component_version" {
+			continue
+		}
 		results = append(results, filepath.Join(dataPath, r.Name()))
 	}
 

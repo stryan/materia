@@ -16,7 +16,7 @@ RestartSec=5s
 Image=docker.io/henrygd/beszel-agent:{{.containerTag}}
 ContainerName=beszel-agent
 Environment=PORT={{.port}}
-Environment=KEY={{.key}}
+Environment=KEY="{{.key}}"
 SecurityLabelDisable=true
 Network=host
 {{ snippet "autoUpdate" "registry"}}

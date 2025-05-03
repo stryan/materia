@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ctx                            context.Context
-	cfg                            *materia.Config
-	prefix, installdir, servicedir string
+	ctx                                                  context.Context
+	cfg                                                  *materia.Config
+	prefix, installdir, servicedir, scriptdir, sourcedir string
 )
 
 func testMateria(services []string) *materia.Materia {
@@ -39,6 +39,8 @@ func TestMain(m *testing.M) {
 	prefix = filepath.Join(testPrefix, "materia")
 	installdir = filepath.Join(testPrefix, "install")
 	servicedir = filepath.Join(testPrefix, "services")
+	scriptdir = filepath.Join(testPrefix, "scripts")
+	sourcedir = filepath.Join(testPrefix, "materia", "source")
 	log.Default().SetLevel(log.DebugLevel)
 	log.Default().SetReportCaller(true)
 	cfg = &materia.Config{
@@ -49,6 +51,8 @@ func TestMain(m *testing.M) {
 		MateriaDir: testPrefix,
 		QuadletDir: installdir,
 		ServiceDir: servicedir,
+		ScriptDir:  scriptdir,
+		SourceDir:  sourcedir,
 		User:       &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},
 	}
 	err := os.Mkdir(testPrefix, 0o755)
@@ -67,7 +71,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	err = os.Mkdir(scriptdir, 0o755)
+	if err != nil {
+		log.Fatal(err)
+	}
 	ctx = context.Background()
 
 	code := m.Run()

@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,9 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
@@ -22,9 +26,10 @@ type Component struct {
 	Resources        []Resource
 	Scripted         bool
 	State            ComponentLifecycle
-	Defaults         map[string]interface{}
+	Defaults         map[string]any
 	VolumeResources  map[string]VolumeResourceConfig
 	ServiceResources map[string]ServiceResourceConfig
+	Version          int
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -41,6 +46,12 @@ const (
 	StateRemoved
 )
 
+type ComponentVersion struct {
+	Version int
+}
+
+const DefaultComponentVersion = 1
+
 func (c *Component) String() string {
 	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, len(c.Resources), len(c.ServiceResources), c.Defaults)
 }
@@ -48,7 +59,8 @@ func (c *Component) String() string {
 func NewComponentFromSource(path string) (*Component, error) {
 	c := &Component{}
 	c.Name = filepath.Base(path)
-	c.Defaults = make(map[string]interface{})
+	c.Defaults = make(map[string]any)
+	c.Version = DefaultComponentVersion
 	c.VolumeResources = make(map[string]VolumeResourceConfig)
 	c.ServiceResources = make(map[string]ServiceResourceConfig)
 	log.Debugf("loading component %v from path %v", c.Name, path)
@@ -134,16 +146,36 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		ServiceResources: make(map[string]ServiceResourceConfig),
 	}
 	// load resources
-
+	ctx := context.Background()
 	var man *ComponentManifest
-	entries, err := compRepo.ListResources(context.Background(), name)
+	entries, err := compRepo.ListResources(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, errCorruptComponent
 		}
 		return nil, fmt.Errorf("error listing resources: %w", err)
 	}
+	versionFileExists, err := compRepo.Exists(ctx, filepath.Join(name, ".component_version"))
+	if err != nil {
+		return nil, errCorruptComponent
+	}
+	if versionFileExists {
+		k := koanf.New(".")
+		err := k.Load(file.Provider(".component_version"), toml.Parser())
+		if err != nil {
+			return nil, err
+		}
+		var c ComponentVersion
+		err = k.Unmarshal("", &c)
+		if err != nil {
+			return nil, err
+		}
+		oldComp.Version = c.Version
+	} else {
+		oldComp.Version = -1
+	}
 	scripts := 0
+	manifestFound := false
 	for _, e := range entries {
 		resName := filepath.Base(e)
 		newRes := Resource{
@@ -154,7 +186,8 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		}
 
 		oldComp.Resources = append(oldComp.Resources, newRes)
-		if resName == "MANIFEST.toml" {
+		if resName == "MANIFEST.toml" && oldComp.Version == DefaultComponentVersion {
+			manifestFound = true
 			log.Debugf("loading installed component manifest %v", oldComp.Name)
 			man, err = LoadComponentManifest(newRes.Path)
 			if err != nil {
@@ -175,14 +208,14 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		}
 
 	}
-	if man == nil {
+	if !manifestFound {
 		return nil, errCorruptComponent
 	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	for k, r := range oldComp.Resources {
-		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+		if man != nil && r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
 			r.Kind = ResourceTypeScript
 			oldComp.Resources[k] = r
 		}
@@ -291,6 +324,16 @@ func (c *Component) diff(other *Component, fmap MacroMap, vars map[string]any) (
 	}
 
 	return diffActions, nil
+}
+
+func (c *Component) VersonData() (*bytes.Buffer, error) {
+	vd := make(map[string]interface{})
+	vd["Version"] = c.Version
+	buffer, err := toml.Parser().Marshal(vd)
+	if err != nil {
+		return nil, errors.New("can't create version data")
+	}
+	return bytes.NewBuffer(buffer), nil
 }
 
 func findResourceType(file string) ResourceType {

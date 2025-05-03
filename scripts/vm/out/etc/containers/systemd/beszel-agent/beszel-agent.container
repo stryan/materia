@@ -16,7 +16,7 @@ RestartSec=5s
 Image=docker.io/henrygd/beszel-agent:latest
 ContainerName=beszel-agent
 Environment=PORT=45876
-Environment=KEY=ssh-ed25519 AAADEADBEEFlZDI1NTE5AATHISISGIBBERISHGIBBERISHONTHEFLOOR5HViyD9E3gVr
+Environment=KEY="ssh-ed25519 AAADEADBEEFlZDI1NTE5AATHISISGIBBERISHGIBBERISHONTHEFLOOR5HViyD9E3gVr"
 SecurityLabelDisable=true
 Network=host
 Label=io.containers.autoupdate=registry

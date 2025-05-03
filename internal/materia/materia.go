@@ -55,59 +55,28 @@ type Materia struct {
 }
 
 func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.Containers) (*Materia, error) {
-	prefix := "/var/lib"
-	destination := "/etc/containers/systemd/"
-	servicePath := "/usr/local/lib/systemd/system/"
-	scriptsPath := "/usr/local/bin"
-
-	if c.User.Username != "root" {
-		home := c.User.HomeDir
-		var found bool
-		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
-		if !found {
-			destination = fmt.Sprintf("%v/.config/containers/systemd/", home)
-		} else {
-			destination = fmt.Sprintf("%v/containers/systemd/", conf)
-		}
-		datadir, found := os.LookupEnv("XDG_DATA_HOME")
-		if !found {
-			prefix = fmt.Sprintf("%v/.local/share", home)
-			servicePath = fmt.Sprintf("%v/.local/share/systemd/user", home)
-		} else {
-			prefix = datadir
-			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
-		}
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
-	if c.MateriaDir != "" {
-		prefix = c.MateriaDir
+	if _, err := os.Stat(c.QuadletDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("destination %v does not exist, setup manually", c.QuadletDir)
 	}
-	if c.QuadletDir != "" {
-		destination = c.QuadletDir
+	if _, err := os.Stat(c.ScriptDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("scripts location %v does not exist, setup manually", c.ScriptDir)
 	}
-	if c.ServiceDir != "" {
-		servicePath = c.ServiceDir
+	if _, err := os.Stat(c.ServiceDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("services location %v does not exist, setup manually", c.ServiceDir)
 	}
 
-	sourcePath := filepath.Join(prefix, "materia", "source")
-	if _, err := os.Stat(destination); os.IsNotExist(err) {
-		return nil, fmt.Errorf("destination %v does not exist, setup manually", destination)
-	}
-	if _, err := os.Stat(scriptsPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("scripts location %v does not exist, setup manually", scriptsPath)
-	}
-	if _, err := os.Stat(servicePath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("services location %v does not exist, setup manually", servicePath)
-	}
-
-	err := os.Mkdir(filepath.Join(prefix, "materia"), 0o755)
+	err := os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating prefix: %w", err)
 	}
-	err = os.Mkdir(sourcePath, 0o755)
+	err = os.Mkdir(c.SourceDir, 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating source repo: %w", err)
 	}
-	err = os.Mkdir(filepath.Join(prefix, "materia", "components"), 0o755)
+	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating components in prefix: %w", err)
 	}
@@ -116,12 +85,12 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	parsedPath := strings.Split(c.SourceURL, "://")
 	switch parsedPath[0] {
 	case "git":
-		source, err = git.NewGitSource(sourcePath, parsedPath[1], c.GitConfig)
+		source, err = git.NewGitSource(c.SourceDir, parsedPath[1], c.GitConfig)
 		if err != nil {
 			return nil, fmt.Errorf("invalid git source: %w", err)
 		}
 	case "file":
-		source = file.NewFileSource(sourcePath, parsedPath[1])
+		source = file.NewFileSource(c.SourceDir, parsedPath[1])
 	default:
 		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
 	}
@@ -133,7 +102,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
 	log.Debug("pulling manifest")
-	man, err := LoadMateriaManifest(filepath.Join(sourcePath, "MANIFEST.toml"))
+	man, err := LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
 	}
@@ -142,7 +111,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	}
 
 	log.Debug("loading facts")
-	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(prefix, "materia", "components"), QuadletPrefix: destination}
+	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir}
 	facts, err := NewFacts(ctx, c, man, compRepo, cm)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
@@ -162,11 +131,11 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		diffs:         c.Diffs,
 		cleanup:       c.Cleanup,
 		CompRepo:      compRepo,
-		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(prefix, "materia", "components")},
-		QuadletRepo:   &repository.FileRepository{Prefix: destination},
-		ScriptRepo:    &repository.FileRepository{Prefix: scriptsPath},
-		ServiceRepo:   &repository.FileRepository{Prefix: servicePath},
-		SourceRepo:    &repository.SourceComponentRepository{DataPrefix: filepath.Join(sourcePath, "components")},
+		DataRepo:      &repository.FileRepository{Prefix: filepath.Join(c.MateriaDir, "materia", "components")},
+		QuadletRepo:   &repository.FileRepository{Prefix: c.QuadletDir},
+		ScriptRepo:    &repository.FileRepository{Prefix: c.ScriptDir},
+		ServiceRepo:   &repository.FileRepository{Prefix: c.ServiceDir},
+		SourceRepo:    &repository.SourceComponentRepository{DataPrefix: filepath.Join(c.SourceDir, "components")},
 		snippets:      snips,
 		rootComponent: &Component{Name: "root"},
 	}
@@ -240,7 +209,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		if !ok {
 			return nil, errors.New("tried to create an age secrets manager but config was not for age")
 		}
-		conf.RepoPath = sourcePath
+		conf.RepoPath = c.SourceDir
 		if c.AgeConfig != nil {
 			conf.Merge(c.AgeConfig)
 		}
@@ -319,42 +288,42 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 	keys := sortedKeys(updates)
 	needUpdate := false
 	for _, k := range keys {
-		v := updates[k]
-		if err := v.Validate(); err != nil {
+		newComponent := updates[k]
+		if err := newComponent.Validate(); err != nil {
 			return nil, err
 		}
-		switch v.State {
+		switch newComponent.State {
 		case StateFresh:
 			plan.Add(Action{
 				Todo:   ActionInstallComponent,
-				Parent: v,
+				Parent: newComponent,
 			})
 			vars := m.sm.Lookup(ctx, secrets.SecretFilter{
 				Hostname:  m.Facts.Hostname,
 				Roles:     m.Facts.Roles,
-				Component: v.Name,
+				Component: newComponent.Name,
 			})
-			for _, r := range v.Resources {
-				err := v.test(ctx, m.macros, vars)
+			for _, r := range newComponent.Resources {
+				err := newComponent.test(ctx, m.macros, vars)
 				if err != nil {
 					return nil, fmt.Errorf("unable to template component resource %v: %w", r.Name, err)
 				}
 				plan.Add(Action{
 					Todo:    r.toAction("install"),
-					Parent:  v,
+					Parent:  newComponent,
 					Payload: r,
 				})
 				needUpdate = true
 			}
-			if v.Scripted {
+			if newComponent.Scripted {
 				plan.Add(Action{
 					Todo:   ActionSetupComponent,
-					Parent: v,
+					Parent: newComponent,
 				})
 			}
-			sortedSrcs := sortedKeys(v.ServiceResources)
+			sortedSrcs := sortedKeys(newComponent.ServiceResources)
 			for _, k := range sortedSrcs {
-				s := v.ServiceResources[k]
+				s := newComponent.ServiceResources[k]
 				res := Resource{
 					Name: k,
 					Kind: ResourceTypeService,
@@ -372,36 +341,36 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				if !s.Disabled && s.Static && !liveService.Enabled {
 					plan.Add(Action{
 						Todo:    ActionEnableService,
-						Parent:  v,
+						Parent:  newComponent,
 						Payload: res,
 					})
 				}
 				if !liveService.Started() {
 					plan.Add(Action{
 						Todo:    ActionStartService,
-						Parent:  v,
+						Parent:  newComponent,
 						Payload: res,
 					})
 				}
 
 			}
 		case StateMayNeedUpdate:
-			original, ok := m.Facts.InstalledComponents[v.Name]
+			original, ok := m.Facts.InstalledComponents[newComponent.Name]
 			if !ok {
-				return nil, fmt.Errorf("tried to update non-installed component: %v", v.Name)
+				return nil, fmt.Errorf("tried to update non-installed component: %v", newComponent.Name)
 			}
-			resourceActions, err := original.diff(v, m.macros, m.sm.Lookup(ctx, secrets.SecretFilter{
+			resourceActions, err := original.diff(newComponent, m.macros, m.sm.Lookup(ctx, secrets.SecretFilter{
 				Hostname:  m.Facts.Hostname,
 				Roles:     m.Facts.Roles,
-				Component: v.Name,
+				Component: newComponent.Name,
 			}))
 			if err != nil {
-				log.Debugf("error diffing components: L (%v) R (%v)", original, v)
+				log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
 				return nil, err
 			}
 			restartmap := make(map[string]ServiceResourceConfig)
 			reloadmap := make(map[string]ServiceResourceConfig)
-			for _, src := range v.ServiceResources {
+			for _, src := range newComponent.ServiceResources {
 				for _, trigger := range src.RestartedBy {
 					restartmap[trigger] = src
 				}
@@ -410,14 +379,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				}
 			}
 			if len(resourceActions) != 0 {
-				v.State = StateNeedUpdate
+				newComponent.State = StateNeedUpdate
 				needUpdate = true
 				for _, d := range resourceActions {
 					plan.Add(d)
 					if updatedService, ok := restartmap[d.Payload.Name]; ok {
 						plan.Add(Action{
 							Todo:   ActionRestartService,
-							Parent: v,
+							Parent: newComponent,
 							Payload: Resource{
 								Name: updatedService.Service,
 								Kind: ResourceTypeService,
@@ -427,7 +396,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					if updatedService, ok := reloadmap[d.Payload.Name]; ok {
 						plan.Add(Action{
 							Todo:   ActionReloadService,
-							Parent: v,
+							Parent: newComponent,
 							Payload: Resource{
 								Name: updatedService.Service,
 								Kind: ResourceTypeService,
@@ -440,7 +409,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					}
 
 				}
-				sortedSrcs := sortedKeys(v.ServiceResources)
+				sortedSrcs := sortedKeys(newComponent.ServiceResources)
 				for _, k := range sortedSrcs {
 					// skip services that are triggered
 					if _, ok := reloadmap[k]; ok {
@@ -449,7 +418,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					if _, ok := restartmap[k]; ok {
 						continue
 					}
-					s := v.ServiceResources[k]
+					s := newComponent.ServiceResources[k]
 					res := Resource{
 						Name: k,
 						Kind: ResourceTypeService,
@@ -467,22 +436,44 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 					if !s.Disabled && s.Static && !liveService.Enabled {
 						plan.Add(Action{
 							Todo:    ActionEnableService,
-							Parent:  v,
+							Parent:  newComponent,
 							Payload: res,
 						})
 					}
 					if !liveService.Started() {
 						plan.Add(Action{
 							Todo:    ActionStartService,
-							Parent:  v,
+							Parent:  newComponent,
 							Payload: res,
 						})
 					}
-
+				}
+				sortedOldSrcs := sortedKeys(original.ServiceResources)
+				for _, osrc := range sortedOldSrcs {
+					s := original.ServiceResources[k]
+					if !slices.Contains(sortedSrcs, osrc) {
+						// service is no longer managed by materia, stop it
+						res := Resource{
+							Name: osrc,
+							Kind: ResourceTypeService,
+						}
+						if s.Static {
+							plan.Add(Action{
+								Todo:    ActionDisableService,
+								Parent:  newComponent,
+								Payload: res,
+							})
+						}
+						plan.Add(Action{
+							Todo:    ActionStopService,
+							Parent:  newComponent,
+							Payload: res,
+						})
+					}
 				}
 			} else {
 				serviceChanged := false
-				for _, s := range original.ServiceResources {
+				for _, s := range newComponent.ServiceResources {
 					liveService, err := m.Services.Get(ctx, s.Service)
 					if errors.Is(err, services.ErrServiceNotFound) {
 						liveService = &services.Service{
@@ -501,7 +492,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 						serviceChanged = true
 						plan.Add(Action{
 							Todo:    ActionEnableService,
-							Parent:  v,
+							Parent:  newComponent,
 							Payload: res,
 						})
 					}
@@ -509,33 +500,33 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 						serviceChanged = true
 						plan.Add(Action{
 							Todo:    ActionStartService,
-							Parent:  v,
+							Parent:  newComponent,
 							Payload: res,
 						})
 					}
 
 				}
 				if !serviceChanged {
-					v.State = StateOK
+					newComponent.State = StateOK
 				} else {
-					v.State = StateNeedUpdate
+					newComponent.State = StateNeedUpdate
 				}
 			}
 		case StateStale, StateNeedRemoval:
-			for _, r := range v.Resources {
+			for _, r := range newComponent.Resources {
 				plan.Add(Action{
 					Todo:    r.toAction("remove"),
-					Parent:  v,
+					Parent:  newComponent,
 					Payload: r,
 				})
 			}
-			if v.Scripted {
+			if newComponent.Scripted {
 				plan.Add(Action{
 					Todo:   ActionCleanupComponent,
-					Parent: v,
+					Parent: newComponent,
 				})
 			}
-			for _, s := range v.ServiceResources {
+			for _, s := range newComponent.ServiceResources {
 				res := Resource{
 					Name: s.Service,
 					Kind: ResourceTypeService,
@@ -547,14 +538,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				if liveService.Started() {
 					plan.Add(Action{
 						Todo:    ActionStopService,
-						Parent:  v,
+						Parent:  newComponent,
 						Payload: res,
 					})
 				}
 			}
 			plan.Add(Action{
 				Todo:   ActionRemoveComponent,
-				Parent: v,
+				Parent: newComponent,
 			})
 			needUpdate = true
 		case StateRemoved:
@@ -562,7 +553,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 		case StateUnknown:
 			return nil, errors.New("found unknown component")
 		default:
-			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
+			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
 	}
 	if needUpdate {
@@ -717,7 +708,11 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 
 		switch v.Todo {
 		case ActionInstallComponent:
-			if err := m.CompRepo.Install(ctx, v.Parent.Name, nil); err != nil {
+			versionData, err := v.Parent.VersonData()
+			if err != nil {
+				return steps, err
+			}
+			if err := m.CompRepo.Install(ctx, v.Parent.Name, versionData); err != nil {
 				return steps, err
 			}
 		case ActionInstallFile, ActionUpdateFile:
@@ -1056,11 +1051,17 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 	for _, v := range dcomps {
 		// TODO function for this?
 		name := filepath.Base(v)
-		exists, err := m.CompRepo.Exists(ctx, filepath.Join(name, "MANIFEST.TOML"))
+		exists, err := m.CompRepo.Exists(ctx, filepath.Join(name, "MANIFEST.toml"))
 		if err != nil {
 			return invalidComps, fmt.Errorf("can't validate %v: %w", v, err)
 		}
 		if !exists {
+			log.Warn("component not fully installed", "component", name)
+			invalidComps = append(invalidComps, name)
+		}
+		_, err = NewComponentFromHost(name, m.CompRepo)
+		if err != nil {
+			log.Warn("component unable to be loaded", "component", name)
 			invalidComps = append(invalidComps, name)
 		}
 	}
