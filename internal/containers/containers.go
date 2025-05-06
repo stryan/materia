@@ -3,7 +3,10 @@ package containers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type Containers interface {
@@ -50,6 +53,52 @@ func (p *PodmanManager) ListVolumes(_ context.Context) ([]*Volume, error) {
 		return nil, err
 	}
 	return volumes, nil
+}
+
+func (p *PodmanManager) DumpVolume(_ context.Context, volumeName, outputDir string, compressed bool) error {
+	// cmd := exec.Command(podman volume export "$v" | zstd > "$BACKUPPATH/$v.tar.zstd")
+	exportCmd := exec.Command("podman", "volume", "export", volumeName)
+	compressCmd := exec.Command("zstd")
+	outputFilename := filepath.Join(outputDir, volumeName)
+	outputFilename = fmt.Sprintf("%v.tar", outputFilename)
+	if compressed {
+		outputFilename = fmt.Sprintf("%v.zstd", outputFilename)
+	}
+	outfile, err := os.Create(outputFilename)
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = outfile.Close() }()
+	if compressed {
+		compressCmd.Stdin, err = exportCmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		compressCmd.Stdout = outfile
+		err = compressCmd.Start()
+		if err != nil {
+			return err
+		}
+		err = exportCmd.Run()
+		if err != nil {
+			return err
+		}
+		err = compressCmd.Wait()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	exportCmd.Stdout = outfile
+	err = exportCmd.Start()
+	if err != nil {
+		panic(err)
+	}
+	err = exportCmd.Wait()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *PodmanManager) Close() {

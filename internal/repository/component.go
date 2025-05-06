@@ -130,8 +130,42 @@ func (c *HostComponentRepository) Exists(ctx context.Context, path string) (bool
 	return true, nil
 }
 
-func (c *HostComponentRepository) Get(ctx context.Context, path string) (string, error) {
-	panic("not implemented") // TODO: Implement
+func (c *HostComponentRepository) Get(ctx context.Context, component, resource string) (string, error) {
+	var result string
+	if err := c.Validate(); err != nil {
+		return result, err
+	}
+	if component == "" {
+		return result, errors.New("no name specified")
+	}
+	quadletsPath := filepath.Join(c.QuadletPrefix, component)
+	dataPath := filepath.Join(c.DataPrefix, component)
+	quadlets, err := os.ReadDir(quadletsPath)
+	if err != nil {
+		return result, err
+	}
+	for _, q := range quadlets {
+		if q.Name() == ".materia_managed" {
+			continue
+		}
+		if q.Name() == resource {
+			return filepath.Join(quadletsPath, q.Name()), nil
+		}
+	}
+	resources, err := os.ReadDir(dataPath)
+	if err != nil {
+		return result, err
+	}
+	for _, r := range resources {
+		if r.Name() == ".component_version" {
+			continue
+		}
+		if r.Name() == resource {
+			return filepath.Join(dataPath, r.Name()), nil
+		}
+	}
+
+	return "", errors.New("host component resource not found")
 }
 
 func (c *HostComponentRepository) List(ctx context.Context) ([]string, error) {

@@ -84,6 +84,13 @@ type ServiceResourceConfig struct {
 	Static      bool
 }
 
+type BackupsConfig struct {
+	Volume  string
+	Online  bool
+	Pause   bool
+	Command string
+}
+
 func (src ServiceResourceConfig) Validate() error {
 	return nil
 }
@@ -107,6 +114,7 @@ type ComponentManifest struct {
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
 	Services        []ServiceResourceConfig `toml:"services"`
+	Backups         []BackupsConfig         `toml:"backups"`
 	Scripts         []string
 }
 
