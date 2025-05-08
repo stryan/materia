@@ -85,10 +85,10 @@ type ServiceResourceConfig struct {
 }
 
 type BackupsConfig struct {
-	Volume  string
-	Online  bool
-	Pause   bool
-	Command string
+	Online     bool
+	Pause      bool
+	Skip       []string
+	NoCompress bool
 }
 
 func (src ServiceResourceConfig) Validate() error {
@@ -109,12 +109,11 @@ func (vrc VolumeResourceConfig) Validate() error {
 }
 
 type ComponentManifest struct {
-	NoServices      bool
 	Defaults        map[string]any
 	Snippets        []SnippetConfig
 	VolumeResources map[string]VolumeResourceConfig
 	Services        []ServiceResourceConfig `toml:"services"`
-	Backups         []BackupsConfig         `toml:"backups"`
+	Backups         *BackupsConfig          `toml:"backups"`
 	Scripts         []string
 }
 

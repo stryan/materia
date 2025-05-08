@@ -6,13 +6,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/athanor"
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"git.saintnet.tech/stryan/materia/internal/repository"
+	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
-	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/urfave/cli/v2"
 )
 
@@ -30,7 +30,11 @@ var Commit = func() string {
 
 func main() {
 	ctx := context.Background()
-	c, err := materia.NewConfig()
+	mc, err := materia.NewConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+	ac, err := athanor.NewConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,65 +47,39 @@ func main() {
 				Name:  "backup",
 				Usage: "Backup all materia managed volumes",
 				Action: func(cCtx *cli.Context) error {
-					repo := &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir}
+					repo := &repository.HostComponentRepository{DataPrefix: filepath.Join(mc.MateriaDir, "materia", "components"), QuadletPrefix: mc.QuadletDir}
+
+					pm := &containers.PodmanManager{}
+					defer pm.Close()
+					sm, err := services.NewServices(ctx, &services.ServicesConfig{
+						Timeout: 30,
+					})
+					if err != nil {
+						return err
+					}
+					defer sm.Close()
+					a, err := athanor.NewAthanor(ac, repo, pm, sm)
+					if err != nil {
+						return err
+					}
 					comps, err := repo.List(ctx)
 					if err != nil {
 						return fmt.Errorf("error listing quadlets: %w", err)
 					}
-					compToContainerMap := make(map[string]string)
-					pm := containers.PodmanManager{}
-					defer pm.Close()
-					outputLocation := "/tmp/"
-					containerFiles := []string{}
+
+					targets := []*athanor.ComponentTarget{}
 					for _, c := range comps {
-						resources, err := repo.ListResources(ctx, filepath.Base(c))
-						if err != nil {
-							return fmt.Errorf("error listing resources: %w", err)
-						}
-						for _, r := range resources {
-							if strings.HasSuffix(r, ".container") {
-								containerFiles = append(containerFiles, r)
-								compToContainerMap[r] = filepath.Base(c)
-							}
-						}
-					}
-					for _, c := range containerFiles {
-						log.Infof("checking container %v", c)
-						// TODO Parse file for Volume= instances
-						unitfile, err := parser.ParseUnitFile(c)
+						newTarget, err := a.GenerateTarget(ctx, c)
 						if err != nil {
 							return err
 						}
-						volumes := unitfile.LookupAll("Container", "Volume")
-						for _, v := range volumes {
-							vs := strings.Split(v, ":")
-							if len(vs) < 2 {
-								return fmt.Errorf("volume %v is in invalid format", v)
-							}
-							volFile := vs[0]
-							if strings.HasSuffix(volFile, ".volume") {
-								// dump backup
-								log.Infof("dumping volume %v", volFile)
-								component := compToContainerMap[c]
-								path, err := repo.Get(ctx, component, volFile)
-								if err != nil {
-									return err
-								}
-								volumeUnitFile, err := parser.ParseUnitFile(path)
-								if err != nil {
-									return err
-								}
-								volumeName, found := volumeUnitFile.Lookup("Container", "VolumeName")
-								if !found {
-									volumeName = fmt.Sprintf("systemd-%v", strings.TrimSuffix(volFile, ".volume"))
-								}
-								err = pm.DumpVolume(ctx, volumeName, outputLocation, true)
-								if err != nil {
-									return err
-								}
-							}
+						targets = append(targets, newTarget)
+					}
+					for _, t := range targets {
+						err := a.BackupTarget(ctx, t)
+						if err != nil {
+							return err
 						}
-
 					}
 					return nil
 				},

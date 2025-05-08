@@ -26,7 +26,7 @@ type Facts struct {
 	Interfaces          map[string]Interfaces
 }
 
-func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *repository.HostComponentRepository, containers containers.Containers) (*Facts, error) {
+func NewFacts(ctx context.Context, c *Config, man *MateriaManifest, compRepo *repository.HostComponentRepository, containers containers.ContainerManager) (*Facts, error) {
 	facts := &Facts{}
 	var err error
 	if c.Hostname != "" {

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/materia"
 	"git.saintnet.tech/stryan/materia/internal/services"
 )
 
@@ -71,6 +70,18 @@ type MockContainers struct {
 	Volumes map[string]string
 }
 
+func (mockcontainers *MockContainers) PauseContainer(_ context.Context, _ string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (mockcontainers *MockContainers) UnpauseContainer(_ context.Context, _ string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (mockcontainers *MockContainers) DumpVolume(_ context.Context, _ containers.Volume, _ string, _ bool) error {
+	panic("not implemented") // TODO: Implement
+}
+
 func (mockcontainers *MockContainers) InspectVolume(name string) (*containers.Volume, error) {
 	if mount, ok := mockcontainers.Volumes[name]; !ok {
 		return nil, errors.New("volume not found")
@@ -91,14 +102,6 @@ func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*contain
 		})
 	}
 	return vols, nil
-}
-
-func (mc *MockContainers) InstallFile(_ context.Context, _ *materia.Component, _ materia.Resource) error {
-	return nil
-}
-
-func (mc *MockContainers) RemoveFile(_ context.Context, _ *materia.Component, _ materia.Resource) error {
-	return nil
 }
 
 func (mockcontainers *MockContainers) Close() {}

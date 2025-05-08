@@ -37,7 +37,7 @@ type Materia struct {
 	Manifest      *MateriaManifest
 	Services      services.Services
 	PodmanConn    context.Context
-	Containers    containers.Containers
+	Containers    containers.ContainerManager
 	sm            secrets.SecretsManager
 	source        source.Source
 	CompRepo      *repository.HostComponentRepository
@@ -54,7 +54,7 @@ type Materia struct {
 	cleanup       bool
 }
 
-func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.Containers) (*Materia, error) {
+func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.ContainerManager) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}

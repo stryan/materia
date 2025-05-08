@@ -1,0 +1,214 @@
+package athanor
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"git.saintnet.tech/stryan/materia/internal/containers"
+	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/repository"
+	"git.saintnet.tech/stryan/materia/internal/services"
+	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v5/pkg/systemd/parser"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/v2"
+)
+
+type Athanor struct {
+	Destination string
+	Repo        *repository.HostComponentRepository
+	pm          containers.ContainerManager
+	sm          services.Services
+}
+
+type ComponentTarget struct {
+	Name       string
+	Manifest   *materia.ComponentManifest
+	Containers []containers.Container
+}
+
+type Config struct {
+	OutputDir string
+}
+
+func NewConfig() (*Config, error) {
+	k := koanf.New(".")
+	err := k.Load(env.Provider("ATHANOR", ".", func(s string) string {
+		return strings.ReplaceAll(strings.ToLower(
+			strings.TrimPrefix(s, "MATERIA")), "_", ".")
+	}), nil)
+	if err != nil {
+		return nil, err
+	}
+	k.All()
+	var c Config
+	c.OutputDir = k.String(".outputdir")
+
+	return &c, nil
+}
+
+func (c *Config) Validate() error {
+	if c.OutputDir == "" {
+		return errors.New("need output directory")
+	}
+	return nil
+}
+
+func NewAthanor(conf *Config, repo *repository.HostComponentRepository, pm containers.ContainerManager, sm services.Services) (*Athanor, error) {
+	return &Athanor{
+		Destination: conf.OutputDir,
+		Repo:        repo,
+		pm:          pm,
+		sm:          sm,
+	}, nil
+}
+
+func (a *Athanor) GenerateTarget(ctx context.Context, c string) (*ComponentTarget, error) {
+	componentName := filepath.Base(c)
+	newTarget := ComponentTarget{
+		Name: componentName,
+	}
+	// returns full paths!
+	resources, err := a.Repo.ListResources(ctx, componentName)
+	if err != nil {
+		return nil, fmt.Errorf("error listing resources: %w", err)
+	}
+	for _, r := range resources {
+		if strings.HasSuffix(r, ".container") {
+			container := containers.Container{}
+			unitfile, err := parser.ParseUnitFile(r)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing container file: %w", err)
+			}
+			name, foundName := unitfile.Lookup("Container", "ContainerName")
+			if !foundName {
+				name = strings.TrimSuffix(filepath.Base(r), ".container")
+			}
+			container.Name = name
+			volumes, err := parseContainerFileForVolumes(ctx, a.Repo, componentName, r)
+			if err != nil {
+				return nil, err
+			}
+			container.Volumes = volumes
+			newTarget.Containers = append(newTarget.Containers, container)
+		}
+		if filepath.Base(r) == "MANIFEST.toml" {
+			newTarget.Manifest, err = materia.LoadComponentManifest(r)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if newTarget.Manifest == nil {
+		return nil, fmt.Errorf("component %v is invalid", c)
+	}
+	return &newTarget, nil
+}
+
+func parseContainerFileForVolumes(ctx context.Context, repo *repository.HostComponentRepository, component, path string) (map[string]containers.Volume, error) {
+	unitfile, err := parser.ParseUnitFile(path)
+	results := make(map[string]containers.Volume)
+	if err != nil {
+		return nil, err
+	}
+	volumes := unitfile.LookupAll("Container", "Volume")
+	for _, v := range volumes {
+		vs := strings.Split(v, ":")
+		if len(vs) < 2 {
+			return nil, fmt.Errorf("volume %v is in invalid format", v)
+		}
+		volFile := vs[0]
+		if strings.HasSuffix(volFile, ".volume") {
+			log.Infof("parsing volume %v", volFile)
+			path, err := repo.Get(ctx, component, volFile)
+			if err != nil {
+				return nil, err
+			}
+			volumeUnitFile, err := parser.ParseUnitFile(path)
+			if err != nil {
+				return nil, err
+			}
+			volumeName, found := volumeUnitFile.Lookup("Container", "VolumeName")
+			if !found {
+				volumeName = fmt.Sprintf("systemd-%v", strings.TrimSuffix(volFile, ".volume"))
+			}
+			results[strings.TrimSuffix(volFile, ".volume")] = containers.Volume{
+				Name: volumeName,
+			}
+		}
+	}
+	return results, nil
+}
+
+func (a *Athanor) BackupTarget(ctx context.Context, t *ComponentTarget) error {
+	if t.Manifest.Backups == nil {
+		return nil
+	}
+	conf := t.Manifest.Backups
+	pausedContainers := []string{}
+	stoppedServices := []string{}
+
+	defer func() {
+		for _, s := range stoppedServices {
+			log.Info("starting service", "service", s)
+			err := a.sm.Apply(ctx, s, services.ServiceStart)
+			if err != nil {
+				log.Warn("error starting service", "service", s, "error", err)
+			}
+		}
+	}()
+	defer func() {
+		for _, c := range pausedContainers {
+			log.Info("unpausing container", "container", c)
+			err := a.pm.UnpauseContainer(ctx, c)
+			if err != nil {
+				log.Warn("error unpausing container", "container", c, "error", err)
+			}
+		}
+	}()
+	if conf.Pause {
+		for _, c := range t.Containers {
+			log.Info("pausing container", "container", c.Name)
+			err := a.pm.PauseContainer(ctx, c.Name)
+			if err != nil {
+				return fmt.Errorf("error pausing container %v: %w", c.Name, err)
+			}
+			pausedContainers = append(pausedContainers, c.Name)
+		}
+	} else if !conf.Online {
+		for _, s := range t.Manifest.Services {
+			liveService, err := a.sm.Get(ctx, s.Service)
+			if err != nil {
+				return fmt.Errorf("error getting service %v: %w", s.Service, err)
+			}
+			if liveService.State == "active" && strings.HasSuffix(liveService.Name, ".service") {
+				log.Info("stopping service", "service", s.Service)
+				err := a.sm.Apply(ctx, s.Service, services.ServiceStop)
+				if err != nil {
+					return fmt.Errorf("error stopping service %v: %w", s.Service, err)
+				}
+				stoppedServices = append(stoppedServices, s.Service)
+			}
+		}
+	}
+	for _, c := range t.Containers {
+		for _, v := range c.Volumes {
+			if slices.ContainsFunc(conf.Skip, func(skippedVol string) bool {
+				return skippedVol == v.Name
+			}) {
+				log.Info("skipping configured volume %v/%v", c, v)
+				continue
+			}
+			log.Infof("dumping volume %v", v.Name)
+			err := a.pm.DumpVolume(ctx, v, a.Destination, !conf.NoCompress)
+			if err != nil {
+				return fmt.Errorf("error dumping volume %v: %w", v, err)
+			}
+		}
+	}
+	return nil
+}
