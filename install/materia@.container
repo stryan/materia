@@ -23,7 +23,3 @@ Volume=/usr/local/bin:/usr/local/bin
 Volume=/usr/local/lib/systemd/system:/usr/local/lib/systemd/system
 Volume=/etc/materia/known_hosts:/root/.ssh/known_hosts:ro
 Label=io.containers.autoupdate=registry
-
-[Install]
-# Start by default on boot
-WantedBy=multi-user.target default.target

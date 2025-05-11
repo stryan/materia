@@ -48,7 +48,10 @@ func main() {
 				Usage: "Backup all materia managed volumes",
 				Action: func(cCtx *cli.Context) error {
 					repo := &repository.HostComponentRepository{DataPrefix: filepath.Join(mc.MateriaDir, "materia", "components"), QuadletPrefix: mc.QuadletDir}
-
+					comps, err := repo.List(ctx)
+					if err != nil {
+						return fmt.Errorf("error listing quadlets: %w", err)
+					}
 					pm := &containers.PodmanManager{}
 					defer pm.Close()
 					sm, err := services.NewServices(ctx, &services.ServicesConfig{
@@ -61,10 +64,6 @@ func main() {
 					a, err := athanor.NewAthanor(ac, repo, pm, sm)
 					if err != nil {
 						return err
-					}
-					comps, err := repo.List(ctx)
-					if err != nil {
-						return fmt.Errorf("error listing quadlets: %w", err)
 					}
 
 					targets := []*athanor.ComponentTarget{}
