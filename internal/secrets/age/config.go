@@ -2,6 +2,7 @@ package age
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/knadh/koanf/v2"
 )
@@ -37,4 +38,8 @@ func (c *Config) Merge(other *Config) {
 	if other.RepoPath != "" {
 		c.RepoPath = other.RepoPath
 	}
+}
+
+func (c Config) String() string {
+	return fmt.Sprintf("Ident Path:%v\nRepo Path: %v\n", c.IdentPath, c.RepoPath)
 }

@@ -1,18 +1,18 @@
 package materia
 
-import "text/template"
+import (
+	"text/template"
 
-type SnippetConfig struct {
-	Name, Body string
-	Parameters []string
-}
+	"git.saintnet.tech/stryan/materia/internal/manifests"
+)
+
 type Snippet struct {
 	Name       string
 	Parameters []string
 	Body       *template.Template
 }
 
-func (c SnippetConfig) toSnippet() (*Snippet, error) {
+func configToSnippet(c manifests.SnippetConfig) (*Snippet, error) {
 	var err error
 	t := template.New(c.Name)
 	t, err = t.Parse(c.Body)

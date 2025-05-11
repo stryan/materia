@@ -10,7 +10,9 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
+	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -33,38 +35,43 @@ type Config struct {
 	User       *user.User
 }
 
-func NewConfig() (*Config, error) {
+func NewConfig(configFile string) (*Config, error) {
 	k := koanf.New(".")
 	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
 		return strings.ReplaceAll(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA")), "_", ".")
+			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
 	}), nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error loading config from env: %w", err)
 	}
-	k.All()
+	if configFile != "" {
+		err = k.Load(file.Provider(configFile), toml.Parser())
+		if err != nil {
+			return nil, fmt.Errorf("error loading config file: %w", err)
+		}
+	}
 	var c Config
-	c.SourceURL = k.String(".sourceurl")
-	c.SourceDir = k.String(".source")
-	c.Debug = k.Bool(".debug")
-	c.Cleanup = k.Bool(".cleanup")
-	c.Hostname = k.String(".hostname")
-	c.Timeout = k.Int(".timeout")
-	c.Roles = k.Strings(".roles")
-	c.Diffs = k.Bool(".diffs")
-	c.UseStdout = k.Bool(".stdout")
-	c.MateriaDir = k.String(".prefix")
-	c.QuadletDir = k.String(".destination")
-	c.ServiceDir = k.String(".services")
-	c.ScriptDir = k.String(".scripts")
-	if k.Exists(".git") {
-		c.GitConfig, err = git.NewConfig(k.Cut(".git"))
+	c.SourceURL = k.String("sourceurl")
+	c.SourceDir = k.String("source")
+	c.Debug = k.Bool("debug")
+	c.Cleanup = k.Bool("cleanup")
+	c.Hostname = k.String("hostname")
+	c.Timeout = k.Int("timeout")
+	c.Roles = k.Strings("roles")
+	c.Diffs = k.Bool("diffs")
+	c.UseStdout = k.Bool("stdout")
+	c.MateriaDir = k.String("prefix")
+	c.QuadletDir = k.String("destination")
+	c.ServiceDir = k.String("services")
+	c.ScriptDir = k.String("scripts")
+	if k.Exists("git") {
+		c.GitConfig, err = git.NewConfig(k.Cut("git"))
 		if err != nil {
 			return nil, err
 		}
 	}
-	if k.Exists(".age") {
-		c.AgeConfig, err = age.NewConfig(k.Cut(".age"))
+	if k.Exists("age") {
+		c.AgeConfig, err = age.NewConfig(k.Cut("age"))
 		if err != nil {
 			return nil, err
 		}
@@ -76,9 +83,7 @@ func NewConfig() (*Config, error) {
 	c.User = currentUser
 
 	// calculate defaults
-	if c.MateriaDir == "" {
-		c.MateriaDir = "/var/lib"
-	}
+	dataPath := "/var/lib"
 	quadletPath := "/etc/containers/systemd/"
 	servicePath := "/usr/local/lib/systemd/system/"
 	scriptsPath := "/usr/local/bin"
@@ -94,12 +99,16 @@ func NewConfig() (*Config, error) {
 		}
 		datadir, found := os.LookupEnv("XDG_DATA_HOME")
 		if !found {
+			dataPath = fmt.Sprintf("%v/.local/share", home)
 			servicePath = fmt.Sprintf("%v/.local/share/systemd/user", home)
 		} else {
+			dataPath = datadir
 			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
 		}
 	}
-
+	if c.MateriaDir == "" {
+		c.MateriaDir = dataPath
+	}
 	if c.QuadletDir == "" {
 		c.QuadletDir = quadletPath
 	}
@@ -110,7 +119,7 @@ func NewConfig() (*Config, error) {
 		c.ScriptDir = scriptsPath
 	}
 	if c.SourceDir == "" {
-		c.SourceDir = filepath.Join(c.MateriaDir, "materia", "source")
+		c.SourceDir = filepath.Join(dataPath, "materia", "source")
 	}
 
 	return &c, nil
@@ -133,4 +142,30 @@ func (c *Config) Validate() error {
 		return errors.New("need source directory")
 	}
 	return nil
+}
+
+func (c *Config) String() string {
+	var result string
+	result += fmt.Sprintf("Source URL: %v\n", c.SourceURL)
+	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
+	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
+	result += fmt.Sprintf("Show Diffs: %v\n", c.Diffs)
+	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
+	result += fmt.Sprintf("Hostname: %v\n", c.Hostname)
+	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
+	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
+	result += fmt.Sprintf("Materia Root: %v\n", c.MateriaDir)
+	result += fmt.Sprintf("Quadlet Dir: %v\n", c.QuadletDir)
+	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptDir)
+	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
+	result += fmt.Sprintf("User: %v\n", c.User.Username)
+	if c.GitConfig != nil {
+		result += "Using git\n"
+		result += c.GitConfig.String()
+	}
+	if c.AgeConfig != nil {
+		result += "Secrets Engine: age\n"
+		result += c.AgeConfig.String()
+	}
+	return result
 }

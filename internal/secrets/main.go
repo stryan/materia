@@ -5,12 +5,13 @@ import (
 )
 
 type SecretsManager interface {
-	Lookup(context.Context, SecretFilter) map[string]interface{}
+	Lookup(context.Context, SecretFilter) map[string]any
 }
 
 type SecretsConfig interface {
 	SecretsType() string
 	Validate() error
+	String() string
 }
 
 type SecretFilter struct {
@@ -20,13 +21,13 @@ type SecretFilter struct {
 }
 
 type SecretsVault struct {
-	Globals    map[string]interface{}
-	Components map[string]map[string]interface{}
-	Hosts      map[string]map[string]interface{}
-	Roles      map[string]map[string]interface{}
+	Globals    map[string]any
+	Components map[string]map[string]any
+	Hosts      map[string]map[string]any
+	Roles      map[string]map[string]any
 }
 
-func MergeSecrets(higher map[string]interface{}, lower map[string]interface{}) map[string]interface{} {
+func MergeSecrets(higher map[string]any, lower map[string]any) map[string]any {
 	for k, v := range lower {
 		if _, ok := higher[k]; !ok {
 			higher[k] = v

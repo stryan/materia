@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
+	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -27,7 +29,7 @@ type Athanor struct {
 
 type ComponentTarget struct {
 	Name       string
-	Manifest   *materia.ComponentManifest
+	Manifest   *manifests.ComponentManifest
 	Containers []containers.Container
 }
 
@@ -35,18 +37,23 @@ type Config struct {
 	OutputDir string
 }
 
-func NewConfig() (*Config, error) {
+func NewConfig(configFile string) (*Config, error) {
 	k := koanf.New(".")
 	err := k.Load(env.Provider("ATHANOR", ".", func(s string) string {
 		return strings.ReplaceAll(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA")), "_", ".")
+			strings.TrimPrefix(s, "ATHANOR_")), "_", ".")
 	}), nil)
 	if err != nil {
 		return nil, err
 	}
-	k.All()
+	if configFile != "" {
+		err = k.Load(file.Provider(configFile), toml.Parser())
+		if err != nil {
+			return nil, err
+		}
+	}
 	var c Config
-	c.OutputDir = k.String(".outputdir")
+	c.OutputDir = k.String("outputdir")
 
 	return &c, nil
 }
@@ -97,7 +104,7 @@ func (a *Athanor) GenerateTarget(ctx context.Context, c string) (*ComponentTarge
 			newTarget.Containers = append(newTarget.Containers, container)
 		}
 		if filepath.Base(r) == "MANIFEST.toml" {
-			newTarget.Manifest, err = materia.LoadComponentManifest(r)
+			newTarget.Manifest, err = manifests.LoadComponentManifest(r)
 			if err != nil {
 				return nil, err
 			}

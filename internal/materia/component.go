@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/parsers/toml"
@@ -27,8 +28,8 @@ type Component struct {
 	Scripted         bool
 	State            ComponentLifecycle
 	Defaults         map[string]any
-	VolumeResources  map[string]VolumeResourceConfig
-	ServiceResources map[string]ServiceResourceConfig
+	VolumeResources  map[string]manifests.VolumeResourceConfig
+	ServiceResources map[string]manifests.ServiceResourceConfig
 	Version          int
 }
 
@@ -61,20 +62,20 @@ func NewComponentFromSource(path string) (*Component, error) {
 	c.Name = filepath.Base(path)
 	c.Defaults = make(map[string]any)
 	c.Version = DefaultComponentVersion
-	c.VolumeResources = make(map[string]VolumeResourceConfig)
-	c.ServiceResources = make(map[string]ServiceResourceConfig)
+	c.VolumeResources = make(map[string]manifests.VolumeResourceConfig)
+	c.ServiceResources = make(map[string]manifests.ServiceResourceConfig)
 	log.Debugf("loading component %v from path %v", c.Name, path)
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var man *ComponentManifest
+	var man *manifests.ComponentManifest
 	scripts := 0
 	for _, v := range entries {
 		resPath := filepath.Join(path, v.Name())
 		if v.Name() == "MANIFEST.toml" {
 			log.Debugf("loading source component manifest %v", c.Name)
-			man, err = LoadComponentManifest(resPath)
+			man, err = manifests.LoadComponentManifest(resPath)
 			if err != nil {
 				return nil, fmt.Errorf("error loading component manifest: %w", err)
 			}
@@ -142,12 +143,12 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 		Resources:        []Resource{},
 		State:            StateStale,
 		Defaults:         make(map[string]any),
-		VolumeResources:  make(map[string]VolumeResourceConfig),
-		ServiceResources: make(map[string]ServiceResourceConfig),
+		VolumeResources:  make(map[string]manifests.VolumeResourceConfig),
+		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
 	}
 	// load resources
 	ctx := context.Background()
-	var man *ComponentManifest
+	var man *manifests.ComponentManifest
 	entries, err := compRepo.ListResources(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -190,7 +191,7 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 			manifestFound = true
 			if oldComp.Version == DefaultComponentVersion {
 				log.Debugf("loading installed component manifest %v", oldComp.Name)
-				man, err = LoadComponentManifest(newRes.Path)
+				man, err = manifests.LoadComponentManifest(newRes.Path)
 				if err != nil {
 					return nil, fmt.Errorf("error loading component manifest: %w", err)
 				}

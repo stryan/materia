@@ -61,15 +61,46 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 
 func main() {
 	ctx := context.Background()
-	c, err := materia.NewConfig()
+	c, err := materia.NewConfig("")
 	if err != nil {
 		log.Fatal(err)
 	}
+	var configFile string
 
 	app := &cli.App{
 		Name:  "materia",
 		Usage: "Manage quadlet files and resources",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "config",
+				Usage:       "Specifed TOML config file",
+				Required:    false,
+				Destination: &configFile,
+				Aliases:     []string{"c"},
+				EnvVars:     []string{"MATERIA_CONFIG"},
+				Action: func(cCtx *cli.Context, v string) error {
+					if v == "" {
+						return errors.New("config file passed wihout value")
+					}
+					if _, err := os.Stat(v); err != nil && os.IsNotExist(err) {
+						return errors.New("config file not found")
+					} else if err != nil {
+						return err
+					}
+					c, err = materia.NewConfig(v)
+					return err
+				},
+			},
+		},
 		Commands: []*cli.Command{
+			{
+				Name:  "config",
+				Usage: "Dump active config",
+				Action: func(cCtx *cli.Context) error {
+					fmt.Println(c)
+					return nil
+				},
+			},
 			{
 				Name:  "facts",
 				Usage: "Display host facts",

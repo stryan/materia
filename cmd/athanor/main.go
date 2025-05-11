@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,18 +31,61 @@ var Commit = func() string {
 
 func main() {
 	ctx := context.Background()
-	mc, err := materia.NewConfig()
+	mc, err := materia.NewConfig("")
 	if err != nil {
 		log.Fatal(err)
 	}
-	ac, err := athanor.NewConfig()
+	var materiaConfigFile string
+	ac, err := athanor.NewConfig("")
 	if err != nil {
 		log.Fatal(err)
 	}
+	var athanorConfigFile string
 
 	app := &cli.App{
 		Name:  "athanor",
 		Usage: "Backup quadlet volumes",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:        "materia config",
+				Usage:       "Specifed materia config file",
+				Required:    false,
+				Destination: &materiaConfigFile,
+				Aliases:     []string{"m"},
+				Action: func(cCtx *cli.Context, v string) error {
+					if v == "" {
+						return errors.New("config file passed wihout value")
+					}
+					if _, err := os.Stat(v); err != nil && os.IsNotExist(err) {
+						return errors.New("config file not found")
+					} else if err != nil {
+						return err
+					}
+					mc, err = materia.NewConfig(v)
+					return err
+				},
+			},
+			&cli.StringFlag{
+				Name:        "athanor config",
+				Usage:       "Specifed athanor config file",
+				Required:    false,
+				Destination: &athanorConfigFile,
+				Aliases:     []string{"m"},
+				Action: func(cCtx *cli.Context, v string) error {
+					if v == "" {
+						return errors.New("config file passed wihout value")
+					}
+					if _, err := os.Stat(v); err != nil && os.IsNotExist(err) {
+						return errors.New("config file not found")
+					} else if err != nil {
+						return err
+					}
+					ac, err = athanor.NewConfig(v)
+					return err
+				},
+			},
+		},
+
 		Commands: []*cli.Command{
 			{
 				Name:  "backup",

@@ -18,6 +18,7 @@ import (
 	"text/template"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
+	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
@@ -34,7 +35,7 @@ type MacroMap func(map[string]any) template.FuncMap
 
 type Materia struct {
 	Facts         *Facts
-	Manifest      *MateriaManifest
+	Manifest      *manifests.MateriaManifest
 	Services      services.Services
 	PodmanConn    context.Context
 	Containers    containers.ContainerManager
@@ -102,7 +103,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
 	log.Debug("pulling manifest")
-	man, err := LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
+	man, err := manifests.LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
 	}
@@ -224,7 +225,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		m.sm = mem.NewMemoryManager()
 	}
 	for _, v := range m.Manifest.Snippets {
-		s, err := v.toSnippet()
+		s, err := configToSnippet(v)
 		if err != nil {
 			return nil, err
 		}
@@ -368,8 +369,8 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*Compon
 				log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
 				return nil, err
 			}
-			restartmap := make(map[string]ServiceResourceConfig)
-			reloadmap := make(map[string]ServiceResourceConfig)
+			restartmap := make(map[string]manifests.ServiceResourceConfig)
+			reloadmap := make(map[string]manifests.ServiceResourceConfig)
 			for _, src := range newComponent.ServiceResources {
 				for _, trigger := range src.RestartedBy {
 					restartmap[trigger] = src
@@ -925,7 +926,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 }
 
 func (m *Materia) InstallVolumeFile(ctx context.Context, parent *Component, res Resource) error {
-	var vrConf *VolumeResourceConfig
+	var vrConf *manifests.VolumeResourceConfig
 	for _, vr := range parent.VolumeResources {
 		if vr.Resource == res.Name {
 			vrConf = &vr
@@ -982,7 +983,7 @@ func (m *Materia) InstallVolumeFile(ctx context.Context, parent *Component, res 
 }
 
 func (m *Materia) RemoveVolumeFile(ctx context.Context, parent *Component, res Resource) error {
-	var vrConf *VolumeResourceConfig
+	var vrConf *manifests.VolumeResourceConfig
 	for _, vr := range parent.VolumeResources {
 		if vr.Resource == res.Name {
 			vrConf = &vr

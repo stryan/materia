@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
@@ -95,11 +96,11 @@ func TestFacts(t *testing.T) {
 func TestPlan(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
 
-	expectedManifest := &materia.MateriaManifest{
+	expectedManifest := &manifests.MateriaManifest{
 		Secrets: "age",
-		Hosts:   map[string]materia.Host{},
+		Hosts:   map[string]manifests.Host{},
 	}
-	expectedManifest.Hosts["localhost"] = materia.Host{
+	expectedManifest.Hosts["localhost"] = manifests.Host{
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
@@ -151,16 +152,15 @@ func TestPlan(t *testing.T) {
 
 func TestExecute(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
-	expectedManifest := &materia.MateriaManifest{
+	expectedManifest := &manifests.MateriaManifest{
 		Secrets: "age",
-		Hosts:   map[string]materia.Host{},
+		Hosts:   map[string]manifests.Host{},
 	}
-	expectedManifest.Hosts["localhost"] = materia.Host{
+	expectedManifest.Hosts["localhost"] = manifests.Host{
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
-	// fixAgeManifest(m.Manifest)
 	plan, err := m.Plan(ctx)
 	assert.Nil(t, err)
 	if err != nil {
