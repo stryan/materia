@@ -162,7 +162,8 @@ func NewComponentFromHost(name string, compRepo *repository.HostComponentReposit
 	}
 	if versionFileExists {
 		k := koanf.New(".")
-		err := k.Load(file.Provider(filepath.Join(name, ".component_version")), toml.Parser())
+		// TODO don't leak DataPrefix?
+		err := k.Load(file.Provider(filepath.Join(compRepo.DataPrefix, name, ".component_version")), toml.Parser())
 		if err != nil {
 			return nil, err
 		}

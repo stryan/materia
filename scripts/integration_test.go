@@ -112,7 +112,6 @@ func TestPlan(t *testing.T) {
 		t.Fail()
 	}
 
-	fmt.Fprintf(os.Stderr, "FBLTHP[141]: integration_test.go:101: plan=%+v\n", plan.Pretty())
 	expectedActions := []materia.Action{
 		planHelper(materia.ActionInstallComponent, "double", ""),
 		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
