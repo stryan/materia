@@ -18,7 +18,6 @@ REMOTEHOST = "{{ .RemoteHost }}"
 script = """
 yum install -y make rsync podman git
 mkdir -p /var/lib/materia
-mkdir -p /usr/local/lib/systemd/system/
 mkdir -p /etc/materia
 """
 

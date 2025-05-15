@@ -18,7 +18,6 @@ REMOTEHOST = "{{ .RemoteHost }}"
 script = """
 yum install -y make rsync podman git
 mkdir -p /var/lib/materia
-mkdir -p /usr/local/lib/systemd/system/
 mkdir -p /etc/materia
 """
 
@@ -55,6 +54,6 @@ ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
 set -e
 diff -r /tmp/out/etc/containers/systemd /etc/containers/systemd/
 diff -r /tmp/out/var/lib/materia/components /var/lib/materia/components/
-diff -r /tmp/out/usr/local/lib/systemd/system/ /usr/local/lib/systemd/system/
+diff -r /tmp/out/etc/systemd/system/ /etc/systemd/system/
 """
 

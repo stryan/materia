@@ -20,6 +20,6 @@ Volume=/run/podman/podman.sock:/run/podman/podman.sock
 Volume=/var/lib/materia:/var/lib/materia
 Volume=/etc/containers/systemd:/etc/containers/systemd
 Volume=/usr/local/bin:/usr/local/bin
-Volume=/usr/local/lib/systemd/system:/usr/local/lib/systemd/system
+Volume=/etc/systemd/system:/etc/systemd/system
 Volume=/etc/materia/known_hosts:/root/.ssh/known_hosts:ro
 Label=io.containers.autoupdate=registry

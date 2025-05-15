@@ -47,12 +47,5 @@ dest = "/tmp/"
 [[steps]]
 [steps.shell]
 script = """
-mkdir -p /usr/local/lib/systemd/system/
-ls /tmp/
-"""
-
-[[steps]]
-[steps.shell]
-script = """
 /usr/local/bin/materia update
 """

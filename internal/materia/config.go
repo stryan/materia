@@ -85,7 +85,9 @@ func NewConfig(configFile string) (*Config, error) {
 	// calculate defaults
 	dataPath := "/var/lib"
 	quadletPath := "/etc/containers/systemd/"
-	servicePath := "/usr/local/lib/systemd/system/"
+	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
+	// otherwise, defer to usual /etc location to work out of the box with MicroOS
+	servicePath := "/etc/systemd/system/"
 	scriptsPath := "/usr/local/bin"
 
 	if c.User.Username != "root" {
