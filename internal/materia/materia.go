@@ -1168,8 +1168,7 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	if err != nil {
 		return diffs, err
 	}
-	// TODO replace with source repo
-	newStringTempl, err := m.CompRepo.ReadResource(newRes)
+	newStringTempl, err := m.SourceRepo.ReadResource(newRes)
 	if err != nil {
 		return diffs, err
 	}
