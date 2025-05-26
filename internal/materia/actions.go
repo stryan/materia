@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"git.saintnet.tech/stryan/materia/internal/components"
 )
 
 //go:generate stringer -type ActionType -trimprefix Action
@@ -58,8 +60,8 @@ const (
 
 type Action struct {
 	Todo    ActionType
-	Parent  *Component
-	Payload Resource
+	Parent  *components.Component
+	Payload components.Resource
 	Content any
 }
 

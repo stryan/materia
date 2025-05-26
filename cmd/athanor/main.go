@@ -92,7 +92,7 @@ func main() {
 				Usage: "Backup all materia managed volumes",
 				Action: func(cCtx *cli.Context) error {
 					repo := &repository.HostComponentRepository{DataPrefix: filepath.Join(mc.MateriaDir, "materia", "components"), QuadletPrefix: mc.QuadletDir}
-					comps, err := repo.List(ctx)
+					compNames, err := repo.ListComponentNames()
 					if err != nil {
 						return fmt.Errorf("error listing quadlets: %w", err)
 					}
@@ -111,7 +111,11 @@ func main() {
 					}
 
 					targets := []*athanor.ComponentTarget{}
-					for _, c := range comps {
+					for _, name := range compNames {
+						c, err := repo.GetComponent(name)
+						if err != nil {
+							return err
+						}
 						newTarget, err := a.GenerateTarget(ctx, c)
 						if err != nil {
 							return err

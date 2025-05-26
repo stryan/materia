@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"github.com/charmbracelet/log"
@@ -79,7 +80,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	_ = os.RemoveAll(testPrefix)
+	// _ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -90,7 +91,27 @@ func TestFacts(t *testing.T) {
 	assert.Equal(t, m.Facts.Hostname, "localhost")
 	assert.Equal(t, m.Facts.Roles, []string(nil))
 	assert.Equal(t, m.Facts.AssignedComponents, []string{"hello", "double"})
-	assert.Equal(t, m.Facts.InstalledComponents, make(map[string]*materia.Component))
+	assert.Equal(t, m.Facts.InstalledComponents, make(map[string]*components.Component))
+}
+
+var expectedActions = []materia.Action{
+	planHelper(materia.ActionInstallComponent, "double", "", ""),
+	planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container", ""),
+	planHelper(materia.ActionInstallQuadlet, "double", "hello.container", ""),
+	planHelper(materia.ActionInstallService, "double", "hello.timer", ""),
+	planHelper(materia.ActionInstallFile, "double", "test.data", "/inner/"),
+	planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml", ""),
+	planHelper(materia.ActionInstallComponent, "hello", "", ""),
+	planHelper(materia.ActionInstallQuadlet, "hello", "hello.container", ""),
+	planHelper(materia.ActionInstallFile, "hello", "hello.env", ""),
+	planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume", ""),
+	planHelper(materia.ActionInstallFile, "hello", "test.env", ""),
+	planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml", ""),
+	planHelper(materia.ActionReloadUnits, "root", "", ""),
+	planHelper(materia.ActionStartService, "double", "goodbye.service", ""),
+	planHelper(materia.ActionEnableService, "double", "hello.timer", ""),
+	planHelper(materia.ActionStartService, "double", "hello.timer", ""),
+	planHelper(materia.ActionStartService, "hello", "hello.service", ""),
 }
 
 func TestPlan(t *testing.T) {
@@ -110,25 +131,6 @@ func TestPlan(t *testing.T) {
 	assert.Nil(t, err)
 	if err != nil {
 		t.Fail()
-	}
-
-	expectedActions := []materia.Action{
-		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
-		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
-		planHelper(materia.ActionInstallService, "double", "hello.timer"),
-		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
-		planHelper(materia.ActionInstallComponent, "hello", ""),
-		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
-		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
-		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
-		planHelper(materia.ActionInstallFile, "hello", "test.env"),
-		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
-		planHelper(materia.ActionReloadUnits, "root", ""),
-		planHelper(materia.ActionStartService, "double", "goodbye.service"),
-		planHelper(materia.ActionEnableService, "double", "hello.timer"),
-		planHelper(materia.ActionStartService, "double", "hello.timer"),
-		planHelper(materia.ActionStartService, "hello", "hello.service"),
 	}
 
 	expectedPlan := materia.NewPlan(m.Facts)
@@ -165,26 +167,8 @@ func TestExecute(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	expectedPlan := []materia.Action{
-		planHelper(materia.ActionInstallComponent, "double", ""),
-		planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container"),
-		planHelper(materia.ActionInstallQuadlet, "double", "hello.container"),
-		planHelper(materia.ActionInstallService, "double", "hello.timer"),
-		planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml"),
-		planHelper(materia.ActionInstallComponent, "hello", ""),
-		planHelper(materia.ActionInstallQuadlet, "hello", "hello.container"),
-		planHelper(materia.ActionInstallFile, "hello", "hello.env"),
-		planHelper(materia.ActionInstallQuadlet, "hello", "hello.volume"),
-		planHelper(materia.ActionInstallFile, "hello", "test.env"),
-		planHelper(materia.ActionInstallFile, "hello", "MANIFEST.toml"),
-		planHelper(materia.ActionReloadUnits, "root", ""),
-		planHelper(materia.ActionStartService, "double", "goodbye.service"),
-		planHelper(materia.ActionEnableService, "double", "hello.timer"),
-		planHelper(materia.ActionStartService, "double", "hello.timer"),
-		planHelper(materia.ActionStartService, "hello", "hello.service"),
-	}
 	for k, v := range plan.Steps() {
-		expected := expectedPlan[k]
+		expected := expectedActions[k]
 		if expected.Todo != v.Todo {
 			t.Fatalf("failed on step %v: expected todo %v != planned %v", k, expected.Todo, v.Todo)
 		}
@@ -212,10 +196,11 @@ func TestExecute(t *testing.T) {
 
 		case materia.ActionInstallFile, materia.ActionInstallQuadlet:
 			var dest string
-			if v.Payload.Kind == materia.ResourceTypeFile || v.Payload.Kind == materia.ResourceTypeManifest {
-				dest = fmt.Sprintf("%v/components/%v/%v", prefix, v.Parent.Name, v.Payload.Name)
+			if v.Payload.Kind == components.ResourceTypeFile || v.Payload.Kind == components.ResourceTypeManifest {
+				dir := filepath.Dir(v.Payload.Path)
+				dest = filepath.Join(prefix, "components", v.Parent.Name, dir, v.Payload.Name)
 			} else {
-				dest = fmt.Sprintf("%v/%v/%v", installdir, v.Parent.Name, v.Payload.Name)
+				dest = filepath.Join(installdir, v.Parent.Name, v.Payload.Name)
 			}
 			_, err := os.Stat(dest)
 			assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Name))
@@ -227,21 +212,20 @@ func TestExecute(t *testing.T) {
 	}
 }
 
-func planHelper(todo materia.ActionType, name, res string) materia.Action {
+func planHelper(todo materia.ActionType, name, res, parentPath string) materia.Action {
+	if parentPath == "" {
+		parentPath = "/"
+	}
 	act := materia.Action{
 		Todo: todo,
-		Parent: &materia.Component{
+		Parent: &components.Component{
 			Name: name,
 		},
-		Payload: materia.Resource{
-			Name: res,
+		Payload: components.Resource{
+			Parent: name,
+			Name:   res,
+			Path:   filepath.Join(parentPath, res),
 		},
 	}
 	return act
 }
-
-// func fixAgeManifest(m *materia.MateriaManifest) {
-// 	config := m.SecretsConfig.(age.Config)
-// 	config.IdentPath = fmt.Sprintf("%v/source/key.txt", prefix)
-// 	m.SecretsConfig = config
-// }

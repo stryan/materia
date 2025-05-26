@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
@@ -74,54 +74,54 @@ func NewAthanor(conf *Config, repo *repository.HostComponentRepository, pm conta
 	}, nil
 }
 
-func (a *Athanor) GenerateTarget(ctx context.Context, c string) (*ComponentTarget, error) {
-	componentName := filepath.Base(c)
+func (a *Athanor) GenerateTarget(ctx context.Context, comp *components.Component) (*ComponentTarget, error) {
 	newTarget := ComponentTarget{
-		Name: componentName,
+		Name: comp.Name,
 	}
 	// returns full paths!
-	resources, err := a.Repo.ListResources(ctx, componentName)
+	resources, err := a.Repo.ListResources(comp)
 	if err != nil {
 		return nil, fmt.Errorf("error listing resources: %w", err)
 	}
 	for _, r := range resources {
-		if strings.HasSuffix(r, ".container") {
+		if r.Kind == components.ResourceTypeContainer {
 			container := containers.Container{}
-			unitfile, err := parser.ParseUnitFile(r)
+			containerFileData, err := a.Repo.ReadResource(r)
+			if err != nil {
+				return nil, err
+			}
+			unitfile := parser.NewUnitFile()
+			err = unitfile.Parse(containerFileData)
 			if err != nil {
 				return nil, fmt.Errorf("error parsing container file: %w", err)
 			}
 			name, foundName := unitfile.Lookup("Container", "ContainerName")
 			if !foundName {
-				name = strings.TrimSuffix(filepath.Base(r), ".container")
+				name = strings.TrimSuffix(r.Name, ".container")
 			}
 			container.Name = name
-			volumes, err := parseContainerFileForVolumes(ctx, a.Repo, componentName, r)
+			volumes, err := parseContainerFileForVolumes(a.Repo, comp, unitfile)
 			if err != nil {
 				return nil, err
 			}
 			container.Volumes = volumes
 			newTarget.Containers = append(newTarget.Containers, container)
 		}
-		if filepath.Base(r) == "MANIFEST.toml" {
-			newTarget.Manifest, err = manifests.LoadComponentManifest(r)
+		if r.Name == "MANIFEST.toml" {
+			newTarget.Manifest, err = a.Repo.GetManifest(comp)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 	if newTarget.Manifest == nil {
-		return nil, fmt.Errorf("component %v is invalid", c)
+		return nil, fmt.Errorf("component %v is invalid", comp.Name)
 	}
 	return &newTarget, nil
 }
 
-func parseContainerFileForVolumes(ctx context.Context, repo *repository.HostComponentRepository, component, path string) (map[string]containers.Volume, error) {
-	unitfile, err := parser.ParseUnitFile(path)
+func parseContainerFileForVolumes(repo *repository.HostComponentRepository, parent *components.Component, unitfile *parser.UnitFile) (map[string]containers.Volume, error) {
 	results := make(map[string]containers.Volume)
-	if err != nil {
-		return nil, err
-	}
 	volumes := unitfile.LookupAll("Container", "Volume")
 	for _, v := range volumes {
 		vs := strings.Split(v, ":")
@@ -131,11 +131,16 @@ func parseContainerFileForVolumes(ctx context.Context, repo *repository.HostComp
 		volFile := vs[0]
 		if strings.HasSuffix(volFile, ".volume") {
 			log.Infof("parsing volume %v", volFile)
-			path, err := repo.Get(ctx, component, volFile)
+			path, err := repo.GetResource(parent, volFile)
 			if err != nil {
 				return nil, err
 			}
-			volumeUnitFile, err := parser.ParseUnitFile(path)
+			volumeFileData, err := repo.ReadResource(path)
+			if err != nil {
+				return nil, err
+			}
+			volumeUnitFile := parser.NewUnitFile()
+			err = volumeUnitFile.Parse(volumeFileData)
 			if err != nil {
 				return nil, err
 			}

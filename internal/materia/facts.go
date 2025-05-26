@@ -7,11 +7,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
+	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
@@ -23,7 +23,7 @@ type Facts struct {
 	Roles               []string
 	AssignedComponents  []string
 	Volumes             []*containers.Volume
-	InstalledComponents map[string]*Component
+	InstalledComponents map[string]*components.Component
 	Interfaces          map[string]Interfaces
 }
 
@@ -84,18 +84,16 @@ func NewFacts(ctx context.Context, c *Config, man *manifests.MateriaManifest, co
 			facts.AssignedComponents = append(facts.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-	facts.InstalledComponents = make(map[string]*Component)
-	installPaths, err := compRepo.List(ctx)
+	facts.InstalledComponents = make(map[string]*components.Component)
+	installPaths, err := compRepo.ListComponentNames()
 	if err != nil {
 		return nil, fmt.Errorf("error getting source components: %w", err)
 	}
 	for _, v := range installPaths {
-		name := filepath.Base(v)
-		comp, err := NewComponentFromHost(name, compRepo)
+		comp, err := compRepo.GetComponent(v)
 		if err != nil {
-			return nil, fmt.Errorf("error creating component %v from install: %w", name, err)
+			return nil, fmt.Errorf("error creating component %v from install: %w", v, err)
 		}
-		comp.State = StateStale
 		facts.InstalledComponents[comp.Name] = comp
 	}
 	return facts, nil
