@@ -57,11 +57,15 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	quadletPath := filepath.Join(r.QuadletPrefix, name)
 	// load resources
 	var man *manifests.ComponentManifest
+	versionFileExists := true
 	_, err := os.Stat(filepath.Join(dataPath, ".component_version"))
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("error reading component version: %w", err)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			versionFileExists = false
+		} else {
+			return nil, fmt.Errorf("error reading component version: %w", err)
+		}
 	}
-	versionFileExists := os.IsExist(err)
 	if versionFileExists {
 		k := koanf.New(".")
 		err := k.Load(file.Provider(filepath.Join(dataPath, ".component_version")), toml.Parser())
@@ -77,6 +81,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	} else {
 		oldComp.Version = -1
 	}
+	log.Debug("loading component", "component", oldComp.Name, "version", oldComp.Version)
 	scripts := 0
 	manifestFound := false
 	err = filepath.WalkDir(dataPath, func(fullPath string, d fs.DirEntry, err error) error {
@@ -103,7 +108,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			manifestFound = true
 			if oldComp.Version == components.DefaultComponentVersion {
 				log.Debugf("loading installed component manifest %v", oldComp.Name)
-				man, err = manifests.LoadComponentManifest(newRes.Path)
+				man, err = manifests.LoadComponentManifest(fullPath)
 				if err != nil {
 					return fmt.Errorf("error loading component manifest: %w", err)
 				}
@@ -134,7 +139,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if d.Name() == oldComp.Name || d.Name() == ".materia_managed" {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, dataPath)
+		resPath := strings.TrimPrefix(fullPath, quadletPath)
 		resName := filepath.Base(fullPath)
 		newRes := components.Resource{
 			Parent:   name,
@@ -362,7 +367,6 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	prefix := filepath.Join(r.DataPrefix, res.Parent)
 	parent := filepath.Dir(res.Path)
 	if parent != "/" {
-		fmt.Fprintf(os.Stderr, "FBLTHP[212]: newcomponent.go:358: parent=%+v\n", parent)
 		parentPath := filepath.Join(prefix, parent)
 		err := os.MkdirAll(parentPath, 0o755)
 		if err != nil {
@@ -370,7 +374,6 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 		}
 	}
 	resPath := filepath.Join(prefix, parent, res.Name)
-	fmt.Fprintf(os.Stderr, "FBLTHP[211]: newcomponent.go:366: resPath=%+v\n", resPath)
 	err := os.WriteFile(resPath, data.Bytes(), 0o755)
 	return err
 }
@@ -387,7 +390,6 @@ func (r *HostComponentRepository) RemoveResource(res components.Resource) error 
 
 func (r *HostComponentRepository) ComponentExists(name string) (bool, error) {
 	path := filepath.Join(r.DataPrefix, name)
-	fmt.Fprintf(os.Stderr, "FBLTHP[219]: component.go:389: path=%+v\n", path)
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return false, nil
