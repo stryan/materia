@@ -58,8 +58,8 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	// load resources
 	var man *manifests.ComponentManifest
 	_, err := os.Stat(filepath.Join(dataPath, ".component_version"))
-	if err != nil && os.IsNotExist(err) {
-		return nil, errors.New("error reading component version")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("error reading component version: %w", err)
 	}
 	versionFileExists := os.IsExist(err)
 	if versionFileExists {
