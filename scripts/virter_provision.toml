@@ -54,6 +54,6 @@ ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
 set -e
 diff -r /tmp/out/etc/containers/systemd /etc/containers/systemd/
 diff -r /tmp/out/var/lib/materia/components /var/lib/materia/components/
-diff -r /tmp/out/etc/systemd/system/ /etc/systemd/system/
+diff -r /tmp/out/etc/systemd/system/* /etc/systemd/system/
 """
 

@@ -386,7 +386,9 @@ func (r *HostComponentRepository) RemoveResource(res components.Resource) error 
 }
 
 func (r *HostComponentRepository) ComponentExists(name string) (bool, error) {
-	_, err := os.Stat(filepath.Join(r.DataPrefix, name))
+	path := filepath.Join(r.DataPrefix, name)
+	fmt.Fprintf(os.Stderr, "FBLTHP[219]: component.go:389: path=%+v\n", path)
+	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return false, nil
 	}

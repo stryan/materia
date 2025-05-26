@@ -164,11 +164,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 				}
 			},
 			"m_dataDir": func(arg string) (string, error) {
-				if exists, err := compRepo.ComponentExists(arg); err != nil && exists {
-					return filepath.Join(compRepo.DataPrefix, arg), nil
-				} else {
-					return "", err
-				}
+				return filepath.Join(compRepo.DataPrefix, arg), nil
 			},
 			"m_facts": func(arg string) (any, error) {
 				return m.Facts.Lookup(arg)
