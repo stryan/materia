@@ -13,7 +13,7 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var Commit = func() string {
@@ -67,7 +67,7 @@ func main() {
 	}
 	var configFile string
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "materia",
 		Usage: "Manage quadlet files and resources",
 		Flags: []cli.Flag{
@@ -77,8 +77,8 @@ func main() {
 				Required:    false,
 				Destination: &configFile,
 				Aliases:     []string{"c"},
-				EnvVars:     []string{"MATERIA_CONFIG"},
-				Action: func(cCtx *cli.Context, v string) error {
+				Sources:     cli.EnvVars("MATERIA_CONFIG"),
+				Action: func(ctx context.Context, cCtx *cli.Command, v string) error {
 					if v == "" {
 						return errors.New("config file passed wihout value")
 					}
@@ -96,7 +96,7 @@ func main() {
 			{
 				Name:  "config",
 				Usage: "Dump active config",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					fmt.Println(c)
 					return nil
 				},
@@ -115,7 +115,7 @@ func main() {
 						Aliases: []string{"f"},
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
 					var facts *materia.Facts
@@ -151,19 +151,27 @@ func main() {
 				Name:  "plan",
 				Usage: "Show application plan",
 				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "quiet",
+						Aliases: []string{"q"},
+						Usage:   "Minimize output",
+					},
 					&cli.BoolFlag{
 						Name:    "resource-only",
 						Aliases: []string{"r"},
 						Usage:   "Only install resources",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx, c)
-					if err != nil {
-						return err
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					if cCtx.IsSet("quiet") {
+						c.Quiet = cCtx.Bool("quiet")
 					}
 					if cCtx.IsSet("resource-only") {
 						c.OnlyResources = cCtx.Bool("resource-only")
+					}
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
 					}
 					plan, err := m.Plan(ctx)
 					if err != nil {
@@ -173,7 +181,14 @@ func main() {
 						fmt.Println("No changes being made")
 						return nil
 					}
-					fmt.Println(plan.Pretty())
+					if !c.Quiet {
+						fmt.Println(plan.Pretty())
+					}
+					err = m.SavePlan(plan, "plan.toml")
+					if err != nil {
+						return fmt.Errorf("error writing plan: %w", err)
+					}
+
 					return nil
 				},
 			},
@@ -192,16 +207,16 @@ func main() {
 						Usage:   "Only install resources",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
-					m, err := setup(ctx, c)
-					if err != nil {
-						return err
-					}
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					if cCtx.IsSet("quiet") {
 						c.Quiet = cCtx.Bool("quiet")
 					}
 					if cCtx.IsSet("resource-only") {
 						c.OnlyResources = cCtx.Bool("resource-only")
+					}
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
 					}
 					plan, err := m.Plan(ctx)
 					if err != nil {
@@ -215,13 +230,17 @@ func main() {
 						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
 						return err
 					}
+					err = m.SavePlan(plan, "lastrun.toml")
+					if err != nil {
+						return fmt.Errorf("error writing plan: %w", err)
+					}
 					return nil
 				},
 			},
 			{
 				Name:  "remove",
 				Usage: "Remove a component",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					comp := cCtx.Args().First()
 					if comp == "" {
 						return cli.Exit("specify a component to remove", 1)
@@ -269,7 +288,7 @@ func main() {
 						Usage:   "show full plan for each tested component",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					comp := cCtx.String("component")
 					hostname := cCtx.String("hostname")
 					roles := cCtx.StringSlice("roles")
@@ -310,7 +329,7 @@ func main() {
 						Usage:   "Actually remove corrupted components",
 					},
 				},
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					// use a fake materia since we can't generate valid facts
 					m := &materia.Materia{
 						CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
@@ -337,7 +356,7 @@ func main() {
 			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
-				Action: func(_ *cli.Context) error {
+				Action: func(_ context.Context, _ *cli.Command) error {
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
@@ -348,7 +367,7 @@ func main() {
 			{
 				Name:  "version",
 				Usage: "show version",
-				Action: func(_ *cli.Context) error {
+				Action: func(_ context.Context, _ *cli.Command) error {
 					fmt.Printf("materia version git-%v\n", Commit)
 					return nil
 				},
@@ -356,7 +375,7 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

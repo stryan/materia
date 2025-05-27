@@ -30,6 +30,7 @@ type Config struct {
 	ServiceDir    string
 	ScriptDir     string
 	SourceDir     string
+	OutputDir     string
 	OnlyResources bool
 	Quiet         bool
 	GitConfig     *git.Config
@@ -66,6 +67,7 @@ func NewConfig(configFile string) (*Config, error) {
 	c.QuadletDir = k.String("destination")
 	c.ServiceDir = k.String("services")
 	c.ScriptDir = k.String("scripts")
+	c.OutputDir = k.String("output")
 	if k.Exists("git") {
 		c.GitConfig, err = git.NewConfig(k.Cut("git"))
 		if err != nil {
@@ -124,6 +126,9 @@ func NewConfig(configFile string) (*Config, error) {
 	}
 	if c.SourceDir == "" {
 		c.SourceDir = filepath.Join(dataPath, "materia", "source")
+	}
+	if c.OutputDir == "" {
+		c.OutputDir = filepath.Join(dataPath, "materia", "output")
 	}
 
 	return &c, nil

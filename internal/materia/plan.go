@@ -123,3 +123,15 @@ func (p *Plan) Pretty() string {
 	}
 	return result
 }
+
+func (p *Plan) PrettyLines() []string {
+	if p.Empty() {
+		return []string{""}
+	}
+	var result []string
+	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	for i, a := range steps {
+		result = append(result, fmt.Sprintf("%v. %v", i+1, a.Pretty()))
+	}
+	return result
+}
