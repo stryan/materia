@@ -17,22 +17,24 @@ import (
 )
 
 type Config struct {
-	SourceURL  string
-	Debug      bool
-	UseStdout  bool
-	Diffs      bool
-	Cleanup    bool
-	Hostname   string
-	Roles      []string
-	Timeout    int
-	MateriaDir string
-	QuadletDir string
-	ServiceDir string
-	ScriptDir  string
-	SourceDir  string
-	GitConfig  *git.Config
-	AgeConfig  *age.Config
-	User       *user.User
+	SourceURL     string
+	Debug         bool
+	UseStdout     bool
+	Diffs         bool
+	Cleanup       bool
+	Hostname      string
+	Roles         []string
+	Timeout       int
+	MateriaDir    string
+	QuadletDir    string
+	ServiceDir    string
+	ScriptDir     string
+	SourceDir     string
+	OnlyResources bool
+	Quiet         bool
+	GitConfig     *git.Config
+	AgeConfig     *age.Config
+	User          *user.User
 }
 
 func NewConfig(configFile string) (*Config, error) {

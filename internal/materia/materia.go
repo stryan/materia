@@ -33,22 +33,21 @@ import (
 type MacroMap func(map[string]any) template.FuncMap
 
 type Materia struct {
-	Facts      *Facts
-	Manifest   *manifests.MateriaManifest
-	Services   services.Services
-	PodmanConn context.Context
-	Containers containers.ContainerManager
-	sm         secrets.SecretsManager
-	source     source.Source
-	CompRepo   repository.ComponentRespository
-	// DataRepo      repository.Repository
-	// QuadletRepo   repository.Repository
+	Facts         *Facts
+	Manifest      *manifests.MateriaManifest
+	Services      services.Services
+	PodmanConn    context.Context
+	Containers    containers.ContainerManager
+	sm            secrets.SecretsManager
+	source        source.Source
+	CompRepo      repository.ComponentRespository
 	ScriptRepo    repository.Repository
 	ServiceRepo   repository.Repository
 	SourceRepo    repository.ComponentRespository
 	rootComponent *components.Component
 	macros        MacroMap
 	snippets      map[string]*Snippet
+	onlyResources bool
 	debug         bool
 	diffs         bool
 	cleanup       bool
@@ -130,6 +129,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		debug:         c.Debug,
 		diffs:         c.Diffs,
 		cleanup:       c.Cleanup,
+		onlyResources: c.OnlyResources,
 		CompRepo:      compRepo,
 		ScriptRepo:    &repository.FileRepository{Prefix: c.ScriptDir},
 		ServiceRepo:   &repository.FileRepository{Prefix: c.ServiceDir},
@@ -315,6 +315,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 					Parent: newComponent,
 				})
 			}
+			if m.onlyResources {
+				continue
+			}
 			sortedSrcs := sortedKeys(newComponent.ServiceResources)
 			for _, k := range sortedSrcs {
 				s := newComponent.ServiceResources[k]
@@ -406,6 +409,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 					}
 
 				}
+				if m.onlyResources {
+					continue
+				}
 				sortedSrcs := sortedKeys(newComponent.ServiceResources)
 				for _, k := range sortedSrcs {
 					// skip services that are triggered
@@ -470,7 +476,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 						})
 					}
 				}
-			} else {
+			} else if !m.onlyResources {
 				serviceChanged := false
 				for _, s := range newComponent.ServiceResources {
 					liveService, err := m.Services.Get(ctx, s.Service)
@@ -526,22 +532,24 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 					Parent: newComponent,
 				})
 			}
-			for _, s := range newComponent.ServiceResources {
-				res := components.Resource{
-					Parent: newComponent.Name,
-					Name:   s.Service,
-					Kind:   components.ResourceTypeService,
-				}
-				liveService, err := m.Services.Get(ctx, k)
-				if err != nil {
-					return nil, err
-				}
-				if liveService.Started() {
-					plan.Add(Action{
-						Todo:    ActionStopService,
-						Parent:  newComponent,
-						Payload: res,
-					})
+			if !m.onlyResources {
+				for _, s := range newComponent.ServiceResources {
+					res := components.Resource{
+						Parent: newComponent.Name,
+						Name:   s.Service,
+						Kind:   components.ResourceTypeService,
+					}
+					liveService, err := m.Services.Get(ctx, k)
+					if err != nil {
+						return nil, err
+					}
+					if liveService.Started() {
+						plan.Add(Action{
+							Todo:    ActionStopService,
+							Parent:  newComponent,
+							Payload: res,
+						})
+					}
 				}
 			}
 			plan.Add(Action{

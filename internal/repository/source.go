@@ -29,8 +29,6 @@ func (s SourceComponentRepository) Validate() error {
 	return nil
 }
 
-// TODO implement this
-
 func (s *SourceComponentRepository) ReadResource(res components.Resource) (string, error) {
 	resPath := filepath.Join(s.Prefix, res.Parent, res.Path)
 

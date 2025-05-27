@@ -150,10 +150,20 @@ func main() {
 			{
 				Name:  "plan",
 				Usage: "Show application plan",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "resource-only",
+						Aliases: []string{"r"},
+						Usage:   "Only install resources",
+					},
+				},
 				Action: func(cCtx *cli.Context) error {
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
+					}
+					if cCtx.IsSet("resource-only") {
+						c.OnlyResources = cCtx.Bool("resource-only")
 					}
 					plan, err := m.Plan(ctx)
 					if err != nil {
@@ -176,18 +186,28 @@ func main() {
 						Aliases: []string{"q"},
 						Usage:   "Minimize output",
 					},
+					&cli.BoolFlag{
+						Name:    "resource-only",
+						Aliases: []string{"r"},
+						Usage:   "Only install resources",
+					},
 				},
 				Action: func(cCtx *cli.Context) error {
-					quiet := cCtx.Bool("quiet")
 					m, err := setup(ctx, c)
 					if err != nil {
 						return err
+					}
+					if cCtx.IsSet("quiet") {
+						c.Quiet = cCtx.Bool("quiet")
+					}
+					if cCtx.IsSet("resource-only") {
+						c.OnlyResources = cCtx.Bool("resource-only")
 					}
 					plan, err := m.Plan(ctx)
 					if err != nil {
 						return err
 					}
-					if !quiet {
+					if !c.Quiet {
 						fmt.Println(plan.Pretty())
 					}
 					steps, err := m.Execute(ctx, plan)
