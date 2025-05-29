@@ -15,6 +15,7 @@ CGO_ENABLED=0
 
 [tasks.container]
 depends = ["build","lint","test"]
+env = { LDFLAGS = '-ldflags="-w -s"'}
 run = 'podman build -f Containerfile.ci --platform=linux/amd64 -t git.saintnet.tech/stryan/materia:latest .'
 
 [tasks.build]
@@ -78,7 +79,7 @@ description = "Build the project for arm64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/materia-arm64"]
 env = { GOOS="linux", GOARCH="arm64", CGO_ENABLED=0 }
-run = "go build -o bin/materia-arm64 ./cmd/materia/"
+run = 'go build -ldflags="-w -s" -o bin/materia-arm64 ./cmd/materia/'
 
 
 [tasks.build-materia-amd64]
@@ -87,7 +88,7 @@ description = "Build the project for amd64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/materia-amd64"]
 env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
-run = "go build -o bin/materia-amd64 ./cmd/materia/"
+run = 'go build -ldflags="-w -s" -o bin/materia-amd64 ./cmd/materia/'
 
 [tasks.build-athanor-arm64]
 depends = ["lint"]
@@ -95,7 +96,7 @@ description = "Build the project for arm64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-arm64"]
 env = { GOOS="linux", GOARCH="arm64", CGO_ENABLED=0 }
-run = "go build -o bin/athanor-arm64 ./cmd/athanor/"
+run = 'go build -ldflags="-w -s" -o bin/athanor-arm64 ./cmd/athanor/'
 
 
 [tasks.build-athanor-amd64]
@@ -104,6 +105,6 @@ description = "Build the project for amd64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-amd64"]
 env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
-run = "go build -o bin/athanor-amd64 ./cmd/athanor/"
+run = 'go build -ldflags="-w -s" -o bin/athanor-amd64 ./cmd/athanor/'
 
 

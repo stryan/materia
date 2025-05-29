@@ -1,4 +1,4 @@
-FROM registry.opensuse.org/opensuse/tumbleweed:latest
+FROM registry.opensuse.org/opensuse/tumbleweed-microdnf:latest
 WORKDIR /app
 ARG TARGETARCH
 
@@ -12,7 +12,7 @@ RUN mkdir -p /root/.ssh && \
 	chmod 0700 /root/.ssh && \
 	touch /root/.ssh/known_hosts
 
-RUN zypper in -y podman git openssh openssh-clients
+RUN microdnf install -y podman git openssh openssh-clients && microdnf clean all
 
 COPY ./bin/materia-${TARGETARCH} /app/materia
 
