@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -82,7 +83,15 @@ func (p *Plan) Empty() bool {
 func (p *Plan) Validate() error {
 	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
 	components := p.components
+	needReload := false
+	reload := false
 	for _, a := range steps {
+		if a.Todo == ActionInstallService || a.Todo == ActionInstallQuadlet {
+			needReload = true
+		}
+		if a.Todo == ActionReloadUnits {
+			reload = true
+		}
 		if a.Todo == ActionInstallVolumeFile || a.Todo == ActionUpdateVolumeFile || a.Todo == ActionRemoveVolumeFile {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
 			if !ok {
@@ -102,6 +111,9 @@ func (p *Plan) Validate() error {
 				}
 			}
 		}
+	}
+	if needReload && !reload {
+		return errors.New("invalid plan: systemd units added without a daemon-reload")
 	}
 
 	return nil

@@ -254,7 +254,7 @@ func main() {
 					if err != nil {
 						return cli.Exit(fmt.Sprintf("error removing component: %v", err), 1)
 					}
-					fmt.Printf("component %v removed succesfully", comp)
+					fmt.Printf("component %v removed succesfully\n", comp)
 					return nil
 				},
 			},

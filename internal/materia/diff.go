@@ -19,8 +19,8 @@ import (
 
 func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*components.Component, plan *Plan) (map[string]*components.Component, error) {
 	keys := sortedKeys(updates)
-	needUpdate := false
 	for _, compName := range keys {
+		needUpdate := false
 		newComponent := updates[compName]
 		if err := newComponent.Validate(); err != nil {
 			return nil, err
@@ -55,13 +55,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 		default:
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
+		if needUpdate {
+			plan.Add(Action{
+				Todo:   ActionReloadUnits,
+				Parent: m.rootComponent,
+			})
+		}
 	}
-	if needUpdate {
-		plan.Add(Action{
-			Todo:   ActionReloadUnits,
-			Parent: m.rootComponent,
-		})
-	}
+
 	return updates, nil
 }
 
@@ -70,12 +71,18 @@ func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *com
 		Todo:   ActionInstallComponent,
 		Parent: newComponent,
 	})
+	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
 		// do a test run just to make sure we can actually install this resource
-		err := m.testComponent(newComponent, vars)
+		newStringTempl, err := m.SourceRepo.ReadResource(r)
 		if err != nil {
-			return false, fmt.Errorf("unable to template component resource %v: %w", r.Name, err)
+			return false, err
 		}
+		_, err = m.executeResource(newStringTempl, vars)
+		if err != nil {
+			return false, err
+		}
+
 		plan.Add(Action{
 			Todo:    resToAction(r, "install"),
 			Parent:  newComponent,
@@ -335,22 +342,22 @@ func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Compone
 	return true, nil
 }
 
-func (m *Materia) testComponent(c *components.Component, vars map[string]any) error {
-	diffVars := make(map[string]any)
-	maps.Copy(diffVars, c.Defaults)
-	maps.Copy(diffVars, vars)
-	for _, newRes := range c.Resources {
-		resourceTemplate, err := m.SourceRepo.ReadResource(newRes)
-		if err != nil {
-			return err
-		}
-		_, err = m.executeResource(resourceTemplate, diffVars)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// func (m *Materia) testComponent(c *components.Component, vars map[string]any) error {
+// 	diffVars := make(map[string]any)
+// 	maps.Copy(diffVars, c.Defaults)
+// 	maps.Copy(diffVars, vars)
+// 	for _, newRes := range c.Resources {
+// 		resourceTemplate, err := m.SourceRepo.ReadResource(newRes)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		_, err = m.executeResource(resourceTemplate, diffVars)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+// 	return nil
+// }
 
 func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {
 	var diffActions []Action

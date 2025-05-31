@@ -313,20 +313,16 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 		return errors.New("invalid component")
 	}
 	compName := c.Name
+	err := os.Remove(filepath.Join(r.DataPrefix, compName, ".component_version"))
+	if err != nil {
+		return err
+	}
 	entries, err := os.ReadDir(filepath.Join(r.DataPrefix, compName))
 	if err != nil {
 		return err
 	}
 	if len(entries) != 0 {
-		// TODO make prettier
-		if len(entries) != 1 || entries[0].Name() != ".component_version" {
-			return errors.New("component data folder not empty")
-		} else {
-			err = os.Remove(filepath.Join(r.DataPrefix, compName, ".component_version"))
-			if err != nil {
-				return err
-			}
-		}
+		return errors.New("component data folder not empty")
 	}
 	err = os.Remove(filepath.Join(r.DataPrefix, compName))
 	if err != nil {
