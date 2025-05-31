@@ -35,18 +35,18 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 		case components.StateFresh:
 			needUpdate, err = m.calculateFreshComponent(ctx, newComponent, vars, plan)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
 
 		case components.StateMayNeedUpdate:
 			needUpdate, err = m.calculatePotentialComponent(ctx, newComponent, vars, plan)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
 		case components.StateStale, components.StateNeedRemoval:
 			needUpdate, err = m.calculateRemoval(ctx, newComponent, plan)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("can't process to be removed component %v: %w", newComponent.Name, err)
 			}
 		case components.StateRemoved:
 			continue
