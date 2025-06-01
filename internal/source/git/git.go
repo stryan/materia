@@ -35,7 +35,11 @@ func NewGitSource(path, repo string, c *Config) (*GitSource, error) {
 			if err != nil {
 				return nil, err
 			}
-			_, err = os.Stat(fmt.Sprintf("%v/.ssh/known_hosts", home))
+			hostsfile := c.KnownHosts
+			if hostsfile == "" {
+				hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
+			}
+			_, err = os.Stat(hostsfile)
 			if err != nil {
 				return nil, err
 			}

@@ -189,6 +189,7 @@ func (m *Materia) calculatePotentialComponent(ctx context.Context, newComponent 
 
 		}
 		if m.onlyResources {
+			newComponent.State = components.StateOK
 			return needUpdate, nil
 		}
 		sortedSrcs := sortedKeys(newComponent.ServiceResources)
@@ -297,6 +298,8 @@ func (m *Materia) calculatePotentialComponent(ctx context.Context, newComponent 
 		} else {
 			newComponent.State = components.StateNeedUpdate
 		}
+	} else {
+		newComponent.State = components.StateOK
 	}
 	return needUpdate, nil
 }
