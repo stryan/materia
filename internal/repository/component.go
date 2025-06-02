@@ -20,7 +20,7 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-type ComponentRespository interface {
+type ComponentRepository interface {
 	GetComponent(string) (*components.Component, error)
 	GetResource(*components.Component, string) (components.Resource, error)
 	GetManifest(*components.Component) (*manifests.ComponentManifest, error)

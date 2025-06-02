@@ -66,6 +66,7 @@ func main() {
 		log.Fatal(err)
 	}
 	var configFile string
+	var noSync bool
 
 	app := &cli.Command{
 		Name:  "materia",
@@ -89,6 +90,17 @@ func main() {
 					}
 					c, err = materia.NewConfig(v)
 					return err
+				},
+			},
+			&cli.BoolFlag{
+				Name:        "nosync",
+				Usage:       "Disable syncing for commands that sync",
+				Required:    false,
+				Destination: &noSync,
+				Sources:     cli.EnvVars("MATERIA_NOSYNC"),
+				Action: func(ctx context.Context, cm *cli.Command, b bool) error {
+					c.NoSync = noSync
+					return nil
 				},
 			},
 		},

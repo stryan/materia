@@ -41,10 +41,10 @@ type Materia struct {
 	Containers    containers.ContainerManager
 	sm            secrets.SecretsManager
 	source        source.Source
-	CompRepo      repository.ComponentRespository
+	CompRepo      repository.ComponentRepository
 	ScriptRepo    repository.Repository
 	ServiceRepo   repository.Repository
-	SourceRepo    repository.ComponentRespository
+	SourceRepo    repository.ComponentRepository
 	rootComponent *components.Component
 	macros        MacroMap
 	snippets      map[string]*Snippet
@@ -101,12 +101,16 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	}
 
 	// Ensure local cache
-	log.Debug("updating configured source cache")
-	err = source.Sync(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error syncing source: %w", err)
+	if c.NoSync {
+		log.Debug("skipping cache update on request")
+	} else {
+		log.Debug("updating configured source cache")
+		err = source.Sync(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error syncing source: %w", err)
+		}
 	}
-	log.Debug("pulling manifest")
+	log.Debug("loading manifest")
 	man, err := manifests.LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)

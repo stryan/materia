@@ -33,6 +33,7 @@ type Config struct {
 	OutputDir     string
 	OnlyResources bool
 	Quiet         bool
+	NoSync        bool
 	GitConfig     *git.Config
 	AgeConfig     *age.Config
 	User          *user.User
@@ -68,6 +69,7 @@ func NewConfig(configFile string) (*Config, error) {
 	c.ServiceDir = k.String("services")
 	c.ScriptDir = k.String("scripts")
 	c.OutputDir = k.String("output")
+	c.NoSync = k.Bool("nosync")
 	if k.Exists("git") {
 		c.GitConfig, err = git.NewConfig(k.Cut("git"))
 		if err != nil {
