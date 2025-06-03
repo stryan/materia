@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+
+	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 )
 
 type Plan struct {
@@ -16,14 +18,12 @@ type Plan struct {
 	endStep     []Action
 }
 
-func NewPlan(facts *Facts) *Plan {
+func NewPlan(facts fprov.FactsProvider) *Plan {
 	p := &Plan{}
-	for _, v := range facts.Volumes {
+	for _, v := range facts.GetVolumes() {
 		p.volumes = append(p.volumes, v.Name)
 	}
-	for _, v := range facts.InstalledComponents {
-		p.components = append(p.components, v.Name)
-	}
+	p.components = append(p.components, facts.GetInstalledComponents()...)
 	return p
 }
 

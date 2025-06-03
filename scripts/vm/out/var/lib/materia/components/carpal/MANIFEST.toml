@@ -1,0 +1,6 @@
+[defaults]
+port = 8000
+containerTag = "latest"
+
+[[services]]
+service = "carpal.service"

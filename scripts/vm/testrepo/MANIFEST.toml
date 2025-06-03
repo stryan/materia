@@ -5,7 +5,7 @@ components = ["hello","freshrss"]
 roles = ["base","double"]
 
 [roles.base]
-components = ["beszel-agent"]
+components = ["carpal"]
 
 [roles.double]
 components = ["double"]

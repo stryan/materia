@@ -14,7 +14,7 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 var Commit = func() string {
@@ -42,7 +42,7 @@ func main() {
 	}
 	var athanorConfigFile string
 
-	app := &cli.App{
+	app := &cli.Command{
 		Name:  "athanor",
 		Usage: "Backup quadlet volumes",
 		Flags: []cli.Flag{
@@ -52,7 +52,7 @@ func main() {
 				Required:    false,
 				Destination: &materiaConfigFile,
 				Aliases:     []string{"m"},
-				Action: func(cCtx *cli.Context, v string) error {
+				Action: func(ctx context.Context, cCtx *cli.Command, v string) error {
 					if v == "" {
 						return errors.New("config file passed wihout value")
 					}
@@ -71,7 +71,7 @@ func main() {
 				Required:    false,
 				Destination: &athanorConfigFile,
 				Aliases:     []string{"m"},
-				Action: func(cCtx *cli.Context, v string) error {
+				Action: func(ctx context.Context, cCtx *cli.Command, v string) error {
 					if v == "" {
 						return errors.New("config file passed wihout value")
 					}
@@ -90,7 +90,7 @@ func main() {
 			{
 				Name:  "backup",
 				Usage: "Backup all materia managed volumes",
-				Action: func(cCtx *cli.Context) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					repo := &repository.HostComponentRepository{DataPrefix: filepath.Join(mc.MateriaDir, "materia", "components"), QuadletPrefix: mc.QuadletDir}
 					compNames, err := repo.ListComponentNames()
 					if err != nil {
@@ -134,7 +134,7 @@ func main() {
 			{
 				Name:  "version",
 				Usage: "show version",
-				Action: func(_ *cli.Context) error {
+				Action: func(ctx context.Context, _ *cli.Command) error {
 					fmt.Printf("athanor version git-%v\n", Commit)
 					return nil
 				},
@@ -142,7 +142,7 @@ func main() {
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

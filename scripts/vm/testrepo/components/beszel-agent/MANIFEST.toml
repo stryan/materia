@@ -1,4 +1,0 @@
-defaults.containerTag = "latest"
-defaults.port = 45876
-[[services]]
-service = "beszel-agent.service"

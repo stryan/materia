@@ -59,10 +59,10 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 	return &a, nil
 }
 
-func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]interface{} {
+func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]any {
 	secrets := secrets.SecretsVault{}
 
-	results := make(map[string]interface{})
+	results := make(map[string]any)
 	files := []string{}
 	for _, v := range a.vaultfiles {
 		if strings.Contains(v, f.Hostname) || filepath.Base(v) == "vault.age" || filepath.Base(v) == "secrets.age" {

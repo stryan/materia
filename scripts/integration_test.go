@@ -12,8 +12,10 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/materia"
+	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -29,7 +31,11 @@ func testMateria(services []string) *materia.Materia {
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
 	}
-	m, err := materia.NewMateria(ctx, cfg, mockservices, mockcontainers)
+	scripts := &repository.FileRepository{Prefix: scriptdir}
+	servicesrepo := &repository.FileRepository{Prefix: servicedir}
+	source := &repository.SourceComponentRepository{Prefix: filepath.Join(sourcedir, "components")}
+	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(prefix, "components"), QuadletPrefix: installdir}
+	m, err := materia.NewMateria(ctx, cfg, mockservices, mockcontainers, scripts, servicesrepo, source, compRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,10 +96,10 @@ func TestFacts(t *testing.T) {
 	m := testMateria([]string{})
 	assert.NotNil(t, m.Manifest)
 	assert.NotNil(t, m.Facts)
-	assert.Equal(t, m.Facts.Hostname, "localhost")
-	assert.Equal(t, m.Facts.Roles, []string(nil))
-	assert.Equal(t, m.Facts.AssignedComponents, []string{"hello", "double"})
-	assert.Equal(t, m.Facts.InstalledComponents, make(map[string]*components.Component))
+	assert.Equal(t, m.Facts.GetHostname(), "localhost")
+	assert.Equal(t, m.Facts.GetRoles(), []string(nil))
+	assert.Equal(t, m.Facts.GetAssignedComponents(), []string{"hello", "double"})
+	assert.Equal(t, m.Facts.GetInstalledComponents(), []string(nil))
 }
 
 var expectedActions = []materia.Action{
@@ -113,7 +119,6 @@ var expectedActions = []materia.Action{
 	planHelper(materia.ActionStartService, "double", "goodbye.service", ""),
 	planHelper(materia.ActionEnableService, "double", "hello.timer", ""),
 	planHelper(materia.ActionStartService, "double", "hello.timer", ""),
-	planHelper(materia.ActionStartService, "hello", "hello.service", ""),
 }
 
 func TestPlan(t *testing.T) {
@@ -128,12 +133,10 @@ func TestPlan(t *testing.T) {
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
-	// fixAgeManifest(m.Manifest)
 	plan, err := m.Plan(ctx)
-	assert.Nil(t, err)
-	if err != nil {
-		t.Fail()
-	}
+	require.Nil(t, err)
+	require.False(t, plan.Empty(), "plan should not be empty")
+	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
 
 	expectedPlan := materia.NewPlan(m.Facts)
 	for _, e := range expectedActions {
@@ -153,7 +156,7 @@ func TestPlan(t *testing.T) {
 	}
 }
 
-func TestExecute(t *testing.T) {
+func TestExecuteFresh(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
 	expectedManifest := &manifests.MateriaManifest{
 		Secrets: "age",
@@ -165,10 +168,9 @@ func TestExecute(t *testing.T) {
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
 	plan, err := m.Plan(ctx)
-	assert.Nil(t, err)
-	if err != nil {
-		t.Fail()
-	}
+	require.Nil(t, err)
+	require.False(t, plan.Empty(), "plan should not be empty")
+	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
 	for k, v := range plan.Steps() {
 		expected := expectedActions[k]
 		if expected.Todo != v.Todo {

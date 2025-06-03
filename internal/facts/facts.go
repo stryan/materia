@@ -1,37 +1,45 @@
-package materia
+package facts
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/containers"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/BurntSushi/toml"
 )
 
-type Facts struct {
+type FactsProvider interface {
+	Lookup(string) (any, error)
+	Pretty() string
+
+	GetAssignedComponents() []string
+	GetInstalledComponents() []string
+	GetVolumes() []*containers.Volume
+	GetRoles() []string
+	GetHostname() string
+}
+
+type FactsManager struct {
 	Hostname            string
 	Roles               []string
 	AssignedComponents  []string
 	Volumes             []*containers.Volume
-	InstalledComponents map[string]*components.Component
-	Interfaces          map[string]Interfaces
+	InstalledComponents []string
+	Interfaces          map[string]NetworkInterfaces
 }
 
-func NewFacts(ctx context.Context, c *Config, man *manifests.MateriaManifest, compRepo repository.ComponentRepository, containers containers.ContainerManager) (*Facts, error) {
-	facts := &Facts{}
+func NewFacts(ctx context.Context, hostname string, man *manifests.MateriaManifest, compRepo repository.ComponentRepository, containers containers.ContainerManager) (*FactsManager, error) {
+	facts := &FactsManager{}
 	var err error
-	if c.Hostname != "" {
-		facts.Hostname = c.Hostname
+	if hostname != "" {
+		facts.Hostname = hostname
 	} else {
 		facts.Hostname, err = os.Hostname()
 		if err != nil {
@@ -84,22 +92,14 @@ func NewFacts(ctx context.Context, c *Config, man *manifests.MateriaManifest, co
 			facts.AssignedComponents = append(facts.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-	facts.InstalledComponents = make(map[string]*components.Component)
-	installPaths, err := compRepo.ListComponentNames()
+	facts.InstalledComponents, err = compRepo.ListComponentNames()
 	if err != nil {
 		return nil, fmt.Errorf("error getting source components: %w", err)
-	}
-	for _, v := range installPaths {
-		comp, err := compRepo.GetComponent(v)
-		if err != nil {
-			return nil, fmt.Errorf("error creating component %v from install: %w", v, err)
-		}
-		facts.InstalledComponents[comp.Name] = comp
 	}
 	return facts, nil
 }
 
-func (f *Facts) Lookup(arg string) (any, error) {
+func (f *FactsManager) Lookup(arg string) (any, error) {
 	input := strings.Split(arg, ".")
 	switch input[0] {
 	case "hostname":
@@ -138,7 +138,7 @@ func (f *Facts) Lookup(arg string) (any, error) {
 	return nil, errors.New("invalid fact lookup")
 }
 
-func (f *Facts) Pretty() string {
+func (f *FactsManager) Pretty() string {
 	var result string
 	result += "Facts\n"
 	result += fmt.Sprintf("Hostname: %v\n", f.Hostname)
@@ -152,7 +152,7 @@ func (f *Facts) Pretty() string {
 	}
 	result += "\nInstalled Components: "
 	for _, v := range f.InstalledComponents {
-		result += fmt.Sprintf("%v ", v.Name)
+		result += fmt.Sprintf("%v ", v)
 	}
 	result += "\nNetworks: "
 	for i, v := range f.Interfaces {
@@ -162,42 +162,22 @@ func (f *Facts) Pretty() string {
 	return result
 }
 
-type Interfaces struct {
-	Name string
-	Ip4  []string
-	Ip6  []string
+func (f *FactsManager) GetHostname() string {
+	return f.Hostname
 }
 
-func GetInterfaceIPs() (map[string]Interfaces, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-	results := make(map[string]Interfaces, len(interfaces))
-	for _, i := range interfaces {
-		n := Interfaces{
-			Ip4: []string{},
-			Ip6: []string{},
-		}
-		addrs, err := i.Addrs()
-		if err != nil {
-			return nil, err
-		}
-		for _, a := range addrs {
-			ip, _, err := net.ParseCIDR(a.String())
-			if err != nil {
-				return nil, fmt.Errorf("invalid CIDR format: %w", err)
-			}
-			if ip4 := ip.To4(); ip4 != nil {
-				n.Ip4 = append(n.Ip4, ip.String())
-			} else {
-				n.Ip6 = append(n.Ip6, ip.String())
-			}
-		}
-		n.Ip4 = sort.StringSlice(n.Ip4)
-		n.Ip6 = sort.StringSlice(n.Ip6)
-		results[i.Name] = n
+func (f *FactsManager) GetRoles() []string {
+	return f.Roles
+}
 
-	}
-	return results, nil
+func (f *FactsManager) GetInstalledComponents() []string {
+	return f.InstalledComponents
+}
+
+func (f *FactsManager) GetAssignedComponents() []string {
+	return f.AssignedComponents
+}
+
+func (f *FactsManager) GetVolumes() []*containers.Volume {
+	return f.Volumes
 }

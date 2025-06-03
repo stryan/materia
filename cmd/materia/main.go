@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 
 	"git.saintnet.tech/stryan/materia/internal/containers"
+	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/services"
@@ -52,7 +53,11 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m, err := materia.NewMateria(ctx, c, sm, cm)
+	scriptRepo := &repository.FileRepository{Prefix: c.ScriptDir}
+	serviceRepo := &repository.FileRepository{Prefix: c.ServiceDir}
+	sourceRepo := &repository.SourceComponentRepository{Prefix: filepath.Join(c.SourceDir, "components")}
+	hostRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir}
+	m, err := materia.NewMateria(ctx, c, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -130,13 +135,13 @@ func main() {
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
-					var facts *materia.Facts
+					var facts fprov.FactsProvider
 					if host {
 						cm, err := containers.NewPodmanManager()
 						if err != nil {
 							return err
 						}
-						facts, err = materia.NewFacts(ctx, c, nil, nil, cm)
+						facts, err = fprov.NewFacts(ctx, c.Hostname, nil, nil, cm)
 						if err != nil {
 							return err
 						}

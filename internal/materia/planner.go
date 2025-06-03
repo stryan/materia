@@ -17,7 +17,107 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*components.Component, plan *Plan) (map[string]*components.Component, error) {
+func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
+	plan := NewPlan(m.Facts)
+	var err error
+
+	if len(m.Facts.GetInstalledComponents()) == 0 && len(m.Facts.GetAssignedComponents()) == 0 {
+		return plan, nil
+	}
+
+	var newComponents map[string]*components.Component
+	log.Debug("calculating component differences")
+	currentComponentNames := m.Facts.GetInstalledComponents()
+	newComponentNames := m.Facts.GetAssignedComponents()
+	currentComponents := make(map[string]*components.Component)
+	newComponents2 := make(map[string]*components.Component)
+	for _, v := range currentComponentNames {
+		comp, err := m.CompRepo.GetComponent(v)
+		if err != nil {
+			return plan, fmt.Errorf("error loading current components: %w", err)
+		}
+		currentComponents[comp.Name] = comp
+	}
+	for _, v := range newComponentNames {
+		comp, err := m.SourceRepo.GetComponent(v)
+		if err != nil {
+			return plan, fmt.Errorf("error loading new components: %w", err)
+		}
+		newComponents2[comp.Name] = comp
+	}
+	newComponents, err = m.updateComponents2(newComponents2, currentComponents)
+	if err != nil {
+		return plan, fmt.Errorf("error determining components: %w", err)
+	}
+	// Determine diff actions
+	log.Debug("calculating resource differences")
+	finalComponents, err := m.calculateDiffs(ctx, currentComponents, newComponents, plan)
+	if err != nil {
+		return plan, fmt.Errorf("error calculating diffs: %w", err)
+	}
+	if err := plan.Validate(); err != nil {
+		return nil, fmt.Errorf("generated invalid plan: %w", err)
+	}
+	var installing, removing, updating, ok []string
+	keys := sortedKeys(finalComponents)
+	for _, k := range keys {
+		v := finalComponents[k]
+		switch v.State {
+		case components.StateFresh:
+			installing = append(installing, v.Name)
+			log.Debug("fresh:", "component", v.Name)
+		case components.StateNeedUpdate:
+			updating = append(updating, v.Name)
+			log.Debug("updating:", "component", v.Name)
+		case components.StateMayNeedUpdate:
+			log.Warn("component still listed as may need update", "component", v.Name)
+		case components.StateNeedRemoval:
+			removing = append(removing, v.Name)
+			log.Debug("remove:", "component", v.Name)
+		case components.StateOK:
+			ok = append(ok, v.Name)
+			log.Debug("ok:", "component", v.Name)
+		case components.StateRemoved:
+			log.Debug("removed:", "component", v.Name)
+		case components.StateStale:
+			log.Debug("stale:", "component", v.Name)
+		case components.StateUnknown:
+			log.Debug("unknown:", "component", v.Name)
+		default:
+			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.State))
+		}
+	}
+
+	log.Debug("installing components", "installing", installing)
+	log.Debug("removing components", "removing", removing)
+	log.Debug("updating components", "updating", updating)
+	log.Debug("unchanged components", "unchanged", ok)
+
+	return plan, nil
+}
+
+func (m *Materia) updateComponents2(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
+	componentDiffs := make(map[string]*components.Component)
+	for _, v := range assignedComponents {
+		if old, ok := installedComponents[v.Name]; !ok {
+			v.State = components.StateFresh
+			componentDiffs[v.Name] = v
+		} else {
+			old.State = components.StateMayNeedUpdate
+			componentDiffs[old.Name] = old
+		}
+	}
+	for _, v := range installedComponents {
+		if v.State == components.StateStale {
+			v.State = components.StateNeedRemoval
+			componentDiffs[v.Name] = v
+		}
+	}
+
+	return componentDiffs, nil
+}
+
+func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component, plan *Plan) (map[string]*components.Component, error) {
 	keys := sortedKeys(updates)
 	for _, compName := range keys {
 		needUpdate := false
@@ -25,9 +125,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 		if err := newComponent.Validate(); err != nil {
 			return nil, err
 		}
-		vars := m.sm.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.Facts.Hostname,
-			Roles:     m.Facts.Roles,
+		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
+			Hostname:  m.Facts.GetHostname(),
+			Roles:     m.Facts.GetRoles(),
 			Component: newComponent.Name,
 		})
 		var err error
@@ -39,7 +139,11 @@ func (m *Materia) calculateDiffs(ctx context.Context, updates map[string]*compon
 			}
 
 		case components.StateMayNeedUpdate:
-			needUpdate, err = m.calculatePotentialComponent(ctx, newComponent, vars, plan)
+			original, ok := oldComps[compName]
+			if !ok {
+				return nil, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
+			}
+			needUpdate, err = m.calculatePotentialComponent(ctx, original, newComponent, vars, plan)
 			if err != nil {
 				return nil, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
@@ -134,12 +238,8 @@ func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *com
 	return true, nil
 }
 
-func (m *Materia) calculatePotentialComponent(ctx context.Context, newComponent *components.Component, vars map[string]any, plan *Plan) (bool, error) {
+func (m *Materia) calculatePotentialComponent(ctx context.Context, original, newComponent *components.Component, vars map[string]any, plan *Plan) (bool, error) {
 	needUpdate := false
-	original, ok := m.Facts.InstalledComponents[newComponent.Name]
-	if !ok {
-		return false, fmt.Errorf("tried to update non-installed component: %v", newComponent.Name)
-	}
 	resourceActions, err := m.diffComponent(original, newComponent, vars)
 	if err != nil {
 		log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
@@ -344,23 +444,6 @@ func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Compone
 	})
 	return true, nil
 }
-
-// func (m *Materia) testComponent(c *components.Component, vars map[string]any) error {
-// 	diffVars := make(map[string]any)
-// 	maps.Copy(diffVars, c.Defaults)
-// 	maps.Copy(diffVars, vars)
-// 	for _, newRes := range c.Resources {
-// 		resourceTemplate, err := m.SourceRepo.ReadResource(newRes)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		_, err = m.executeResource(resourceTemplate, diffVars)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	return nil
-// }
 
 func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {
 	var diffActions []Action
