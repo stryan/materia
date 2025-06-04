@@ -18,43 +18,49 @@ import (
 )
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
-	plan := NewPlan(m.Facts)
-	var err error
+	currentVolumes, err := m.Containers.ListVolumes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var vollist []string
+	for _, v := range currentVolumes {
+		vollist = append(vollist, v.Name)
+	}
+	plan := NewPlan(m.InstalledComponents, vollist)
 
-	if len(m.Facts.GetInstalledComponents()) == 0 && len(m.Facts.GetAssignedComponents()) == 0 {
+	if len(m.InstalledComponents) == 0 && len(m.AssignedComponents) == 0 {
 		return plan, nil
 	}
 
-	var newComponents map[string]*components.Component
+	var updatedComponents map[string]*components.Component
 	log.Debug("calculating component differences")
-	currentComponentNames := m.Facts.GetInstalledComponents()
-	newComponentNames := m.Facts.GetAssignedComponents()
 	currentComponents := make(map[string]*components.Component)
-	newComponents2 := make(map[string]*components.Component)
-	for _, v := range currentComponentNames {
+	newComponents := make(map[string]*components.Component)
+	for _, v := range m.InstalledComponents {
 		comp, err := m.CompRepo.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading current components: %w", err)
 		}
 		currentComponents[comp.Name] = comp
 	}
-	for _, v := range newComponentNames {
+	for _, v := range m.AssignedComponents {
 		comp, err := m.SourceRepo.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading new components: %w", err)
 		}
-		newComponents2[comp.Name] = comp
+		newComponents[comp.Name] = comp
 	}
-	newComponents, err = m.updateComponents2(newComponents2, currentComponents)
+	updatedComponents, err = m.updateComponents(newComponents, currentComponents)
 	if err != nil {
 		return plan, fmt.Errorf("error determining components: %w", err)
 	}
 	// Determine diff actions
 	log.Debug("calculating resource differences")
-	finalComponents, err := m.calculateDiffs(ctx, currentComponents, newComponents, plan)
+	plannedActions, finalComponents, err := m.calculateDiffs(ctx, currentComponents, updatedComponents)
 	if err != nil {
 		return plan, fmt.Errorf("error calculating diffs: %w", err)
 	}
+	plan.Append(plannedActions)
 	if err := plan.Validate(); err != nil {
 		return nil, fmt.Errorf("generated invalid plan: %w", err)
 	}
@@ -96,7 +102,7 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-func (m *Materia) updateComponents2(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
+func (m *Materia) updateComponents(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
 	componentDiffs := make(map[string]*components.Component)
 	for _, v := range assignedComponents {
 		if old, ok := installedComponents[v.Name]; !ok {
@@ -118,61 +124,62 @@ func (m *Materia) updateComponents2(assignedComponents map[string]*components.Co
 	return componentDiffs, nil
 }
 
-func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component, plan *Plan) (map[string]*components.Component, error) {
+func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, map[string]*components.Component, error) {
 	keys := sortedKeys(updates)
+	var plannedActions []Action
 	for _, compName := range keys {
-		needUpdate := false
 		newComponent := updates[compName]
 		if err := newComponent.Validate(); err != nil {
-			return nil, err
+			return plannedActions, nil, err
 		}
 		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
 			Hostname:  m.Facts.GetHostname(),
-			Roles:     m.Facts.GetRoles(),
+			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
-		var err error
+
 		switch newComponent.State {
 		case components.StateFresh:
-			needUpdate, err = m.calculateFreshComponent(ctx, newComponent, vars, plan)
+			actions, err := m.calculateFreshComponent(ctx, newComponent, vars)
 			if err != nil {
-				return nil, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
+				return plannedActions, nil, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
+			plannedActions = append(plannedActions, actions...)
 
 		case components.StateMayNeedUpdate:
 			original, ok := oldComps[compName]
 			if !ok {
-				return nil, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
+				return plannedActions, nil, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
 			}
-			needUpdate, err = m.calculatePotentialComponent(ctx, original, newComponent, vars, plan)
+			actions, err := m.calculatePotentialComponent(ctx, original, newComponent, vars)
 			if err != nil {
-				return nil, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
+				return plannedActions, nil, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
+
+			plannedActions = append(plannedActions, actions...)
 		case components.StateStale, components.StateNeedRemoval:
-			needUpdate, err = m.calculateRemoval(ctx, newComponent, plan)
+			actions, err := m.calculateRemoval(ctx, newComponent)
 			if err != nil {
-				return nil, fmt.Errorf("can't process to be removed component %v: %w", newComponent.Name, err)
+				return plannedActions, nil, fmt.Errorf("can't process to be removed component %v: %w", newComponent.Name, err)
 			}
+
+			plannedActions = append(plannedActions, actions...)
 		case components.StateRemoved:
 			continue
 		case components.StateUnknown:
-			return nil, errors.New("found unknown component")
+			return plannedActions, nil, errors.New("found unknown component")
 		default:
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
-		if needUpdate {
-			plan.Add(Action{
-				Todo:   ActionReloadUnits,
-				Parent: m.rootComponent,
-			})
-		}
+
 	}
 
-	return updates, nil
+	return plannedActions, updates, nil
 }
 
-func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *components.Component, vars map[string]any, plan *Plan) (bool, error) {
-	plan.Add(Action{
+func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *components.Component, vars map[string]any) ([]Action, error) {
+	var actions []Action
+	actions = append(actions, Action{
 		Todo:   ActionInstallComponent,
 		Parent: newComponent,
 	})
@@ -181,70 +188,58 @@ func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *com
 		// do a test run just to make sure we can actually install this resource
 		newStringTempl, err := m.SourceRepo.ReadResource(r)
 		if err != nil {
-			return false, err
+			return actions, err
 		}
 		_, err = m.executeResource(newStringTempl, vars)
 		if err != nil {
-			return false, err
+			return actions, err
 		}
 
-		plan.Add(Action{
+		actions = append(actions, Action{
 			Todo:    resToAction(r, "install"),
 			Parent:  newComponent,
 			Payload: r,
 		})
 	}
 	if newComponent.Scripted {
-		plan.Add(Action{
+		actions = append(actions, Action{
 			Todo:   ActionSetupComponent,
 			Parent: newComponent,
 		})
 	}
 	if m.onlyResources {
-		return true, nil
+		return actions, nil
+	}
+	if len(actions) > 0 {
+		actions = append(actions, Action{
+			Todo:    ActionReloadUnits,
+			Parent:  m.rootComponent,
+			Payload: components.Resource{},
+		})
 	}
 	sortedSrcs := sortedKeys(newComponent.ServiceResources)
 	for _, k := range sortedSrcs {
 		s := newComponent.ServiceResources[k]
-		res := components.Resource{
-			Parent: newComponent.Name,
-			Name:   k,
-			Kind:   components.ResourceTypeService,
+		installActions, err := m.generateServiceInstallActions(ctx, newComponent, s)
+		if err != nil {
+			return actions, err
 		}
-		liveService, err := m.Services.Get(ctx, k)
-		if errors.Is(err, services.ErrServiceNotFound) {
-			liveService = &services.Service{
-				Name:    k,
-				State:   "non-existent",
-				Enabled: false,
-			}
-		} else if err != nil {
-			return false, err
-		}
-		if m.shouldEnableService(s, liveService) {
-			plan.Add(Action{
-				Todo:    ActionEnableService,
-				Parent:  newComponent,
-				Payload: res,
-			})
-		}
-		if !liveService.Started() {
-			plan.Add(Action{
-				Todo:    ActionStartService,
-				Parent:  newComponent,
-				Payload: res,
-			})
-		}
+		actions = append(actions, installActions...)
 	}
-	return true, nil
+	return actions, nil
 }
 
-func (m *Materia) calculatePotentialComponent(ctx context.Context, original, newComponent *components.Component, vars map[string]any, plan *Plan) (bool, error) {
-	needUpdate := false
+func (m *Materia) calculatePotentialComponent(ctx context.Context, original, newComponent *components.Component, vars map[string]any) ([]Action, error) {
+	var actions []Action
 	resourceActions, err := m.diffComponent(original, newComponent, vars)
 	if err != nil {
 		log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
-		return false, err
+		return actions, err
+	}
+	actions = append(actions, resourceActions...)
+	if m.onlyResources {
+		newComponent.State = components.StateOK
+		return actions, nil
 	}
 	restartmap := make(map[string]manifests.ServiceResourceConfig)
 	reloadmap := make(map[string]manifests.ServiceResourceConfig)
@@ -256,194 +251,207 @@ func (m *Materia) calculatePotentialComponent(ctx context.Context, original, new
 			reloadmap[trigger] = src
 		}
 	}
+	var serviceActions []Action
 	if len(resourceActions) != 0 {
+		if len(actions) > 0 {
+			actions = append(actions, Action{
+				Todo:    ActionReloadUnits,
+				Parent:  m.rootComponent,
+				Payload: components.Resource{},
+			})
+		}
 		newComponent.State = components.StateNeedUpdate
-		needUpdate = true
-		for _, d := range resourceActions {
-			plan.Add(d)
-			if updatedService, ok := restartmap[d.Payload.Name]; ok {
-				plan.Add(Action{
-					Todo:   ActionRestartService,
-					Parent: newComponent,
-					Payload: components.Resource{
-						Parent: newComponent.Name,
-						Name:   updatedService.Service,
-						Kind:   components.ResourceTypeService,
-					},
-				})
-			}
-			if updatedService, ok := reloadmap[d.Payload.Name]; ok {
-				plan.Add(Action{
-					Todo:   ActionReloadService,
-					Parent: newComponent,
-					Payload: components.Resource{
-						Parent: newComponent.Name,
-						Name:   updatedService.Service,
-						Kind:   components.ResourceTypeService,
-					},
-				})
-			}
-			if m.diffs && d.Category() == ActionCategoryUpdate {
-				diffs := d.Content.([]diffmatchpatch.Diff)
-				fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
-			}
-
+		actions, err := m.calculateServicesFromUpdate(ctx, original, newComponent, resourceActions, restartmap, reloadmap)
+		if err != nil {
+			return actions, err
 		}
-		if m.onlyResources {
-			newComponent.State = components.StateOK
-			return needUpdate, nil
-		}
-		sortedSrcs := sortedKeys(newComponent.ServiceResources)
-		for _, k := range sortedSrcs {
-			// skip services that are triggered
-			if _, ok := reloadmap[k]; ok {
-				continue
-			}
-			if _, ok := restartmap[k]; ok {
-				continue
-			}
-			s := newComponent.ServiceResources[k]
-			res := components.Resource{
-				Parent: newComponent.Name,
-				Name:   k,
-				Kind:   components.ResourceTypeService,
-			}
-			liveService, err := m.Services.Get(ctx, k)
-			if errors.Is(err, services.ErrServiceNotFound) {
-				liveService = &services.Service{
-					Name:    k,
-					State:   "non-existent",
-					Enabled: false,
-				}
-			} else if err != nil {
-				return false, err
-			}
-			if m.shouldEnableService(s, liveService) {
-				plan.Add(Action{
-					Todo:    ActionEnableService,
-					Parent:  newComponent,
-					Payload: res,
-				})
-			}
-			if !liveService.Started() {
-				plan.Add(Action{
-					Todo:    ActionStartService,
-					Parent:  newComponent,
-					Payload: res,
-				})
-			}
-		}
-		sortedOldSrcs := sortedKeys(original.ServiceResources)
-		for _, osrc := range sortedOldSrcs {
-			s := original.ServiceResources[newComponent.Name]
-			if !slices.Contains(sortedSrcs, osrc) {
-				// service is no longer managed by materia, stop it
-				res := components.Resource{
-					Parent: original.Name,
-					Name:   osrc,
-					Kind:   components.ResourceTypeService,
-				}
-				if s.Static {
-					plan.Add(Action{
-						Todo:    ActionDisableService,
-						Parent:  newComponent,
-						Payload: res,
-					})
-				}
-				plan.Add(Action{
-					Todo:    ActionStopService,
-					Parent:  newComponent,
-					Payload: res,
-				})
-			}
-		}
+		serviceActions = append(serviceActions, actions...)
 	} else if !m.onlyResources {
-		serviceChanged := false
-		for _, s := range newComponent.ServiceResources {
-			liveService, err := m.Services.Get(ctx, s.Service)
-			if errors.Is(err, services.ErrServiceNotFound) {
-				liveService = &services.Service{
-					Name:    s.Service,
-					State:   "non-existent",
-					Enabled: false,
-				}
-			} else if err != nil {
-				return false, err
-			}
-			res := components.Resource{
-				Parent: newComponent.Name,
-				Name:   s.Service,
-				Kind:   components.ResourceTypeService,
-			}
-
-			if m.shouldEnableService(s, liveService) {
-				serviceChanged = true
-				plan.Add(Action{
-					Todo:    ActionEnableService,
-					Parent:  newComponent,
-					Payload: res,
-				})
-			}
-			if !liveService.Started() {
-				serviceChanged = true
-				plan.Add(Action{
-					Todo:    ActionStartService,
-					Parent:  newComponent,
-					Payload: res,
-				})
-			}
-
+		actions, err := m.calculateServicesFromUnchanged(ctx, newComponent)
+		if err != nil {
+			return actions, err
 		}
-		if !serviceChanged {
-			newComponent.State = components.StateOK
-		} else {
-			newComponent.State = components.StateNeedUpdate
-		}
+		serviceActions = append(serviceActions, actions...)
+	}
+	if len(serviceActions) > 0 {
+		newComponent.State = components.StateNeedUpdate
 	} else {
 		newComponent.State = components.StateOK
 	}
-	return needUpdate, nil
+	actions = append(actions, serviceActions...)
+	return actions, nil
 }
 
-func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Component, plan *Plan) (bool, error) {
+func (m *Materia) calculateServicesFromUpdate(ctx context.Context, original, newComponent *components.Component, resourceActions []Action, restartmap, reloadmap map[string]manifests.ServiceResourceConfig) ([]Action, error) {
+	var actions []Action
+	newComponent.State = components.StateNeedUpdate
+	for _, d := range resourceActions {
+		if updatedService, ok := restartmap[d.Payload.Name]; ok {
+			actions = append(actions, Action{
+				Todo:   ActionRestartService,
+				Parent: newComponent,
+				Payload: components.Resource{
+					Parent: newComponent.Name,
+					Name:   updatedService.Service,
+					Kind:   components.ResourceTypeService,
+				},
+			})
+		}
+		if updatedService, ok := reloadmap[d.Payload.Name]; ok {
+			actions = append(actions, Action{
+				Todo:   ActionReloadService,
+				Parent: newComponent,
+				Payload: components.Resource{
+					Parent: newComponent.Name,
+					Name:   updatedService.Service,
+					Kind:   components.ResourceTypeService,
+				},
+			})
+		}
+		if m.diffs && d.Category() == ActionCategoryUpdate {
+			diffs := d.Content.([]diffmatchpatch.Diff)
+			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
+		}
+
+	}
+	sortedSrcs := sortedKeys(newComponent.ServiceResources)
+	for _, k := range sortedSrcs {
+		// skip services that are triggered
+		if _, ok := reloadmap[k]; ok {
+			continue
+		}
+		if _, ok := restartmap[k]; ok {
+			continue
+		}
+		s := newComponent.ServiceResources[k]
+		installActions, err := m.generateServiceInstallActions(ctx, newComponent, s)
+		if err != nil {
+			return nil, err
+		}
+		actions = append(actions, installActions...)
+
+	}
+	sortedOldSrcs := sortedKeys(original.ServiceResources)
+	for _, osrc := range sortedOldSrcs {
+		s := original.ServiceResources[osrc]
+		if !slices.Contains(sortedSrcs, osrc) {
+			// service is no longer managed by materia, stop it
+			actions = append(actions, m.generateServiceRemovalActions(original, s)...)
+		}
+	}
+	return actions, nil
+}
+
+func (m *Materia) calculateServicesFromUnchanged(ctx context.Context, comp *components.Component) ([]Action, error) {
+	var actions []Action
+	for _, s := range comp.ServiceResources {
+		installActions, err := m.generateServiceInstallActions(ctx, comp, s)
+		if err != nil {
+			return actions, nil
+		}
+		actions = append(actions, installActions...)
+	}
+
+	return actions, nil
+}
+
+func (m *Materia) generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) []Action {
+	var result []Action
+	res := components.Resource{
+		Parent: comp.Name,
+		Name:   osrc.Service,
+		Kind:   components.ResourceTypeService,
+	}
+	if osrc.Static {
+		result = append(result, Action{
+			Todo:    ActionDisableService,
+			Parent:  comp,
+			Payload: res,
+		})
+	}
+	result = append(result, Action{
+		Todo:    ActionStopService,
+		Parent:  comp,
+		Payload: res,
+	})
+	return result
+}
+
+func (m *Materia) generateServiceInstallActions(ctx context.Context, comp *components.Component, osrc manifests.ServiceResourceConfig) ([]Action, error) {
+	var actions []Action
+	liveService, err := m.Services.Get(ctx, osrc.Service)
+	if errors.Is(err, services.ErrServiceNotFound) {
+		liveService = &services.Service{
+			Name:    osrc.Service,
+			State:   "non-existent",
+			Enabled: false,
+		}
+	} else if err != nil {
+		return actions, err
+	}
+	res := components.Resource{
+		Parent: comp.Name,
+		Name:   osrc.Service,
+		Kind:   components.ResourceTypeService,
+	}
+	if m.shouldEnableService(osrc, liveService) {
+		actions = append(actions, Action{
+			Todo:    ActionEnableService,
+			Parent:  comp,
+			Payload: res,
+		})
+	}
+	if !liveService.Started() {
+		actions = append(actions, Action{
+			Todo:    ActionStartService,
+			Parent:  comp,
+			Payload: res,
+		})
+	}
+	return actions, nil
+}
+
+func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Component) ([]Action, error) {
+	var actions []Action
 	for _, r := range comp.Resources {
-		plan.Add(Action{
+		actions = append(actions, Action{
 			Todo:    resToAction(r, "remove"),
 			Parent:  comp,
 			Payload: r,
 		})
 	}
 	if comp.Scripted {
-		plan.Add(Action{
+		actions = append(actions, Action{
 			Todo:   ActionCleanupComponent,
 			Parent: comp,
 		})
 	}
-	if !m.onlyResources {
-		for _, s := range comp.ServiceResources {
-			res := components.Resource{
-				Parent: comp.Name,
-				Name:   s.Service,
-				Kind:   components.ResourceTypeService,
-			}
-			liveService, err := m.Services.Get(ctx, comp.Name)
-			if err != nil {
-				return false, err
-			}
-			if liveService.Started() {
-				plan.Add(Action{
-					Todo:    ActionStopService,
-					Parent:  comp,
-					Payload: res,
-				})
-			}
-		}
-	}
-	plan.Add(Action{
+	actions = append(actions, Action{
 		Todo:   ActionRemoveComponent,
 		Parent: comp,
 	})
-	return true, nil
+	if m.onlyResources {
+		return actions, nil
+	}
+	for _, s := range comp.ServiceResources {
+		res := components.Resource{
+			Parent: comp.Name,
+			Name:   s.Service,
+			Kind:   components.ResourceTypeService,
+		}
+		liveService, err := m.Services.Get(ctx, comp.Name)
+		if err != nil {
+			return actions, err
+		}
+		if liveService.Started() {
+			actions = append(actions, Action{
+				Todo:    ActionStopService,
+				Parent:  comp,
+				Payload: res,
+			})
+		}
+	}
+	return actions, nil
 }
 
 func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {

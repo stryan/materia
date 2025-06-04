@@ -20,28 +20,32 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-type ComponentRepository interface {
-	GetComponent(string) (*components.Component, error)
-	GetResource(*components.Component, string) (components.Resource, error)
-	GetManifest(*components.Component) (*manifests.ComponentManifest, error)
-	InstallComponent(*components.Component) error
-	ComponentExists(string) (bool, error)
-	RemoveComponent(*components.Component) error
-	ReadResource(components.Resource) (string, error)
-	InstallResource(components.Resource, *bytes.Buffer) error
-	RemoveResource(components.Resource) error
-	ListResources(*components.Component) ([]components.Resource, error)
-	ListComponentNames() ([]string, error)
-	RunCleanup(*components.Component) error
-	RunSetup(*components.Component) error
-	PurgeComponent(*components.Component) error
-	PurgeComponentByName(string) error
-	Clean() error
-}
-
 type HostComponentRepository struct {
 	DataPrefix    string
 	QuadletPrefix string
+}
+
+func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponentRepository, error) {
+	if _, err := os.Stat(dataPrefix); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.Mkdir(dataPrefix, 0o755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating ComponentRepository with data_prefix %v: %w", dataPrefix, err)
+			}
+		}
+	}
+	if _, err := os.Stat(quadletPrefix); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.Mkdir(quadletPrefix, 0o755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating FileRepository with quadlet prefix %v: %w", quadletPrefix, err)
+			}
+		}
+	}
+	return &HostComponentRepository{
+		DataPrefix:    dataPrefix,
+		QuadletPrefix: quadletPrefix,
+	}, nil
 }
 
 func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {

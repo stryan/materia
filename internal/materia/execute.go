@@ -51,7 +51,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 		vaultVars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
 			Hostname:  m.Facts.GetHostname(),
-			Roles:     m.Facts.GetRoles(),
+			Roles:     m.Roles,
 			Component: v.Parent.Name,
 		})
 		maps.Copy(vars, v.Parent.Defaults)

@@ -22,6 +22,20 @@ type SourceComponentRepository struct {
 	Prefix string
 }
 
+func NewSourceComponentRepository(dataPrefix string) (*SourceComponentRepository, error) {
+	if _, err := os.Stat(dataPrefix); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.Mkdir(dataPrefix, 0o755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating SourceComponentRepository with data_prefix %v: %w", dataPrefix, err)
+			}
+		}
+	}
+	return &SourceComponentRepository{
+		Prefix: dataPrefix,
+	}, nil
+}
+
 func (s SourceComponentRepository) Validate() error {
 	if s.Prefix == "" {
 		return errors.New("no data prefix")

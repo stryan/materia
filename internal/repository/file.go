@@ -4,12 +4,25 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
 
 type FileRepository struct {
 	Prefix string
+}
+
+func NewFileRepository(prefix string) (*FileRepository, error) {
+	if _, err := os.Stat(prefix); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.Mkdir(prefix, 0o755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating FileRepository with prefix %v: %w", prefix, err)
+			}
+		}
+	}
+	return &FileRepository{prefix}, nil
 }
 
 func (filerepository *FileRepository) Install(ctx context.Context, path string, data *bytes.Buffer) error {
