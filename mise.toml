@@ -10,9 +10,6 @@ pandoc = "latest"
 [settings]
 experimental = true
 
-[env]
-CGO_ENABLED=0
-
 [tasks]
 
 [tasks.container]
