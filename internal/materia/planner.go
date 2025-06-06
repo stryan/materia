@@ -50,13 +50,13 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 		}
 		newComponents[comp.Name] = comp
 	}
-	updatedComponents, err = m.updateComponents(newComponents, currentComponents)
+	updatedComponents, err = updateComponents(newComponents, currentComponents)
 	if err != nil {
 		return plan, fmt.Errorf("error determining components: %w", err)
 	}
 	// Determine diff actions
 	log.Debug("calculating resource differences")
-	plannedActions, finalComponents, err := m.calculateDiffs(ctx, currentComponents, updatedComponents)
+	plannedActions, err := m.calculateDiffs(ctx, currentComponents, updatedComponents)
 	if err != nil {
 		return plan, fmt.Errorf("error calculating diffs: %w", err)
 	}
@@ -65,9 +65,9 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 		return nil, fmt.Errorf("generated invalid plan: %w", err)
 	}
 	var installing, removing, updating, ok []string
-	keys := sortedKeys(finalComponents)
+	keys := sortedKeys(updatedComponents)
 	for _, k := range keys {
-		v := finalComponents[k]
+		v := updatedComponents[k]
 		switch v.State {
 		case components.StateFresh:
 			installing = append(installing, v.Name)
@@ -102,10 +102,18 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	return plan, nil
 }
 
-func (m *Materia) updateComponents(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
+func updateComponents(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
 	componentDiffs := make(map[string]*components.Component)
 	// TODO consider replacing with action based results?
+	for _, v := range installedComponents {
+		if v.State != components.StateStale {
+			return nil, errors.New("installed component isn't stale")
+		}
+	}
 	for _, v := range assignedComponents {
+		if v.State != components.StateFresh {
+			return nil, errors.New("assigned component isn't fresh")
+		}
 		if old, ok := installedComponents[v.Name]; !ok {
 			v.State = components.StateFresh
 			componentDiffs[v.Name] = v
@@ -125,60 +133,80 @@ func (m *Materia) updateComponents(assignedComponents map[string]*components.Com
 	return componentDiffs, nil
 }
 
-func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, map[string]*components.Component, error) {
+func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, error) {
 	keys := sortedKeys(updates)
+	hostname := m.HostFacts.GetHostname()
 	var plannedActions []Action
 	for _, compName := range keys {
 		newComponent := updates[compName]
 		if err := newComponent.Validate(); err != nil {
-			return plannedActions, nil, err
+			return plannedActions, err
 		}
 		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.HostFacts.GetHostname(),
+			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
 
 		switch newComponent.State {
 		case components.StateFresh:
-			actions, err := m.calculateFreshComponent(ctx, newComponent, vars)
+			actions, err := calculateFreshComponent(m.SourceRepo, newComponent, vars, m.macros)
 			if err != nil {
-				return plannedActions, nil, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
+				return plannedActions, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
+			if !m.onlyResources {
+				if len(actions) > 0 {
+					actions = append(actions, Action{
+						Todo:    ActionReloadUnits,
+						Parent:  RootComponent,
+						Payload: components.Resource{},
+					})
+				}
+				sortedSrcs := sortedKeys(newComponent.ServiceResources)
+				for _, k := range sortedSrcs {
+					s := newComponent.ServiceResources[k]
+					installActions, err := generateServiceInstallActions(ctx, newComponent, s, m.Services)
+					if err != nil {
+						return actions, err
+					}
+					actions = append(actions, installActions...)
+				}
+			}
+
 			plannedActions = append(plannedActions, actions...)
 
 		case components.StateMayNeedUpdate:
 			original, ok := oldComps[compName]
 			if !ok {
-				return plannedActions, nil, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
+				return plannedActions, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
 			}
-			actions, err := m.calculatePotentialComponent(ctx, original, newComponent, vars)
+			actions, err := calculatePotentialComponent(ctx, m.SourceRepo, m.CompRepo, original, newComponent, vars, m.macros, m.Services, m.onlyResources, m.diffs)
 			if err != nil {
-				return plannedActions, nil, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
+				return plannedActions, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
 
 			plannedActions = append(plannedActions, actions...)
 		case components.StateStale, components.StateNeedRemoval:
-			actions, err := m.calculateRemoval(ctx, newComponent)
+			actions, err := calculateRemoval(ctx, newComponent, m.Services, m.onlyResources)
 			if err != nil {
-				return plannedActions, nil, fmt.Errorf("can't process to be removed component %v: %w", newComponent.Name, err)
+				return plannedActions, fmt.Errorf("can't process to be removed component %v: %w", newComponent.Name, err)
 			}
 
 			plannedActions = append(plannedActions, actions...)
 		case components.StateRemoved:
 			continue
 		case components.StateUnknown:
-			return plannedActions, nil, errors.New("found unknown component")
+			return plannedActions, errors.New("found unknown component")
 		default:
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
 
 	}
 
-	return plannedActions, updates, nil
+	return plannedActions, nil
 }
 
-func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *components.Component, vars map[string]any) ([]Action, error) {
+func calculateFreshComponent(sourceRepo ComponentRepository, newComponent *components.Component, vars map[string]any, macros MacroMap) ([]Action, error) {
 	var actions []Action
 	actions = append(actions, Action{
 		Todo:   ActionInstallComponent,
@@ -187,11 +215,11 @@ func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *com
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
 		// do a test run just to make sure we can actually install this resource
-		newStringTempl, err := m.SourceRepo.ReadResource(r)
+		newStringTempl, err := sourceRepo.ReadResource(r)
 		if err != nil {
 			return actions, err
 		}
-		_, err = m.executeResource(newStringTempl, vars)
+		_, err = executeResource(newStringTempl, vars, macros)
 		if err != nil {
 			return actions, err
 		}
@@ -208,37 +236,18 @@ func (m *Materia) calculateFreshComponent(ctx context.Context, newComponent *com
 			Parent: newComponent,
 		})
 	}
-	if m.onlyResources {
-		return actions, nil
-	}
-	if len(actions) > 0 {
-		actions = append(actions, Action{
-			Todo:    ActionReloadUnits,
-			Parent:  m.rootComponent,
-			Payload: components.Resource{},
-		})
-	}
-	sortedSrcs := sortedKeys(newComponent.ServiceResources)
-	for _, k := range sortedSrcs {
-		s := newComponent.ServiceResources[k]
-		installActions, err := m.generateServiceInstallActions(ctx, newComponent, s)
-		if err != nil {
-			return actions, err
-		}
-		actions = append(actions, installActions...)
-	}
 	return actions, nil
 }
 
-func (m *Materia) calculatePotentialComponent(ctx context.Context, original, newComponent *components.Component, vars map[string]any) ([]Action, error) {
+func calculatePotentialComponent(ctx context.Context, sourceRepo, compRepo ComponentRepository, original, newComponent *components.Component, vars map[string]any, macros MacroMap, sm Services, onlyResources, diffs bool) ([]Action, error) {
 	var actions []Action
-	resourceActions, err := m.diffComponent(original, newComponent, vars)
+	resourceActions, err := diffComponent(sourceRepo, compRepo, original, newComponent, vars, macros)
 	if err != nil {
 		log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
 		return actions, err
 	}
 	actions = append(actions, resourceActions...)
-	if m.onlyResources {
+	if onlyResources {
 		newComponent.State = components.StateOK
 		return actions, nil
 	}
@@ -257,18 +266,18 @@ func (m *Materia) calculatePotentialComponent(ctx context.Context, original, new
 		if len(actions) > 0 {
 			actions = append(actions, Action{
 				Todo:    ActionReloadUnits,
-				Parent:  m.rootComponent,
+				Parent:  RootComponent,
 				Payload: components.Resource{},
 			})
 		}
 		newComponent.State = components.StateNeedUpdate
-		actions, err := m.calculateServicesFromUpdate(ctx, original, newComponent, resourceActions, restartmap, reloadmap)
+		actions, err := calculateServicesFromUpdate(ctx, original, newComponent, resourceActions, restartmap, reloadmap, sm, diffs)
 		if err != nil {
 			return actions, err
 		}
 		serviceActions = append(serviceActions, actions...)
-	} else if !m.onlyResources {
-		actions, err := m.calculateServicesFromUnchanged(ctx, newComponent)
+	} else if !onlyResources {
+		actions, err := calculateServicesFromUnchanged(ctx, newComponent, sm)
 		if err != nil {
 			return actions, err
 		}
@@ -283,7 +292,7 @@ func (m *Materia) calculatePotentialComponent(ctx context.Context, original, new
 	return actions, nil
 }
 
-func (m *Materia) calculateServicesFromUpdate(ctx context.Context, original, newComponent *components.Component, resourceActions []Action, restartmap, reloadmap map[string]manifests.ServiceResourceConfig) ([]Action, error) {
+func calculateServicesFromUpdate(ctx context.Context, original, newComponent *components.Component, resourceActions []Action, restartmap, reloadmap map[string]manifests.ServiceResourceConfig, sm Services, diffs bool) ([]Action, error) {
 	var actions []Action
 	newComponent.State = components.StateNeedUpdate
 	for _, d := range resourceActions {
@@ -309,7 +318,7 @@ func (m *Materia) calculateServicesFromUpdate(ctx context.Context, original, new
 				},
 			})
 		}
-		if m.diffs && d.Category() == ActionCategoryUpdate {
+		if diffs && d.Category() == ActionCategoryUpdate {
 			diffs := d.Content.([]diffmatchpatch.Diff)
 			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
@@ -325,7 +334,7 @@ func (m *Materia) calculateServicesFromUpdate(ctx context.Context, original, new
 			continue
 		}
 		s := newComponent.ServiceResources[k]
-		installActions, err := m.generateServiceInstallActions(ctx, newComponent, s)
+		installActions, err := generateServiceInstallActions(ctx, newComponent, s, sm)
 		if err != nil {
 			return nil, err
 		}
@@ -337,16 +346,16 @@ func (m *Materia) calculateServicesFromUpdate(ctx context.Context, original, new
 		s := original.ServiceResources[osrc]
 		if !slices.Contains(sortedSrcs, osrc) {
 			// service is no longer managed by materia, stop it
-			actions = append(actions, m.generateServiceRemovalActions(original, s)...)
+			actions = append(actions, generateServiceRemovalActions(original, s)...)
 		}
 	}
 	return actions, nil
 }
 
-func (m *Materia) calculateServicesFromUnchanged(ctx context.Context, comp *components.Component) ([]Action, error) {
+func calculateServicesFromUnchanged(ctx context.Context, comp *components.Component, sm Services) ([]Action, error) {
 	var actions []Action
 	for _, s := range comp.ServiceResources {
-		installActions, err := m.generateServiceInstallActions(ctx, comp, s)
+		installActions, err := generateServiceInstallActions(ctx, comp, s, sm)
 		if err != nil {
 			return actions, nil
 		}
@@ -356,7 +365,7 @@ func (m *Materia) calculateServicesFromUnchanged(ctx context.Context, comp *comp
 	return actions, nil
 }
 
-func (m *Materia) generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) []Action {
+func generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) []Action {
 	var result []Action
 	res := components.Resource{
 		Parent: comp.Name,
@@ -378,9 +387,9 @@ func (m *Materia) generateServiceRemovalActions(comp *components.Component, osrc
 	return result
 }
 
-func (m *Materia) generateServiceInstallActions(ctx context.Context, comp *components.Component, osrc manifests.ServiceResourceConfig) ([]Action, error) {
+func generateServiceInstallActions(ctx context.Context, comp *components.Component, osrc manifests.ServiceResourceConfig, sm Services) ([]Action, error) {
 	var actions []Action
-	liveService, err := m.Services.Get(ctx, osrc.Service)
+	liveService, err := sm.Get(ctx, osrc.Service)
 	if errors.Is(err, services.ErrServiceNotFound) {
 		liveService = &services.Service{
 			Name:    osrc.Service,
@@ -395,7 +404,7 @@ func (m *Materia) generateServiceInstallActions(ctx context.Context, comp *compo
 		Name:   osrc.Service,
 		Kind:   components.ResourceTypeService,
 	}
-	if m.shouldEnableService(osrc, liveService) {
+	if shouldEnableService(osrc, liveService) {
 		actions = append(actions, Action{
 			Todo:    ActionEnableService,
 			Parent:  comp,
@@ -412,7 +421,7 @@ func (m *Materia) generateServiceInstallActions(ctx context.Context, comp *compo
 	return actions, nil
 }
 
-func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Component) ([]Action, error) {
+func calculateRemoval(ctx context.Context, comp *components.Component, sm Services, onlyResources bool) ([]Action, error) {
 	var actions []Action
 	for _, r := range comp.Resources {
 		actions = append(actions, Action{
@@ -431,7 +440,7 @@ func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Compone
 		Todo:   ActionRemoveComponent,
 		Parent: comp,
 	})
-	if m.onlyResources {
+	if onlyResources {
 		return actions, nil
 	}
 	for _, s := range comp.ServiceResources {
@@ -440,7 +449,7 @@ func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Compone
 			Name:   s.Service,
 			Kind:   components.ResourceTypeService,
 		}
-		liveService, err := m.Services.Get(ctx, comp.Name)
+		liveService, err := sm.Get(ctx, comp.Name)
 		if err != nil {
 			return actions, err
 		}
@@ -455,7 +464,7 @@ func (m *Materia) calculateRemoval(ctx context.Context, comp *components.Compone
 	return actions, nil
 }
 
-func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {
+func diffComponent(sourceRepo, compRepo ComponentRepository, base, other *components.Component, vars map[string]any, macros MacroMap) ([]Action, error) {
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", base, "right", other)
@@ -486,7 +495,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
 			log.Debug("diffing resource", "component", base.Name, "file", cur.Name)
-			diffs, err := m.diffResource(cur, newRes, diffVars)
+			diffs, err := diffResource(sourceRepo, compRepo, cur, newRes, diffVars, macros)
 			if err != nil {
 				return diffActions, err
 			}
@@ -534,11 +543,11 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	return diffActions, nil
 }
 
-func (m *Materia) shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
+func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
 	return !s.Disabled && s.Static && !liveService.Enabled
 }
 
-func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
+func diffResource(sourceRepo, compRepo ComponentRepository, cur, newRes components.Resource, vars map[string]any, macros MacroMap) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -547,16 +556,16 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	if err := newRes.Validate(); err != nil {
 		return diffs, fmt.Errorf("other resource invalid during comparison: %w", err)
 	}
-	curString, err := m.CompRepo.ReadResource(cur)
+	curString, err := compRepo.ReadResource(cur)
 	if err != nil {
 		return diffs, err
 	}
-	newStringTempl, err := m.SourceRepo.ReadResource(newRes)
+	newStringTempl, err := sourceRepo.ReadResource(newRes)
 	if err != nil {
 		return diffs, err
 	}
 	var newString string
-	result, err := m.executeResource(newStringTempl, vars)
+	result, err := executeResource(newStringTempl, vars, macros)
 	if err != nil {
 		return diffs, err
 	}
@@ -564,9 +573,9 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (m *Materia) executeResource(resourceTemplate string, vars map[string]any) (*bytes.Buffer, error) {
+func executeResource(resourceTemplate string, vars map[string]any, macros MacroMap) (*bytes.Buffer, error) {
 	result := bytes.NewBuffer([]byte{})
-	tmpl, err := template.New("resource").Option("missingkey=error").Funcs(m.macros(vars)).Parse(resourceTemplate)
+	tmpl, err := template.New("resource").Option("missingkey=error").Funcs(macros(vars)).Parse(resourceTemplate)
 	if err != nil {
 		return nil, err
 	}

@@ -130,7 +130,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}
@@ -142,7 +142,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}
@@ -172,7 +172,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}
@@ -232,7 +232,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err != nil {
 			return err
 		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
+		resourceData, err := executeResource(resourceTemplate, vars, m.macros)
 		if err != nil {
 			return err
 		}

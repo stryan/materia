@@ -85,6 +85,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	path := filepath.Join(s.Prefix, name)
 	c := &components.Component{}
 	c.Name = name
+	c.State = components.StateFresh
 	c.Defaults = make(map[string]any)
 	c.Version = components.DefaultComponentVersion
 	c.VolumeResources = make(map[string]manifests.VolumeResourceConfig)

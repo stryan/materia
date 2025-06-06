@@ -62,9 +62,12 @@ run = [
 
 [tasks.generate]
 description = "Run go:generate"
-sources = ["go.mod", "go.sum", "**/*.go"]
+sources = ["go.mod", "go.sum", "**/*.go",".mockery.yml"]
 outputs = { auto = true }
-run = "go generate ./..."
+run = [
+	"go generate ./...",
+	"mockery",
+]
 
 [tasks.build-amd64]
 depends = ["build-materia-amd64","build-athanor-amd64"]

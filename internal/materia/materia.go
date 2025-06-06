@@ -21,6 +21,9 @@ import (
 
 type MacroMap func(map[string]any) template.FuncMap
 
+// TODO ugly hack, remove
+var RootComponent = &components.Component{Name: "root"}
+
 type Materia struct {
 	HostFacts           FactsProvider
 	Manifest            *manifests.MateriaManifest
@@ -72,7 +75,7 @@ func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.Ma
 		SourceRepo:    sourceRepo,
 		OutputDir:     c.OutputDir,
 		snippets:      snips,
-		rootComponent: &components.Component{Name: "root"},
+		rootComponent: RootComponent,
 	}
 	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
