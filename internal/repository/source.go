@@ -30,6 +30,7 @@ func (s SourceComponentRepository) Validate() error {
 }
 
 func (s *SourceComponentRepository) ReadResource(res components.Resource) (string, error) {
+	fmt.Fprintf(os.Stderr, "FBLTHP[255]: source.go:32: res=%+v\n", res)
 	resPath := filepath.Join(s.Prefix, res.Parent, res.Path)
 
 	curFile, err := os.ReadFile(resPath)
