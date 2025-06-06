@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"slices"
 	"text/template"
 
@@ -47,7 +46,6 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 		newComponents2[comp.Name] = comp
 	}
 	newComponents, err = m.updateComponents2(newComponents2, currentComponents)
-	fmt.Fprintf(os.Stderr, "FBLTHP[264]: planner.go:48: newComponents=%+v\n", newComponents)
 	if err != nil {
 		return plan, fmt.Errorf("error determining components: %w", err)
 	}
