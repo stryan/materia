@@ -172,16 +172,16 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	// _ = os.RemoveAll(testPrefix)
+	_ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
 func TestFacts(t *testing.T) {
 	m := testMateria([]string{})
 	assert.NotNil(t, m.Manifest)
-	assert.Equal(t, m.Facts.GetHostname(), "localhost")
+	assert.Equal(t, m.HostFacts.GetHostname(), "localhost")
 	assert.Equal(t, m.Roles, []string(nil))
-	assert.Equal(t, m.AssignedComponents, []string{"hello", "double"})
+	assert.Equal(t, m.AssignedComponents, []string{"double", "hello"})
 	assert.Equal(t, m.InstalledComponents, []string(nil))
 }
 

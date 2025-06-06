@@ -3,7 +3,6 @@ package materia
 import (
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 )
 
@@ -65,13 +64,10 @@ func (p *Plan) Add(a Action) {
 	default:
 		panic(fmt.Sprintf("unexpected materia.ActionType: %v", a.Todo))
 	}
-
-	fmt.Fprintf(os.Stderr, "FBLTHP[253]: plan.go:71: Plan=%+v\n", p.Size())
 }
 
 func (p *Plan) Append(a []Action) {
 	for _, todo := range a {
-		fmt.Fprintf(os.Stderr, "FBLTHP[253]: plan.go:71: todo=%+v\n", todo)
 		p.Add(todo)
 	}
 }

@@ -50,7 +50,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, err
 		}
 		vaultVars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.Facts.GetHostname(),
+			Hostname:  m.HostFacts.GetHostname(),
 			Roles:     m.Roles,
 			Component: v.Parent.Name,
 		})

@@ -14,6 +14,7 @@ import (
 
 	"git.saintnet.tech/stryan/materia/internal/components"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
+	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 )
@@ -21,7 +22,7 @@ import (
 type MacroMap func(map[string]any) template.FuncMap
 
 type Materia struct {
-	Facts               FactsProvider
+	HostFacts           FactsProvider
 	Manifest            *manifests.MateriaManifest
 	Services            Services
 	Containers          ContainerManager
@@ -57,7 +58,7 @@ func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.Ma
 	m := &Materia{
 		Services:      sm,
 		Containers:    cm,
-		Facts:         facts,
+		HostFacts:     facts,
 		Manifest:      man,
 		source:        source,
 		debug:         c.Debug,
@@ -103,7 +104,7 @@ func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.Ma
 				return filepath.Join(filepath.Join(c.MateriaDir, "materia", "components"), arg), nil
 			},
 			"m_facts": func(arg string) (any, error) {
-				return m.Facts.Lookup(arg)
+				return m.HostFacts.Lookup(arg)
 			},
 			"m_default": func(arg string, def string) string {
 				val, ok := vars[arg]
@@ -144,7 +145,7 @@ func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.Ma
 	if ok {
 		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
 	}
-	host, ok = man.Hosts[c.Hostname]
+	host, ok = man.Hosts[facts.GetHostname()]
 	if ok {
 		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
 	}
@@ -162,6 +163,8 @@ func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.Ma
 	if err != nil {
 		return nil, fmt.Errorf("unable to list installed components: %w", err)
 	}
+	slices.Sort(m.AssignedComponents)
+	slices.Sort(m.InstalledComponents)
 	return m, nil
 }
 
@@ -228,14 +231,14 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 }
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
-	// if roles != nil {
-	// 	m.Facts.Roles = roles
-	// }
-	// if name != "" {
-	// 	m.Facts.AssignedComponents = []string{name}
-	// }
-	// m.Services = &services.PlannedServiceManager{}
-	// m.Facts.InstalledComponents = make(map[string]*components.Component)
+	if roles != nil {
+		m.Roles = roles
+	}
+	if name != "" {
+		m.AssignedComponents = []string{name}
+	}
+	m.Services = &services.PlannedServiceManager{}
+	m.InstalledComponents = []string{}
 	return m.Plan(ctx)
 }
 
@@ -270,7 +273,6 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 		Plan:      p.PrettyLines(),
 	}
 
-	// Create or truncate the output file
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("unable to create file %s: %w", path, err)

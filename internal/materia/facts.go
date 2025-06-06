@@ -9,7 +9,7 @@ type FactsProvider interface {
 }
 
 func (m *Materia) LookupFact(arg string) (string, error) {
-	fact, err := m.Facts.Lookup(arg)
+	fact, err := m.HostFacts.Lookup(arg)
 	if err != nil {
 		return "", err
 	}
@@ -19,7 +19,7 @@ func (m *Materia) LookupFact(arg string) (string, error) {
 func (m *Materia) GetFacts(host bool) string {
 	var result string
 	result += "Facts\n"
-	result += fmt.Sprintf("Hostname: %v\n", m.Facts.GetHostname())
+	result += fmt.Sprintf("Hostname: %v\n", m.HostFacts.GetHostname())
 	result += "Roles: "
 	for _, r := range m.Roles {
 		result += fmt.Sprintf("%v ", r)
@@ -33,7 +33,7 @@ func (m *Materia) GetFacts(host bool) string {
 		result += fmt.Sprintf("%v ", v)
 	}
 	result += "\nNetworks: "
-	for i, v := range m.Facts.GetInterfaces() {
+	for i, v := range m.HostFacts.GetInterfaces() {
 		result += fmt.Sprintf("\nInterface %v: %v", i, v)
 	}
 

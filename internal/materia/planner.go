@@ -104,6 +104,7 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 
 func (m *Materia) updateComponents(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
 	componentDiffs := make(map[string]*components.Component)
+	// TODO consider replacing with action based results?
 	for _, v := range assignedComponents {
 		if old, ok := installedComponents[v.Name]; !ok {
 			v.State = components.StateFresh
@@ -133,7 +134,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			return plannedActions, nil, err
 		}
 		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.Facts.GetHostname(),
+			Hostname:  m.HostFacts.GetHostname(),
 			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
