@@ -7,3 +7,5 @@ key.txt
 test_repo/
 **/*.age
 scripts/vm/auth/*
+docs/man
+docs/html

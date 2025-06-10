@@ -4,6 +4,8 @@ go = "1.24"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 golangci-lint = "2.0.2"
 gotestsum = "latest"
+mockery = "latest"
+pandoc = "latest"
 
 [settings]
 experimental = true
@@ -106,5 +108,15 @@ sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-amd64"]
 env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
 run = 'go build -ldflags="-w -s" -o bin/athanor-amd64 ./cmd/athanor/'
+
+[tasks.docs]
+description = "generate manpage and html docs"
+# sources = ["docs/*.md"]
+# outputs = { auto = true }
+run = [
+	"mkdir -p docs/man docs/html",
+	"find ./docs -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o docs/man/\"$(basename ${0%.md})\"' {} \\; ",
+	"find ./docs -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -o docs/html/\"$(basename ${0%.md} )\".html' {} \\;",
+]
 
 
