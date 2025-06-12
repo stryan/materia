@@ -111,12 +111,13 @@ run = 'go build -ldflags="-w -s" -o bin/athanor-amd64 ./cmd/athanor/'
 
 [tasks.docs]
 description = "generate manpage and html docs"
+dir = "docs"
 # sources = ["docs/*.md"]
 # outputs = { auto = true }
 run = [
-	"mkdir -p docs/man docs/html",
-	"find ./docs -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o docs/man/\"$(basename ${0%.md})\"' {} \\; ",
-	"find ./docs -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -o docs/html/\"$(basename ${0%.md} )\".html' {} \\;",
+	"mkdir -p man html",
+	"find . -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
+	"find . -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x --toc --template=templates/easy_template.html -o html/\"$(basename ${0%.md} )\".html' {} \\;",
 ]
 
 
