@@ -28,7 +28,7 @@ type Config struct {
 	MateriaDir    string
 	QuadletDir    string
 	ServiceDir    string
-	ScriptDir     string
+	ScriptsDir    string
 	SourceDir     string
 	OutputDir     string
 	OnlyResources bool
@@ -56,7 +56,7 @@ func NewConfig(configFile string) (*Config, error) {
 	}
 	var c Config
 	c.SourceURL = k.String("sourceurl")
-	c.SourceDir = k.String("source")
+	c.SourceDir = k.String("sourcedir")
 	c.Debug = k.Bool("debug")
 	c.Cleanup = k.Bool("cleanup")
 	c.Hostname = k.String("hostname")
@@ -65,10 +65,10 @@ func NewConfig(configFile string) (*Config, error) {
 	c.Diffs = k.Bool("diffs")
 	c.UseStdout = k.Bool("stdout")
 	c.MateriaDir = k.String("prefix")
-	c.QuadletDir = k.String("destination")
-	c.ServiceDir = k.String("services")
-	c.ScriptDir = k.String("scripts")
-	c.OutputDir = k.String("output")
+	c.QuadletDir = k.String("quadletdir")
+	c.ServiceDir = k.String("servicedir")
+	c.ScriptsDir = k.String("scriptsdir")
+	c.OutputDir = k.String("outputdir")
 	c.NoSync = k.Bool("nosync")
 	if k.Exists("git") {
 		c.GitConfig, err = git.NewConfig(k.Cut("git"))
@@ -113,6 +113,7 @@ func NewConfig(configFile string) (*Config, error) {
 			dataPath = datadir
 			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
 		}
+		scriptsPath = fmt.Sprintf("%v/.local/bin", home)
 	}
 	if c.MateriaDir == "" {
 		c.MateriaDir = dataPath
@@ -123,8 +124,8 @@ func NewConfig(configFile string) (*Config, error) {
 	if c.ServiceDir == "" {
 		c.ServiceDir = servicePath
 	}
-	if c.ScriptDir == "" {
-		c.ScriptDir = scriptsPath
+	if c.ScriptsDir == "" {
+		c.ScriptsDir = scriptsPath
 	}
 	if c.SourceDir == "" {
 		c.SourceDir = filepath.Join(dataPath, "materia", "source")
@@ -146,7 +147,7 @@ func (c *Config) Validate() error {
 	if c.ServiceDir == "" {
 		return errors.New("need services directory")
 	}
-	if c.ScriptDir == "" {
+	if c.ScriptsDir == "" {
 		return errors.New("need scripts directory")
 	}
 	if c.SourceDir == "" {
@@ -167,7 +168,7 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
 	result += fmt.Sprintf("Materia Root: %v\n", c.MateriaDir)
 	result += fmt.Sprintf("Quadlet Dir: %v\n", c.QuadletDir)
-	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptDir)
+	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	if c.GitConfig != nil {

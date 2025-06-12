@@ -53,7 +53,7 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	scriptRepo := &repository.FileRepository{Prefix: c.ScriptDir}
+	scriptRepo := &repository.FileRepository{Prefix: c.ScriptsDir}
 	serviceRepo := &repository.FileRepository{Prefix: c.ServiceDir}
 	sourceRepo := &repository.SourceComponentRepository{Prefix: filepath.Join(c.SourceDir, "components")}
 	hostRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir}

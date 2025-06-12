@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 		MateriaDir: testPrefix,
 		QuadletDir: installdir,
 		ServiceDir: servicedir,
-		ScriptDir:  scriptdir,
+		ScriptsDir: scriptdir,
 		SourceDir:  sourcedir,
 		OutputDir:  outputdir,
 		User:       &user.User{Uid: "100", Gid: "100", Username: "nonroot", HomeDir: ""},

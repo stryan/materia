@@ -60,8 +60,8 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	if _, err := os.Stat(c.QuadletDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("destination %v does not exist, setup manually", c.QuadletDir)
 	}
-	if _, err := os.Stat(c.ScriptDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("scripts location %v does not exist, setup manually", c.ScriptDir)
+	if _, err := os.Stat(c.ScriptsDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("scripts location %v does not exist, setup manually", c.ScriptsDir)
 	}
 	if _, err := os.Stat(c.ServiceDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("services location %v does not exist, setup manually", c.ServiceDir)
