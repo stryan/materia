@@ -255,6 +255,10 @@ func (r *SourceComponentRepository) InstallComponent(c *components.Component) er
 	return fmt.Errorf("can't install component: %w", ErrNeedHostRepository)
 }
 
+func (r *SourceComponentRepository) UpdateComponent(c *components.Component) error {
+	return fmt.Errorf("can't update component: %w", ErrNeedHostRepository)
+}
+
 func (r *SourceComponentRepository) RemoveComponent(c *components.Component) error {
 	return fmt.Errorf("can't remove component: %w", ErrNeedHostRepository)
 }

@@ -24,6 +24,7 @@ type ComponentRepository interface {
 	InstallComponent(*components.Component) error
 	ComponentExists(string) (bool, error)
 	RemoveComponent(*components.Component) error
+	UpdateComponent(*components.Component) error
 	ReadResource(components.Resource) (string, error)
 	InstallResource(components.Resource, *bytes.Buffer) error
 	RemoveResource(components.Resource) error

@@ -312,6 +312,19 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 	return nil
 }
 
+func (r *HostComponentRepository) UpdateComponent(c *components.Component) error {
+	vd, err := c.VersonData()
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(filepath.Join(r.DataPrefix, c.Name, ".component_version"), vd.Bytes(), 0o755)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *HostComponentRepository) RemoveComponent(c *components.Component) error {
 	if c == nil {
 		return errors.New("invalid component")

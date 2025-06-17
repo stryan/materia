@@ -125,6 +125,10 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err := m.CompRepo.InstallComponent(v.Parent); err != nil {
 			return err
 		}
+	case ActionUpdateComponent:
+		if err := m.CompRepo.UpdateComponent(v.Parent); err != nil {
+			return err
+		}
 	case ActionInstallFile, ActionUpdateFile, ActionInstallQuadlet, ActionUpdateQuadlet:
 		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
 		if err != nil {

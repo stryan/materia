@@ -174,6 +174,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			if !ok {
 				return plannedActions, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
 			}
+
 			actions, err := m.calculatePotentialComponentResources(original, newComponent, vars)
 			if err != nil {
 				return plannedActions, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
@@ -200,6 +201,18 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 					return actions, err
 				}
 				actions = append(actions, sactions...)
+			}
+			if original.Version != components.DefaultComponentVersion {
+				original.Version = components.DefaultComponentVersion
+				actions = append(actions, Action{
+					Todo:   ActionUpdateComponent,
+					Parent: original,
+				})
+			}
+			if len(actions) > 0 {
+				newComponent.State = components.StateNeedUpdate
+			} else {
+				newComponent.State = components.StateOK
 			}
 
 			plannedActions = append(plannedActions, actions...)
@@ -534,7 +547,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				log.Debug("updating current resource", "file", cur.Name, "diffs", diffs)
 				a := Action{
 					Todo:    resToAction(newRes, "update"),
-					Parent:  base,
+					Parent:  other,
 					Payload: newRes,
 					Content: diffs,
 				}

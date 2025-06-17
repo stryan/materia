@@ -27,6 +27,7 @@ const (
 	ActionSetupComponent
 	ActionRemoveComponent
 	ActionCleanupComponent
+	ActionUpdateComponent
 	ActionReloadUnits
 	ActionEnableService
 	ActionStartService
@@ -119,6 +120,8 @@ func (a *Action) Pretty() string {
 		return fmt.Sprintf("Setting up component %v", a.Parent.Name)
 	case ActionCleanupComponent:
 		return fmt.Sprintf("Cleaning up component %v", a.Parent.Name)
+	case ActionUpdateComponent:
+		return fmt.Sprintf("Updating component %v", a.Parent.Name)
 	default:
 		panic(fmt.Sprintf("unexpected materia.ActionType: %#v", a.Todo))
 	}
