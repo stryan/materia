@@ -29,7 +29,9 @@ Presented in *environmental variable*/`TOML config line option` format.
 *MATERIA_SOURCEURL*/`sourceurl`
 
 :  Source location of the *materia-repository(5)* in URL format. Accepted formats:
+
    Git Repo: `git://git_repo_url`. See *materia-config-git(5)* for more details.
+
    Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
 
 *MATERIA_HOSTNAME*/`hostname`
