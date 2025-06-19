@@ -1,0 +1,2 @@
+# This is a data file. It will be installed to /var/lib/materia/components/hello/hello.data by default
+Hello!

@@ -1,0 +1,4 @@
+defaults.containerTag = "latest"
+defaults.port = "8090"
+[[services]]
+service = "beszel-server.service"
