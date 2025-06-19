@@ -206,7 +206,7 @@ No, it's named after the alchemical concept of the [prima materia](https://en.wi
 
 Also the last good Final Fantasy game was FF3 and I will die on this hill.
 
-## Is this related to <insert any of the several companies named materia>
+## Is this related to \<insert any of the several companies named materia\>
 
 No, but it's funny we all get out-SEO'd by a video game.
 
