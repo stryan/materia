@@ -25,4 +25,7 @@ Settings for secrets management using `age`.
 
 :  File containing `age` private key used for secrets files.
 
+*MATERIA_AGE_BASEDIR*
+
+: What directory to look in for secrets
 

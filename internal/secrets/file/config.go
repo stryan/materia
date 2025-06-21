@@ -1,41 +1,33 @@
-package age
+package file
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/knadh/koanf/v2"
 )
 
 type Config struct {
-	IdentPath     string
 	BaseDir       string
 	GeneralVaults []string
 }
 
 func (c Config) Validate() error {
 	if c.BaseDir == "" {
-		return fmt.Errorf("invalid base path for age: %v", c.BaseDir)
-	}
-	if c.IdentPath == "" {
-		return fmt.Errorf("invalid identities location for age: %v", c.IdentPath)
+		return errors.New("need base directory for file secrets")
 	}
 	return nil
 }
 
-func (c Config) SecretsType() string { return "age" }
-
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
-	c.IdentPath = k.String("idents")
 	c.BaseDir = k.String("basedir")
 	c.GeneralVaults = k.Strings("vaults")
+
 	return &c, nil
 }
 
 func (c *Config) Merge(other *Config) {
-	if other.IdentPath != "" {
-		c.IdentPath = other.IdentPath
-	}
 	if other.BaseDir != "" {
 		c.BaseDir = other.BaseDir
 	}
@@ -45,5 +37,9 @@ func (c *Config) Merge(other *Config) {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("Ident Path:%v\nBase Path: %v\nVaults: %v\n", c.IdentPath, c.BaseDir, c.GeneralVaults)
+	return fmt.Sprintf("Base Path: %v\nVaults: %v\n", c.BaseDir, c.GeneralVaults)
+}
+
+func (c Config) SecretsType() string {
+	return "file"
 }

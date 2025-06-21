@@ -2,12 +2,15 @@ package manifests
 
 import (
 	"errors"
-	"path/filepath"
+	"fmt"
 	"slices"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
 	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
+
+	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
+
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -49,9 +52,14 @@ func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 	}
 	switch m.Secrets {
 	case "age":
-		m.SecretsConfig = age.Config{
-			IdentPath: k.MustString("age.idents"),
-			RepoPath:  filepath.Dir(path),
+		m.SecretsConfig, err = age.NewConfig(k.Cut("age"))
+		if err != nil {
+			return nil, fmt.Errorf("error creating age secrets config: %w", err)
+		}
+	case "file":
+		m.SecretsConfig, err = filesecrets.NewConfig(k.Cut("file"))
+		if err != nil {
+			return nil, fmt.Errorf("error creating file secrets config: %w", err)
 		}
 	case "memory":
 		m.SecretsConfig = mem.MemoryConfig{}

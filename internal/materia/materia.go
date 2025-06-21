@@ -20,6 +20,7 @@ import (
 	"git.saintnet.tech/stryan/materia/internal/repository"
 	"git.saintnet.tech/stryan/materia/internal/secrets"
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
 	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
 	"git.saintnet.tech/stryan/materia/internal/services"
 	"git.saintnet.tech/stryan/materia/internal/source"
@@ -207,23 +208,35 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 
 	switch m.Manifest.Secrets {
 	case "age":
-		conf, ok := m.Manifest.SecretsConfig.(age.Config)
+		conf, ok := m.Manifest.SecretsConfig.(*age.Config)
 		if !ok {
 			return nil, errors.New("tried to create an age secrets manager but config was not for age")
 		}
-		conf.RepoPath = c.SourceDir
 		if c.AgeConfig != nil {
 			conf.Merge(c.AgeConfig)
 		}
-		m.Secrets, err = age.NewAgeStore(conf)
+		m.Secrets, err = age.NewAgeStore(*conf, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
+		}
+	case "file":
+		conf, ok := m.Manifest.SecretsConfig.(*filesecrets.Config)
+		if !ok {
+			return nil, errors.New("tried to create an file secrets manager but config was not for file")
+		}
+		if c.FileConfig != nil {
+			conf.Merge(c.FileConfig)
+		}
+		m.Secrets, err = filesecrets.NewFileStore(*conf, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
 
 	case "mem":
 		m.Secrets = mem.NewMemoryManager()
 	default:
-		m.Secrets = mem.NewMemoryManager()
+		// TODO allow this to be empty if secrets config is passed at runtime via config/env
+		return nil, errors.New("unknown secrets config in manifest")
 	}
 	for _, v := range m.Manifest.Snippets {
 		s, err := configToSnippet(v)

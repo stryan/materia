@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
 	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
@@ -36,6 +37,7 @@ type Config struct {
 	NoSync        bool
 	GitConfig     *git.Config
 	AgeConfig     *age.Config
+	FileConfig    *filesecrets.Config
 	User          *user.User
 }
 
@@ -78,6 +80,12 @@ func NewConfig(configFile string) (*Config, error) {
 	}
 	if k.Exists("age") {
 		c.AgeConfig, err = age.NewConfig(k.Cut("age"))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if k.Exists("file") {
+		c.FileConfig, err = filesecrets.NewConfig(k.Cut("file"))
 		if err != nil {
 			return nil, err
 		}

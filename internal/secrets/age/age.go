@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"filippo.io/age"
@@ -17,11 +18,12 @@ import (
 )
 
 type AgeStore struct {
-	identities []age.Identity
-	vaultfiles []string
+	identities    []age.Identity
+	vaultfiles    []string
+	generalVaults []string
 }
 
-func NewAgeStore(c Config) (*AgeStore, error) {
+func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 	err := c.Validate()
 	if err != nil {
 		return nil, err
@@ -30,7 +32,7 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 	dir := filepath.Dir(c.IdentPath)
 	// TODO this was added for testing, is it needed?
 	if dir == "." {
-		c.IdentPath = filepath.Join(c.RepoPath, c.IdentPath)
+		c.IdentPath = filepath.Join(sourceDir, c.IdentPath)
 	}
 	ifile, err := os.Open(c.IdentPath)
 	if err != nil {
@@ -44,7 +46,11 @@ func NewAgeStore(c Config) (*AgeStore, error) {
 		return nil, errors.New("need at least one identity")
 	}
 	a.identities = idents
-	err = filepath.WalkDir(c.RepoPath, func(path string, d fs.DirEntry, err error) error {
+	if len(c.GeneralVaults) == 0 {
+		c.GeneralVaults = []string{"vault.age", "secrets.age"}
+	}
+	a.generalVaults = c.GeneralVaults
+	err = filepath.WalkDir(filepath.Join(sourceDir, c.BaseDir), func(path string, d fs.DirEntry, err error) error {
 		if d.Name() == ".git" {
 			return nil
 		}
@@ -65,7 +71,7 @@ func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]
 	results := make(map[string]any)
 	files := []string{}
 	for _, v := range a.vaultfiles {
-		if strings.Contains(v, f.Hostname) || filepath.Base(v) == "vault.age" || filepath.Base(v) == "secrets.age" {
+		if strings.Contains(v, f.Hostname) || slices.Contains(a.generalVaults, filepath.Base(v)) {
 			files = append(files, v)
 		}
 		for _, r := range f.Roles {
