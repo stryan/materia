@@ -1,6 +1,7 @@
 [vars]
 container_tag = "${TAG}"
+image_registry = "${IMAGE_REGISTRY}"
 
 [tasks.ci]
 depends = ["build","test"]
-run = 'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t git.saintnet.tech/stryan/materia:{{vars.container_tag}} .'
+run = 'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:{{vars.container_tag}} .'
