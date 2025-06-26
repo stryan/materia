@@ -5,124 +5,54 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"text/template"
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
-	"git.saintnet.tech/stryan/materia/internal/repository"
-	"git.saintnet.tech/stryan/materia/internal/secrets"
-	"git.saintnet.tech/stryan/materia/internal/secrets/age"
-	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
-	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
 	"git.saintnet.tech/stryan/materia/internal/services"
-	"git.saintnet.tech/stryan/materia/internal/source"
-	"git.saintnet.tech/stryan/materia/internal/source/file"
-	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 )
 
 type MacroMap func(map[string]any) template.FuncMap
 
+// TODO ugly hack, remove
+var RootComponent = &components.Component{Name: "root"}
+
 type Materia struct {
-	Facts         fprov.FactsProvider
-	Manifest      *manifests.MateriaManifest
-	Services      services.Services
-	PodmanConn    context.Context
-	Containers    containers.ContainerManager
-	Secrets       secrets.SecretsManager
-	source        source.Source
-	CompRepo      repository.ComponentRepository
-	ScriptRepo    repository.Repository
-	ServiceRepo   repository.Repository
-	SourceRepo    repository.ComponentRepository
-	rootComponent *components.Component
-	macros        MacroMap
-	snippets      map[string]*Snippet
-	OutputDir     string
-	onlyResources bool
-	debug         bool
-	diffs         bool
-	cleanup       bool
+	HostFacts           FactsProvider
+	Manifest            *manifests.MateriaManifest
+	Services            Services
+	Containers          ContainerManager
+	Secrets             SecretsManager
+	source              Source
+	CompRepo            ComponentRepository
+	ScriptRepo          Repository
+	ServiceRepo         Repository
+	SourceRepo          ComponentRepository
+	rootComponent       *components.Component
+	AssignedComponents  []string
+	InstalledComponents []string
+	Roles               []string
+	macros              MacroMap
+	snippets            map[string]*Snippet
+	OutputDir           string
+	onlyResources       bool
+	debug               bool
+	diffs               bool
+	cleanup             bool
 }
 
-func NewMateria(ctx context.Context, c *Config, sm services.Services, cm containers.ContainerManager, scriptRepo, serviceRepo repository.Repository, sourceRepo repository.ComponentRepository, hostRepo repository.ComponentRepository) (*Materia, error) {
+func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.MateriaManifest, facts FactsProvider, secrets SecretsManager, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	if _, err := os.Stat(c.QuadletDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("destination %v does not exist, setup manually", c.QuadletDir)
-	}
-	if _, err := os.Stat(c.ScriptsDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("scripts location %v does not exist, setup manually", c.ScriptsDir)
-	}
-	if _, err := os.Stat(c.ServiceDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("services location %v does not exist, setup manually", c.ServiceDir)
-	}
 
-	err := os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating prefix: %w", err)
-	}
-	err = os.Mkdir(c.OutputDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating output dir: %w", err)
-	}
-	err = os.Mkdir(c.SourceDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating source repo: %w", err)
-	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating components in prefix: %w", err)
-	}
-
-	var source source.Source
-	parsedPath := strings.Split(c.SourceURL, "://")
-	switch parsedPath[0] {
-	case "git":
-		source, err = git.NewGitSource(c.SourceDir, parsedPath[1], c.GitConfig)
-		if err != nil {
-			return nil, fmt.Errorf("invalid git source: %w", err)
-		}
-	case "file":
-		source = file.NewFileSource(c.SourceDir, parsedPath[1])
-	default:
-		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
-	}
-
-	// Ensure local cache
-	if c.NoSync {
-		log.Debug("skipping cache update on request")
-	} else {
-		log.Debug("updating configured source cache")
-		err = source.Sync(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error syncing source: %w", err)
-		}
-	}
-	log.Debug("loading manifest")
-	man, err := manifests.LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
-	if err != nil {
-		return nil, fmt.Errorf("error loading manifest: %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, err
-	}
-
-	log.Debug("loading facts")
-	facts, err := fprov.NewFacts(ctx, c.Hostname, man, hostRepo, cm)
-	if err != nil {
-		return nil, fmt.Errorf("error generating facts: %w", err)
-	}
 	snips := make(map[string]*Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
@@ -131,20 +61,21 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 	m := &Materia{
 		Services:      sm,
 		Containers:    cm,
-		Facts:         facts,
+		HostFacts:     facts,
 		Manifest:      man,
 		source:        source,
 		debug:         c.Debug,
 		diffs:         c.Diffs,
 		cleanup:       c.Cleanup,
 		onlyResources: c.OnlyResources,
+		Secrets:       secrets,
 		CompRepo:      hostRepo,
 		ScriptRepo:    scriptRepo,
 		ServiceRepo:   serviceRepo,
 		SourceRepo:    sourceRepo,
 		OutputDir:     c.OutputDir,
 		snippets:      snips,
-		rootComponent: &components.Component{Name: "root"},
+		rootComponent: RootComponent,
 	}
 	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
@@ -176,7 +107,7 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 				return filepath.Join(filepath.Join(c.MateriaDir, "materia", "components"), arg), nil
 			},
 			"m_facts": func(arg string) (any, error) {
-				return m.Facts.Lookup(arg)
+				return m.HostFacts.Lookup(arg)
 			},
 			"m_default": func(arg string, def string) string {
 				val, ok := vars[arg]
@@ -206,38 +137,6 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		}
 	}
 
-	switch m.Manifest.Secrets {
-	case "age":
-		conf, ok := m.Manifest.SecretsConfig.(*age.Config)
-		if !ok {
-			return nil, errors.New("tried to create an age secrets manager but config was not for age")
-		}
-		if c.AgeConfig != nil {
-			conf.Merge(c.AgeConfig)
-		}
-		m.Secrets, err = age.NewAgeStore(*conf, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating age store: %w", err)
-		}
-	case "file":
-		conf, ok := m.Manifest.SecretsConfig.(*filesecrets.Config)
-		if !ok {
-			return nil, errors.New("tried to create an file secrets manager but config was not for file")
-		}
-		if c.FileConfig != nil {
-			conf.Merge(c.FileConfig)
-		}
-		m.Secrets, err = filesecrets.NewFileStore(*conf, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating file store: %w", err)
-		}
-
-	case "mem":
-		m.Secrets = mem.NewMemoryManager()
-	default:
-		// TODO allow this to be empty if secrets config is passed at runtime via config/env
-		return nil, errors.New("unknown secrets config in manifest")
-	}
 	for _, v := range m.Manifest.Snippets {
 		s, err := configToSnippet(v)
 		if err != nil {
@@ -245,7 +144,53 @@ func NewMateria(ctx context.Context, c *Config, sm services.Services, cm contain
 		}
 		m.snippets[s.Name] = s
 	}
+	host, ok := man.Hosts["all"]
+	if ok {
+		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
+	}
+	host, ok = man.Hosts[facts.GetHostname()]
+	if ok {
+		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
+	}
+	var err error
+	m.Roles, err = getRolesFromManifest(man, facts.GetHostname())
+	if err != nil {
+		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
+	}
+	for _, v := range m.Roles {
+		if len(man.Roles[v].Components) != 0 {
+			m.AssignedComponents = append(m.AssignedComponents, man.Roles[v].Components...)
+		}
+	}
+	m.InstalledComponents, err = m.CompRepo.ListComponentNames()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list installed components: %w", err)
+	}
+	slices.Sort(m.AssignedComponents)
+	slices.Sort(m.InstalledComponents)
 	return m, nil
+}
+
+func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]string, error) {
+	var roles []string
+	if man.RoleCommand != "" {
+		roleStruct := struct{ Roles []string }{}
+		cmd := exec.Command(man.RoleCommand)
+		res, err := cmd.Output()
+		if err != nil {
+			return nil, err
+		}
+		err = toml.Unmarshal(res, &roleStruct)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, roleStruct.Roles...)
+	} else if host, ok := man.Hosts[hostname]; ok {
+		if len(host.Roles) != 0 {
+			roles = append(roles, host.Roles...)
+		}
+	}
+	return roles, nil
 }
 
 func (m *Materia) Close() {
@@ -266,7 +211,7 @@ func (m *Materia) Clean(ctx context.Context) error {
 }
 
 func (m *Materia) CleanComponent(ctx context.Context, name string) error {
-	isInstalled := slices.Contains(m.Facts.GetInstalledComponents(), name)
+	isInstalled := slices.Contains(m.InstalledComponents, name)
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
@@ -289,14 +234,14 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 }
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
-	// if roles != nil {
-	// 	m.Facts.Roles = roles
-	// }
-	// if name != "" {
-	// 	m.Facts.AssignedComponents = []string{name}
-	// }
-	// m.Services = &services.PlannedServiceManager{}
-	// m.Facts.InstalledComponents = make(map[string]*components.Component)
+	if roles != nil {
+		m.Roles = roles
+	}
+	if name != "" {
+		m.AssignedComponents = []string{name}
+	}
+	m.Services = &services.PlannedServiceManager{}
+	m.InstalledComponents = []string{}
 	return m.Plan(ctx)
 }
 
@@ -331,7 +276,6 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 		Plan:      p.PrettyLines(),
 	}
 
-	// Create or truncate the output file
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("unable to create file %s: %w", path, err)

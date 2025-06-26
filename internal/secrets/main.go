@@ -1,13 +1,5 @@
 package secrets
 
-import (
-	"context"
-)
-
-type SecretsManager interface {
-	Lookup(context.Context, SecretFilter) map[string]any
-}
-
 type SecretsConfig interface {
 	SecretsType() string
 	Validate() error

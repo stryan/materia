@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,17 @@ func (f *FileSource) Clean() (_ error) {
 	return os.RemoveAll(f.path)
 }
 
-func NewFileSource(path, repo string) *FileSource {
-	return &FileSource{repo, path}
+func NewFileSource(path, repo string) (*FileSource, error) {
+	if _, err := os.Stat(path); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		err = os.Mkdir(path, 0o755)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &FileSource{repo, path}, nil
 }
 
 func (f *FileSource) Sync(ctx context.Context) error {

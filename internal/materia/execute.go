@@ -50,8 +50,8 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, err
 		}
 		vaultVars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
-			Hostname:  m.Facts.GetHostname(),
-			Roles:     m.Facts.GetRoles(),
+			Hostname:  m.HostFacts.GetHostname(),
+			Roles:     m.Roles,
 			Component: v.Parent.Name,
 		})
 		maps.Copy(vars, v.Parent.Defaults)
@@ -123,6 +123,10 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 	switch v.Todo {
 	case ActionInstallComponent:
 		if err := m.CompRepo.InstallComponent(v.Parent); err != nil {
+			return err
+		}
+	case ActionUpdateComponent:
+		if err := m.CompRepo.UpdateComponent(v.Parent); err != nil {
 			return err
 		}
 	case ActionInstallFile, ActionUpdateFile, ActionInstallQuadlet, ActionUpdateQuadlet:

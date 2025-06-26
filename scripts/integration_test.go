@@ -2,17 +2,25 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"git.saintnet.tech/stryan/materia/internal/components"
+	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"git.saintnet.tech/stryan/materia/internal/repository"
+	"git.saintnet.tech/stryan/materia/internal/secrets/age"
+	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
+	"git.saintnet.tech/stryan/materia/internal/source"
+	"git.saintnet.tech/stryan/materia/internal/source/file"
+	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,17 +33,93 @@ var (
 )
 
 func testMateria(services []string) *materia.Materia {
+	var source source.Source
+	var err error
+	parsedPath := strings.Split(cfg.SourceURL, "://")
+	switch parsedPath[0] {
+	case "git":
+		source, err = git.NewGitSource(cfg.SourceDir, parsedPath[1], cfg.GitConfig)
+		if err != nil {
+			log.Fatal("invalid git source: %v", err)
+		}
+	case "file":
+		source, err = file.NewFileSource(cfg.SourceDir, parsedPath[1])
+		if err != nil {
+			log.Fatal("invalid file source: %v", err)
+		}
+	default:
+		log.Fatalf("invalid source: %v", parsedPath[0])
+	}
+
 	mockservices := &MockServices{}
 	mockservices.Services = make(map[string]string)
 	mockcontainers := &MockContainers{make(map[string]string)}
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
 	}
-	scripts := &repository.FileRepository{Prefix: scriptdir}
-	servicesrepo := &repository.FileRepository{Prefix: servicedir}
-	source := &repository.SourceComponentRepository{Prefix: filepath.Join(sourcedir, "components")}
-	compRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(prefix, "components"), QuadletPrefix: installdir}
-	m, err := materia.NewMateria(ctx, cfg, mockservices, mockcontainers, scripts, servicesrepo, source, compRepo)
+	scripts, err := repository.NewFileRepository(scriptdir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	servicesrepo, err := repository.NewFileRepository(servicedir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sourceRepo, err := repository.NewSourceComponentRepository(filepath.Join(sourcedir, "components"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	compRepo, err := repository.NewHostComponentRepository(installdir, filepath.Join(prefix, "components"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Ensure local cache
+	if cfg.NoSync {
+		log.Debug("skipping cache update on request")
+	} else {
+		log.Debug("updating configured source cache")
+		err = source.Sync(ctx)
+		if err != nil {
+			log.Fatalf("error syncing source: %v", err)
+		}
+	}
+	log.Debug("loading manifest")
+	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, "MANIFEST.toml"))
+	if err != nil {
+		log.Fatalf("error loading manifest: %v", err)
+	}
+	if err := man.Validate(); err != nil {
+		log.Fatal(err)
+	}
+	var secretManager materia.SecretsManager
+	switch man.Secrets {
+	case "age":
+		conf, ok := man.SecretsConfig.(age.Config)
+		if !ok {
+			log.Fatal(errors.New("tried to create an age secrets manager but config was not for age"))
+		}
+		conf.RepoPath = cfg.SourceDir
+		if cfg.AgeConfig != nil {
+			conf.Merge(cfg.AgeConfig)
+		}
+		secretManager, err = age.NewAgeStore(conf)
+		if err != nil {
+			log.Fatal(fmt.Errorf("error creating age store: %w", err))
+		}
+
+	case "mem":
+		secretManager = mem.NewMemoryManager()
+	default:
+		secretManager = mem.NewMemoryManager()
+	}
+	log.Debug("loading facts")
+	facts, err := fprov.NewHostFacts(ctx, cfg.Hostname)
+	if err != nil {
+		log.Fatalf("error generating facts: %v", err)
+	}
+
+	m, err := materia.NewMateria(ctx, cfg, source, man, facts, secretManager, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,18 +172,17 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	// _ = os.RemoveAll(testPrefix)
+	_ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
 func TestFacts(t *testing.T) {
 	m := testMateria([]string{})
 	assert.NotNil(t, m.Manifest)
-	assert.NotNil(t, m.Facts)
-	assert.Equal(t, m.Facts.GetHostname(), "localhost")
-	assert.Equal(t, m.Facts.GetRoles(), []string(nil))
-	assert.Equal(t, m.Facts.GetAssignedComponents(), []string{"hello", "double"})
-	assert.Equal(t, m.Facts.GetInstalledComponents(), []string(nil))
+	assert.Equal(t, m.HostFacts.GetHostname(), "localhost")
+	assert.Equal(t, m.Roles, []string(nil))
+	assert.Equal(t, m.AssignedComponents, []string{"double", "hello"})
+	assert.Equal(t, m.InstalledComponents, []string(nil))
 }
 
 var expectedActions = []materia.Action{
@@ -137,11 +220,14 @@ func TestPlan(t *testing.T) {
 	require.Nil(t, err)
 	require.False(t, plan.Empty(), "plan should not be empty")
 	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
+	require.Nil(t, plan.Validate(), "generated invalid plan")
 
-	expectedPlan := materia.NewPlan(m.Facts)
+	expectedPlan := materia.NewPlan(m.InstalledComponents, []string{})
 	for _, e := range expectedActions {
 		expectedPlan.Add(e)
 	}
+
+	log.Info(expectedPlan.Pretty())
 	for k, v := range plan.Steps() {
 		expected := expectedPlan.Steps()[k]
 		if expected.Todo != v.Todo {

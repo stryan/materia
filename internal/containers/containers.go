@@ -11,15 +11,6 @@ import (
 	"strings"
 )
 
-type ContainerManager interface {
-	InspectVolume(string) (*Volume, error)
-	ListVolumes(context.Context) ([]*Volume, error)
-	PauseContainer(context.Context, string) error
-	UnpauseContainer(context.Context, string) error
-	DumpVolume(context.Context, Volume, string, bool) error
-	Close()
-}
-
 type PodmanManager struct{}
 
 type Container struct {

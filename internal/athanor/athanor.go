@@ -23,8 +23,8 @@ import (
 type Athanor struct {
 	Destination string
 	Repo        *repository.HostComponentRepository
-	pm          containers.ContainerManager
-	sm          services.Services
+	pm          ContainerManager
+	sm          Services
 }
 
 type ComponentTarget struct {
@@ -65,7 +65,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func NewAthanor(conf *Config, repo *repository.HostComponentRepository, pm containers.ContainerManager, sm services.Services) (*Athanor, error) {
+func NewAthanor(conf *Config, repo *repository.HostComponentRepository, pm ContainerManager, sm services.Services) (*Athanor, error) {
 	return &Athanor{
 		Destination: conf.OutputDir,
 		Repo:        repo,

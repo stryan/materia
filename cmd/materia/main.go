@@ -8,11 +8,8 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 	"git.saintnet.tech/stryan/materia/internal/materia"
 	"git.saintnet.tech/stryan/materia/internal/repository"
-	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
 )
@@ -28,41 +25,6 @@ var Commit = func() string {
 
 	return ""
 }()
-
-func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
-	// Configure
-
-	err := c.Validate()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if c.UseStdout {
-		log.Default().SetOutput(os.Stdout)
-	}
-	if c.Debug {
-		log.Default().SetLevel(log.DebugLevel)
-		log.Default().SetReportCaller(true)
-	}
-	sm, err := services.NewServices(ctx, &services.ServicesConfig{
-		Timeout: c.Timeout,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	cm, err := containers.NewPodmanManager()
-	if err != nil {
-		log.Fatal(err)
-	}
-	scriptRepo := &repository.FileRepository{Prefix: c.ScriptsDir}
-	serviceRepo := &repository.FileRepository{Prefix: c.ServiceDir}
-	sourceRepo := &repository.SourceComponentRepository{Prefix: filepath.Join(c.SourceDir, "components")}
-	hostRepo := &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir}
-	m, err := materia.NewMateria(ctx, c, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return m, nil
-}
 
 func main() {
 	ctx := context.Background()
@@ -135,32 +97,19 @@ func main() {
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
-					var facts fprov.FactsProvider
-					if host {
-						cm, err := containers.NewPodmanManager()
-						if err != nil {
-							return err
-						}
-						facts, err = fprov.NewFacts(ctx, c.Hostname, nil, nil, cm)
-						if err != nil {
-							return err
-						}
-					} else {
-						m, err := setup(ctx, c)
-						if err != nil {
-							return err
-						}
-						facts = m.Facts
+					m, err := setup(ctx, c)
+					if err != nil {
+						return err
 					}
 					if arg != "" {
-						fact, err := facts.Lookup(arg)
+						fact, err := m.LookupFact(arg)
 						if err != nil {
 							return err
 						}
 						fmt.Printf("Fact %v: %v", arg, fact)
 						return nil
 					}
-					fmt.Println(facts.Pretty())
+					fmt.Println(m.GetFacts(host))
 					return nil
 				},
 			},

@@ -22,6 +22,20 @@ type SourceComponentRepository struct {
 	Prefix string
 }
 
+func NewSourceComponentRepository(dataPrefix string) (*SourceComponentRepository, error) {
+	if _, err := os.Stat(dataPrefix); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = os.Mkdir(dataPrefix, 0o755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating SourceComponentRepository with data_prefix %v: %w", dataPrefix, err)
+			}
+		}
+	}
+	return &SourceComponentRepository{
+		Prefix: dataPrefix,
+	}, nil
+}
+
 func (s SourceComponentRepository) Validate() error {
 	if s.Prefix == "" {
 		return errors.New("no data prefix")
@@ -71,6 +85,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	path := filepath.Join(s.Prefix, name)
 	c := &components.Component{}
 	c.Name = name
+	c.State = components.StateFresh
 	c.Defaults = make(map[string]any)
 	c.Version = components.DefaultComponentVersion
 	c.VolumeResources = make(map[string]manifests.VolumeResourceConfig)
@@ -238,6 +253,10 @@ func (r *SourceComponentRepository) ListResources(c *components.Component) ([]co
 
 func (r *SourceComponentRepository) InstallComponent(c *components.Component) error {
 	return fmt.Errorf("can't install component: %w", ErrNeedHostRepository)
+}
+
+func (r *SourceComponentRepository) UpdateComponent(c *components.Component) error {
+	return fmt.Errorf("can't update component: %w", ErrNeedHostRepository)
 }
 
 func (r *SourceComponentRepository) RemoveComponent(c *components.Component) error {

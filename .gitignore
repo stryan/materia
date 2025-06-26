@@ -3,6 +3,7 @@ bin/
 .envrc
 key.txt
 *_string.go
+mocks_test.go
 *recipient
 test_repo/
 **/*.age

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-
-	fprov "git.saintnet.tech/stryan/materia/internal/facts"
 )
 
 type Plan struct {
@@ -18,20 +16,18 @@ type Plan struct {
 	endStep     []Action
 }
 
-func NewPlan(facts fprov.FactsProvider) *Plan {
-	p := &Plan{}
-	for _, v := range facts.GetVolumes() {
-		p.volumes = append(p.volumes, v.Name)
+func NewPlan(installedComps, volList []string) *Plan {
+	return &Plan{
+		volumes:    volList,
+		components: installedComps,
 	}
-	p.components = append(p.components, facts.GetInstalledComponents()...)
-	return p
 }
 
 func (p *Plan) Add(a Action) {
 	switch a.Todo {
 	case ActionCleanupComponent:
 		p.mainPhase = append(p.mainPhase, a)
-	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
+	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent:
 		p.mainPhase = append(p.mainPhase, a)
 	case ActionInstallVolumeFile:
 		p.secondMain = append(p.secondMain, a)
@@ -78,6 +74,10 @@ func (p *Plan) Append(a []Action) {
 
 func (p *Plan) Empty() bool {
 	return len(p.mainPhase) == 0 && len(p.combatPhase) == 0 && len(p.secondMain) == 0 && len(p.endStep) == 0
+}
+
+func (p *Plan) Size() int {
+	return len(p.mainPhase) + len(p.combatPhase) + len(p.secondMain) + len(p.endStep)
 }
 
 func (p *Plan) Validate() error {
