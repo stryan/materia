@@ -3,7 +3,7 @@ package materia
 import (
 	"context"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
+	"primamateria.systems/materia/internal/secrets"
 )
 
 type SecretsManager interface {

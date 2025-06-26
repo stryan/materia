@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
-	"git.saintnet.tech/stryan/materia/internal/secrets"
-	"git.saintnet.tech/stryan/materia/internal/services"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/services"
 	"github.com/charmbracelet/log"
 )
 

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/manifests"
 )
 
 type Repository interface {

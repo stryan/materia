@@ -3,7 +3,7 @@ package materia
 import (
 	"context"
 
-	"git.saintnet.tech/stryan/materia/internal/containers"
+	"primamateria.systems/materia/internal/containers"
 )
 
 type ContainerManager interface {

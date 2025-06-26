@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/manifests"
 	"github.com/charmbracelet/log"
 )
 

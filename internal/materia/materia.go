@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
-	"git.saintnet.tech/stryan/materia/internal/services"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/services"
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 )

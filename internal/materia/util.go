@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
+	"primamateria.systems/materia/internal/components"
 )
 
 func sortedKeys[K cmp.Ordered, V any](m map[K]V) []K {

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"github.com/knadh/koanf/parsers/toml"
+	"primamateria.systems/materia/internal/manifests"
 )
 
 var ErrCorruptComponent = errors.New("error corrupt component")

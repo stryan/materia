@@ -3,7 +3,7 @@ package materia
 import (
 	"context"
 
-	"git.saintnet.tech/stryan/materia/internal/services"
+	"primamateria.systems/materia/internal/services"
 )
 
 type Services interface {

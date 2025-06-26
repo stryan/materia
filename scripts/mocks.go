@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/services"
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/services"
 )
 
 type MockServices struct {

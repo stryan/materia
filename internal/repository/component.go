@@ -12,12 +12,12 @@ import (
 	"slices"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
 	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/manifests"
 )
 
 type HostComponentRepository struct {

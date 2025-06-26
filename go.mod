@@ -1,4 +1,4 @@
-module git.saintnet.tech/stryan/materia
+module primamateria.systems/materia
 
 go 1.24.2
 

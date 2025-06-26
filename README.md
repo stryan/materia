@@ -35,8 +35,8 @@ podman run --name materia --rm \
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE_IDENTS=/etc/materia/key.txt \
 	--env MATERIA_GIT_PRIVATEKEY=/etc/materia/materia_key \
-	--env MATERIA_SOURCEURL=git://git@git.saintnet.tech:materia/materia_repo \
-	git.saintnet.tech/stryan/materia:latest
+	--env MATERIA_SOURCEURL=git://git@github.commateria/materia_repo \
+	github.com/stryan/materia:latest
 ```
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.

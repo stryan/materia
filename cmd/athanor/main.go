@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
-	"git.saintnet.tech/stryan/materia/internal/athanor"
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/materia"
-	"git.saintnet.tech/stryan/materia/internal/repository"
-	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
+	"primamateria.systems/materia/internal/athanor"
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/internal/repository"
+	"primamateria.systems/materia/internal/services"
 )
 
 var Commit = func() string {

@@ -15,7 +15,7 @@ experimental = true
 [tasks.container]
 depends = ["build","lint","test"]
 env = { LDFLAGS = '-ldflags="-w -s"'}
-run = 'podman build -f Containerfile.ci --platform=linux/amd64 -t git.saintnet.tech/stryan/materia:latest .'
+run = 'podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.systems/materia:latest .'
 
 [tasks.build]
 depends = ["generate","build-arm64","build-amd64"]

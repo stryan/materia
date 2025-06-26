@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
+	"primamateria.systems/materia/internal/components"
 )
 
 //go:generate stringer -type ActionType -trimprefix Action

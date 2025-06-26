@@ -9,17 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/facts"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
-	"git.saintnet.tech/stryan/materia/internal/materia"
-	"git.saintnet.tech/stryan/materia/internal/repository"
-	"git.saintnet.tech/stryan/materia/internal/secrets/age"
-	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
-	"git.saintnet.tech/stryan/materia/internal/services"
-	"git.saintnet.tech/stryan/materia/internal/source/file"
-	"git.saintnet.tech/stryan/materia/internal/source/git"
 	"github.com/charmbracelet/log"
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/facts"
+	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/internal/repository"
+	"primamateria.systems/materia/internal/secrets/age"
+	"primamateria.systems/materia/internal/secrets/mem"
+	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/internal/source/file"
+	"primamateria.systems/materia/internal/source/git"
 )
 
 func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {

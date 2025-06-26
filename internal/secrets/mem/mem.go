@@ -3,7 +3,7 @@ package mem
 import (
 	"context"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
+	"primamateria.systems/materia/internal/secrets"
 )
 
 type MemoryManager struct {

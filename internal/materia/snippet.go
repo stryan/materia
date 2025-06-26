@@ -3,7 +3,7 @@ package materia
 import (
 	"text/template"
 
-	"git.saintnet.tech/stryan/materia/internal/manifests"
+	"primamateria.systems/materia/internal/manifests"
 )
 
 type Snippet struct {

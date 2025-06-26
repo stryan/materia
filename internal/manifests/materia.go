@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"slices"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
-	"git.saintnet.tech/stryan/materia/internal/secrets/age"
-	"git.saintnet.tech/stryan/materia/internal/secrets/mem"
+	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/secrets/age"
+	"primamateria.systems/materia/internal/secrets/mem"
 
-	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
+	filesecrets "primamateria.systems/materia/internal/secrets/file"
 
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"

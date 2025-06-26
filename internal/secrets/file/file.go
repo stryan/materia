@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets"
+	"primamateria.systems/materia/internal/secrets"
 	"github.com/BurntSushi/toml"
 )
 

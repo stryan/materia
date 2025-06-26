@@ -7,17 +7,17 @@ import (
 	"slices"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/components"
-	"git.saintnet.tech/stryan/materia/internal/containers"
-	"git.saintnet.tech/stryan/materia/internal/manifests"
-	"git.saintnet.tech/stryan/materia/internal/repository"
-	"git.saintnet.tech/stryan/materia/internal/services"
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/repository"
+	"primamateria.systems/materia/internal/services"
 )
 
 type Athanor struct {

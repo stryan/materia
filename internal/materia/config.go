@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"git.saintnet.tech/stryan/materia/internal/secrets/age"
-	filesecrets "git.saintnet.tech/stryan/materia/internal/secrets/file"
-	"git.saintnet.tech/stryan/materia/internal/source/git"
+	"primamateria.systems/materia/internal/secrets/age"
+	filesecrets "primamateria.systems/materia/internal/secrets/file"
+	"primamateria.systems/materia/internal/source/git"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"

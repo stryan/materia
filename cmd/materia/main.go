@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
-	"git.saintnet.tech/stryan/materia/internal/materia"
-	"git.saintnet.tech/stryan/materia/internal/repository"
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
+	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/internal/repository"
 )
 
 var Commit = func() string {
