@@ -3,7 +3,7 @@ version = 1
 [values]
 Repo = "git@github.com:materia/materia_repo"
 LocalRepo = "./testrepo/"
-AgeKeyLocation = "scripts/vm/auth/key.txt"
+AgeKeyLocation = "scripts/_vm/auth/key.txt"
 
 [env]
 MATERIA_SOURCEURL = "{{ .Repo }}"
@@ -24,7 +24,7 @@ dest = "/usr/local/bin/materia"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/vm/auth/*"
+source = "scripts/_vm/auth/*"
 dest = "/root/.ssh/"
 
 [[steps]]

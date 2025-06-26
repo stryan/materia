@@ -28,7 +28,7 @@ dest = "/usr/local/bin/materia"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/vm/auth/*"
+source = "scripts/_vm/auth/*"
 dest = "/root/.ssh/"
 
 [[steps]]
@@ -38,12 +38,12 @@ dest = "/etc/materia/key.txt"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/vm/testrepo/"
+source = "scripts/_vm/testrepo/"
 dest = "/tmp/testrepo/"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/vm/out/"
+source = "scripts/_vm/out/"
 dest = "/tmp/out/"
 
 [[steps]]
