@@ -1,3 +1,4 @@
+---
 all: false
 dir: '{{.InterfaceDir}}'
 filename: mocks_test.go
@@ -11,6 +12,6 @@ require-template-schema-exists: true
 template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
-  git.saintnet.tech/stryan/materia/internal/materia:
+  primamateria.systems/materia/internal/materia:
     config:
       all: true
