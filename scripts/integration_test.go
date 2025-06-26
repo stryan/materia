@@ -95,15 +95,16 @@ func testMateria(services []string) *materia.Materia {
 	var secretManager materia.SecretsManager
 	switch man.Secrets {
 	case "age":
-		conf, ok := man.SecretsConfig.(age.Config)
+		fmt.Fprintf(os.Stderr, "FBLTHP[293]: integration_test.go:98: SecretsConfig=%+v\n", man.SecretsConfig)
+		fmt.Fprintf(os.Stderr, "FBLTHP[294]: integration_test.go:99: man=%+v\n", man)
+		conf, ok := man.SecretsConfig.(*age.Config)
 		if !ok {
 			log.Fatal(errors.New("tried to create an age secrets manager but config was not for age"))
 		}
-		conf.RepoPath = cfg.SourceDir
 		if cfg.AgeConfig != nil {
 			conf.Merge(cfg.AgeConfig)
 		}
-		secretManager, err = age.NewAgeStore(conf)
+		secretManager, err = age.NewAgeStore(*conf, sourcedir)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error creating age store: %w", err))
 		}

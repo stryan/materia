@@ -28,9 +28,9 @@ run = "golangci-lint run ./cmd/... ./internal/..."
 
 [tasks.virter-age]
 run = [
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/vm/testrepo/secrets/vault.toml > scripts/vm/testrepo/secrets/vault.age",
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/vm/testrepo/secrets/localhost.toml > scripts/vm/testrepo/secrets/localhost.age",
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/vm/testrepo/secrets/base.toml > scripts/vm/testrepo/secrets/base.age",
+	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/vault.toml > scripts/_vm/testrepo/secrets/vault.age",
+	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/localhost.toml > scripts/_vm/testrepo/secrets/localhost.age",
+	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/base.toml > scripts/_vm/testrepo/secrets/base.age",
 ]
 
 [tasks.test]

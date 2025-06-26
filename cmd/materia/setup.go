@@ -115,15 +115,14 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	var secretManager materia.SecretsManager
 	switch man.Secrets {
 	case "age":
-		conf, ok := man.SecretsConfig.(age.Config)
+		conf, ok := man.SecretsConfig.(*age.Config)
 		if !ok {
 			return nil, errors.New("tried to create an age secrets manager but config was not for age")
 		}
-		conf.RepoPath = c.SourceDir
 		if c.AgeConfig != nil {
 			conf.Merge(c.AgeConfig)
 		}
-		secretManager, err = age.NewAgeStore(conf)
+		secretManager, err = age.NewAgeStore(*conf, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
