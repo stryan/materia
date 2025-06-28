@@ -26,7 +26,7 @@ For configuring secrets management with `age`, see `materia-config-age(5)`.
 
 Presented in *environmental variable*/`TOML config line option` format.
 
-*MATERIA_SOURCEURL*/`sourceurl`
+*MATERIA_SOURCE_URL*/`sourceurl`
 
 :  Source location of the *materia-repository(5)* in URL format. Accepted formats:
 

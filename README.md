@@ -35,8 +35,8 @@ podman run --name materia --rm \
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE_IDENTS=/etc/materia/key.txt \
 	--env MATERIA_GIT_PRIVATEKEY=/etc/materia/materia_key \
-	--env MATERIA_SOURCEURL=git://git@github.commateria/materia_repo \
-	github.com/stryan/materia:latest
+	--env MATERIA_SOURCE_URL=git://git@github.commateria/materia_repo \
+	ghcr.io/stryan/materia:latest
 ```
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.
@@ -130,7 +130,7 @@ Materia is designed to be configured with environment variables; if you would li
 
 Since we're not using any [secrets](docs/materia-config-age.5.md) we only need to set the source URL:
 
-`export MATERIA_SOURCEURL="git://git@github.com:user/materia_repo"`
+`export MATERIA_SOURCE_URL="git://git@github.com:user/materia_repo"`
 
 ### Generate the test plan
 

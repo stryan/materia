@@ -9,7 +9,7 @@ Type=oneshot
 [Container]
 Image=github.com/stryan/materia:latest
 ContainerName=materia
-Environment=MATERIA_SOURCEURL=file:///tmp/test_repo
+Environment=MATERIA_SOURCE_URL=file:///tmp/test_repo
 SecurityLabelDisable=true
 HostName=%q
 Exec=$SCRIPT_ARGS

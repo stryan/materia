@@ -22,7 +22,7 @@ materia - a tool for deploying Quadlets and associated files
 
 Materia can be configured via either environmental variables or a TOML config file. The most common environmental variables are documented below:
 
-- `MATERIA_SOURCEURL`: URL with location of the materia-repository. Example: `export MATERIA_SOURCEURL="git://git@github.com/materia/materia_repo`
+- `MATERIA_SOURCE_URL`: URL with location of the materia-repository. Example: `export MATERIA_SOURCEURL="git://git@github.com/materia/materia_repo`
 
 See materia-config(5) and materia-repository(5) for more details.
 
@@ -85,7 +85,7 @@ Remove a specific component. Note this does not remove it from the repository ma
 
 - `--component, -c <name>`: Component to validate. If not specified, use what is definined in the repositories `MANIFEST.toml`
 
-- `--source, -s <path>`: Repository source directory, overrides `MATERIA_SOURCEURL`
+- `--source, -s <path>`: Repository source directory, overrides `MATERIA_SOURCE_URL`
 
 - `--roles, -r <roles>`: Roles for facts generation (can be specified multiple time for multiple roles)
 
