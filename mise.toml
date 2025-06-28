@@ -2,7 +2,7 @@
 age = "latest"
 go = "1.24"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
-golangci-lint = "2.0.2"
+golangci-lint = "2.1.2"
 gotestsum = "latest"
 mockery = "latest"
 pandoc = "latest"
