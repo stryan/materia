@@ -33,6 +33,7 @@ jobs:
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
           log_level: debug  # [default: info] log level
+          github_token: ${{ secrets.GH_TOKEN }}
       - name: Build container
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
