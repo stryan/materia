@@ -23,6 +23,7 @@ jobs:
           install: true  # [default: true] run `mise install`
           cache: true  # [default: true] cache mise using GitHub's cache
           experimental: true  # [default: false] enable experimental features
+          version: 2025.6.7
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Login to registry
