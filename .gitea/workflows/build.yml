@@ -32,6 +32,7 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
+          log_level: debug  # [default: info] log level
       - name: Build container
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
