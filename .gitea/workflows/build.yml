@@ -24,6 +24,8 @@ jobs:
           cache: true  # [default: true] cache mise using GitHub's cache
           experimental: true  # [default: false] enable experimental features
           version: 2025.6.7
+          log_level: debug  # [default: info] log level
+          github_token: ${{ secrets.GH_TOKEN }}
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Login to registry
@@ -32,8 +34,6 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
-          log_level: debug  # [default: info] log level
-          github_token: ${{ secrets.GH_TOKEN }}
       - name: Build container
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
