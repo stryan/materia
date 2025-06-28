@@ -12,11 +12,11 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/BurntSushi/toml"
+	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
-	"github.com/BurntSushi/toml"
-	"github.com/charmbracelet/log"
 )
 
 type MacroMap func(map[string]any) template.FuncMap
@@ -48,7 +48,7 @@ type Materia struct {
 	cleanup             bool
 }
 
-func NewMateria(ctx context.Context, c *Config, source Source, man *manifests.MateriaManifest, facts FactsProvider, secrets SecretsManager, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, secrets SecretsManager, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}

@@ -6,19 +6,14 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/secrets/age"
 	filesecrets "primamateria.systems/materia/internal/secrets/file"
-	"primamateria.systems/materia/internal/source/git"
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
 )
 
-type Config struct {
-	SourceURL     string
+type MateriaConfig struct {
 	Debug         bool
 	UseStdout     bool
 	Diffs         bool
@@ -34,30 +29,22 @@ type Config struct {
 	OutputDir     string
 	OnlyResources bool
 	Quiet         bool
-	NoSync        bool
-	GitConfig     *git.Config
 	AgeConfig     *age.Config
 	FileConfig    *filesecrets.Config
 	User          *user.User
 }
 
-func NewConfig(configFile string) (*Config, error) {
-	k := koanf.New(".")
-	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
-		return strings.ReplaceAll(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
-	}), nil)
-	if err != nil {
-		return nil, fmt.Errorf("error loading config from env: %w", err)
-	}
-	if configFile != "" {
-		err = k.Load(file.Provider(configFile), toml.Parser())
-		if err != nil {
-			return nil, fmt.Errorf("error loading config file: %w", err)
-		}
-	}
-	var c Config
-	c.SourceURL = k.String("sourceurl")
+// var defaultConfig = map[string]any{
+// 	"debug":      "",
+// 	"prefix":     "",
+// 	"quadletdir": "",
+// 	"servicedir": "",
+// 	"scriptsdir": "",
+// }
+
+func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) {
+	var c MateriaConfig
+	var err error
 	c.SourceDir = k.String("sourcedir")
 	c.Debug = k.Bool("debug")
 	c.Cleanup = k.Bool("cleanup")
@@ -71,13 +58,6 @@ func NewConfig(configFile string) (*Config, error) {
 	c.ServiceDir = k.String("servicedir")
 	c.ScriptsDir = k.String("scriptsdir")
 	c.OutputDir = k.String("outputdir")
-	c.NoSync = k.Bool("nosync")
-	if k.Exists("git") {
-		c.GitConfig, err = git.NewConfig(k.Cut("git"))
-		if err != nil {
-			return nil, err
-		}
-	}
 	if k.Exists("age") {
 		c.AgeConfig, err = age.NewConfig(k.Cut("age"))
 		if err != nil {
@@ -142,13 +122,16 @@ func NewConfig(configFile string) (*Config, error) {
 		c.OutputDir = filepath.Join(dataPath, "materia", "output")
 	}
 
+	// apply cli flags
+	err = k.Load(confmap.Provider(cliflags, "."), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return &c, nil
 }
 
-func (c *Config) Validate() error {
-	if c.SourceURL == "" {
-		return errors.New("need source location")
-	}
+func (c *MateriaConfig) Validate() error {
 	if c.QuadletDir == "" {
 		return errors.New("need quadlet directory")
 	}
@@ -164,9 +147,8 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-func (c *Config) String() string {
+func (c *MateriaConfig) String() string {
 	var result string
-	result += fmt.Sprintf("Source URL: %v\n", c.SourceURL)
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Show Diffs: %v\n", c.Diffs)
@@ -179,13 +161,5 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
-	if c.GitConfig != nil {
-		result += "Using git\n"
-		result += c.GitConfig.String()
-	}
-	if c.AgeConfig != nil {
-		result += "Secrets Engine: age\n"
-		result += c.AgeConfig.String()
-	}
 	return result
 }

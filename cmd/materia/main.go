@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
-	"primamateria.systems/materia/internal/repository"
 )
 
 var Commit = func() string {
@@ -27,13 +30,10 @@ var Commit = func() string {
 }()
 
 func main() {
+	cliflags := make(map[string]any)
 	ctx := context.Background()
-	c, err := materia.NewConfig("")
-	if err != nil {
-		log.Fatal(err)
-	}
+
 	var configFile string
-	var noSync bool
 
 	app := &cli.Command{
 		Name:  "materia",
@@ -55,18 +55,16 @@ func main() {
 					} else if err != nil {
 						return err
 					}
-					c, err = materia.NewConfig(v)
-					return err
+					return nil
 				},
 			},
 			&cli.BoolFlag{
-				Name:        "nosync",
-				Usage:       "Disable syncing for commands that sync",
-				Required:    false,
-				Destination: &noSync,
-				Sources:     cli.EnvVars("MATERIA_NOSYNC"),
+				Name:     "nosync",
+				Usage:    "Disable syncing for commands that sync",
+				Required: false,
+				Sources:  cli.EnvVars("MATERIA_NOSYNC"),
 				Action: func(ctx context.Context, cm *cli.Command, b bool) error {
-					c.NoSync = noSync
+					cliflags["source.nosync"] = true
 					return nil
 				},
 			},
@@ -76,6 +74,24 @@ func main() {
 				Name:  "config",
 				Usage: "Dump active config",
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					k := koanf.New(".")
+					err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
+						return strings.ReplaceAll(strings.ToLower(
+							strings.TrimPrefix(s, "MATERIA_")), "_", ".")
+					}), nil)
+					if err != nil {
+						return fmt.Errorf("error loading config from env: %w", err)
+					}
+					if configFile != "" {
+						err = k.Load(file.Provider(configFile), toml.Parser())
+						if err != nil {
+							return fmt.Errorf("error loading config file: %w", err)
+						}
+					}
+					c, err := materia.NewConfig(k, cliflags)
+					if err != nil {
+						log.Fatal(err)
+					}
 					fmt.Println(c)
 					return nil
 				},
@@ -97,7 +113,7 @@ func main() {
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
@@ -129,13 +145,15 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					quiet := false
 					if cCtx.IsSet("quiet") {
-						c.Quiet = cCtx.Bool("quiet")
+						cliflags["quiet"] = cCtx.Bool("quiet")
+						quiet = cCtx.Bool("quiet")
 					}
 					if cCtx.IsSet("resource-only") {
-						c.OnlyResources = cCtx.Bool("resource-only")
+						cliflags["onlyresource"] = cCtx.Bool("resource-only")
 					}
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
@@ -147,7 +165,7 @@ func main() {
 						fmt.Println("No changes being made")
 						return nil
 					}
-					if !c.Quiet {
+					if !quiet {
 						fmt.Println(plan.Pretty())
 					}
 					err = m.SavePlan(plan, "plan.toml")
@@ -174,13 +192,15 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					quiet := false
 					if cCtx.IsSet("quiet") {
-						c.Quiet = cCtx.Bool("quiet")
+						cliflags["quiet"] = cCtx.Bool("quiet")
+						quiet = cCtx.Bool("quiet")
 					}
 					if cCtx.IsSet("resource-only") {
-						c.OnlyResources = cCtx.Bool("resource-only")
+						cliflags["onlyresource"] = cCtx.Bool("resource-only")
 					}
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
@@ -188,7 +208,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					if !c.Quiet {
+					if !quiet {
 						fmt.Println(plan.Pretty())
 					}
 					steps, err := m.Execute(ctx, plan)
@@ -212,7 +232,7 @@ func main() {
 						return cli.Exit("specify a component to remove", 1)
 					}
 
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
@@ -266,11 +286,11 @@ func main() {
 					if source == "" {
 						source = "./"
 					}
-					c.SourceURL = fmt.Sprintf("file://%v", source)
+					cliflags["source.url"] = fmt.Sprintf("file://%v", source)
 					if hostname != "" {
-						c.Hostname = hostname
+						cliflags["hostname"] = hostname
 					}
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
@@ -285,45 +305,46 @@ func main() {
 					return nil
 				},
 			},
-			{
-				Name:  "doctor",
-				Usage: "remove corrupted installed components. Dry run by default",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:    "remove",
-						Aliases: []string{"r"},
-						Usage:   "Actually remove corrupted components",
-					},
-				},
-				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					// use a fake materia since we can't generate valid facts
-					m := &materia.Materia{
-						CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
-					}
-					corrupted, err := m.ValidateComponents(ctx)
-					if err != nil {
-						return err
-					}
-					for _, v := range corrupted {
-						fmt.Printf("Corrupted component: %v\n", v)
-					}
-					if !cCtx.Bool("remove") {
-						return nil
-					}
-					for _, v := range corrupted {
-						err := m.PurgeComponenet(ctx, v)
-						if err != nil {
-							return err
-						}
-					}
-					return nil
-				},
-			},
+			// TODO fix/redo func since facts are handled differently now
+			// {
+			// 	Name:  "doctor",
+			// 	Usage: "remove corrupted installed components. Dry run by default",
+			// 	Flags: []cli.Flag{
+			// 		&cli.BoolFlag{
+			// 			Name:    "remove",
+			// 			Aliases: []string{"r"},
+			// 			Usage:   "Actually remove corrupted components",
+			// 		},
+			// 	},
+			// 	Action: func(ctx context.Context, cCtx *cli.Command) error {
+			// 		// use a fake materia since we can't generate valid facts
+			// 		m := &materia.Materia{
+			// 			CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
+			// 		}
+			// 		corrupted, err := m.ValidateComponents(ctx)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+			// 		for _, v := range corrupted {
+			// 			fmt.Printf("Corrupted component: %v\n", v)
+			// 		}
+			// 		if !cCtx.Bool("remove") {
+			// 			return nil
+			// 		}
+			// 		for _, v := range corrupted {
+			// 			err := m.PurgeComponenet(ctx, v)
+			// 			if err != nil {
+			// 				return err
+			// 			}
+			// 		}
+			// 		return nil
+			// 	},
+			// },
 			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ context.Context, _ *cli.Command) error {
-					m, err := setup(ctx, c)
+					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}

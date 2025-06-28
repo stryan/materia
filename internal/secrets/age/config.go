@@ -14,10 +14,10 @@ type Config struct {
 
 func (c Config) Validate() error {
 	if c.BaseDir == "" {
-		return fmt.Errorf("invalid base path for age: %v", c.BaseDir)
+		return fmt.Errorf("empty base path for age")
 	}
 	if c.IdentPath == "" {
-		return fmt.Errorf("invalid identities location for age: %v", c.IdentPath)
+		return fmt.Errorf("empty identities location for age")
 	}
 	return nil
 }
@@ -26,9 +26,9 @@ func (c Config) SecretsType() string { return "age" }
 
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
-	c.IdentPath = k.String("idents")
-	c.BaseDir = k.String("basedir")
-	c.GeneralVaults = k.Strings("vaults")
+	c.IdentPath = k.String("age.idents")
+	c.BaseDir = k.String("age.basedir")
+	c.GeneralVaults = k.Strings("age.vaults")
 	return &c, nil
 }
 

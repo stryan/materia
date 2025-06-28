@@ -11,9 +11,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
-	"github.com/charmbracelet/log"
 )
 
 var ErrNeedHostRepository = errors.New("action can't be done on source repository")
@@ -24,12 +24,8 @@ type SourceComponentRepository struct {
 
 func NewSourceComponentRepository(dataPrefix string) (*SourceComponentRepository, error) {
 	if _, err := os.Stat(dataPrefix); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			err = os.Mkdir(dataPrefix, 0o755)
-			if err != nil {
-				return nil, fmt.Errorf("error creating SourceComponentRepository with data_prefix %v: %w", dataPrefix, err)
-			}
-		}
+		// we expect the source repo to be pre-created for us
+		return nil, err
 	}
 	return &SourceComponentRepository{
 		Prefix: dataPrefix,

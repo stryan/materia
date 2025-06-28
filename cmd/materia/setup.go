@@ -10,6 +10,10 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/manifests"
@@ -17,13 +21,35 @@ import (
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/secrets/age"
 	"primamateria.systems/materia/internal/secrets/mem"
+
+	filesecrets "primamateria.systems/materia/internal/secrets/file"
 	"primamateria.systems/materia/internal/services"
-	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
+
+	filesource "primamateria.systems/materia/internal/source/file"
 )
 
-func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
-	err := c.Validate()
+func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
+	k := koanf.New(".")
+	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
+		return strings.ReplaceAll(strings.ToLower(
+			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
+	}), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error loading config from env: %w", err)
+	}
+	if configFile != "" {
+		err = k.Load(file.Provider(configFile), toml.Parser())
+		if err != nil {
+			return nil, fmt.Errorf("error loading config file: %w", err)
+		}
+	}
+
+	c, err := materia.NewConfig(k, cliflags)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = c.Validate()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,16 +76,33 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating components in prefix: %w", err)
 	}
+	sourceConfig, err := materia.NewSourceConfig(k.Cut("source"))
+	if err != nil {
+		return nil, err
+	}
+	err = sourceConfig.Validate()
+	if err != nil {
+		log.Fatal(err)
+	}
 	var source materia.Source
-	parsedPath := strings.Split(c.SourceURL, "://")
+
+	parsedPath := strings.Split(sourceConfig.URL, "://")
 	switch parsedPath[0] {
 	case "git":
-		source, err = git.NewGitSource(c.SourceDir, parsedPath[1], c.GitConfig)
+		config, err := git.NewConfig(k, c.SourceDir, parsedPath[1])
+		if err != nil {
+			return nil, fmt.Errorf("error creating git config: %w", err)
+		}
+		source, err = git.NewGitSource(config)
 		if err != nil {
 			return nil, fmt.Errorf("invalid git source: %w", err)
 		}
 	case "file":
-		source, err = file.NewFileSource(c.SourceDir, parsedPath[1])
+		config, err := filesource.NewConfig(k, c.SourceDir, parsedPath[1])
+		if err != nil {
+			return nil, fmt.Errorf("error creating file config: %w", err)
+		}
+		source, err = filesource.NewFileSource(config)
 		if err != nil {
 			return nil, fmt.Errorf("invalid file source: %w", err)
 		}
@@ -67,7 +110,7 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
 	}
 	// Ensure local cache
-	if c.NoSync {
+	if sourceConfig.NoSync {
 		log.Debug("skipping cache update on request")
 	} else {
 		log.Debug("updating configured source cache")
@@ -105,28 +148,39 @@ func setup(ctx context.Context, c *materia.Config) (*materia.Materia, error) {
 	}
 
 	log.Debug("loading manifest")
-	man, err := manifests.LoadMateriaManifest(filepath.Join(c.SourceDir, "MANIFEST.toml"))
+	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
+	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
 	}
 	if err := man.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid materia manifest: %w", err)
 	}
+	err = k.Load(file.Provider(manifestLocation), toml.Parser())
+	if err != nil {
+		return nil, err
+	}
 	var secretManager materia.SecretsManager
+	// TODO replace this with secrets chaining
 	switch man.Secrets {
 	case "age":
-		conf, ok := man.SecretsConfig.(*age.Config)
-		if !ok {
-			return nil, errors.New("tried to create an age secrets manager but config was not for age")
+		ageConfig, err := age.NewConfig(k)
+		if err != nil {
+			return nil, fmt.Errorf("error creating age config: %w", err)
 		}
-		if c.AgeConfig != nil {
-			conf.Merge(c.AgeConfig)
-		}
-		secretManager, err = age.NewAgeStore(*conf, c.SourceDir)
+		secretManager, err = age.NewAgeStore(*ageConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
-
+	case "file":
+		fileConfig, err := filesecrets.NewConfig(k)
+		if err != nil {
+			return nil, fmt.Errorf("error creating file config: %w", err)
+		}
+		secretManager, err = filesecrets.NewFileStore(*fileConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating file store: %w", err)
+		}
 	case "mem":
 		secretManager = mem.NewMemoryManager()
 	default:

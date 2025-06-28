@@ -2,53 +2,40 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/internal/components"
 	fprov "primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/secrets/age"
-	"primamateria.systems/materia/internal/secrets/mem"
 	"primamateria.systems/materia/internal/source"
-	"primamateria.systems/materia/internal/source/file"
-	"primamateria.systems/materia/internal/source/git"
-	"github.com/charmbracelet/log"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+
+	filesource "primamateria.systems/materia/internal/source/file"
 )
 
 var (
 	ctx                                                             context.Context
-	cfg                                                             *materia.Config
+	cfg                                                             *materia.MateriaConfig
 	prefix, installdir, servicedir, scriptdir, sourcedir, outputdir string
 )
 
 func testMateria(services []string) *materia.Materia {
 	var source source.Source
 	var err error
-	parsedPath := strings.Split(cfg.SourceURL, "://")
-	switch parsedPath[0] {
-	case "git":
-		source, err = git.NewGitSource(cfg.SourceDir, parsedPath[1], cfg.GitConfig)
-		if err != nil {
-			log.Fatal("invalid git source: %v", err)
-		}
-	case "file":
-		source, err = file.NewFileSource(cfg.SourceDir, parsedPath[1])
-		if err != nil {
-			log.Fatal("invalid file source: %v", err)
-		}
-	default:
-		log.Fatalf("invalid source: %v", parsedPath[0])
+
+	source = &filesource.FileSource{
+		RemoteRepository: "./testrepo",
+		Destination:      sourcedir,
 	}
 
 	mockservices := &MockServices{}
@@ -56,6 +43,33 @@ func testMateria(services []string) *materia.Materia {
 	mockcontainers := &MockContainers{make(map[string]string)}
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
+	}
+
+	log.Debug("updating configured source cache")
+	err = source.Sync(ctx)
+	if err != nil {
+		log.Fatalf("error syncing source: %v", err)
+	}
+	log.Debug("loading manifest")
+	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, "MANIFEST.toml"))
+	if err != nil {
+		log.Fatalf("error loading manifest: %v", err)
+	}
+	if err := man.Validate(); err != nil {
+		log.Fatal(err)
+	}
+	sc := age.Config{
+		IdentPath: "./test-key.txt",
+		BaseDir:   "secrets",
+	}
+	secretManager, err := age.NewAgeStore(sc, sourcedir)
+	if err != nil {
+		log.Fatal(fmt.Errorf("error creating age store: %w", err))
+	}
+	log.Debug("loading facts")
+	facts, err := fprov.NewHostFacts(ctx, cfg.Hostname)
+	if err != nil {
+		log.Fatalf("error generating facts: %v", err)
 	}
 	scripts, err := repository.NewFileRepository(scriptdir)
 	if err != nil {
@@ -73,53 +87,6 @@ func testMateria(services []string) *materia.Materia {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Ensure local cache
-	if cfg.NoSync {
-		log.Debug("skipping cache update on request")
-	} else {
-		log.Debug("updating configured source cache")
-		err = source.Sync(ctx)
-		if err != nil {
-			log.Fatalf("error syncing source: %v", err)
-		}
-	}
-	log.Debug("loading manifest")
-	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, "MANIFEST.toml"))
-	if err != nil {
-		log.Fatalf("error loading manifest: %v", err)
-	}
-	if err := man.Validate(); err != nil {
-		log.Fatal(err)
-	}
-	var secretManager materia.SecretsManager
-	switch man.Secrets {
-	case "age":
-		fmt.Fprintf(os.Stderr, "FBLTHP[293]: integration_test.go:98: SecretsConfig=%+v\n", man.SecretsConfig)
-		fmt.Fprintf(os.Stderr, "FBLTHP[294]: integration_test.go:99: man=%+v\n", man)
-		conf, ok := man.SecretsConfig.(*age.Config)
-		if !ok {
-			log.Fatal(errors.New("tried to create an age secrets manager but config was not for age"))
-		}
-		if cfg.AgeConfig != nil {
-			conf.Merge(cfg.AgeConfig)
-		}
-		secretManager, err = age.NewAgeStore(*conf, sourcedir)
-		if err != nil {
-			log.Fatal(fmt.Errorf("error creating age store: %w", err))
-		}
-
-	case "mem":
-		secretManager = mem.NewMemoryManager()
-	default:
-		secretManager = mem.NewMemoryManager()
-	}
-	log.Debug("loading facts")
-	facts, err := fprov.NewHostFacts(ctx, cfg.Hostname)
-	if err != nil {
-		log.Fatalf("error generating facts: %v", err)
-	}
-
 	m, err := materia.NewMateria(ctx, cfg, source, man, facts, secretManager, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
 	if err != nil {
 		log.Fatal(err)
@@ -137,8 +104,7 @@ func TestMain(m *testing.M) {
 	outputdir = filepath.Join(testPrefix, "materia", "output")
 	log.Default().SetLevel(log.DebugLevel)
 	log.Default().SetReportCaller(true)
-	cfg = &materia.Config{
-		SourceURL:  "file://./testrepo",
+	cfg = &materia.MateriaConfig{
 		Debug:      true,
 		Hostname:   "localhost",
 		Timeout:    0,
@@ -155,6 +121,10 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 	err = os.Mkdir(prefix, 0o755)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = os.Mkdir(sourcedir, 0o755)
 	if err != nil {
 		log.Fatal(err)
 	}

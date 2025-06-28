@@ -7,22 +7,25 @@ import (
 )
 
 type Config struct {
-	Branch     string
-	PrivateKey string `koanf:"privatekey"`
-	Username   string
-	Password   string
-	KnownHosts string
-	Insecure   bool `koanf:"insecure"`
+	Branch                            string
+	PrivateKey                        string `koanf:"privatekey"`
+	Username                          string
+	Password                          string
+	KnownHosts                        string
+	Insecure                          bool `koanf:"insecure"`
+	LocalRepository, RemoteRepository string
 }
 
-func NewConfig(k *koanf.Koanf) (*Config, error) {
+func NewConfig(k *koanf.Koanf, localDir, remote string) (*Config, error) {
 	var c Config
-	c.Branch = k.String("branch")
-	c.PrivateKey = k.String("privatekey")
-	c.Insecure = k.Bool("insecure")
-	c.Username = k.String("username")
-	c.Password = k.String("password")
-	c.KnownHosts = k.String("knownhosts")
+	c.Branch = k.String("git.branch")
+	c.PrivateKey = k.String("git.privatekey")
+	c.Insecure = k.Bool("git.insecure")
+	c.Username = k.String("git.username")
+	c.Password = k.String("git.password")
+	c.KnownHosts = k.String("git.knownhosts")
+	c.LocalRepository = localDir
+	c.RemoteRepository = remote
 	return &c, nil
 }
 

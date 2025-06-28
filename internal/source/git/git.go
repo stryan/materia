@@ -16,62 +16,63 @@ import (
 )
 
 type GitSource struct {
-	repo     string
-	branch   string
-	path     string
-	auth     transport.AuthMethod
-	insecure bool
+	remoteRepository string
+	branch           string
+	localRepository  string
+	auth             transport.AuthMethod
+	insecure         bool
 }
 
-func NewGitSource(path, repo string, c *Config) (*GitSource, error) {
-	g := &GitSource{
-		repo: repo,
-		path: path,
+func NewGitSource(c *Config) (*GitSource, error) {
+	if c == nil {
+		return nil, errors.New("need git config")
 	}
-	if c != nil {
-		g.branch = c.Branch
-		if c.PrivateKey != "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return nil, err
-			}
-			hostsfile := c.KnownHosts
-			if hostsfile == "" {
-				hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
-			}
-			_, err = os.Stat(hostsfile)
-			if err != nil {
-				return nil, err
-			}
-			_, err = os.Stat(c.PrivateKey)
-			if err != nil {
-				return nil, err
-			}
-			publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
-			if err != nil {
-				return nil, err
-			}
-			if g.insecure {
-				publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
-			}
-			g.auth = publicKeys
-		} else if c.Username != "" {
-			g.auth = &http.BasicAuth{
-				Username: c.Username,
-				Password: c.Password,
-			}
-		} else {
-			return nil, errors.New("no valid authentication set for git")
+	g := &GitSource{
+		remoteRepository: c.RemoteRepository,
+		localRepository:  c.LocalRepository,
+	}
+	g.branch = c.Branch
+	if c.PrivateKey != "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
 		}
+		hostsfile := c.KnownHosts
+		if hostsfile == "" {
+			hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
+		}
+		_, err = os.Stat(hostsfile)
+		if err != nil {
+			return nil, err
+		}
+		_, err = os.Stat(c.PrivateKey)
+		if err != nil {
+			return nil, err
+		}
+		publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
+		if err != nil {
+			return nil, err
+		}
+		if g.insecure {
+			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+		}
+		g.auth = publicKeys
+	} else if c.Username != "" {
+		g.auth = &http.BasicAuth{
+			Username: c.Username,
+			Password: c.Password,
+		}
+	} else {
+		return nil, errors.New("no valid authentication set for git")
 	}
 	return g, nil
 }
 
 func (g *GitSource) Sync(ctx context.Context) error {
-	localPath := g.path
+	localPath := g.localRepository
 	localBranch := g.branch
 	remoteBranch := fmt.Sprintf("origin/%v", g.branch)
-	repoURL := g.repo
+	repoURL := g.remoteRepository
 	stale := false
 	// Clone the repository
 	r, err := git.PlainClone(localPath, false, &git.CloneOptions{
@@ -165,7 +166,7 @@ func (g *GitSource) Close(ctx context.Context) error {
 }
 
 func (g *GitSource) Clean() (_ error) {
-	return os.RemoveAll(g.path)
+	return os.RemoveAll(g.localRepository)
 }
 
 func GetCurrentBranchFromRepository(repository *git.Repository) (string, error) {
