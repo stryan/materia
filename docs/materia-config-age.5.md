@@ -21,7 +21,7 @@ Settings for secrets management using `age`.
 
 # Options
 
-*MATERIA_AGE_IDENTS*
+*MATERIA_AGE_KEYFILE*
 
 :  File containing `age` private key used for secrets files.
 

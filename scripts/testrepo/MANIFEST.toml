@@ -1,5 +1,5 @@
 secrets = "age"
-age.idents = "./test-key.txt"
+age.keyfile = "./test-key.txt"
 age.basedir = "secrets"
 [hosts.localhost]
 components = ["hello","double"]

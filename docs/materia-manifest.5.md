@@ -28,7 +28,7 @@ Manifest files are required for a repository or component to be considered valid
 
 :  What secrets manager to use. Accepted values are `age` (recommended), `memory`, or `file`.
 
-   For `age` you may also specify a private key file to use with `age.idents`.
+   For `age` you must also specify a private key file to use with `age.keyfile`.
 
 *hosts*
 
@@ -57,7 +57,7 @@ Manifest files are required for a repository or component to be considered valid
 
 ```
 secrets = "age"
-age.idents = "/etc/materia/key.txt"
+age.keyfile = "/etc/materia/key.txt"
 [roles.base]
 components = ["nagios-agent"]
 

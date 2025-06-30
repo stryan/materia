@@ -33,7 +33,7 @@ podman run --name materia --rm \
 	-v /etc/materia/known_hosts:/root/.ssh/known_hosts:ro \ #Optional, used for git+ssh checkouts
 	-v /etc/materia/_key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
-	--env MATERIA_AGE_IDENTS=/etc/materia/key.txt \
+	--env MATERIA_AGE_KEYFILE=/etc/materia/key.txt \
 	--env MATERIA_GIT_PRIVATEKEY=/etc/materia/materia_key \
 	--env MATERIA_SOURCE_URL=git://git@github.commateria/materia_repo \
 	ghcr.io/stryan/materia:latest

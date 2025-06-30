@@ -26,7 +26,7 @@ func (c Config) SecretsType() string { return "age" }
 
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
-	c.IdentPath = k.String("age.idents")
+	c.IdentPath = k.String("age.keyfile")
 	c.BaseDir = k.String("age.basedir")
 	c.GeneralVaults = k.Strings("age.vaults")
 	return &c, nil
