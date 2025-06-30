@@ -1,0 +1,31 @@
+[tools]
+age = "latest"
+
+[env]
+MATERIA_KEY="./key.txt"
+
+[tasks]
+[tasks.encrypt]
+description = "encrypt secrets files"
+dir = "secrets"
+run = "for file in $(find . -name '*.toml'); do age -R recipients -o $(basename $file .toml).age $file; done && rm *.toml || true"
+[tasks.decrypt]
+description = "decrypt secrets files"
+dir = "secrets"
+run = "for file in $(find . -name '*.age'); do age -i $MATERIA_KEY -o $(basename $file .age).toml -d $file; done && rm *.age || true"
+[tasks.push]
+description = "encrypt and push"
+run = "git push"
+depends = ["encrypt"]
+[tasks.edit]
+description = "edit single file"
+dir = "secrets"
+run = [
+	'age -i $MATERIA_KEY -o {{arg(name="file")}}.toml -d {{arg(name="file")}}.age && rm {{arg(name="file")}}.age',
+	'nvim {{arg(name="file")}}.toml',
+	'age -R recipients -o {{arg(name="file")}}.age {{arg(name="file")}}.toml && rm {{arg(name="file")}}.toml',
+]
+[tasks.new]
+description = "create new component"
+dir = "components"
+run = 'mkdir {{arg(name="component")}} && touch {{arg(name="component")}}/MANIFEST.toml'

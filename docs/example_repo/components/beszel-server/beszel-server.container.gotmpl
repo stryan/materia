@@ -1,0 +1,24 @@
+[Unit]
+Description=beszel-server container
+After=tailscaled.service
+Wants=tailscaled.service
+Requires=
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+
+[Container]
+Image=docker.io/henrygd/beszel:{{.containerTag}}
+ContainerName=beszel-server
+Environment=LISTEN="{{m_facts "interface.tailscale0.ip4.0"}}:{{.port}}"
+Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
+Volume=beszel-data.volume:/beszel_data
+PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}
+{{ snippet "autoUpdate" "registry"}}
+
+[Install]
+# Start by default on boot
+WantedBy=multi-user.target default.target

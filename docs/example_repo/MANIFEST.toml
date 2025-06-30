@@ -1,0 +1,14 @@
+secrets = "age" # which secrets engine to use
+age.keyfile = "/etc/materia/key.txt" # configuraton for the age engine: specifies the private key to use
+age.basedir = "secrets" # configuration for the age engine: specifies what directory to look in
+
+[roles.base] # defines a "role", which is a collection of components that can be assigned as one unit to a host
+components = ["beszel-agent"] # a nice example component; install the monitoring agent on every node we use
+
+[hosts.ivy] # defines the assigned components for host named "ivy"
+# for this host, we just assign a role
+roles = ["base"]
+
+[hosts.warden]
+components = ["beszel-server"] # you can directly assign components to hosts
+roles = ["base"]
