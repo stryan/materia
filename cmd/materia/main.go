@@ -305,41 +305,41 @@ func main() {
 					return nil
 				},
 			},
-			// TODO fix/redo func since facts are handled differently now
-			// {
-			// 	Name:  "doctor",
-			// 	Usage: "remove corrupted installed components. Dry run by default",
-			// 	Flags: []cli.Flag{
-			// 		&cli.BoolFlag{
-			// 			Name:    "remove",
-			// 			Aliases: []string{"r"},
-			// 			Usage:   "Actually remove corrupted components",
-			// 		},
-			// 	},
-			// 	Action: func(ctx context.Context, cCtx *cli.Command) error {
-			// 		// use a fake materia since we can't generate valid facts
-			// 		m := &materia.Materia{
-			// 			CompRepo: &repository.HostComponentRepository{DataPrefix: filepath.Join(c.MateriaDir, "materia", "components"), QuadletPrefix: c.QuadletDir},
-			// 		}
-			// 		corrupted, err := m.ValidateComponents(ctx)
-			// 		if err != nil {
-			// 			return err
-			// 		}
-			// 		for _, v := range corrupted {
-			// 			fmt.Printf("Corrupted component: %v\n", v)
-			// 		}
-			// 		if !cCtx.Bool("remove") {
-			// 			return nil
-			// 		}
-			// 		for _, v := range corrupted {
-			// 			err := m.PurgeComponenet(ctx, v)
-			// 			if err != nil {
-			// 				return err
-			// 			}
-			// 		}
-			// 		return nil
-			// 	},
-			// },
+			{
+				Name:  "doctor",
+				Usage: "remove corrupted installed components. Dry run by default",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "remove",
+						Aliases: []string{"r"},
+						Usage:   "Actually remove corrupted components",
+					},
+				},
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					// use a fake materia since we can't generate valid facts
+					m, err := doctorSetup(ctx, configFile, cliflags)
+					if err != nil {
+						return err
+					}
+					corrupted, err := m.ValidateComponents(ctx)
+					if err != nil {
+						return err
+					}
+					for _, v := range corrupted {
+						fmt.Printf("Corrupted component: %v\n", v)
+					}
+					if !cCtx.Bool("remove") {
+						return nil
+					}
+					for _, v := range corrupted {
+						err := m.PurgeComponenet(ctx, v)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			},
 			{
 				Name:  "clean",
 				Usage: "remove all related file paths",

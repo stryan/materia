@@ -1,3 +1,4 @@
+// Package materia contains the primary materia plan-execute functions. You probably don't want to be calling it
 package materia
 
 import (
@@ -22,7 +23,7 @@ import (
 type MacroMap func(map[string]any) template.FuncMap
 
 // TODO ugly hack, remove
-var RootComponent = &components.Component{Name: "root"}
+var rootComponent = &components.Component{Name: "root"}
 
 type Materia struct {
 	HostFacts           FactsProvider
@@ -52,6 +53,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
+	var err error
 
 	snips := make(map[string]*Snippet)
 	defaultSnippets := loadDefaultSnippets()
@@ -75,7 +77,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 		SourceRepo:    sourceRepo,
 		OutputDir:     c.OutputDir,
 		snippets:      snips,
-		rootComponent: RootComponent,
+		rootComponent: rootComponent,
 	}
 	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
@@ -136,6 +138,16 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 			},
 		}
 	}
+	m.InstalledComponents, err = m.CompRepo.ListComponentNames()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list installed components: %w", err)
+	}
+
+	slices.Sort(m.InstalledComponents)
+	if man == nil {
+		// bail out early since the rest of this needs manifests
+		return m, nil
+	}
 
 	for _, v := range m.Manifest.Snippets {
 		s, err := configToSnippet(v)
@@ -152,7 +164,6 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 	if ok {
 		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
 	}
-	var err error
 	m.Roles, err = getRolesFromManifest(man, facts.GetHostname())
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
@@ -162,12 +173,8 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 			m.AssignedComponents = append(m.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-	m.InstalledComponents, err = m.CompRepo.ListComponentNames()
-	if err != nil {
-		return nil, fmt.Errorf("unable to list installed components: %w", err)
-	}
+
 	slices.Sort(m.AssignedComponents)
-	slices.Sort(m.InstalledComponents)
 	return m, nil
 }
 

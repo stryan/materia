@@ -9,12 +9,12 @@ import (
 	"slices"
 	"text/template"
 
+	"github.com/charmbracelet/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
-	"github.com/charmbracelet/log"
-	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
@@ -157,7 +157,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			if len(actions) > 0 {
 				actions = append(actions, Action{
 					Todo:    ActionReloadUnits,
-					Parent:  RootComponent,
+					Parent:  rootComponent,
 					Payload: components.Resource{},
 				})
 			}
@@ -313,7 +313,7 @@ func (m *Materia) calculatePotentialComponentResources(original, newComponent *c
 	if len(actions) > 0 {
 		actions = append(actions, Action{
 			Todo:    ActionReloadUnits,
-			Parent:  RootComponent,
+			Parent:  rootComponent,
 			Payload: components.Resource{},
 		})
 	}

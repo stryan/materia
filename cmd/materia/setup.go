@@ -198,3 +198,71 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	return m, nil
 }
+
+func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
+	k := koanf.New(".")
+	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
+		return strings.ReplaceAll(strings.ToLower(
+			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
+	}), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error loading config from env: %w", err)
+	}
+	if configFile != "" {
+		err = k.Load(file.Provider(configFile), toml.Parser())
+		if err != nil {
+			return nil, fmt.Errorf("error loading config file: %w", err)
+		}
+	}
+
+	c, err := materia.NewConfig(k, cliflags)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = c.Validate()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if c.UseStdout {
+		log.Default().SetOutput(os.Stdout)
+	}
+	if c.Debug {
+		log.Default().SetLevel(log.DebugLevel)
+		log.Default().SetReportCaller(true)
+	}
+	sm, err := services.NewServices(ctx, &services.ServicesConfig{
+		Timeout: c.Timeout,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	cm, err := containers.NewPodmanManager()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.MateriaDir, "materia", "components"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create host component repo: %w", err)
+	}
+
+	// log.Debug("loading manifest")
+	// manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
+	// man, err := manifests.LoadMateriaManifest(manifestLocation)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error loading manifest: %w", err)
+	// }
+	// if err := man.Validate(); err != nil {
+	// 	return nil, fmt.Errorf("invalid materia manifest: %w", err)
+	// }
+	// err = k.Load(file.Provider(manifestLocation), toml.Parser())
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	m, err := materia.NewMateria(ctx, c, nil, nil, nil, nil, sm, cm, nil, nil, nil, hostRepo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return m, nil
+}
