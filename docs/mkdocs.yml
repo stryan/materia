@@ -1,0 +1,13 @@
+---
+site_name: Materia Docs
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Cheatsheet: cheatsheet.md
+  - Secrets: secrets.md
+  - Reference: reference/index.md
+docs_dir: markdown
+exclude_docs: |
+  athanor.1.md
+not_in_nav: |-
+  /reference/*.*.md

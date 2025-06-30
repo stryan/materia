@@ -5,6 +5,8 @@ go = "1.24"
 golangci-lint = "2.1.2"
 gotestsum = "latest"
 mockery = "latest"
+"pipx:mkdocs" = "latest"
+python = "latest"
 pandoc = "latest"
 
 [settings]
@@ -111,13 +113,17 @@ run = 'go build -ldflags="-w -s" -o bin/athanor-amd64 ./cmd/athanor/'
 
 [tasks.docs]
 description = "generate manpage and html docs"
+depends = ["docs-man","docs-html"]
+
+[tasks.docs-man]
+description = "generate manpages"
 dir = "docs"
-# sources = ["docs/*.md"]
-# outputs = { auto = true }
 run = [
-	"mkdir -p man html",
+	"mkdir -p man",
 	"find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
-	"find . -iname \"*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x --toc --template=templates/easy_template.html -o html/\"$(basename ${0%.md} )\".html' {} \\;",
 ]
 
-
+[tasks.docs-html]
+description = "generate HTML documentation"
+dir = "docs"
+run = "mkdocs build"

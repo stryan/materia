@@ -9,4 +9,4 @@ test_repo/
 **/*.age
 scripts/vm/auth/*
 docs/man
-docs/html
+docs/site
