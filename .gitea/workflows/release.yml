@@ -8,6 +8,7 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
+  GITHUB_REPOSITORY: stryan/materia
 jobs:
   # Build job
   build-and-release:
@@ -44,3 +45,4 @@ jobs:
             bin/materia-arm64
           make_latest: true
           generate_release_notes: true
+          token: ${{ secrets.GH_TOKEN }}
