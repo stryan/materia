@@ -14,6 +14,7 @@ run = [
 	'git remote add mirror git@github.com:stryan/materia',
 	'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t {{vars.image_registry}}/materia:stable --push .',
 	'docker tag {{vars.image_registry}}/materia:{{vars.container_tag}} ghcr.io/stryan/materia:{{vars.container_tag}} ghcr.io/stryan/materia:stable',
+	'docker tag {{vars.image_registry}}/materia:{{vars.container_tag}} ghcr.io/stryan/materia:stable',
 	'docker push ghcr.io/stryan/materia --all-tags',
 	'gh release create {{vars.container_tag}} --generate-notes ./bin/materia*',
 	'git remote rm mirror',
