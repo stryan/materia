@@ -32,6 +32,12 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ github.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
       - name: Build and run release
         run: |
           export TAG=${{ github.ref_name }}
