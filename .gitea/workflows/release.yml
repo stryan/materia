@@ -43,4 +43,4 @@ jobs:
           export TAG=${{ github.ref_name }}
           mise ci-release
       - name: Logout registry
-        run: docker logout $(IMAGE_REGISTRY)
+        run: docker logout ghcr.io

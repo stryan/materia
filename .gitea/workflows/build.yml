@@ -11,6 +11,7 @@ env:
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
 jobs:
   # Build job
   build:
@@ -34,6 +35,12 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ gitea.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
+      - name: Login to ghcr registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_TOKEN }}
       - name: Build container
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -45,3 +52,5 @@ jobs:
           mise ci
       - name: Logout registry
         run: docker logout $(IMAGE_REGISTRY)
+      - name: Logout registry
+        run: docker logout ghcr.io
