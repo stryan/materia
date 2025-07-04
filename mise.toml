@@ -1,6 +1,7 @@
 [tools]
 age = "latest"
 go = "1.24"
+gh = "latest"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 golangci-lint = "2.1.2"
 gotestsum = "latest"
@@ -127,3 +128,12 @@ run = [
 description = "generate HTML documentation"
 dir = "docs"
 run = "mkdocs build"
+
+[tasks.release]
+description = "Generate github release"
+depends = ["build"]
+run = [
+	'git remote add mirror git@github.com:stryan/materia',
+	'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
+	'git remote rm mirror',
+]
