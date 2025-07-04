@@ -16,7 +16,7 @@ If you'd like to build without mise, you can do so through the normal go methods
 
 ## With Podman
 
-For obvious reasons, materia can only be run using `podman` as your container engine.
+For obvious reasons, materia should only be run using `podman` as your container engine.
 
 By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](./docs/index.md) for more details. By default materia uses XDG_DIR settings.
 ```
@@ -36,12 +36,20 @@ podman run --name materia --rm \
 	--env MATERIA_AGE_KEYFILE=/etc/materia/key.txt \
 	--env MATERIA_GIT_PRIVATEKEY=/etc/materia/materia_key \
 	--env MATERIA_SOURCE_URL=git://git@github.commateria/materia_repo \
-	ghcr.io/stryan/materia:latest
+	ghcr.io/stryan/materia:stable
 ```
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.
 
 See [install](./install/) for an example Quadlet.
+
+### Available tags
+
+**stable**: Use the latest tagged release
+
+**v<tag>**: Specify tagged release
+
+**latest**: Latest push to master
 
 # Quickstart
 

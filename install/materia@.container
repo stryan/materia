@@ -7,7 +7,7 @@ Environment="SCRIPT_ARGS=%I"
 Type=oneshot
 
 [Container]
-Image=github.com/stryan/materia:latest
+Image=github.com/stryan/materia:stable
 ContainerName=materia
 Environment=MATERIA_SOURCE_URL=file:///tmp/test_repo
 SecurityLabelDisable=true

@@ -32,14 +32,9 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ github.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
-      - name: Login to github
-        run: |
-          gh auth login
       - name: Build and run release
         run: |
           export TAG=${{ github.ref_name }}
           mise ci-release
       - name: Logout registry
         run: docker logout $(IMAGE_REGISTRY)
-      - name: Logout github
-        run: gh auth logout
