@@ -6,3 +6,13 @@ image_registry = "${IMAGE_REGISTRY}"
 env = { CGO_ENABLE = 0}
 depends = ["build","test"]
 run = 'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:{{vars.container_tag}} .'
+
+[tasks.ci-release]
+env = { CGO_ENABLE = 0 }
+depends = ["build","test"]
+run = [
+	'git remote add mirror git@github.com:stryan/materia',
+	'docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t {{vars.image_registry}}/materia:stable .',
+	'gh release create {{vars.container_tag}} --generate-notes ./bin/materia*',
+	'git remote rm mirror',
+]

@@ -9,6 +9,7 @@ env:
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
   GITHUB_REPOSITORY: stryan/materia
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
 jobs:
   # Build job
   build-and-release:
@@ -31,18 +32,14 @@ jobs:
           registry: ${{ vars.FORGE }}
           username: ${{ github.actor }}
           password: ${{ secrets.REGISTRY_TOKEN }}
-      - name: Build container
+      - name: Login to github
+        run: |
+          echo $GH_TOKEN | gh auth login --with-token
+      - name: Build and run release
         run: |
           export TAG=${{ github.ref_name }}
-          mise ci
+          mise ci-release
       - name: Logout registry
         run: docker logout $(IMAGE_REGISTRY)
-      - name: Generate github release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |-
-            bin/materia-amd64
-            bin/materia-arm64
-          make_latest: true
-          generate_release_notes: true
-          token: ${{ secrets.GH_TOKEN }}
+      - name: Logout github
+        run: gh auth logout
