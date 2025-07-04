@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.REGISTRY_TOKEN }}
       - name: Login to github
         run: |
-          echo $GH_TOKEN | gh auth login --with-token
+          gh auth login
       - name: Build and run release
         run: |
           export TAG=${{ github.ref_name }}
