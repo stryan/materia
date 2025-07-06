@@ -13,7 +13,7 @@ A GitOps style tool for managing services and applications deployed as [Quadlets
 
 ## Installation
 
-Install a [Github release](https://github.com/stryan/materia) or pull the container `podman pull ghcr.io/stryan/materia` and you're set.
+Install a [release off Github](https://github.com/stryan/materia/releases/latest) or pull the container `podman pull ghcr.io/stryan/materia` onto the target node and you're set.
 
 See the [Quickstart](quickstart.md) to get started.
 
