@@ -6,6 +6,10 @@ nav:
   - Cheatsheet: cheatsheet.md
   - Secrets: secrets.md
   - Reference: reference/index.md
+theme:
+  name: readthedocs
+repo_url: https://github.com/stryan/materia/
+edit_uri: docs/markdown/
 docs_dir: markdown
 exclude_docs: |
   athanor.1.md
