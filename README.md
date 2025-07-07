@@ -7,12 +7,18 @@ Materia handles the full lifecycle of an application (or **component**):
 3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
 4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
+See the [Documentation site](https://primamateria.systems) for more details, or read on for a quick start.
+
 # Install
 
 ## From source
 Build from source using `mise build`. By default this will generate binaries for amd64 and arm64.
 
 If you'd like to build without mise, you can do so through the normal go methods such as: `go build -ldflags="-w -s" -o bin/materia-arm64 ./cmd/materia/`
+
+## From Binary
+
+Grab a release for your architecture from the releases page; the static binaries should work on any relatively recent Linux distro.
 
 ## With Podman
 
@@ -52,18 +58,6 @@ See [install](./install/) for an example Quadlet.
 **latest**: Latest push to master
 
 # Quickstart
-
-## Terminology
-
-**target**: The node materia is running on
-
-**repository**: A local directory or Git repository containing Materia components,manifests, and resources.
-
-**manifest**: A TOML file containing metadata. Found at the **repository** level and the **component** level.
-
-**component**: A collection of resources. Similar to an ansible role and is the basic building block of a repository.
-
-**resource**: An individual file that is installed as part of a component and removed when the component is removed. Includes quadlets, data files, non-generated systemd units, scripts, and more.
 
 ## Install materia on the destination node
 

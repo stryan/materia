@@ -1,6 +1,5 @@
 [Unit]
 Description=Materia: quadlet manager
-After=local-fs.target network.target
 
 [Service]
 Environment="SCRIPT_ARGS=%I"
