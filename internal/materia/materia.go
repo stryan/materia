@@ -15,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
@@ -273,14 +274,31 @@ func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
 	return m.CompRepo.PurgeComponentByName(name)
 }
 
+type planOutput struct {
+	Timestamp        time.Time `toml:"timestamp"`
+	Plan             []string  `toml:"plan"`
+	ChangedResources []change
+}
+
+type change struct {
+	ResourceName, Diff string
+}
+
 func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	path := filepath.Join(m.OutputDir, outputfile)
-	planOutput := struct {
-		Timestamp time.Time `toml:"timestamp"`
-		Plan      []string  `toml:"plan"`
-	}{
+	planOutput := planOutput{
 		Timestamp: time.Now(),
 		Plan:      p.PrettyLines(),
+	}
+	for _, a := range p.Steps() {
+		if a.Category() == ActionCategoryUpdate {
+			diffs := a.Content.([]diffmatchpatch.Diff)
+			content := diffmatchpatch.New().DiffText1(diffs)
+			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
+				ResourceName: a.Payload.Name,
+				Diff:         content,
+			})
+		}
 	}
 
 	file, err := os.Create(path)
