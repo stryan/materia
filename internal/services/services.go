@@ -130,7 +130,7 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 		return nil, err
 	}
 	if len(us) == 0 {
-		return nil, ErrServiceNotFound
+		return nil, fmt.Errorf("error getting service %v: %w", name, ErrServiceNotFound)
 	}
 	if len(us) != 1 {
 		return nil, errors.New("too many units returned")

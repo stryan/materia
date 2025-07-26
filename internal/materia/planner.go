@@ -489,7 +489,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 			Name:   s.Service,
 			Kind:   components.ResourceTypeService,
 		}
-		liveService, err := m.Services.Get(ctx, comp.Name)
+		liveService, err := m.Services.Get(ctx, s.Service)
 		if err != nil {
 			return actions, err
 		}
