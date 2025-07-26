@@ -338,8 +338,17 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	if err != nil {
 		return err
 	}
+	// TODO transition this to a proper filewalk function
 	if len(entries) != 0 {
-		return errors.New("component data folder not empty")
+		for _, e := range entries {
+			if !e.IsDir() {
+				return fmt.Errorf("component data folder not empty: %v", e.Name())
+			}
+			err = os.Remove(filepath.Join(r.DataPrefix, compName, e.Name()))
+			if err != nil {
+				return err
+			}
+		}
 	}
 	err = os.Remove(filepath.Join(r.DataPrefix, compName))
 	if err != nil {
