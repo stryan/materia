@@ -27,6 +27,8 @@ func resToAction(r components.Resource, action string) ActionType {
 			todo = ActionInstallQuadlet
 		case components.ResourceTypeFile, components.ResourceTypeManifest:
 			todo = ActionInstallFile
+		case components.ResourceTypeDirectory:
+			todo = ActionInstallDirectory
 		case components.ResourceTypeComponentScript:
 			todo = ActionInstallComponentScript
 		case components.ResourceTypeScript:
@@ -66,6 +68,8 @@ func resToAction(r components.Resource, action string) ActionType {
 			todo = ActionRemoveVolumeFile
 		case components.ResourceTypeComponentScript:
 			todo = ActionRemoveComponentScript
+		case components.ResourceTypeDirectory:
+			todo = ActionRemoveDirectory
 		}
 	}
 	return todo

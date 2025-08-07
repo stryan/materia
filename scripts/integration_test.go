@@ -161,6 +161,7 @@ var expectedActions = []materia.Action{
 	planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container", ""),
 	planHelper(materia.ActionInstallQuadlet, "double", "hello.container", ""),
 	planHelper(materia.ActionInstallService, "double", "hello.timer", ""),
+	planHelper(materia.ActionInstallDirectory, "double", "inner", "/inner/"),
 	planHelper(materia.ActionInstallFile, "double", "test.data", "/inner/"),
 	planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml", ""),
 	planHelper(materia.ActionInstallComponent, "hello", "", ""),

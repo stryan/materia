@@ -95,9 +95,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if d.Name() == oldComp.Name || d.Name() == ".component_version" {
 			return nil
 		}
-		if d.IsDir() {
-			return nil
-		}
 		resPath := strings.TrimPrefix(fullPath, dataPath)
 		resName := filepath.Base(fullPath)
 		newRes := components.Resource{
@@ -106,6 +103,10 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			Name:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
+		}
+		if d.IsDir() {
+			newRes.Kind = components.ResourceTypeDirectory
+			newRes.Template = false
 		}
 		oldComp.Resources = append(oldComp.Resources, newRes)
 		if resName == "MANIFEST.toml" {
@@ -364,6 +365,9 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 
 func (r *HostComponentRepository) ReadResource(res components.Resource) (string, error) {
 	resPath := ""
+	if res.Kind == components.ResourceTypeDirectory {
+		return "", nil
+	}
 	if isQuadlet(res) {
 		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Path)
 	} else {
@@ -387,12 +391,12 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	// TODO probably doing something stupid here
 	prefix := filepath.Join(r.DataPrefix, res.Parent)
 	parent := filepath.Dir(res.Path)
-	if parent != "/" {
-		parentPath := filepath.Join(prefix, parent)
-		err := os.MkdirAll(parentPath, 0o755)
+	if res.Kind == components.ResourceTypeDirectory {
+		err := os.Mkdir(filepath.Join(prefix, parent, res.Name), 0o755)
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 	resPath := filepath.Join(prefix, parent, res.Name)
 	err := os.WriteFile(resPath, data.Bytes(), 0o755)
@@ -409,19 +413,6 @@ func (r *HostComponentRepository) RemoveResource(res components.Resource) error 
 	err := os.Remove(resPath)
 	if err != nil {
 		return err
-	}
-	if res.Path != "" {
-		entries, err := os.ReadDir(filepath.Join(r.DataPrefix, res.Parent, res.Path))
-		if err != nil {
-			return err
-		}
-		if len(entries) == 0 {
-			// directory containing resource is empty, remove dir
-			err = os.Remove(filepath.Join(r.DataPrefix, res.Parent, res.Path))
-			if err != nil {
-				return err
-			}
-		}
 	}
 	return nil
 }

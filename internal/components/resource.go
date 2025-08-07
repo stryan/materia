@@ -28,6 +28,7 @@ const (
 	ResourceTypeVolumeFile
 	ResourceTypeScript
 	ResourceTypeComponentScript
+	ResourceTypeDirectory
 
 	ResourceTypeService
 )

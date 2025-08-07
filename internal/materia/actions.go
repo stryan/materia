@@ -39,6 +39,8 @@ const (
 	ActionInstallVolumeFile
 	ActionUpdateVolumeFile
 	ActionRemoveVolumeFile
+	ActionInstallDirectory
+	ActionRemoveDirectory
 
 	ActionInstallFile
 	ActionInstallQuadlet
@@ -84,7 +86,7 @@ func (a *Action) Pretty() string {
 	switch a.Todo {
 	case ActionInstallComponent:
 		return fmt.Sprintf("Installing component %v", a.Parent.Name)
-	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript:
+	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallDirectory:
 		act := "Installing"
 		if a.Payload.Template {
 			act = "Templating"
@@ -100,7 +102,7 @@ func (a *Action) Pretty() string {
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
 		return fmt.Sprintf("Removing component %v", a.Parent.Name)
-	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript:
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveDirectory:
 		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionRestartService:
 		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Name)
