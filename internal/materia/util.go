@@ -2,6 +2,7 @@ package materia
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 
 	"primamateria.systems/materia/internal/components"
@@ -71,6 +72,9 @@ func resToAction(r components.Resource, action string) ActionType {
 		case components.ResourceTypeDirectory:
 			todo = ActionRemoveDirectory
 		}
+	}
+	if todo == ActionUnknown {
+		panic(fmt.Sprintf("Couldn't convert resource to %v action: %v", action, r))
 	}
 	return todo
 }

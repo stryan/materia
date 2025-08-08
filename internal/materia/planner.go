@@ -558,7 +558,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			// in current resources but not source resources, remove old
 			log.Debug("removing current resource", "file", cur.Name)
 			a := Action{
-				Todo:    resToAction(newRes, "remove"),
+				Todo:    resToAction(cur, "remove"),
 				Parent:  base,
 				Payload: cur,
 			}

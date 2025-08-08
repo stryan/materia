@@ -7,28 +7,33 @@ import (
 )
 
 type Plan struct {
+	size       int
 	volumes    []string
 	components []string
 
-	mainPhase   []Action
 	combatPhase []Action
 	secondMain  []Action
 	endStep     []Action
+
+	resourceChanges  map[string][]Action
+	structureChanges map[string][]Action
 }
 
 func NewPlan(installedComps, volList []string) *Plan {
 	return &Plan{
-		volumes:    volList,
-		components: installedComps,
+		volumes:          volList,
+		components:       installedComps,
+		resourceChanges:  make(map[string][]Action),
+		structureChanges: make(map[string][]Action),
 	}
 }
 
 func (p *Plan) Add(a Action) {
 	switch a.Todo {
-	case ActionCleanupComponent:
-		p.mainPhase = append(p.mainPhase, a)
-	case ActionInstallComponent, ActionRemoveComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent, ActionInstallDirectory, ActionRemoveDirectory:
-		p.mainPhase = append(p.mainPhase, a)
+	case ActionInstallDirectory, ActionInstallComponent, ActionRemoveComponent, ActionRemoveDirectory:
+		p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent, ActionCleanupComponent:
+		p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 	case ActionInstallVolumeFile:
 		p.secondMain = append(p.secondMain, a)
 		vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
@@ -62,8 +67,9 @@ func (p *Plan) Add(a Action) {
 	case ActionSetupComponent:
 		p.secondMain = append(p.secondMain, a)
 	default:
-		panic(fmt.Sprintf("unexpected materia.ActionType: %v", a.Todo))
+		panic(fmt.Sprintf("unexpected materia.ActionType: %v : %v", a.Todo, a))
 	}
+	p.size++
 }
 
 func (p *Plan) Append(a []Action) {
@@ -73,15 +79,15 @@ func (p *Plan) Append(a []Action) {
 }
 
 func (p *Plan) Empty() bool {
-	return len(p.mainPhase) == 0 && len(p.combatPhase) == 0 && len(p.secondMain) == 0 && len(p.endStep) == 0
+	return p.size == 0
 }
 
 func (p *Plan) Size() int {
-	return len(p.mainPhase) + len(p.combatPhase) + len(p.secondMain) + len(p.endStep)
+	return p.size
 }
 
 func (p *Plan) Validate() error {
-	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	steps := p.Steps()
 	components := p.components
 	needReload := false
 	reload := false
@@ -120,7 +126,30 @@ func (p *Plan) Validate() error {
 }
 
 func (p *Plan) Steps() []Action {
-	return slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	var mainPhase []Action
+	keys := make([]string, 0, len(p.resourceChanges))
+	for k := range p.resourceChanges {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	for _, k := range keys {
+		componentActions := []Action{}
+		beginningStep := []Action{}
+		endstep := []Action{}
+		for _, sc := range p.structureChanges[k] {
+			if sc.Todo == ActionInstallComponent || sc.Todo == ActionInstallDirectory {
+				beginningStep = append(beginningStep, sc)
+			} else {
+				endstep = append(endstep, sc)
+			}
+		}
+		componentActions = append(componentActions, beginningStep...)
+		componentActions = append(componentActions, p.resourceChanges[k]...)
+		componentActions = append(componentActions, endstep...)
+		mainPhase = append(mainPhase, componentActions...)
+	}
+
+	return slices.Concat(mainPhase, p.combatPhase, p.secondMain, p.endStep)
 }
 
 func (p *Plan) Pretty() string {
@@ -128,7 +157,7 @@ func (p *Plan) Pretty() string {
 		return "Nothing to do"
 	}
 	var result string
-	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	steps := p.Steps()
 	result += "Plan: \n"
 	for i, a := range steps {
 		result += fmt.Sprintf("%v. %v\n", i+1, a.Pretty())
@@ -141,7 +170,7 @@ func (p *Plan) PrettyLines() []string {
 		return []string{""}
 	}
 	var result []string
-	steps := slices.Concat(p.mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	steps := p.Steps()
 	for i, a := range steps {
 		result = append(result, fmt.Sprintf("%v. %v", i+1, a.Pretty()))
 	}

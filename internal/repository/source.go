@@ -100,6 +100,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			return nil
 		}
 		resPath := strings.TrimPrefix(fullPath, path)
+		fmt.Fprintf(os.Stderr, "FBLTHP[299]: source.go:102: resPath=%+v\n", resPath)
 		if d.Name() == "MANIFEST.toml" {
 			log.Debugf("loading source component manifest %v", c.Name)
 			man, err = manifests.LoadComponentManifest(fullPath)

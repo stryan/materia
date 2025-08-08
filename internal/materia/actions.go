@@ -91,33 +91,33 @@ func (a *Action) Pretty() string {
 		if a.Payload.Template {
 			act = "Templating"
 		}
-		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Path)
 	case ActionInstallVolumeFile:
-		return fmt.Sprintf("Installing volume file %v", a.Payload.Name)
+		return fmt.Sprintf("Installing volume file %v", a.Payload.Path)
 	case ActionRemoveVolumeFile:
-		return fmt.Sprintf("Removing volume file %v", a.Payload.Name)
+		return fmt.Sprintf("Removing volume file %v", a.Payload.Path)
 	case ActionUpdateVolumeFile:
-		return fmt.Sprintf("Updating volume file %v", a.Payload.Name)
+		return fmt.Sprintf("Updating volume file %v", a.Payload.Path)
 	case ActionReloadUnits:
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
 		return fmt.Sprintf("Removing component %v", a.Parent.Name)
 	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveDirectory:
-		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionRestartService:
-		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionStartService:
-		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionStopService:
-		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionEnableService:
-		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionDisableService:
-		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionUnknown:
 		return "Unknown action"
 	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript:
-		return fmt.Sprintf("Updating resource %v/%v", a.Parent.Name, a.Payload.Name)
+		return fmt.Sprintf("Updating resource %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionSetupComponent:
 		return fmt.Sprintf("Setting up component %v", a.Parent.Name)
 	case ActionCleanupComponent:
