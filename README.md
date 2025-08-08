@@ -24,7 +24,7 @@ Grab a release for your architecture from the releases page; the static binaries
 
 For obvious reasons, materia should only be run using `podman` as your container engine.
 
-By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](./docs/index.md) for more details. By default materia uses XDG_DIR settings.
+By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](docs/markdown/index.md) for more details. By default materia uses XDG_DIR settings.
 ```
 podman run --name materia --rm \
 	--hostname <system_hostname> \
@@ -67,7 +67,7 @@ For this quickstart we will assume you're using the raw binary on machine "testh
 
 ## Setup your repository
 
-For a more in-depth look at setting up a repository, see the [example repo](docs/example_repo) and the [repository documentation](/docs/materia-repository.5.md).
+For a more in-depth look at setting up a repository, see the [example repo](docs/example_repo) and the [repository documentation](docs/markdown/reference/materia-repository.5.md).
 
 On your workstation, create a bare Git repository with the following directories:
 
@@ -128,9 +128,9 @@ git push
 ## Run a test plan
 
 ### Set environment variables
-Materia is designed to be configured with environment variables; if you would like to use config files see the [config docs](docs/materia-config.5.md).
+Materia is designed to be configured with environment variables; if you would like to use config files see the [config docs](docs/markdown/reference/materia-config.5.md).
 
-Since we're not using any [secrets](docs/materia-config-age.5.md) we only need to set the source URL:
+Since we're not using any [secrets](docs/markdown/reference/materia-config-age.5.md) we only need to set the source URL:
 
 `export MATERIA_SOURCE_URL="git://git@github.com:user/materia_repo"`
 
