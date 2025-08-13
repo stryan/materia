@@ -158,6 +158,7 @@ func TestFacts(t *testing.T) {
 
 var expectedActions = []materia.Action{
 	planHelper(materia.ActionInstallComponent, "double", "", ""),
+	planHelper(materia.ActionInstallDirectory, "double", "inner", "/inner/"),
 	planHelper(materia.ActionInstallQuadlet, "double", "goodbye.container", ""),
 	planHelper(materia.ActionInstallQuadlet, "double", "hello.container", ""),
 	planHelper(materia.ActionInstallService, "double", "hello.timer", ""),
@@ -228,6 +229,7 @@ func TestExecuteFresh(t *testing.T) {
 	require.Nil(t, err)
 	require.False(t, plan.Empty(), "plan should not be empty")
 	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
+	fmt.Fprintf(os.Stderr, "FBLTHP[300]: integration_test.go:232: plan=%+v\n", plan.Pretty())
 	for k, v := range plan.Steps() {
 		expected := expectedActions[k]
 		if expected.Todo != v.Todo {

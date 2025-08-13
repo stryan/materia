@@ -95,9 +95,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if d.Name() == oldComp.Name || d.Name() == ".component_version" {
 			return nil
 		}
-		if d.IsDir() {
-			return nil
-		}
 		resPath := strings.TrimPrefix(fullPath, dataPath)
 		resName := filepath.Base(fullPath)
 		newRes := components.Resource{
@@ -106,6 +103,10 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			Name:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
+		}
+		if d.IsDir() {
+			newRes.Kind = components.ResourceTypeDirectory
+			newRes.Template = false
 		}
 		oldComp.Resources = append(oldComp.Resources, newRes)
 		if resName == "MANIFEST.toml" {
@@ -136,6 +137,9 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	if err != nil {
 		return nil, err
 	}
+	if !manifestFound {
+		return nil, components.ErrCorruptComponent
+	}
 	err = filepath.WalkDir(quadletPath, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -159,9 +163,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		return nil, err
 	}
 
-	if !manifestFound {
-		return nil, components.ErrCorruptComponent
-	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
@@ -334,27 +335,26 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	if err != nil {
 		return err
 	}
-	entries, err := os.ReadDir(filepath.Join(r.DataPrefix, compName))
+	leftovers := []string{}
+	err = filepath.WalkDir(filepath.Join(r.DataPrefix, compName), func(fullPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return fmt.Errorf("component data folder not empty: %v", d.Name())
+		}
+		leftovers = append(leftovers, fullPath)
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	// TODO transition this to a proper filewalk function
-	if len(entries) != 0 {
-		for _, e := range entries {
-			if !e.IsDir() {
-				return fmt.Errorf("component data folder not empty: %v", e.Name())
-			}
-			err = os.Remove(filepath.Join(r.DataPrefix, compName, e.Name()))
-			if err != nil {
-				return err
-			}
+	for _, leftoverDir := range leftovers {
+		err = os.Remove(leftoverDir)
+		if err != nil {
+			return err
 		}
 	}
-	err = os.Remove(filepath.Join(r.DataPrefix, compName))
-	if err != nil {
-		return err
-	}
-
 	err = os.Remove(filepath.Join(r.QuadletPrefix, compName, ".materia_managed"))
 	if err != nil {
 		return err
@@ -365,6 +365,9 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 
 func (r *HostComponentRepository) ReadResource(res components.Resource) (string, error) {
 	resPath := ""
+	if res.Kind == components.ResourceTypeDirectory {
+		return "", nil
+	}
 	if isQuadlet(res) {
 		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Path)
 	} else {
@@ -388,12 +391,12 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	// TODO probably doing something stupid here
 	prefix := filepath.Join(r.DataPrefix, res.Parent)
 	parent := filepath.Dir(res.Path)
-	if parent != "/" {
-		parentPath := filepath.Join(prefix, parent)
-		err := os.MkdirAll(parentPath, 0o755)
+	if res.Kind == components.ResourceTypeDirectory {
+		err := os.Mkdir(filepath.Join(prefix, parent, res.Name), 0o755)
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 	resPath := filepath.Join(prefix, parent, res.Name)
 	err := os.WriteFile(resPath, data.Bytes(), 0o755)
@@ -407,7 +410,11 @@ func (r *HostComponentRepository) RemoveResource(res components.Resource) error 
 	} else {
 		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Path)
 	}
-	return os.Remove(resPath)
+	err := os.Remove(resPath)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *HostComponentRepository) ComponentExists(name string) (bool, error) {

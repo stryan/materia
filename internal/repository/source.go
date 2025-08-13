@@ -40,6 +40,9 @@ func (s SourceComponentRepository) Validate() error {
 }
 
 func (s *SourceComponentRepository) ReadResource(res components.Resource) (string, error) {
+	if res.Kind == components.ResourceTypeDirectory {
+		return "", nil
+	}
 	resPath := filepath.Join(s.Prefix, res.Parent, res.Path)
 
 	curFile, err := os.ReadFile(resPath)
@@ -96,10 +99,8 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if d.Name() == c.Name {
 			return nil
 		}
-		if d.IsDir() {
-			return nil
-		}
 		resPath := strings.TrimPrefix(fullPath, path)
+		fmt.Fprintf(os.Stderr, "FBLTHP[299]: source.go:102: resPath=%+v\n", resPath)
 		if d.Name() == "MANIFEST.toml" {
 			log.Debugf("loading source component manifest %v", c.Name)
 			man, err = manifests.LoadComponentManifest(fullPath)
@@ -128,6 +129,10 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 				Name:     strings.TrimSuffix(d.Name(), ".gotmpl"),
 				Kind:     components.FindResourceType(d.Name()),
 				Template: components.IsTemplate(d.Name()),
+			}
+			if d.IsDir() {
+				newRes.Kind = components.ResourceTypeDirectory
+				newRes.Template = false
 			}
 		}
 		for _, vr := range c.VolumeResources {

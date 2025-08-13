@@ -13,12 +13,12 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
-	"github.com/charmbracelet/log"
 )
 
 func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
@@ -156,6 +156,10 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
 			return err
 		}
+	case ActionInstallDirectory:
+		if err := m.CompRepo.InstallResource(v.Payload, nil); err != nil {
+			return err
+		}
 	case ActionInstallService, ActionUpdateService:
 		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
 		if err != nil {
@@ -196,6 +200,10 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			return err
 		}
 		if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
+			return err
+		}
+	case ActionRemoveDirectory:
+		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
 			return err
 		}
 	case ActionRemoveService:
