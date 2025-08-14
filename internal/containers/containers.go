@@ -167,9 +167,9 @@ func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
 	var result []string
 	// TODO clean this up
 	for v := range strings.SplitSeq(string(output), "\n") {
-		v := strings.Trim(v, " \t\n\r\"'")
+		v = strings.Trim(v, " \t\n\r\"'")
 		if v != "" {
-			result = append(result, strings.TrimSpace(v))
+			result = append(result, strings.TrimPrefix(v, p.secretsPrefix))
 		}
 	}
 	return result, nil

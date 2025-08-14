@@ -31,6 +31,7 @@ const (
 	ResourceTypeDirectory
 
 	ResourceTypeService
+	ResourceTypePodmanSecret
 )
 
 func (r Resource) Validate() error {
