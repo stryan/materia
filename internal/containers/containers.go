@@ -1,9 +1,9 @@
 package containers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,7 +11,9 @@ import (
 	"strings"
 )
 
-type PodmanManager struct{}
+type PodmanManager struct {
+	secretsPrefix string
+}
 
 type Container struct {
 	Name    string
@@ -23,8 +25,30 @@ type Volume struct {
 	Mountpoint string `json:"Mountpoint"`
 }
 
+type PodmanSecret struct {
+	Name  string
+	Value string
+}
+
+type SecretInfo struct {
+	ID        string `json:"ID"`
+	CreatedAt string `json:"CreatedAt"`
+	UpdatedAt string `json:"UpdatedAt"`
+	Spec      struct {
+		SpecName string `json:"Name"`
+		Driver   struct {
+			DriverName string `json:"Name"`
+			Options    struct {
+				Path string `json:"path"`
+			} `json:"Options"`
+		} `json:"Driver"`
+		Labels struct{} `json:"Labels"`
+	} `json:"Spec"`
+	SecretData string `json:"SecretData"`
+}
+
 func NewPodmanManager() (*PodmanManager, error) {
-	return &PodmanManager{}, nil
+	return &PodmanManager{secretsPrefix: "materia-"}, nil
 }
 
 func (p *PodmanManager) PauseContainer(_ context.Context, name string) error {
@@ -131,13 +155,61 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume Volume, outputDir s
 	return nil
 }
 
+func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "podman", "secret", "ls", "--noheading", "--format", "\"{{ range . }}{{.Name}}\\n{{end -}}\"", "--filter", fmt.Sprintf("name=%v*", p.secretsPrefix))
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return nil, err
+	}
+	var result []string
+	// TODO clean this up
+	for v := range strings.SplitSeq(string(output), "\n") {
+		v := strings.Trim(v, " \t\n\r\"'")
+		if v != "" {
+			result = append(result, strings.TrimSpace(v))
+		}
+	}
+	return result, nil
+}
+
+func (p *PodmanManager) GetSecret(ctx context.Context, secretName string) (*PodmanSecret, error) {
+	cmd := exec.CommandContext(ctx, "podman", "secret", "inspect", "--showsecret", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return nil, err
+	}
+	var infos []*SecretInfo
+	if err := json.Unmarshal(output, &infos); err != nil {
+		return nil, err
+	}
+	return &PodmanSecret{Name: secretName, Value: infos[0].SecretData}, nil
+}
+
+func (p *PodmanManager) WriteSecret(ctx context.Context, secretName, secretValue string) error {
+	cmd := exec.CommandContext(ctx, "podman", "secret", "create", "--replace", fmt.Sprintf("%v%v", p.secretsPrefix, secretName), "-")
+	var valBuf bytes.Buffer
+	valBuf.Write([]byte(secretValue))
+	cmd.Stdin = &valBuf
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	return parsePodmanError(output)
+}
+
 func (p *PodmanManager) Close() {
 }
 
 func parsePodmanError(rawerror []byte) error {
 	errorString := string(rawerror)
-	if strings.HasPrefix(errorString, "Error: ") {
-		return errors.New(strings.TrimPrefix(errorString, "Error: "))
+	if realErr, found := strings.CutPrefix(errorString, "Error: "); found {
+		return fmt.Errorf("error from podman command: %v", realErr)
 	}
 	return nil
 }
