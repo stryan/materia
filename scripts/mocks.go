@@ -14,14 +14,14 @@ type MockServices struct {
 	Services map[string]string
 }
 
-func (mockservices *MockServices) Apply(_ context.Context, name string, cmd services.ServiceAction) error {
+func (m *MockServices) Apply(_ context.Context, name string, cmd services.ServiceAction) error {
 	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
 	if cmd == services.ServiceReloadUnits {
 		return nil
 	}
-	if _, ok := mockservices.Services[name]; ok {
+	if _, ok := m.Services[name]; ok {
 		state := ""
 		switch cmd {
 		case services.ServiceRestart:
@@ -34,19 +34,19 @@ func (mockservices *MockServices) Apply(_ context.Context, name string, cmd serv
 		default:
 			panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", cmd))
 		}
-		mockservices.Services[name] = state
+		m.Services[name] = state
 		return nil
 	}
 
 	return errors.New("service not found")
 }
 
-func (mockservices *MockServices) Get(_ context.Context, name string) (*services.Service, error) {
+func (m *MockServices) Get(_ context.Context, name string) (*services.Service, error) {
 	if !strings.HasSuffix(name, ".service") && !strings.HasSuffix(name, ".timer") {
 		name = fmt.Sprintf("%v.service", name)
 	}
 
-	if state, ok := mockservices.Services[name]; !ok {
+	if state, ok := m.Services[name]; !ok {
 		return nil, services.ErrServiceNotFound
 	} else {
 		return &services.Service{
@@ -56,14 +56,14 @@ func (mockservices *MockServices) Get(_ context.Context, name string) (*services
 	}
 }
 
-func (ms *MockServices) WaitUntilState(_ context.Context, name string, state string) error {
-	if ms.Services[name] == state {
+func (m *MockServices) WaitUntilState(_ context.Context, name string, state string) error {
+	if m.Services[name] == state {
 		return nil
 	}
 	return errors.New("not in state")
 }
 
-func (mockservices *MockServices) Close() {
+func (m *MockServices) Close() {
 }
 
 type MockContainers struct {
@@ -71,20 +71,20 @@ type MockContainers struct {
 	Secrets map[string]string
 }
 
-func (mockcontainers *MockContainers) PauseContainer(_ context.Context, _ string) error {
+func (m *MockContainers) PauseContainer(_ context.Context, _ string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (mockcontainers *MockContainers) UnpauseContainer(_ context.Context, _ string) error {
+func (m *MockContainers) UnpauseContainer(_ context.Context, _ string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (mockcontainers *MockContainers) DumpVolume(_ context.Context, _ containers.Volume, _ string, _ bool) error {
+func (m *MockContainers) DumpVolume(_ context.Context, _ containers.Volume, _ string, _ bool) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (mockcontainers *MockContainers) InspectVolume(name string) (*containers.Volume, error) {
-	if mount, ok := mockcontainers.Volumes[name]; !ok {
+func (m *MockContainers) InspectVolume(name string) (*containers.Volume, error) {
+	if mount, ok := m.Volumes[name]; !ok {
 		return nil, errors.New("volume not found")
 	} else {
 		return &containers.Volume{
@@ -94,9 +94,9 @@ func (mockcontainers *MockContainers) InspectVolume(name string) (*containers.Vo
 	}
 }
 
-func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*containers.Volume, error) {
+func (m *MockContainers) ListVolumes(_ context.Context) ([]*containers.Volume, error) {
 	var vols []*containers.Volume
-	for k, v := range mockcontainers.Volumes {
+	for k, v := range m.Volumes {
 		vols = append(vols, &containers.Volume{
 			Name:       k,
 			Mountpoint: v,
@@ -133,4 +133,8 @@ func (m *MockContainers) RemoveSecret(_ context.Context, key string) error {
 	return nil
 }
 
-func (mockcontainers *MockContainers) Close() {}
+func (m *MockContainers) SecretName(key string) string {
+	return fmt.Sprintf("materia-%v", key)
+}
+
+func (m *MockContainers) Close() {}

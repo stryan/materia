@@ -215,6 +215,10 @@ func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) err
 func (p *PodmanManager) Close() {
 }
 
+func (p *PodmanManager) SecretName(name string) string {
+	return fmt.Sprintf("%v%v", p.secretsPrefix, name)
+}
+
 func parsePodmanError(rawerror []byte) error {
 	errorString := string(rawerror)
 	if realErr, found := strings.CutPrefix(errorString, "Error: "); found {

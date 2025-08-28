@@ -16,5 +16,6 @@ type ContainerManager interface {
 	GetSecret(context.Context, string) (*containers.PodmanSecret, error)
 	WriteSecret(context.Context, string, string) error
 	RemoveSecret(context.Context, string) error
+	SecretName(string) string
 	Close()
 }
