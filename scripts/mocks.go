@@ -68,6 +68,7 @@ func (mockservices *MockServices) Close() {
 
 type MockContainers struct {
 	Volumes map[string]string
+	Secrets map[string]string
 }
 
 func (mockcontainers *MockContainers) PauseContainer(_ context.Context, _ string) error {
@@ -102,6 +103,34 @@ func (mockcontainers *MockContainers) ListVolumes(_ context.Context) ([]*contain
 		})
 	}
 	return vols, nil
+}
+
+func (m *MockContainers) GetSecret(_ context.Context, key string) (*containers.PodmanSecret, error) {
+	if val, ok := m.Secrets[key]; ok {
+		return &containers.PodmanSecret{
+			Name:  key,
+			Value: val,
+		}, nil
+	}
+	return nil, errors.New("secret not found")
+}
+
+func (m *MockContainers) ListSecrets(_ context.Context) ([]string, error) {
+	keys := make([]string, 0, len(m.Secrets))
+	for k := range m.Secrets {
+		keys = append(keys, k)
+	}
+	return keys, nil
+}
+
+func (m *MockContainers) WriteSecret(_ context.Context, key, value string) error {
+	m.Secrets[key] = value
+	return nil
+}
+
+func (m *MockContainers) RemoveSecret(_ context.Context, key string) error {
+	delete(m.Secrets, key)
+	return nil
 }
 
 func (mockcontainers *MockContainers) Close() {}

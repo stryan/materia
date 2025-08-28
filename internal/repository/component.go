@@ -88,6 +88,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	log.Debug("loading component", "component", oldComp.Name, "version", oldComp.Version)
 	scripts := 0
 	manifestFound := false
+	secretResource := []components.Resource{}
 	err = filepath.WalkDir(dataPath, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -123,6 +124,16 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 						return fmt.Errorf("invalid service for component: %w", err)
 					}
 					oldComp.ServiceResources[s.Service] = s
+				}
+				slices.Sort(man.Secrets)
+				for _, s := range man.Secrets {
+					secretResource = append(secretResource, components.Resource{
+						Name:     s,
+						Kind:     components.ResourceTypePodmanSecret,
+						Parent:   name,
+						Path:     "",
+						Template: false,
+					})
 				}
 				maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 			}
@@ -166,6 +177,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
+	oldComp.Resources = append(oldComp.Resources, secretResource...)
 	for k, r := range oldComp.Resources {
 		if man != nil && r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
 			r.Kind = components.ResourceTypeScript

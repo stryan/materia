@@ -92,6 +92,8 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	log.Debugf("loading source component %v from path %v", c.Name, path)
 	var man *manifests.ComponentManifest
 	scripts := 0
+
+	secretResources := []components.Resource{}
 	err := filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -100,7 +102,6 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			return nil
 		}
 		resPath := strings.TrimPrefix(fullPath, path)
-		fmt.Fprintf(os.Stderr, "FBLTHP[299]: source.go:102: resPath=%+v\n", resPath)
 		if d.Name() == "MANIFEST.toml" {
 			log.Debugf("loading source component manifest %v", c.Name)
 			man, err = manifests.LoadComponentManifest(fullPath)
@@ -109,6 +110,17 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			}
 			maps.Copy(c.Defaults, man.Defaults)
 			maps.Copy(c.VolumeResources, man.VolumeResources)
+			slices.Sort(man.Secrets)
+			for _, s := range man.Secrets {
+				secretResources = append(secretResources, components.Resource{
+					Name:     s,
+					Kind:     components.ResourceTypePodmanSecret,
+					Parent:   name,
+					Path:     "",
+					Template: false,
+				})
+			}
+
 			return nil
 		}
 		var newRes components.Resource
@@ -158,7 +170,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		}
 		c.ServiceResources[s.Service] = s
 	}
-
+	c.Resources = append(c.Resources, secretResources...)
 	c.Resources = append(c.Resources, components.Resource{
 		Parent:   c.Name,
 		Path:     "/MANIFEST.toml",
@@ -176,11 +188,11 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	return c, nil
 }
 
-func (r *SourceComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
+func (s *SourceComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
 	if parent == nil || name == "" {
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
-	dataPath := filepath.Join(r.Prefix, parent.Name)
+	dataPath := filepath.Join(s.Prefix, parent.Name)
 	resourcePath := ""
 	breakWalk := false
 	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
@@ -218,12 +230,12 @@ func (r *SourceComponentRepository) GetResource(parent *components.Component, na
 	}, nil
 }
 
-func (r *SourceComponentRepository) ListResources(c *components.Component) ([]components.Resource, error) {
+func (s *SourceComponentRepository) ListResources(c *components.Component) ([]components.Resource, error) {
 	if c == nil {
 		return []components.Resource{}, errors.New("invalid parent or resource")
 	}
 	resources := []components.Resource{}
-	dataPath := filepath.Join(r.Prefix, c.Name)
+	dataPath := filepath.Join(s.Prefix, c.Name)
 	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -252,28 +264,28 @@ func (r *SourceComponentRepository) ListResources(c *components.Component) ([]co
 	return resources, nil
 }
 
-func (r *SourceComponentRepository) InstallComponent(c *components.Component) error {
+func (s *SourceComponentRepository) InstallComponent(c *components.Component) error {
 	return fmt.Errorf("can't install component: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) UpdateComponent(c *components.Component) error {
+func (s *SourceComponentRepository) UpdateComponent(c *components.Component) error {
 	return fmt.Errorf("can't update component: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) RemoveComponent(c *components.Component) error {
+func (s *SourceComponentRepository) RemoveComponent(c *components.Component) error {
 	return fmt.Errorf("can't remove component: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) InstallResource(res components.Resource, data *bytes.Buffer) error {
+func (s *SourceComponentRepository) InstallResource(res components.Resource, data *bytes.Buffer) error {
 	return fmt.Errorf("can't install resource: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) RemoveResource(res components.Resource) error {
+func (s *SourceComponentRepository) RemoveResource(res components.Resource) error {
 	return fmt.Errorf("can't remove resource: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) ComponentExists(name string) (bool, error) {
-	_, err := os.Stat(filepath.Join(r.Prefix, name))
+func (s *SourceComponentRepository) ComponentExists(name string) (bool, error) {
+	_, err := os.Stat(filepath.Join(s.Prefix, name))
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -283,19 +295,19 @@ func (r *SourceComponentRepository) ComponentExists(name string) (bool, error) {
 	return true, nil
 }
 
-func (r *SourceComponentRepository) PurgeComponent(c *components.Component) error {
+func (s *SourceComponentRepository) PurgeComponent(c *components.Component) error {
 	return fmt.Errorf("can't purge component: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) PurgeComponentByName(name string) error {
+func (s *SourceComponentRepository) PurgeComponentByName(name string) error {
 	return fmt.Errorf("can't purge component: %w", ErrNeedHostRepository)
 }
 
-func (r *SourceComponentRepository) RunCleanup(comp *components.Component) error {
+func (s *SourceComponentRepository) RunCleanup(comp *components.Component) error {
 	return fmt.Errorf("can't run cleanup script: %w", ErrNeedHostRepository)
 }
 
-func (r SourceComponentRepository) RunSetup(comp *components.Component) error {
+func (s SourceComponentRepository) RunSetup(comp *components.Component) error {
 	return fmt.Errorf("can't run setup script: %w", ErrNeedHostRepository)
 }
 

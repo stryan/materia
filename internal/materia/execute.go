@@ -160,6 +160,23 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		if err := m.CompRepo.InstallResource(v.Payload, nil); err != nil {
 			return err
 		}
+	case ActionInstallPodmanSecret, ActionUpdatePodmanSecret:
+		var secretVar any
+		var ok bool
+		if secretVar, ok = vars[v.Payload.Name]; !ok {
+			return errors.New("can't install/update Podman Secret: no matching Materia secret")
+		}
+		if value, ok := secretVar.(string); !ok {
+			return errors.New("can't install/update Podman Secret: materia secret isn't string")
+		} else {
+			if err := m.Containers.WriteSecret(ctx, v.Payload.Name, value); err != nil {
+				return err
+			}
+		}
+	case ActionRemovePodmanSecret:
+		if err := m.Containers.RemoveSecret(ctx, v.Payload.Name); err != nil {
+			return err
+		}
 	case ActionInstallService, ActionUpdateService:
 		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
 		if err != nil {

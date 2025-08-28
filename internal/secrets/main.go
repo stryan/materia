@@ -6,11 +6,6 @@ type SecretsConfig interface {
 	String() string
 }
 
-type Secret struct {
-	Key, Value      string
-	ContainerSecret bool
-}
-
 type SecretFilter struct {
 	Hostname  string
 	Roles     []string

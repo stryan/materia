@@ -47,18 +47,21 @@ const (
 	ActionInstallScript
 	ActionInstallService
 	ActionInstallComponentScript
+	ActionInstallPodmanSecret
 
 	ActionUpdateFile
 	ActionUpdateQuadlet
 	ActionUpdateScript
 	ActionUpdateService
 	ActionUpdateComponentScript
+	ActionUpdatePodmanSecret
 
 	ActionRemoveFile
 	ActionRemoveQuadlet
 	ActionRemoveScript
 	ActionRemoveService
 	ActionRemoveComponentScript
+	ActionRemovePodmanSecret
 )
 
 type Action struct {
@@ -98,6 +101,12 @@ func (a *Action) Pretty() string {
 		return fmt.Sprintf("Removing volume file %v", a.Payload.Path)
 	case ActionUpdateVolumeFile:
 		return fmt.Sprintf("Updating volume file %v", a.Payload.Path)
+	case ActionInstallPodmanSecret:
+		return fmt.Sprintf("Installing podman secret %v", a.Payload.Name)
+	case ActionUpdatePodmanSecret:
+		return fmt.Sprintf("Updating podman secret %v", a.Payload.Name)
+	case ActionRemovePodmanSecret:
+		return fmt.Sprintf("Removing podman secret %v", a.Payload.Name)
 	case ActionReloadUnits:
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
@@ -131,11 +140,11 @@ func (a *Action) Pretty() string {
 
 func (a *Action) Category() ActionCategory {
 	switch a.Todo {
-	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeFile:
+	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeFile, ActionInstallPodmanSecret:
 		return ActionCategoryInstall
-	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeFile, ActionRemoveComponent:
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeFile, ActionRemoveComponent, ActionRemovePodmanSecret:
 		return ActionCategoryRemove
-	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeFile:
+	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeFile, ActionUpdatePodmanSecret:
 		return ActionCategoryUpdate
 	default:
 		return ActionCategoryOther

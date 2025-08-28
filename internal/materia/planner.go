@@ -251,15 +251,16 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
 		// do a test run just to make sure we can actually install this resource
-		newStringTempl, err := m.SourceRepo.ReadResource(r)
-		if err != nil {
-			return actions, err
+		if r.Kind != components.ResourceTypePodmanSecret {
+			newStringTempl, err := m.SourceRepo.ReadResource(r)
+			if err != nil {
+				return actions, err
+			}
+			_, err = m.executeResource(newStringTempl, vars)
+			if err != nil {
+				return actions, err
+			}
 		}
-		_, err = m.executeResource(newStringTempl, vars)
-		if err != nil {
-			return actions, err
-		}
-
 		actions = append(actions, Action{
 			Todo:    resToAction(r, "install"),
 			Parent:  newComponent,
@@ -596,20 +597,39 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	if err := newRes.Validate(); err != nil {
 		return diffs, fmt.Errorf("other resource invalid during comparison: %w", err)
 	}
-	curString, err := m.CompRepo.ReadResource(cur)
-	if err != nil {
-		return diffs, err
+	var curString, newString string
+	var err error
+	if cur.Kind != components.ResourceTypePodmanSecret {
+		curString, err = m.CompRepo.ReadResource(cur)
+		if err != nil {
+			return diffs, err
+		}
+		newStringTempl, err := m.SourceRepo.ReadResource(newRes)
+		if err != nil {
+			return diffs, err
+		}
+		result, err := m.executeResource(newStringTempl, vars)
+		if err != nil {
+			return diffs, err
+		}
+		newString = result.String()
+	} else {
+		curSecret, err := m.Containers.GetSecret(context.TODO(), cur.Name)
+		if err != nil {
+			return diffs, err
+		}
+		newSecret, ok := vars[cur.Name]
+		if !ok {
+			newString = ""
+		} else {
+			var isString bool
+			newString, isString = newSecret.(string)
+			if !isString {
+				return diffs, errors.New("tried to use a non-string secret")
+			}
+		}
+		curString = curSecret.Value
 	}
-	newStringTempl, err := m.SourceRepo.ReadResource(newRes)
-	if err != nil {
-		return diffs, err
-	}
-	var newString string
-	result, err := m.executeResource(newStringTempl, vars)
-	if err != nil {
-		return diffs, err
-	}
-	newString = result.String()
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
