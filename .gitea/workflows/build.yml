@@ -44,8 +44,8 @@ jobs:
       - name: Build container
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "TAG=${{ github.event.pull_request.title }}" >> $GITHUB_ENV
-            export TAG=${{ github.event.pull_request.title }}
+            echo "TAG=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            export TAG=${{ github.event.pull_request.number }}
           else
             export TAG=latest
           fi
