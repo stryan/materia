@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
@@ -530,9 +531,21 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		newResources[v.Name] = v
 	}
 
-	keys := sortedKeys(currentResources)
-	for _, k := range keys {
+	sortedCurrentResourceKeys := sortedKeys(currentResources)
+	for _, k := range sortedCurrentResourceKeys {
 		cur := currentResources[k]
+		if cur.Kind == components.ResourceTypePodmanSecret {
+			// validate the secret exists first
+			secretsList, err := m.Containers.ListSecrets(context.TODO())
+			if err != nil {
+				return diffActions, fmt.Errorf("error listing secrets during resource validation")
+			}
+			if !slices.Contains(secretsList, cur.Name) {
+				// secret isn't there so we treat it like the resource never existed
+				delete(currentResources, k)
+				continue
+			}
+		}
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
 			log.Debug("diffing resource", "component", base.Name, "file", cur.Name)
@@ -557,7 +570,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			}
 		} else {
 			// in current resources but not source resources, remove old
-			log.Debug("removing current resource", "file", cur.Name)
+			log.Debug("removing existing resource", "file", cur.Name)
 			a := Action{
 				Todo:    resToAction(cur, "remove"),
 				Parent:  base,
@@ -567,8 +580,8 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			diffActions = append(diffActions, a)
 		}
 	}
-	keys = sortedKeys(newResources)
-	for _, k := range keys {
+	sortedNewResourceKeys := sortedKeys(newResources)
+	for _, k := range sortedNewResourceKeys {
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
 			fmt.Printf("Creating new resource %v", k)
@@ -614,9 +627,21 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 		}
 		newString = result.String()
 	} else {
-		curSecret, err := m.Containers.GetSecret(context.TODO(), cur.Name)
+		var curSecret *containers.PodmanSecret
+		secretsList, err := m.Containers.ListSecrets(context.TODO())
 		if err != nil {
 			return diffs, err
+		}
+		if !slices.Contains(secretsList, cur.Name) {
+			curSecret = &containers.PodmanSecret{
+				Name:  cur.Name,
+				Value: "",
+			}
+		} else {
+			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Name)
+			if err != nil {
+				return diffs, err
+			}
 		}
 		newSecret, ok := vars[cur.Name]
 		if !ok {

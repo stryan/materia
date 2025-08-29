@@ -94,7 +94,7 @@ func (a *Action) Pretty() string {
 		if a.Payload.Template {
 			act = "Templating"
 		}
-		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("%v %v resource %v%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Path)
 	case ActionInstallVolumeFile:
 		return fmt.Sprintf("Installing volume file %v", a.Payload.Path)
 	case ActionRemoveVolumeFile:
@@ -112,15 +112,15 @@ func (a *Action) Pretty() string {
 	case ActionRemoveComponent:
 		return fmt.Sprintf("Removing component %v", a.Parent.Name)
 	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveDirectory:
-		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Removing resource %v%v", a.Parent.Name, a.Payload.Path)
 	case ActionRestartService:
-		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStartService:
-		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStopService:
-		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionEnableService:
-		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionDisableService:
 		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionUnknown:
