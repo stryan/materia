@@ -7,6 +7,10 @@ golangci-lint = "2.1.2"
 gotestsum = "latest"
 mockery = "latest"
 pandoc = "latest"
+"go:github.com/cpuguy83/go-md2man/v2" = "latest"
+pipx = "latest"
+"pipx:mkdocs" = "latest"
+python = "latest"
 
 [settings]
 experimental = true
