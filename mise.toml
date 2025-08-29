@@ -6,8 +6,6 @@ gh = "latest"
 golangci-lint = "2.1.2"
 gotestsum = "latest"
 mockery = "latest"
-"pipx:mkdocs" = "latest"
-python = "latest"
 pandoc = "latest"
 
 [settings]
