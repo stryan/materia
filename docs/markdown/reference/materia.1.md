@@ -7,18 +7,18 @@ date: June 2025
 author: stryan
 ---
 
-# NAME
+## NAME
 materia - a tool for deploying Quadlets and associated files
 
-# Synopsis
+## Synopsis
 
 **materia** [**-h**] [**--config** *CONFIGFILE* ] [**--nosync**] *command*
 
-# Description
+## Description
 
 **materia** is a tool designed for GitOps style management of services deployed via Podman Quadlets. It takes a URL pointing to a *repository* containing *manifests* and *components*, determines which components are assigned to the current host, and installs them while removing components that are no longer needed.
 
-# Configuration
+## Configuration
 
 Materia can be configured via either environmental variables or a TOML config file. The most common environmental variables are documented below:
 
@@ -26,82 +26,82 @@ Materia can be configured via either environmental variables or a TOML config fi
 
 See materia-config(5) and materia-repository(5) for more details.
 
-# Global Flags
+## Global Flags
 - `--config, -c`: Specify TOML config file (env: `MATERIA_CONFIG`)
 - `--nosync`: Disable syncing for commands that sync (env: `MATERIA_NOSYNC`)
 - `--help, -h`: Show usage information
 
-# Commands
+## Commands
 
 
-*config*
+#### *config*
 
-:   Dump the active configuration to stdout in a human readable format
+Dump the active configuration to stdout in a human readable format
 
-## facts [flags]
-   Display host facts and role information
+#### facts [flags]
+Display host facts and role information
 
-   *Flags:*
+##### **Flags**
 
-- `--host` : return only host facts, instead of requiring a repository
+**--host** : return only *host* facts, instead of requiring a repository
 
-- `--fact, -f [factname]` :  Lookup a specific fact by name
+**--fact, -f [factname]** :  Lookup a specific fact by name
 
-## plan [flags]
+#### plan [flags]
    Generate and display an deployment plan.
 
    Saves plan to `MATERIA_OUTPUT`/`plan.toml` as well as outputs to stdout (if quiet is not set).
 
-   *Flags:*
+##### **Flags**
 
-- `--quiet, -q`: Minimize output. Useful for validation that a plan can be generated.
+**--quiet, -q**: Minimize output. Useful for validation that a plan can be generated.
 
-- `--resource-only, -r`: Only install resources instead of also starting/stopping services
+**--resource-only, -r**: Only install resources instead of also starting/stopping services
 
 
 
-## update [flags]
+#### update [flags]
    Plan and execute a complete update operation.
 
    Saves executed plan to `MATERIA_OUTPUT`/`lastrun.toml` as well as outputting to stdout (if quiet is not set)
 
-   *Flags:*
+##### **Flags**
 
-- `--quiet, -q`: Minimize output
+**--quiet, -q**: Minimize output
 
-- `--resource-only, -r`: Only install resources. Skips any service related commands (besides daemon-reload).
+**--resource-only, -r**: Only install resources. Skips any service related commands (besides daemon-reload).
 
-##  remove [component]
+####  remove [component]
 Remove a specific component. Note this does not remove it from the repository manifest.
 
-   **Arguments**:
+##### **Arguments**:
 
-- `component`: Name of the component to remove
+**component**: Name of the component to remove
 
-## validate [flags]
+#### validate [flags]
    Validates a plan can be generated for given hosts/roles.
 
-   *Flags:*
+##### **Flags**
 
-- `--component, -c <name>`: Component to validate. If not specified, use what is definined in the repositories `MANIFEST.toml`
+**--component, -c <name>**: Component to validate. If not specified, use what is definined in the repositories `MANIFEST.toml`
 
-- `--source, -s <path>`: Repository source directory, overrides `MATERIA_SOURCE_URL`
+**--source, -s <path>**: Repository source directory, overrides `MATERIA_SOURCE_URL`
 
-- `--roles, -r <roles>`: Roles for facts generation (can be specified multiple time for multiple roles)
+**--roles, -r <roles>**: Roles for facts generation (can be specified multiple time for multiple roles)
 
-- `--hostname, -n <hostname>`: Manually assigned hostname
+**--hostname, -n <hostname>**: Manually assigned hostname
 
-- `--verbose, -v`: Show extra detail
+**--verbose, -v**: Show extra detail
 
-## doctor [flags]
+#### doctor [flags]
 Detect and optionally remove corrupted installed components.
 
-   *Flags:*
+##### **Flags**
 
-- `--remove, -r`: Actually remove corrupted components (default is dry run)
+**--remove, -r**: Actually remove corrupted components (default is dry run)
 
-## clean
+#### clean
 Remove all related file paths and cleanup
 
-## version
+#### version
 Display version information

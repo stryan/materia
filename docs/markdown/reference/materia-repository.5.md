@@ -8,14 +8,14 @@ date: June 2025
 author: stryan
 ---
 
-# Name
+## Name
 *materia-repository*
 
-# Synopsis
+## Synopsis
 
 A directory containing containing components and manifests for materia to manage.
 
-# Description
+## Description
 
 A directory containing containing components and manifests for materia to manage. Example file layout:
 
@@ -30,17 +30,17 @@ materia-repo/secrets/vault.age
 materia-repo/MANIFEST.toml
 ```
 
-# Details
+## Details
 
-**component**
+#### **component**
 
-:  A collection of one or more resources, where at least one resource is a `MANIFEST.toml`. Components are assigned to hosts or roles in the repositories MANIFEST.toml.
+A collection of one or more resources, where at least one resource is a `MANIFEST.toml`. Components are assigned to hosts or roles in the repositories MANIFEST.toml.
 
    Example: `materia-repo/components/hello`
 
-**resource**
+#### **resource**
 
-:  A single file in a component. Resources are either static files or Golang templates and come in the following types:
+A single file in a component. Resources are either static files or Golang templates and come in the following types:
 
    **file**: An arbitrary data file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME`
 
@@ -66,13 +66,13 @@ materia-repo/MANIFEST.toml
 
    Example: `materia-repo/components/hello/hello.container.gotmpl`
 
-**variable**
+#### **variable**
 
-:  A Golang template variable. Usually defined as either a `secret` or in the `defaults` section of a component manifest
+A Golang template variable. Usually defined as either a `secret` or in the `defaults` section of a component manifest
 
-**secret**
+#### **secret**
 
-:  A Golang template variable stored encrypted in the repository, like the default `age` encryption.
+A Golang template variable stored encrypted in the repository, like the default `age` encryption.
 
    Secrets are usually stored in a subdirectory `materia-repo/secrets`. There are three main types of secrets files:
 
