@@ -19,6 +19,7 @@ type Component struct {
 	Scripted         bool
 	State            ComponentLifecycle
 	Defaults         map[string]any
+	Secrets          []string
 	VolumeResources  map[string]manifests.VolumeResourceConfig
 	ServiceResources map[string]manifests.ServiceResourceConfig
 	Version          int

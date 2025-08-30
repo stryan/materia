@@ -44,7 +44,7 @@ func (r Resource) Validate() error {
 	if r.Parent == "" {
 		return errors.New("resource without parent component")
 	}
-	if r.Path == "" && r.Kind != ResourceTypeService {
+	if r.Path == "" && (r.Kind != ResourceTypeService && r.Kind != ResourceTypePodmanSecret) {
 		// TODO validate services properly
 		return errors.New("resource without path")
 	}

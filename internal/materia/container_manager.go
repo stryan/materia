@@ -12,5 +12,10 @@ type ContainerManager interface {
 	PauseContainer(context.Context, string) error
 	UnpauseContainer(context.Context, string) error
 	DumpVolume(context.Context, containers.Volume, string, bool) error
+	ListSecrets(context.Context) ([]string, error)
+	GetSecret(context.Context, string) (*containers.PodmanSecret, error)
+	WriteSecret(context.Context, string, string) error
+	RemoveSecret(context.Context, string) error
+	SecretName(string) string
 	Close()
 }

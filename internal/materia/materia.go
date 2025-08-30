@@ -123,6 +123,24 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 				_, ok := vars[arg]
 				return ok
 			},
+			"secretEnv": func(args ...string) string {
+				if len(args) == 0 {
+					return ""
+				}
+				if len(args) == 1 {
+					return fmt.Sprintf("Secret=%v,type=env,target=%v", m.Containers.SecretName(args[0]), args[0])
+				}
+				return fmt.Sprintf("Secret=%v,type=env,target=%v", m.Containers.SecretName(args[0]), args[1])
+			},
+			"secretMount": func(args ...string) string {
+				if len(args) == 0 {
+					return ""
+				}
+				if len(args) == 1 {
+					return fmt.Sprintf("Secret=%v,type=mount,target=%v", m.Containers.SecretName(args[0]), args[0])
+				}
+				return fmt.Sprintf("Secret=%v,type=env,%s", m.Containers.SecretName(args[0]), args[1])
+			},
 			"snippet": func(name string, args ...string) (string, error) {
 				s, ok := m.snippets[name]
 				if !ok {

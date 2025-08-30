@@ -19,6 +19,7 @@ script = """
 yum install -y make rsync podman git
 mkdir -p /var/lib/materia
 mkdir -p /etc/materia
+printf "secretdata2" | podman secret create bar -
 """
 
 [[steps]]

@@ -32,7 +32,7 @@ func (p *Plan) Add(a Action) {
 	switch a.Todo {
 	case ActionInstallDirectory, ActionInstallComponent, ActionRemoveComponent, ActionRemoveDirectory:
 		p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent, ActionCleanupComponent:
+	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent, ActionCleanupComponent, ActionInstallPodmanSecret, ActionUpdatePodmanSecret, ActionRemovePodmanSecret:
 		p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 	case ActionInstallVolumeFile:
 		p.secondMain = append(p.secondMain, a)

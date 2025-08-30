@@ -40,7 +40,7 @@ func testMateria(services []string) *materia.Materia {
 
 	mockservices := &MockServices{}
 	mockservices.Services = make(map[string]string)
-	mockcontainers := &MockContainers{make(map[string]string)}
+	mockcontainers := &MockContainers{make(map[string]string), make(map[string]string)}
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
 	}
@@ -163,6 +163,7 @@ var expectedActions = []materia.Action{
 	planHelper(materia.ActionInstallQuadlet, "double", "hello.container", ""),
 	planHelper(materia.ActionInstallService, "double", "hello.timer", ""),
 	planHelper(materia.ActionInstallFile, "double", "test.data", "/inner/"),
+	planHelper(materia.ActionInstallPodmanSecret, "double", "foo", ""),
 	planHelper(materia.ActionInstallFile, "double", "MANIFEST.toml", ""),
 	planHelper(materia.ActionInstallComponent, "hello", "", ""),
 	planHelper(materia.ActionInstallQuadlet, "hello", "hello.container", ""),
@@ -199,6 +200,7 @@ func TestPlan(t *testing.T) {
 		expectedPlan.Add(e)
 	}
 
+	log.Info(plan.Pretty())
 	log.Info(expectedPlan.Pretty())
 	for k, v := range plan.Steps() {
 		expected := expectedPlan.Steps()[k]
@@ -229,7 +231,6 @@ func TestExecuteFresh(t *testing.T) {
 	require.Nil(t, err)
 	require.False(t, plan.Empty(), "plan should not be empty")
 	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
-	fmt.Fprintf(os.Stderr, "FBLTHP[300]: integration_test.go:232: plan=%+v\n", plan.Pretty())
 	for k, v := range plan.Steps() {
 		expected := expectedActions[k]
 		if expected.Todo != v.Todo {

@@ -54,6 +54,7 @@ type ComponentManifest struct {
 	Services        []ServiceResourceConfig `toml:"services"`
 	Backups         *BackupsConfig          `toml:"backups"`
 	Scripts         []string
+	Secrets         []string
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

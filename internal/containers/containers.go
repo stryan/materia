@@ -203,7 +203,20 @@ func (p *PodmanManager) WriteSecret(ctx context.Context, secretName, secretValue
 	return parsePodmanError(output)
 }
 
+func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) error {
+	cmd := exec.CommandContext(ctx, "podman", "secret", "rm", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	return parsePodmanError(output)
+}
+
 func (p *PodmanManager) Close() {
+}
+
+func (p *PodmanManager) SecretName(name string) string {
+	return fmt.Sprintf("%v%v", p.secretsPrefix, name)
 }
 
 func parsePodmanError(rawerror []byte) error {

@@ -47,18 +47,21 @@ const (
 	ActionInstallScript
 	ActionInstallService
 	ActionInstallComponentScript
+	ActionInstallPodmanSecret
 
 	ActionUpdateFile
 	ActionUpdateQuadlet
 	ActionUpdateScript
 	ActionUpdateService
 	ActionUpdateComponentScript
+	ActionUpdatePodmanSecret
 
 	ActionRemoveFile
 	ActionRemoveQuadlet
 	ActionRemoveScript
 	ActionRemoveService
 	ActionRemoveComponentScript
+	ActionRemovePodmanSecret
 )
 
 type Action struct {
@@ -91,27 +94,33 @@ func (a *Action) Pretty() string {
 		if a.Payload.Template {
 			act = "Templating"
 		}
-		return fmt.Sprintf("%v %v resource %v/%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("%v %v resource %v%v", act, strings.ToLower(a.Payload.Kind.String()), a.Parent.Name, a.Payload.Path)
 	case ActionInstallVolumeFile:
 		return fmt.Sprintf("Installing volume file %v", a.Payload.Path)
 	case ActionRemoveVolumeFile:
 		return fmt.Sprintf("Removing volume file %v", a.Payload.Path)
 	case ActionUpdateVolumeFile:
 		return fmt.Sprintf("Updating volume file %v", a.Payload.Path)
+	case ActionInstallPodmanSecret:
+		return fmt.Sprintf("Installing podman secret %v", a.Payload.Name)
+	case ActionUpdatePodmanSecret:
+		return fmt.Sprintf("Updating podman secret %v", a.Payload.Name)
+	case ActionRemovePodmanSecret:
+		return fmt.Sprintf("Removing podman secret %v", a.Payload.Name)
 	case ActionReloadUnits:
 		return "Reloading systemd units"
 	case ActionRemoveComponent:
 		return fmt.Sprintf("Removing component %v", a.Parent.Name)
 	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveDirectory:
-		return fmt.Sprintf("Removing resource %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Removing resource %v%v", a.Parent.Name, a.Payload.Path)
 	case ActionRestartService:
-		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Restarting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStartService:
-		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Starting service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionStopService:
-		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Stopping service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionEnableService:
-		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionDisableService:
 		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Path)
 	case ActionUnknown:
@@ -131,11 +140,11 @@ func (a *Action) Pretty() string {
 
 func (a *Action) Category() ActionCategory {
 	switch a.Todo {
-	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeFile:
+	case ActionInstallComponent, ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionInstallVolumeFile, ActionInstallPodmanSecret:
 		return ActionCategoryInstall
-	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeFile, ActionRemoveComponent:
+	case ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionRemoveVolumeFile, ActionRemoveComponent, ActionRemovePodmanSecret:
 		return ActionCategoryRemove
-	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeFile:
+	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionUpdateVolumeFile, ActionUpdatePodmanSecret:
 		return ActionCategoryUpdate
 	default:
 		return ActionCategoryOther

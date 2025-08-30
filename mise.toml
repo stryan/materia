@@ -11,15 +11,13 @@ pandoc = "latest"
 [settings]
 experimental = true
 
-[tasks]
-
 [tasks.container]
-depends = ["build","lint","test"]
-env = { LDFLAGS = '-ldflags="-w -s"'}
-run = 'podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.systems/materia:latest .'
+depends = ["build", "lint", "test"]
+env = { LDFLAGS = '-ldflags="-w -s"' }
+run = "podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.systems/materia:latest ."
 
 [tasks.build]
-depends = ["generate","build-arm64","build-amd64"]
+depends = ["generate", "build-arm64", "build-amd64"]
 
 [tasks.lint]
 depends = ["generate"]
@@ -29,68 +27,66 @@ run = "golangci-lint run ./cmd/... ./internal/..."
 
 [tasks.virter-age]
 run = [
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/vault.toml > scripts/_vm/testrepo/secrets/vault.age",
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/localhost.toml > scripts/_vm/testrepo/secrets/localhost.age",
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/base.toml > scripts/_vm/testrepo/secrets/base.age",
+  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/vault.toml > scripts/_vm/testrepo/secrets/vault.age",
+  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/localhost.toml > scripts/_vm/testrepo/secrets/localhost.age",
+  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/base.toml > scripts/_vm/testrepo/secrets/base.age",
 ]
 
 [tasks.test]
 depends = ["lint"]
 run = [
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/vault.toml > scripts/testrepo/secrets/vault.age",
-	"age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/localhost.toml > scripts/testrepo/secrets/localhost.age",
-	"gotestsum",
+  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/vault.toml > scripts/testrepo/secrets/vault.age",
+  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/localhost.toml > scripts/testrepo/secrets/localhost.age",
+  "gotestsum",
 ]
 
-
 [tasks.virter-test]
-depends = ['build-amd64','lint','test',"virter-age"]
-env = {	REPO = 'file:///tmp/testrepo' }
+depends = ["build-amd64", "lint", "test", "virter-age"]
+env = { REPO = "file:///tmp/testrepo" }
 run = [
-	"if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
-	"virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
-	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
-	"virter vm rm materia-test-alma-9",
+  "if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
+  "virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
+  "virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+  "virter vm rm materia-test-alma-9",
 ]
 
 [tasks.virter-explore]
-depends = ['build-amd64','lint','test',"virter-age"]
+depends = ["build-amd64", "lint", "test", "virter-age"]
 run = [
-	"if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
-	"virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
-	"virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+  "if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
+  "virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
+  "virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
 ]
 
 [tasks.generate]
 description = "Run go:generate"
-sources = ["go.mod", "go.sum", "**/*.go",".mockery.yml"]
+sources = ["go.mod", "go.sum", "**/*.go", ".mockery.yml"]
 outputs = { auto = true }
 run = [
-	"go generate ./...",
-	"mockery",
+  "go generate ./...",
+  "mockery",
 ]
 
 [tasks.build-amd64]
-depends = ["build-materia-amd64","build-athanor-amd64"]
+depends = ["build-materia-amd64", "build-athanor-amd64"]
 
 [tasks.build-arm64]
-depends = ["build-materia-arm64","build-athanor-arm64"]
+depends = ["build-materia-arm64", "build-athanor-arm64"]
 
 [tasks.build-materia-arm64]
 depends = ["lint"]
 description = "Build the project for arm64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/materia-arm64"]
-env = { GOOS="linux", GOARCH="arm64", CGO_ENABLED=0 }
+env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="-w -s" -o bin/materia-arm64 ./cmd/materia/'
-
 
 [tasks.build-materia-amd64]
 depends = ["lint"]
 description = "Build the project for amd64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/materia-amd64"]
-env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
+env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="-w -s" -o bin/materia-amd64 ./cmd/materia/'
 
 [tasks.build-athanor-arm64]
@@ -98,28 +94,27 @@ depends = ["lint"]
 description = "Build the project for arm64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-arm64"]
-env = { GOOS="linux", GOARCH="arm64", CGO_ENABLED=0 }
+env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="-w -s" -o bin/athanor-arm64 ./cmd/athanor/'
-
 
 [tasks.build-athanor-amd64]
 depends = ["lint"]
 description = "Build the project for amd64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-amd64"]
-env = { GOOS="linux", GOARCH="amd64", CGO_ENABLED=0 }
+env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="-w -s" -o bin/athanor-amd64 ./cmd/athanor/'
 
 [tasks.docs]
 description = "generate manpage and html docs"
-depends = ["docs-man","docs-html"]
+depends = ["docs-man", "docs-html"]
 
 [tasks.docs-man]
 description = "generate manpages"
 dir = "docs"
 run = [
-	"mkdir -p man",
-	"find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
+  "mkdir -p man",
+  "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
 ]
 
 [tasks.docs-html]
@@ -131,7 +126,7 @@ run = "mkdocs build"
 description = "Generate github release"
 depends = ["build"]
 run = [
-	'git remote add mirror git@github.com:stryan/materia',
-	'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
-	'git remote rm mirror',
+  "git remote add mirror git@github.com:stryan/materia",
+  'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
+  "git remote rm mirror",
 ]

@@ -38,7 +38,8 @@ func resToAction(r components.Resource, action string) ActionType {
 			todo = ActionInstallService
 		case components.ResourceTypeVolumeFile:
 			todo = ActionInstallVolumeFile
-
+		case components.ResourceTypePodmanSecret:
+			todo = ActionInstallPodmanSecret
 		}
 	case "update":
 		switch r.Kind {
@@ -54,6 +55,8 @@ func resToAction(r components.Resource, action string) ActionType {
 			todo = ActionUpdateVolumeFile
 		case components.ResourceTypeComponentScript:
 			todo = ActionUpdateComponentScript
+		case components.ResourceTypePodmanSecret:
+			todo = ActionUpdatePodmanSecret
 		}
 	case "remove":
 		switch r.Kind {
@@ -71,6 +74,8 @@ func resToAction(r components.Resource, action string) ActionType {
 			todo = ActionRemoveComponentScript
 		case components.ResourceTypeDirectory:
 			todo = ActionRemoveDirectory
+		case components.ResourceTypePodmanSecret:
+			todo = ActionRemovePodmanSecret
 		}
 	}
 	if todo == ActionUnknown {
