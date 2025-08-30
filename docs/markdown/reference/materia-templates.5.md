@@ -50,11 +50,11 @@ Returns true if the secret is defined, otherwise false
 
 Special macro, see the Snippets section below
 
-#### ** secretEnv "secret name" "TARGET (OPTIONAL)" **
+#### **secretEnv "secret name" "TARGET (OPTIONAL)"**
 
 Access a Materia secret that is specified as a podman secret in the component manifest. The "secret name" should be as specified in the `secrets = ["secret_name"]`. Optionally, provide the target as defined in the Podman manual
 
-#### ** secretMount "secret name" "ARGS (OPTIONAL)" **
+#### **secretMount "secret name" "ARGS (OPTIONAL)"**
 
 Same as `secretEnv` but accesses the secret as a file mount. Optionally, provide additional arguments as defined in the Podman manual
 
@@ -76,7 +76,7 @@ Snippets are an experimental feature
 
 **autoUpdate <update_source>**
 
-: `Label=io.containers.autoupdate=<update_source>`
+`Label=io.containers.autoupdate=<update_source>`
 
 
 
