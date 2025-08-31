@@ -122,7 +122,9 @@ func (a *Action) Pretty() string {
 	case ActionEnableService:
 		return fmt.Sprintf("Enabling service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionDisableService:
-		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Path)
+		return fmt.Sprintf("Disabling service %v/%v", a.Parent.Name, a.Payload.Name)
+	case ActionReloadService:
+		return fmt.Sprintf("Reloading service %v/%v", a.Parent.Name, a.Payload.Name)
 	case ActionUnknown:
 		return "Unknown action"
 	case ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript:
