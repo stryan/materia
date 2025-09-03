@@ -3,7 +3,10 @@ package materia
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
+
+	"primamateria.systems/materia/internal/components"
 )
 
 type Plan struct {
@@ -29,45 +32,80 @@ func NewPlan(installedComps, volList []string) *Plan {
 }
 
 func (p *Plan) Add(a Action) {
-	switch a.Todo {
-	case ActionInstallDirectory, ActionInstallComponent, ActionRemoveComponent, ActionRemoveDirectory:
-		p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-	case ActionInstallFile, ActionInstallQuadlet, ActionInstallScript, ActionInstallService, ActionInstallComponentScript, ActionUpdateFile, ActionUpdateQuadlet, ActionUpdateScript, ActionUpdateService, ActionUpdateComponentScript, ActionRemoveFile, ActionRemoveQuadlet, ActionRemoveScript, ActionRemoveService, ActionRemoveComponentScript, ActionUpdateComponent, ActionCleanupComponent, ActionInstallPodmanSecret, ActionUpdatePodmanSecret, ActionRemovePodmanSecret:
-		p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-	case ActionInstallVolumeFile:
-		p.secondMain = append(p.secondMain, a)
-		vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
-		if !ok {
-			return
+	fmt.Fprintf(os.Stderr, "FBLTHP[318]: plan.go:33: a=%+v\n", a)
+	switch a.Payload.Kind {
+	case components.ResourceTypeComponent:
+		switch a.Todo {
+		case ActionInstall, ActionRemove:
+			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+		case ActionUpdate, ActionCleanup:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		case ActionSetup:
+			p.secondMain = append(p.secondMain, a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
-		p.volumes = append(p.volumes, vcr.Volume)
-	case ActionRemoveVolumeFile, ActionUpdateVolumeFile:
-		p.secondMain = append(p.secondMain, a)
-	case ActionReloadUnits:
-		if len(p.combatPhase) == 0 || p.combatPhase[0].Todo != ActionReloadUnits {
-			// only need to reload once but we do need to do it before any other service actions
-			p.combatPhase = slices.Insert(p.combatPhase, 0, a)
+	case components.ResourceTypeDirectory:
+		switch a.Todo {
+		case ActionInstall, ActionRemove:
+			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
-	case ActionEnsureVolume:
-		// only ensure each volume once
-		if slices.ContainsFunc(p.combatPhase, func(combat Action) bool {
-			return combat.Payload.Name == a.Payload.Name
-		}) {
-			return
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret, components.ResourceTypeManifest:
+		switch a.Todo {
+		case ActionInstall, ActionUpdate, ActionRemove:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
-		p.combatPhase = append(p.combatPhase, a)
-	case ActionRestartService, ActionStartService, ActionStopService, ActionEnableService, ActionDisableService, ActionReloadService:
-		// modify each service only once per action
-		if slices.ContainsFunc(p.endStep, func(modification Action) bool {
-			return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
-		}) {
-			return
+	case components.ResourceTypeVolumeFile:
+		switch a.Todo {
+		case ActionInstall:
+			p.secondMain = append(p.secondMain, a)
+			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
+			if !ok {
+				return
+			}
+			p.volumes = append(p.volumes, vcr.Volume)
+		case ActionRemove, ActionUpdate:
+			p.secondMain = append(p.secondMain, a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
-		p.endStep = append(p.endStep, a)
-	case ActionSetupComponent:
-		p.secondMain = append(p.secondMain, a)
+	case components.ResourceTypeService:
+		switch a.Todo {
+		case ActionInstall, ActionUpdate, ActionRemove:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		case ActionRestart, ActionStart, ActionStop, ActionEnable, ActionDisable:
+			if slices.ContainsFunc(p.endStep, func(modification Action) bool {
+				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+			}) {
+				return
+			}
+			p.endStep = append(p.endStep, a)
+
+		case ActionReload:
+			if slices.ContainsFunc(p.endStep, func(modification Action) bool {
+				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+			}) {
+				return
+			}
+			p.endStep = append(p.endStep, a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+		}
+	case components.ResourceTypeHost:
+		if a.Todo == ActionReload {
+			if len(p.combatPhase) == 0 || (p.combatPhase[0].Todo != ActionReload && p.combatPhase[0].Parent.Name != "") {
+				// only need to reload once but we do need to do it before any other service actions
+				p.combatPhase = slices.Insert(p.combatPhase, 0, a)
+			}
+		} else {
+			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
+		}
 	default:
-		panic(fmt.Sprintf("unexpected materia.ActionType: %v : %v", a.Todo, a))
+		panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
 	}
 	p.size++
 }
@@ -88,17 +126,17 @@ func (p *Plan) Size() int {
 
 func (p *Plan) Validate() error {
 	steps := p.Steps()
-	components := p.components
+	componentList := p.components
 	needReload := false
 	reload := false
 	for _, a := range steps {
-		if a.Todo == ActionInstallService || a.Todo == ActionInstallQuadlet {
+		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
-		if a.Todo == ActionReloadUnits {
+		if a.Todo == ActionReload && a.Payload.Name == "" {
 			reload = true
 		}
-		if a.Todo == ActionInstallVolumeFile || a.Todo == ActionUpdateVolumeFile || a.Todo == ActionRemoveVolumeFile {
+		if a.Payload.Kind == components.ResourceTypeVolumeFile {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
 			if !ok {
 				return fmt.Errorf("invalid plan: no volume resource for %v", a.Payload)
@@ -108,11 +146,11 @@ func (p *Plan) Validate() error {
 			}
 			return fmt.Errorf("invalid plan: no volume for resource %v", a.Payload)
 		}
-		if a.Category() == ActionCategoryInstall {
-			if a.Todo == ActionInstallComponent {
-				components = append(components, a.Parent.Name)
+		if a.Todo == ActionInstall {
+			if a.Payload.Kind == components.ResourceTypeComponent {
+				componentList = append(componentList, a.Parent.Name)
 			} else {
-				if !slices.Contains(components, a.Parent.Name) {
+				if !slices.Contains(componentList, a.Parent.Name) {
 					return fmt.Errorf("invalid plan: installed resource %v before parent component %v", a.Payload, a.Parent.Name)
 				}
 			}
@@ -137,7 +175,7 @@ func (p *Plan) Steps() []Action {
 		beginningStep := []Action{}
 		endstep := []Action{}
 		for _, sc := range p.structureChanges[k] {
-			if sc.Todo == ActionInstallComponent || sc.Todo == ActionInstallDirectory {
+			if sc.Todo == ActionInstall && (sc.Payload.Kind == components.ResourceTypeComponent || sc.Payload.Kind == components.ResourceTypeDirectory) {
 				beginningStep = append(beginningStep, sc)
 			} else {
 				endstep = append(endstep, sc)

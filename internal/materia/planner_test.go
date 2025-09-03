@@ -286,10 +286,10 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstallComponent,
+					Todo: ActionInstall,
 				},
 				{
-					Todo:    ActionInstallQuadlet,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 			},
@@ -304,22 +304,22 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstallComponent,
+					Todo: ActionInstall,
 				},
 				{
-					Todo:    ActionInstallFile,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "deep.env"},
 				},
 				{
-					Todo:    ActionInstallQuadlet,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 				{
-					Todo:    ActionInstallFile,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "hello.env"},
 				},
 				{
-					Todo:    ActionInstallScript,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "hello.sh"},
 				},
 			},
@@ -382,10 +382,11 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo: ActionRemoveComponent,
+					Todo:    ActionRemove,
+					Payload: components.Resource{Name: "hello", Kind: components.ResourceTypeComponent},
 				},
 				{
-					Todo:    ActionRemoveQuadlet,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 			},
@@ -406,23 +407,24 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo:    ActionRemoveFile,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "deep.env"},
 				},
 				{
-					Todo:    ActionRemoveQuadlet,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 				{
-					Todo:    ActionRemoveFile,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.env"},
 				},
 				{
-					Todo:    ActionRemoveScript,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.sh"},
 				},
 				{
-					Todo: ActionRemoveComponent,
+					Todo:    ActionRemove,
+					Payload: components.Resource{Name: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
 			wantErr: false,
@@ -478,7 +480,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			component: testComponents[1],
 			want: []Action{
 				{
-					Todo: ActionStartService,
+					Todo: ActionStart,
 					Payload: components.Resource{
 						Name: "hello.service",
 					},
@@ -522,13 +524,13 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo: ActionEnableService,
+					Todo: ActionEnable,
 					Payload: components.Resource{
 						Name: "hello.service",
 					},
 				},
 				{
-					Todo: ActionStartService,
+					Todo: ActionStart,
 					Payload: components.Resource{
 						Name: "hello.service",
 					},
@@ -604,7 +606,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo:    ActionUpdateQuadlet,
+					Todo:    ActionUpdate,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 			},
@@ -643,7 +645,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo:    ActionUpdateQuadlet,
+					Todo:    ActionUpdate,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 			},
@@ -672,7 +674,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo:    ActionRemoveQuadlet,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 			},
@@ -701,11 +703,11 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			want: []Action{
 				{
-					Todo:    ActionRemoveQuadlet,
+					Todo:    ActionRemove,
 					Payload: components.Resource{Name: "hello.container"},
 				},
 				{
-					Todo:    ActionInstallQuadlet,
+					Todo:    ActionInstall,
 					Payload: components.Resource{Name: "goodbye.container"},
 				},
 			},

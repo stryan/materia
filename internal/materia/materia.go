@@ -247,8 +247,8 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	}
 	emptyVars := make(map[string]any)
 	for _, r := range comp.Resources {
-		err := m.executeAction(ctx, Action{
-			Todo:    resToAction(r, "remove"),
+		err := m.NewExecuteAction(ctx, Action{
+			Todo:    ActionRemove,
 			Parent:  comp,
 			Payload: r,
 		}, emptyVars)
@@ -309,7 +309,7 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 		Plan:      p.PrettyLines(),
 	}
 	for _, a := range p.Steps() {
-		if a.Category() == ActionCategoryUpdate {
+		if a.Todo == ActionUpdate {
 			diffs := a.Content.([]diffmatchpatch.Diff)
 			content := diffmatchpatch.New().DiffText1(diffs)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
