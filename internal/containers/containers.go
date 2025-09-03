@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
+
+var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".tgz", ".bzip", ".tar.xz", ".txz"}
 
 type PodmanManager struct {
 	secretsPrefix string
@@ -23,6 +27,7 @@ type Container struct {
 type Volume struct {
 	Name       string `json:"Name"`
 	Mountpoint string `json:"Mountpoint"`
+	Driver     string `json:"Driver"`
 }
 
 type PodmanSecret struct {
@@ -110,7 +115,7 @@ func (p *PodmanManager) ListVolumes(_ context.Context) ([]*Volume, error) {
 	return volumes, nil
 }
 
-func (p *PodmanManager) DumpVolume(_ context.Context, volume Volume, outputDir string, compressed bool) error {
+func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir string, compressed bool) error {
 	exportCmd := exec.Command("podman", "volume", "export", volume.Name)
 	compressCmd := exec.Command("zstd")
 	outputFilename := filepath.Join(outputDir, volume.Name)
@@ -152,6 +157,38 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume Volume, outputDir s
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "mount", volume.Name)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, sourcePath string) error {
+	if slices.Contains(supportedVolumeDumpExts, filepath.Ext(sourcePath)) {
+		return errors.New("unsupported volume dump type for import")
+	}
+	if volume.Driver != "local" {
+		return errors.New("can only import into local volume")
+	}
+	cmd := exec.CommandContext(ctx, "podman", "volume", "import", sourcePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -79,7 +79,15 @@ func (m *MockContainers) UnpauseContainer(_ context.Context, _ string) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *MockContainers) DumpVolume(_ context.Context, _ containers.Volume, _ string, _ bool) error {
+func (m *MockContainers) DumpVolume(_ context.Context, _ *containers.Volume, _ string, _ bool) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockContainers) ImportVolume(_ context.Context, _ *containers.Volume, _ string) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockContainers) MountVolume(_ context.Context, _ *containers.Volume) error {
 	panic("not implemented") // TODO: Implement
 }
 
