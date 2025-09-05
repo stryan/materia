@@ -56,7 +56,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		})
 		maps.Copy(vars, v.Parent.Defaults)
 		maps.Copy(vars, vaultVars)
-		err := m.NewExecuteAction(ctx, v, vars)
+		err := m.executeAction(ctx, v, vars)
 		if err != nil {
 			return steps, err
 		}
@@ -253,7 +253,7 @@ func (m *Materia) removeVolumeFile(ctx context.Context, parent *components.Compo
 	return os.Remove(inVolumeLoc)
 }
 
-func (m *Materia) NewExecuteAction(ctx context.Context, v Action, vars map[string]any) error {
+func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]any) error {
 	switch v.Payload.Kind {
 	case components.ResourceTypeComponent:
 		switch v.Todo {
@@ -314,6 +314,34 @@ func (m *Materia) NewExecuteAction(ctx context.Context, v Action, vars map[strin
 			})
 			if err != nil {
 				return err
+			}
+		case ActionCleanup:
+			if !m.cleanup {
+				return fmt.Errorf("cleanup is disabled: %v", v.Payload)
+			}
+			switch v.Payload.Kind {
+			case components.ResourceTypeNetwork:
+				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".network"))})
+				if err != nil {
+					return err
+				}
+			case components.ResourceTypeVolume:
+				if m.cleanupVolumes {
+					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".volume"))})
+					if err != nil {
+						return err
+					}
+				}
+			default:
+				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Payload)
+			}
+		case ActionDump:
+			if v.Payload.Kind != components.ResourceTypeVolume {
+				return fmt.Errorf("tried to dump non volume resource: %v", v.Payload)
+			}
+			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".volume"))}, m.OutputDir, false)
+			if err != nil {
+				return fmt.Errorf("error dumping volume %v:%e", v.Payload.Name, err)
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)

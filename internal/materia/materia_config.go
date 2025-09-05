@@ -14,24 +14,26 @@ import (
 )
 
 type MateriaConfig struct {
-	Debug         bool
-	UseStdout     bool
-	Diffs         bool
-	Cleanup       bool
-	Hostname      string
-	Roles         []string
-	Timeout       int
-	MateriaDir    string
-	QuadletDir    string
-	ServiceDir    string
-	ScriptsDir    string
-	SourceDir     string
-	OutputDir     string
-	OnlyResources bool
-	Quiet         bool
-	AgeConfig     *age.Config
-	FileConfig    *filesecrets.Config
-	User          *user.User
+	Debug          bool
+	UseStdout      bool
+	Diffs          bool
+	Hostname       string
+	Roles          []string
+	Timeout        int
+	MateriaDir     string
+	QuadletDir     string
+	ServiceDir     string
+	ScriptsDir     string
+	SourceDir      string
+	OutputDir      string
+	OnlyResources  bool
+	Quiet          bool
+	Cleanup        bool
+	CleanupVolumes bool
+	BackupVolumes  bool
+	AgeConfig      *age.Config
+	FileConfig     *filesecrets.Config
+	User           *user.User
 }
 
 // var defaultConfig = map[string]any{
@@ -52,6 +54,12 @@ func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) 
 	c.Timeout = k.Int("timeout")
 	c.Roles = k.Strings("roles")
 	c.Diffs = k.Bool("diffs")
+	c.CleanupVolumes = k.Bool("cleanupvolumes")
+	if k.Exists("backupvolumes") {
+		c.BackupVolumes = k.Bool("backupvolumes")
+	} else {
+		c.BackupVolumes = true
+	}
 	c.UseStdout = k.Bool("stdout")
 	c.MateriaDir = k.String("prefix")
 	c.QuadletDir = k.String("quadletdir")
@@ -152,6 +160,8 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Show Diffs: %v\n", c.Diffs)
+	result += fmt.Sprintf("Clean-up Volumes: %v\n", c.CleanupVolumes)
+	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
 	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
 	result += fmt.Sprintf("Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)

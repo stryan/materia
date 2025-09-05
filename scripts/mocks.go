@@ -91,6 +91,18 @@ func (m *MockContainers) MountVolume(_ context.Context, _ *containers.Volume) er
 	panic("not implemented") // TODO: Implement
 }
 
+func (m *MockContainers) RemoveVolume(_ context.Context, _ *containers.Volume) error {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockContainers) ListNetworks(_ context.Context) ([]*containers.Network, error) {
+	panic("not implemented") // TODO: Implement
+}
+
+func (m *MockContainers) RemoveNetwork(_ context.Context, _ *containers.Network) error {
+	panic("not implemented") // TODO: Implement
+}
+
 func (m *MockContainers) InspectVolume(name string) (*containers.Volume, error) {
 	if mount, ok := m.Volumes[name]; !ok {
 		return nil, errors.New("volume not found")

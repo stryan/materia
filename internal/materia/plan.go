@@ -13,12 +13,13 @@ type Plan struct {
 	volumes    []string
 	components []string
 
-	combatPhase []Action
-	secondMain  []Action
-	endStep     []Action
+	combatPhase   []Action
+	secondMain    []Action
+	servicesPhase []Action
 
 	resourceChanges  map[string][]Action
 	structureChanges map[string][]Action
+	cleanupChanges   map[string][]Action
 }
 
 func NewPlan(installedComps, volList []string) *Plan {
@@ -27,6 +28,7 @@ func NewPlan(installedComps, volList []string) *Plan {
 		components:       installedComps,
 		resourceChanges:  make(map[string][]Action),
 		structureChanges: make(map[string][]Action),
+		cleanupChanges:   make(map[string][]Action),
 	}
 }
 
@@ -54,6 +56,10 @@ func (p *Plan) Add(a Action) {
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		case ActionCleanup:
+			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
+		case ActionDump:
+			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
@@ -76,20 +82,20 @@ func (p *Plan) Add(a Action) {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 		case ActionRestart, ActionStart, ActionStop, ActionEnable, ActionDisable:
-			if slices.ContainsFunc(p.endStep, func(modification Action) bool {
+			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
 				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
 			}) {
 				return
 			}
-			p.endStep = append(p.endStep, a)
+			p.servicesPhase = append(p.servicesPhase, a)
 
 		case ActionReload:
-			if slices.ContainsFunc(p.endStep, func(modification Action) bool {
+			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
 				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
 			}) {
 				return
 			}
-			p.endStep = append(p.endStep, a)
+			p.servicesPhase = append(p.servicesPhase, a)
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
 		}
@@ -127,12 +133,21 @@ func (p *Plan) Validate() error {
 	componentList := p.components
 	needReload := false
 	reload := false
+	deletedVoles := []string{}
 	for _, a := range steps {
 		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
 		if a.Todo == ActionReload && a.Payload.Name == "" {
 			reload = true
+		}
+		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
+			deletedVoles = append(deletedVoles, a.Payload.Name)
+		}
+		if a.Todo == ActionDump && a.Payload.Kind == components.ResourceTypeVolume {
+			if !slices.Contains(deletedVoles, a.Payload.Name) {
+				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Name)
+			}
 		}
 		if a.Payload.Kind == components.ResourceTypeVolumeFile {
 			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
@@ -163,6 +178,7 @@ func (p *Plan) Validate() error {
 
 func (p *Plan) Steps() []Action {
 	var mainPhase []Action
+	var cleanupPhase []Action
 	keys := make([]string, 0, len(p.resourceChanges))
 	for k := range p.resourceChanges {
 		keys = append(keys, k)
@@ -183,9 +199,11 @@ func (p *Plan) Steps() []Action {
 		componentActions = append(componentActions, p.resourceChanges[k]...)
 		componentActions = append(componentActions, endstep...)
 		mainPhase = append(mainPhase, componentActions...)
+		cleanupPhase = append(cleanupPhase, p.cleanupChanges[k]...)
+
 	}
 
-	return slices.Concat(mainPhase, p.combatPhase, p.secondMain, p.endStep)
+	return slices.Concat(mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
 }
 
 func (p *Plan) Pretty() string {

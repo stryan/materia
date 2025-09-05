@@ -30,6 +30,14 @@ type Volume struct {
 	Driver     string `json:"Driver"`
 }
 
+type NetworkContainer struct {
+	Name string
+}
+type Network struct {
+	Name       string
+	Containers map[string]NetworkContainer
+}
+
 type PodmanSecret struct {
 	Name  string
 	Value string
@@ -192,6 +200,19 @@ func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, source
 	return nil
 }
 
+func (p *PodmanManager) RemoveVolume(ctx context.Context, volume *Volume) error {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "rm", volume.Name)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "podman", "secret", "ls", "--noheading", "--format", "\"{{ range . }}{{.Name}}\\n{{end -}}\"", "--filter", fmt.Sprintf("name=%v*", p.secretsPrefix))
 	output, err := cmd.Output()
@@ -247,6 +268,34 @@ func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) err
 		return err
 	}
 	return parsePodmanError(output)
+}
+
+func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
+	cmd := exec.Command("podman", "network", "ls", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return nil, err
+	}
+	var networks []*Network
+	if err := json.Unmarshal(output, &networks); err != nil {
+		return nil, err
+	}
+	return networks, nil
+}
+
+func (p *PodmanManager) RemoveNetwork(ctx context.Context, n *Network) error {
+	cmd := exec.Command("podman", "network", "rm", n.Name)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *PodmanManager) Close() {

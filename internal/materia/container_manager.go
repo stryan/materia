@@ -14,6 +14,9 @@ type ContainerManager interface {
 	DumpVolume(context.Context, *containers.Volume, string, bool) error
 	ImportVolume(context.Context, *containers.Volume, string) error
 	MountVolume(context.Context, *containers.Volume) error
+	RemoveVolume(context.Context, *containers.Volume) error
+	ListNetworks(context.Context) ([]*containers.Network, error)
+	RemoveNetwork(context.Context, *containers.Network) error
 	ListSecrets(context.Context) ([]string, error)
 	GetSecret(context.Context, string) (*containers.PodmanSecret, error)
 	WriteSecret(context.Context, string, string) error

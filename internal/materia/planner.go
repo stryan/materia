@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
+	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
@@ -508,6 +510,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 }
 
 func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {
+	ctx := context.TODO()
 	var diffActions []Action
 	if len(other.Resources) == 0 {
 		log.Debug("components", "left", base, "right", other)
@@ -537,7 +540,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		cur := currentResources[k]
 		if cur.Kind == components.ResourceTypePodmanSecret {
 			// validate the secret exists first
-			secretsList, err := m.Containers.ListSecrets(context.TODO())
+			secretsList, err := m.Containers.ListSecrets(ctx)
 			if err != nil {
 				return diffActions, fmt.Errorf("error listing secrets during resource validation")
 			}
@@ -579,6 +582,54 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			}
 
 			diffActions = append(diffActions, a)
+			if m.cleanup {
+				fmt.Fprintf(os.Stderr, "FBLTHP[323]: planner.go:583 (after if m.cleanup )\n")
+				networks, err := m.Containers.ListNetworks(ctx)
+				if err != nil {
+					return diffActions, err
+				}
+				volumes, err := m.Containers.ListVolumes(ctx)
+				if err != nil {
+					return diffActions, err
+				}
+				switch cur.Kind {
+				case components.ResourceTypeNetwork:
+					fmt.Fprintf(os.Stderr, "FBLTHP[324]: planner.go:594 (after case components.ResourceTypeNetwork:)\n")
+					for _, n := range networks {
+						fmt.Fprintf(os.Stderr, "FBLTHP[325]: planner.go:596: n=%+v\n", n)
+						// TODO support custom network names
+						fmt.Fprintf(os.Stderr, "FBLTHP[326]: planner.go:599: cur=%+v\n", cur)
+						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".network")) {
+							// TODO also check that containers aren't using it
+							diffActions = append(diffActions, Action{
+								Todo:    ActionCleanup,
+								Parent:  base,
+								Payload: cur,
+							})
+						}
+					}
+				case components.ResourceTypeVolume:
+					if m.cleanupVolumes {
+						for _, v := range volumes {
+							// TODO custome volume names
+							if v.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".volume")) {
+								if m.backupVolumes {
+									diffActions = append(diffActions, Action{
+										Todo:    ActionDump,
+										Parent:  base,
+										Payload: cur,
+									})
+								}
+								diffActions = append(diffActions, Action{
+									Todo:    ActionCleanup,
+									Parent:  base,
+									Payload: cur,
+								})
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	sortedNewResourceKeys := sortedKeys(newResources)
