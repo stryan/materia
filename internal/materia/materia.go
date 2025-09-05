@@ -48,6 +48,8 @@ type Materia struct {
 	debug               bool
 	diffs               bool
 	cleanup             bool
+	cleanupVolumes      bool
+	backupVolumes       bool
 }
 
 func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, secrets SecretsManager, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
@@ -62,23 +64,25 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 		snips[v.Name] = v
 	}
 	m := &Materia{
-		Services:      sm,
-		Containers:    cm,
-		HostFacts:     facts,
-		Manifest:      man,
-		source:        source,
-		debug:         c.Debug,
-		diffs:         c.Diffs,
-		cleanup:       c.Cleanup,
-		onlyResources: c.OnlyResources,
-		Secrets:       secrets,
-		CompRepo:      hostRepo,
-		ScriptRepo:    scriptRepo,
-		ServiceRepo:   serviceRepo,
-		SourceRepo:    sourceRepo,
-		OutputDir:     c.OutputDir,
-		snippets:      snips,
-		rootComponent: rootComponent,
+		Services:       sm,
+		Containers:     cm,
+		HostFacts:      facts,
+		Manifest:       man,
+		source:         source,
+		debug:          c.Debug,
+		diffs:          c.Diffs,
+		cleanup:        c.Cleanup,
+		onlyResources:  c.OnlyResources,
+		Secrets:        secrets,
+		CompRepo:       hostRepo,
+		ScriptRepo:     scriptRepo,
+		ServiceRepo:    serviceRepo,
+		SourceRepo:     sourceRepo,
+		OutputDir:      c.OutputDir,
+		snippets:       snips,
+		rootComponent:  rootComponent,
+		cleanupVolumes: c.CleanupVolumes,
+		backupVolumes:  c.BackupVolumes,
 	}
 	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
@@ -247,7 +251,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	}
 	emptyVars := make(map[string]any)
 	for _, r := range comp.Resources {
-		err := m.NewExecuteAction(ctx, Action{
+		err := m.executeAction(ctx, Action{
 			Todo:    ActionRemove,
 			Parent:  comp,
 			Payload: r,

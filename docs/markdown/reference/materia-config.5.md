@@ -89,3 +89,21 @@ Directory where materia installs non-generated systemd unit files. Defaults to `
 #### *MATERIA_SCRIPTSDIR*/**scriptsdir**
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
+
+#### *MATERIA_CLEANUP*/**cleanup**
+
+When removing Quadlet resources that aren't volumes, remove the resources from Podman as well. Defaults to false.
+
+Example: If a resource `test.network` file is removed, materia will also run a `podman network rm systemd-test` command.
+
+#### *MATERIA_CLEANUPVOLUMES*/**cleanupvolumes**
+
+When removing a `.volume` Quadlet resource, remove the volume from Podman as well. Defaults to false.
+
+This is separate from the above **cleanup** option since volumes container user data. It is recommended to leave this to false or use this in conjunctino with the **backupvolumes** option.
+
+#### *MATERIA_BACKUPVOLUMES*/**backupvolumes**
+
+If an action would delete a Podman volume, create a backup of it first using `podman volume export` and store it in **outputdir**. Defaults to true
+
+Note, this only occurs if a Podman volume is actually being deleted e.g. `podman volume rm`. This does NOT create a backup if just the Quadlet file is deleted.
