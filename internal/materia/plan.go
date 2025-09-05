@@ -3,7 +3,6 @@ package materia
 import (
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 
 	"primamateria.systems/materia/internal/components"
@@ -32,7 +31,6 @@ func NewPlan(installedComps, volList []string) *Plan {
 }
 
 func (p *Plan) Add(a Action) {
-	fmt.Fprintf(os.Stderr, "FBLTHP[318]: plan.go:33: a=%+v\n", a)
 	switch a.Payload.Kind {
 	case components.ResourceTypeComponent:
 		switch a.Todo {

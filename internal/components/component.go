@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -90,7 +89,6 @@ func FindResourceType(file string) ResourceType {
 	case ".sh":
 		return ResourceTypeScript
 	default:
-		fmt.Fprintf(os.Stderr, "FBLTHP[319]: component.go:92: file=%+v\n", file)
 		if len(file) == 0 {
 			return ResourceTypeHost
 		}
