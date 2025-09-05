@@ -89,6 +89,12 @@ func FindResourceType(file string) ResourceType {
 	case ".sh":
 		return ResourceTypeScript
 	default:
+		if len(file) == 0 {
+			return ResourceTypeHost
+		}
+		if file[len(file)-1:] == "/" {
+			return ResourceTypeDirectory
+		}
 		return ResourceTypeFile
 
 	}

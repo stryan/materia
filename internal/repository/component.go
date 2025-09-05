@@ -380,7 +380,7 @@ func (r *HostComponentRepository) ReadResource(res components.Resource) (string,
 	if res.Kind == components.ResourceTypeDirectory {
 		return "", nil
 	}
-	if isQuadlet(res) {
+	if res.IsQuadlet() {
 		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Path)
 	} else {
 		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Path)
@@ -397,7 +397,7 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	if err := res.Validate(); err != nil {
 		return fmt.Errorf("can't install invalid resource: %w", err)
 	}
-	if isQuadlet(res) {
+	if res.IsQuadlet() {
 		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Name), data.Bytes(), 0o755)
 	}
 	// TODO probably doing something stupid here
@@ -417,7 +417,7 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 
 func (r *HostComponentRepository) RemoveResource(res components.Resource) error {
 	resPath := ""
-	if isQuadlet(res) {
+	if res.IsQuadlet() {
 		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Path)
 	} else {
 		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Path)
@@ -512,13 +512,4 @@ func (r HostComponentRepository) RunSetup(comp *components.Component) error {
 		return err
 	}
 	return nil
-}
-
-func isQuadlet(res components.Resource) bool {
-	switch res.Kind {
-	case components.ResourceTypeContainer, components.ResourceTypeKube, components.ResourceTypeVolume, components.ResourceTypeNetwork, components.ResourceTypePod:
-		return true
-	default:
-		return false
-	}
 }

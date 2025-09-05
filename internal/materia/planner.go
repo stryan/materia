@@ -157,9 +157,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			}
 			if len(actions) > 0 {
 				actions = append(actions, Action{
-					Todo:    ActionReloadUnits,
+					Todo:    ActionReload,
 					Parent:  rootComponent,
-					Payload: components.Resource{},
+					Payload: components.Resource{Kind: components.ResourceTypeHost},
 				})
 			}
 			serviceActions, err := m.processFreshComponentServices(ctx, newComponent)
@@ -206,7 +206,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			if original.Version != components.DefaultComponentVersion {
 				original.Version = components.DefaultComponentVersion
 				actions = append(actions, Action{
-					Todo:   ActionUpdateComponent,
+					Todo:   ActionUpdate,
 					Parent: original,
 				})
 			}
@@ -246,8 +246,9 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 		return actions, errors.New("expected fresh component")
 	}
 	actions = append(actions, Action{
-		Todo:   ActionInstallComponent,
-		Parent: newComponent,
+		Todo:    ActionInstall,
+		Parent:  newComponent,
+		Payload: components.Resource{Kind: components.ResourceTypeComponent, Name: newComponent.Name},
 	})
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
@@ -263,14 +264,14 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 			}
 		}
 		actions = append(actions, Action{
-			Todo:    resToAction(r, "install"),
+			Todo:    ActionInstall,
 			Parent:  newComponent,
 			Payload: r,
 		})
 	}
 	if newComponent.Scripted {
 		actions = append(actions, Action{
-			Todo:   ActionSetupComponent,
+			Todo:   ActionSetup,
 			Parent: newComponent,
 		})
 	}
@@ -314,9 +315,9 @@ func (m *Materia) calculatePotentialComponentResources(original, newComponent *c
 	}
 	if len(actions) > 0 {
 		actions = append(actions, Action{
-			Todo:    ActionReloadUnits,
+			Todo:    ActionReload,
 			Parent:  rootComponent,
-			Payload: components.Resource{},
+			Payload: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
 	return actions, nil
@@ -330,7 +331,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 	for _, d := range resourceActions {
 		if updatedService, ok := restartmap[d.Payload.Name]; ok {
 			actions = append(actions, Action{
-				Todo:   ActionRestartService,
+				Todo:   ActionRestart,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
@@ -341,7 +342,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 		}
 		if updatedService, ok := reloadmap[d.Payload.Name]; ok {
 			actions = append(actions, Action{
-				Todo:   ActionReloadService,
+				Todo:   ActionReload,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
@@ -350,7 +351,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 				},
 			})
 		}
-		if m.diffs && d.Category() == ActionCategoryUpdate {
+		if m.diffs && d.Todo == ActionUpdate {
 			diffs := d.Content.([]diffmatchpatch.Diff)
 			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
@@ -418,13 +419,13 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 	}
 	if osrc.Static {
 		result = append(result, Action{
-			Todo:    ActionDisableService,
+			Todo:    ActionDisable,
 			Parent:  comp,
 			Payload: res,
 		})
 	}
 	result = append(result, Action{
-		Todo:    ActionStopService,
+		Todo:    ActionStop,
 		Parent:  comp,
 		Payload: res,
 	})
@@ -440,14 +441,14 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	}
 	if shouldEnableService(osrc, liveService) {
 		actions = append(actions, Action{
-			Todo:    ActionEnableService,
+			Todo:    ActionEnable,
 			Parent:  comp,
 			Payload: res,
 		})
 	}
 	if !liveService.Started() {
 		actions = append(actions, Action{
-			Todo:    ActionStartService,
+			Todo:    ActionStart,
 			Parent:  comp,
 			Payload: res,
 		})
@@ -462,19 +463,19 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	}
 	for _, r := range comp.Resources {
 		actions = append(actions, Action{
-			Todo:    resToAction(r, "remove"),
+			Todo:    ActionRemove,
 			Parent:  comp,
 			Payload: r,
 		})
 	}
 	if comp.Scripted {
 		actions = append(actions, Action{
-			Todo:   ActionCleanupComponent,
+			Todo:   ActionCleanup,
 			Parent: comp,
 		})
 	}
 	actions = append(actions, Action{
-		Todo:   ActionRemoveComponent,
+		Todo:   ActionRemove,
 		Parent: comp,
 	})
 	return actions, nil
@@ -497,7 +498,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 		}
 		if liveService.Started() {
 			actions = append(actions, Action{
-				Todo:    ActionStopService,
+				Todo:    ActionStop,
 				Parent:  comp,
 				Payload: res,
 			})
@@ -560,7 +561,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 				log.Debug("updating current resource", "file", cur.Name, "diffs", diffs)
 				a := Action{
-					Todo:    resToAction(newRes, "update"),
+					Todo:    ActionUpdate,
 					Parent:  other,
 					Payload: newRes,
 					Content: diffs,
@@ -572,7 +573,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			// in current resources but not source resources, remove old
 			log.Debug("removing existing resource", "file", cur.Name)
 			a := Action{
-				Todo:    resToAction(cur, "remove"),
+				Todo:    ActionRemove,
 				Parent:  base,
 				Payload: cur,
 			}
@@ -586,7 +587,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			// if new resource is not in old resource we need to install it
 			fmt.Printf("Creating new resource %v", k)
 			a := Action{
-				Todo:    resToAction(newResources[k], "install"),
+				Todo:    ActionInstall,
 				Parent:  base,
 				Payload: newResources[k],
 			}

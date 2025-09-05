@@ -56,12 +56,12 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		})
 		maps.Copy(vars, v.Parent.Defaults)
 		maps.Copy(vars, vaultVars)
-		err := m.executeAction(ctx, v, vars)
+		err := m.NewExecuteAction(ctx, v, vars)
 		if err != nil {
 			return steps, err
 		}
 
-		if v.Todo == ActionStartService || v.Todo == ActionStopService || v.Todo == ActionRestartService || v.Todo == ActionEnableService || v.Todo == ActionDisableService {
+		if (v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload) && v.Payload.Kind == components.ResourceTypeService {
 			serviceActions = append(serviceActions, v)
 		}
 
@@ -77,19 +77,19 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, err
 		}
 		switch v.Todo {
-		case ActionRestartService, ActionStartService:
+		case ActionRestart, ActionStart:
 			if serv.State == "activating" {
 				activating = append(activating, v.Payload.Name)
 			} else if serv.State != "active" {
 				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
 			}
-		case ActionStopService:
+		case ActionStop:
 			if serv.State == "deactivating" {
 				deactivating = append(deactivating, v.Payload.Name)
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
-		case ActionEnableService, ActionDisableService:
+		case ActionEnable, ActionDisable:
 		default:
 			return steps, errors.New("unknown service action state")
 		}
@@ -119,206 +119,13 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	return steps, nil
 }
 
-func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]any) error {
-	switch v.Todo {
-	case ActionInstallComponent:
-		if err := m.CompRepo.InstallComponent(v.Parent); err != nil {
-			return err
-		}
-	case ActionUpdateComponent:
-		if err := m.CompRepo.UpdateComponent(v.Parent); err != nil {
-			return err
-		}
-	case ActionInstallFile, ActionUpdateFile, ActionInstallQuadlet, ActionUpdateQuadlet:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-	case ActionInstallScript, ActionUpdateScript:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-		if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
-			return err
-		}
-	case ActionInstallDirectory:
-		if err := m.CompRepo.InstallResource(v.Payload, nil); err != nil {
-			return err
-		}
-	case ActionInstallPodmanSecret, ActionUpdatePodmanSecret:
-		var secretVar any
-		var ok bool
-		if secretVar, ok = vars[v.Payload.Name]; !ok {
-			return errors.New("can't install/update Podman Secret: no matching Materia secret")
-		}
-		if value, ok := secretVar.(string); !ok {
-			return errors.New("can't install/update Podman Secret: materia secret isn't string")
-		} else {
-			if err := m.Containers.WriteSecret(ctx, v.Payload.Name, value); err != nil {
-				return err
-			}
-		}
-	case ActionRemovePodmanSecret:
-		if err := m.Containers.RemoveSecret(ctx, v.Payload.Name); err != nil {
-			return err
-		}
-	case ActionInstallService, ActionUpdateService:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-		if err := m.ServiceRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
-			return err
-		}
-	case ActionInstallComponentScript, ActionUpdateComponentScript:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-	case ActionRemoveFile:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-	case ActionRemoveQuadlet:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-	case ActionRemoveScript:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-		if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
-			return err
-		}
-	case ActionRemoveDirectory:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-	case ActionRemoveService:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-		if err := m.ServiceRepo.Remove(ctx, v.Payload.Name); err != nil {
-			return err
-		}
-	case ActionRemoveComponentScript:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-	case ActionRemoveComponent:
-		if err := m.CompRepo.RemoveComponent(v.Parent); err != nil {
-			return err
-		}
-	case ActionCleanupComponent:
-		if err := m.CompRepo.RunCleanup(v.Parent); err != nil {
-			return err
-		}
-	case ActionEnsureVolume:
-		service := strings.TrimSuffix(v.Payload.Name, ".volume")
-		err := m.modifyService(ctx, Action{
-			Todo:   ActionStartService,
-			Parent: v.Parent,
-			Payload: components.Resource{
-				Parent: v.Parent.Name,
-				Name:   fmt.Sprintf("%v-volume.service", service),
-				Kind:   components.ResourceTypeService,
-			},
-		})
-		if err != nil {
-			return err
-		}
-	case ActionInstallVolumeFile:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-		if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-			return err
-		}
-	case ActionUpdateVolumeFile:
-		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-		if err != nil {
-			return err
-		}
-		resourceData, err := m.executeResource(resourceTemplate, vars)
-		if err != nil {
-			return err
-		}
-		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-			return err
-		}
-		if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-			return err
-		}
-	case ActionRemoveVolumeFile:
-		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-			return err
-		}
-		if err := m.removeVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-			return err
-		}
-	case ActionSetupComponent:
-		if err := m.CompRepo.RunSetup(v.Parent); err != nil {
-			return err
-		}
-	case ActionStartService, ActionStopService, ActionRestartService, ActionEnableService, ActionDisableService:
-		err := m.modifyService(ctx, v)
-		if err != nil {
-			return err
-		}
-	case ActionReloadUnits:
-		err := m.modifyService(ctx, v)
-		if err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("invalid action to execute: %v", v)
-	}
-	return nil
-}
-
 func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	if err := command.Validate(); err != nil {
 		return err
 	}
 	var res components.Resource
-	if command.Todo != ActionReloadUnits {
+	isUnits := command.Payload.Kind == components.ResourceTypeHost
+	if command.Todo != ActionReload && !isUnits {
 		res = command.Payload
 		if err := res.Validate(); err != nil {
 			return fmt.Errorf("invalid resource when modifying service: %w", err)
@@ -330,27 +137,29 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	}
 	var cmd services.ServiceAction
 	switch command.Todo {
-	case ActionStartService:
+	case ActionStart:
 		cmd = services.ServiceStart
 		log.Debug("starting service", "unit", res.Name)
-	case ActionStopService:
+	case ActionStop:
 		log.Debug("stopping service", "unit", res.Name)
 		cmd = services.ServiceStop
-	case ActionRestartService:
+	case ActionRestart:
 		log.Debug("restarting service", "unit", res.Name)
 		cmd = services.ServiceRestart
-	case ActionReloadUnits:
-		log.Debug("reloading units")
-		cmd = services.ServiceReloadUnits
-	case ActionEnableService:
+	case ActionReload:
+		if isUnits {
+			log.Debug("reloading units")
+			cmd = services.ServiceReloadUnits
+		} else {
+			log.Debug("reloading service", "unit", res.Name)
+			cmd = services.ServiceReloadService
+		}
+	case ActionEnable:
 		log.Debug("enabling service", "unit", res.Name)
 		cmd = services.ServiceEnable
-	case ActionDisableService:
+	case ActionDisable:
 		log.Debug("disabling service", "unit", res.Name)
 		cmd = services.ServiceDisable
-	case ActionReloadService:
-		log.Debug("reloading service", "unit", res.Name)
-		cmd = services.ServiceReloadService
 
 	default:
 		return errors.New("invalid service command")
@@ -442,4 +251,236 @@ func (m *Materia) removeVolumeFile(ctx context.Context, parent *components.Compo
 	}
 	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
 	return os.Remove(inVolumeLoc)
+}
+
+func (m *Materia) NewExecuteAction(ctx context.Context, v Action, vars map[string]any) error {
+	switch v.Payload.Kind {
+	case components.ResourceTypeComponent:
+		switch v.Todo {
+		case ActionInstall:
+			if err := m.CompRepo.InstallComponent(v.Parent); err != nil {
+				return err
+			}
+		case ActionUpdate:
+			if err := m.CompRepo.UpdateComponent(v.Parent); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.CompRepo.RemoveComponent(v.Parent); err != nil {
+				return err
+			}
+		case ActionCleanup:
+			if err := m.CompRepo.RunCleanup(v.Parent); err != nil {
+				return err
+			}
+		case ActionSetup:
+			if err := m.CompRepo.RunSetup(v.Parent); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+			if err != nil {
+				return err
+			}
+			resourceData, err := m.executeResource(resourceTemplate, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+		case ActionEnsure:
+			if v.Payload.Kind != components.ResourceTypeVolume {
+				return fmt.Errorf("tried to ensure non volume resource: %v", v.Payload)
+			}
+			service := strings.TrimSuffix(v.Payload.Name, ".volume")
+			err := m.modifyService(ctx, Action{
+				Todo:   ActionStart,
+				Parent: v.Parent,
+				Payload: components.Resource{
+					Parent: v.Parent.Name,
+					Name:   fmt.Sprintf("%v-volume.service", service),
+					Kind:   components.ResourceTypeService,
+				},
+			})
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeScript:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+			if err != nil {
+				return err
+			}
+			resourceData, err := m.executeResource(resourceTemplate, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+				return err
+			}
+			if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+				return err
+			}
+
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+			if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeDirectory:
+		switch v.Todo {
+		case ActionInstall:
+			if err := m.CompRepo.InstallResource(v.Payload, nil); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeHost:
+		if v.Todo != ActionReload {
+			return fmt.Errorf(" invalid action type %v for host resource", v.Todo)
+		}
+		err := m.modifyService(ctx, v)
+		if err != nil {
+			return err
+		}
+	case components.ResourceTypeService:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+			if err != nil {
+				return err
+			}
+			resourceData, err := m.executeResource(resourceTemplate, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+				return err
+			}
+			if err := m.ServiceRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+			if err := m.ServiceRepo.Remove(ctx, v.Payload.Name); err != nil {
+				return err
+			}
+		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
+			err := m.modifyService(ctx, v)
+			if err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeComponentScript:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+			if err != nil {
+				return err
+			}
+			resourceData, err := m.executeResource(resourceTemplate, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+				return err
+			}
+
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypePodmanSecret:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			var secretVar any
+			var ok bool
+			if secretVar, ok = vars[v.Payload.Name]; !ok {
+				return errors.New("can't install/update Podman Secret: no matching Materia secret")
+			}
+			if value, ok := secretVar.(string); !ok {
+				return errors.New("can't install/update Podman Secret: materia secret isn't string")
+			} else {
+				if err := m.Containers.WriteSecret(ctx, v.Payload.Name, value); err != nil {
+					return err
+				}
+			}
+
+		case ActionRemove:
+			if err := m.Containers.RemoveSecret(ctx, v.Payload.Name); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	case components.ResourceTypeVolumeFile:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+			if err != nil {
+				return err
+			}
+			resourceData, err := m.executeResource(resourceTemplate, vars)
+			if err != nil {
+				return err
+			}
+			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+				return err
+			}
+			if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
+				return err
+			}
+
+		case ActionRemove:
+			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+				return err
+			}
+			if err := m.removeVolumeFile(ctx, v.Parent, v.Payload); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+		}
+	default:
+		panic(fmt.Sprintf("unexpected components.ResourceType: %v", v.Payload.Kind))
+	}
+
+	return nil
 }
