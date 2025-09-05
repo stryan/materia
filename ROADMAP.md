@@ -1,6 +1,6 @@
-# Next Version Goals
+# High Priority Goals
 - [ ] Re-create volumes when .volume resource updates
-- [X] Basic podman secrets integration: materia secrets can be flagged to be created with `podman secret create`
+- [ ] Cleanup volumes and networks upon resource removal
 
 # Near term goals
 - [ ] Override component manifests on per-host/role basis
