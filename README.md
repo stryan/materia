@@ -212,3 +212,6 @@ Also the last good Final Fantasy game was FF3 and I will die on this hill.
 
 No, but it's funny we all get out-SEO'd by a video game.
 
+# Contributing
+
+Feel free to report issues or open a discussion. However, please note that I mostly consider Github a public mirror and as such PR's will not be directly merged but instead pulled in locally and pushed here.
