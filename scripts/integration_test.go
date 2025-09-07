@@ -143,7 +143,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	_ = os.RemoveAll(testPrefix)
+	// _ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -157,24 +157,24 @@ func TestFacts(t *testing.T) {
 }
 
 var expectedActions = []materia.Action{
-	planHelper(materia.ActionInstall, "double", "", ""),
-	planHelper(materia.ActionInstall, "double", "inner", "/inner/"),
-	planHelper(materia.ActionInstall, "double", "goodbye.container", ""),
-	planHelper(materia.ActionInstall, "double", "hello.container", ""),
-	planHelper(materia.ActionInstall, "double", "hello.timer", ""),
-	planHelper(materia.ActionInstall, "double", "test.data", "/inner/"),
-	planHelper(materia.ActionInstall, "double", "foo", ""),
-	planHelper(materia.ActionInstall, "double", "MANIFEST.toml", ""),
-	planHelper(materia.ActionInstall, "hello", "", ""),
-	planHelper(materia.ActionInstall, "hello", "hello.container", ""),
-	planHelper(materia.ActionInstall, "hello", "hello.env", ""),
-	planHelper(materia.ActionInstall, "hello", "hello.volume", ""),
-	planHelper(materia.ActionInstall, "hello", "test.env", ""),
-	planHelper(materia.ActionInstall, "hello", "MANIFEST.toml", ""),
-	planHelper(materia.ActionReload, "", "", ""),
-	planHelper(materia.ActionStart, "double", "goodbye.service", ""),
-	planHelper(materia.ActionEnable, "double", "hello.timer", ""),
-	planHelper(materia.ActionStart, "double", "hello.timer", ""),
+	planHelper(materia.ActionInstall, "double", ""),
+	planHelper(materia.ActionInstall, "double", "inner"),
+	planHelper(materia.ActionInstall, "double", "goodbye.container"),
+	planHelper(materia.ActionInstall, "double", "hello.container"),
+	planHelper(materia.ActionInstall, "double", "hello.timer"),
+	planHelper(materia.ActionInstall, "double", "inner/test.data"),
+	planHelper(materia.ActionInstall, "double", "foo"),
+	planHelper(materia.ActionInstall, "double", "MANIFEST.toml"),
+	planHelper(materia.ActionInstall, "hello", ""),
+	planHelper(materia.ActionInstall, "hello", "hello.container"),
+	planHelper(materia.ActionInstall, "hello", "hello.env"),
+	planHelper(materia.ActionInstall, "hello", "hello.volume"),
+	planHelper(materia.ActionInstall, "hello", "test.env"),
+	planHelper(materia.ActionInstall, "hello", "MANIFEST.toml"),
+	planHelper(materia.ActionReload, "", ""),
+	planHelper(materia.ActionStart, "double", "goodbye.service"),
+	planHelper(materia.ActionEnable, "double", "hello.timer"),
+	planHelper(materia.ActionStart, "double", "hello.timer"),
 }
 
 func TestPlan(t *testing.T) {
@@ -190,7 +190,7 @@ func TestPlan(t *testing.T) {
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
 	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
 	plan, err := m.Plan(ctx)
-	require.Nil(t, err)
+	require.Nil(t, err, "error generating plan")
 	require.False(t, plan.Empty(), "plan should not be empty")
 	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
 	require.Nil(t, plan.Validate(), "generated invalid plan")
@@ -210,8 +210,8 @@ func TestPlan(t *testing.T) {
 		if expected.Parent.Name != v.Parent.Name {
 			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
 		}
-		if expected.Payload.Name != v.Payload.Name {
-			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
+		if expected.Payload.Path != v.Payload.Path {
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Path, v.Payload.Path)
 		}
 	}
 }
@@ -239,8 +239,8 @@ func TestExecuteFresh(t *testing.T) {
 		if expected.Parent.Name != v.Parent.Name {
 			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
 		}
-		if expected.Payload.Name != v.Payload.Name {
-			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Name, v.Payload.Name)
+		if expected.Payload.Path != v.Payload.Path {
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Path, v.Payload.Path)
 		}
 	}
 	count, err := m.Execute(ctx, plan)
@@ -256,22 +256,21 @@ func TestExecuteFresh(t *testing.T) {
 			if v.Payload.Kind == components.ResourceTypeFile || v.Payload.IsQuadlet() {
 				var dest string
 				if v.Payload.Kind == components.ResourceTypeFile || v.Payload.Kind == components.ResourceTypeManifest {
-					dir := filepath.Dir(v.Payload.Path)
-					dest = filepath.Join(prefix, "components", v.Parent.Name, dir, v.Payload.Name)
+					dest = filepath.Join(prefix, "components", v.Parent.Name, v.Payload.Path)
 				} else {
-					dest = filepath.Join(installdir, v.Parent.Name, v.Payload.Name)
+					dest = filepath.Join(installdir, v.Parent.Name, v.Payload.Path)
 				}
 				_, err := os.Stat(dest)
-				assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Name))
+				assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Path))
 			} else if v.Payload.Kind == components.ResourceTypeComponent {
 				_, err := os.Stat(fmt.Sprintf("%v/components/%v", prefix, v.Parent.Name))
-				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
+				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Path))
 				_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
-				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Name))
+				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Path))
 			}
 		case materia.ActionStart:
 			if v.Payload.Kind == components.ResourceTypeService {
-				state, err := m.Services.Get(ctx, v.Payload.Name)
+				state, err := m.Services.Get(ctx, v.Payload.Path)
 				assert.Nil(t, err, "error getting service state")
 				assert.Equal(t, "active", state.State)
 			}
@@ -279,10 +278,7 @@ func TestExecuteFresh(t *testing.T) {
 	}
 }
 
-func planHelper(todo materia.ActionType, name, res, parentPath string) materia.Action {
-	if parentPath == "" {
-		parentPath = "/"
-	}
+func planHelper(todo materia.ActionType, name, res string) materia.Action {
 	if res == "" {
 		if name == "" {
 			return materia.Action{
@@ -302,7 +298,7 @@ func planHelper(todo materia.ActionType, name, res, parentPath string) materia.A
 				Payload: components.Resource{
 					Parent: name,
 					Kind:   components.ResourceTypeComponent,
-					Name:   name,
+					Path:   name,
 				},
 			}
 		}
@@ -315,8 +311,7 @@ func planHelper(todo materia.ActionType, name, res, parentPath string) materia.A
 		Payload: components.Resource{
 			Parent: name,
 			Kind:   components.FindResourceType(res),
-			Name:   res,
-			Path:   filepath.Join(parentPath, res),
+			Path:   res,
 		},
 	}
 	return act

@@ -43,7 +43,7 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 	if res.Kind == components.ResourceTypeDirectory {
 		return "", nil
 	}
-	resPath := filepath.Join(s.Prefix, res.Parent, res.Path)
+	resPath := filepath.Join(s.Prefix, res.Parent, res.Name())
 
 	curFile, err := os.ReadFile(resPath)
 	if err != nil {
@@ -101,7 +101,10 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if d.Name() == c.Name {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, path)
+		resName, err := filepath.Rel(path, fullPath)
+		if err != nil {
+			return err
+		}
 		if d.Name() == "MANIFEST.toml" {
 			log.Debugf("loading source component manifest %v", c.Name)
 			man, err = manifests.LoadComponentManifest(fullPath)
@@ -113,10 +116,9 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			slices.Sort(man.Secrets)
 			for _, s := range man.Secrets {
 				secretResources = append(secretResources, components.Resource{
-					Name:     s,
+					Path:     s,
 					Kind:     components.ResourceTypePodmanSecret,
 					Parent:   name,
-					Path:     "",
 					Template: false,
 				})
 			}
@@ -128,17 +130,15 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			scripts++
 			c.Scripted = true
 			newRes = components.Resource{
-				Path:     resPath,
-				Name:     d.Name(),
+				Path:     resName,
 				Parent:   c.Name,
 				Kind:     components.ResourceTypeComponentScript,
 				Template: false,
 			}
 		} else {
 			newRes = components.Resource{
-				Path:     resPath,
 				Parent:   c.Name,
-				Name:     strings.TrimSuffix(d.Name(), ".gotmpl"),
+				Path:     strings.TrimSuffix(resName, ".gotmpl"),
 				Kind:     components.FindResourceType(d.Name()),
 				Template: components.IsTemplate(d.Name()),
 			}
@@ -148,7 +148,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			}
 		}
 		for _, vr := range c.VolumeResources {
-			if vr.Resource == newRes.Name {
+			if vr.Resource == newRes.Path {
 				newRes.Kind = components.ResourceTypeVolumeFile
 			}
 		}
@@ -173,13 +173,12 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	c.Resources = append(c.Resources, secretResources...)
 	c.Resources = append(c.Resources, components.Resource{
 		Parent:   c.Name,
-		Path:     "/MANIFEST.toml",
-		Name:     "MANIFEST.toml",
+		Path:     "MANIFEST.toml",
 		Kind:     components.ResourceTypeManifest,
 		Template: false,
 	})
 	for k, r := range c.Resources {
-		if r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+		if r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
 			r.Kind = components.ResourceTypeScript
 			c.Resources[k] = r
 		}
@@ -193,38 +192,14 @@ func (s *SourceComponentRepository) GetResource(parent *components.Component, na
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
 	dataPath := filepath.Join(s.Prefix, parent.Name)
-	resourcePath := ""
-	breakWalk := false
-	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if breakWalk {
-			return nil
-		}
-		if d.Name() == parent.Name {
-			return nil
-		}
-		if d.Name() == name {
-			resourcePath = fullPath
-			breakWalk = true
-			return nil
-		}
-		return nil
-	}
-	err := filepath.WalkDir(dataPath, searchFunc)
+	resourcePath := filepath.Join(dataPath, name)
+	resName, err := filepath.Rel(dataPath, resourcePath)
 	if err != nil {
 		return components.Resource{}, err
 	}
-	if resourcePath == "" {
-		return components.Resource{}, errors.New("resource not found")
-	}
-	resPath := strings.TrimPrefix(resourcePath, dataPath)
-	resName := filepath.Base(resourcePath)
 	return components.Resource{
 		Parent:   name,
-		Path:     resPath,
-		Name:     resName,
+		Path:     resName,
 		Kind:     components.FindResourceType(resName),
 		Template: components.IsTemplate(resName),
 	}, nil
@@ -244,12 +219,13 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 		if d.Name() == c.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, dataPath)
-		resName := filepath.Base(fullPath)
+		resName, err := filepath.Rel(dataPath, fullPath)
+		if err != nil {
+			return err
+		}
 		newRes := components.Resource{
 			Parent:   c.Name,
-			Path:     resPath,
-			Name:     resName,
+			Path:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}

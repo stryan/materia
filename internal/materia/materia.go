@@ -317,7 +317,7 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 			diffs := a.Content.([]diffmatchpatch.Diff)
 			content := diffmatchpatch.New().DiffText1(diffs)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
-				ResourceName: a.Payload.Name,
+				ResourceName: a.Payload.Path,
 				Diff:         content,
 			})
 		}

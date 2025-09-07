@@ -1,22 +1,16 @@
 package materia
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"maps"
-	"os"
-	"path/filepath"
-	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
 )
@@ -72,20 +66,20 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	activating := []string{}
 	deactivating := []string{}
 	for _, v := range serviceActions {
-		serv, err := m.Services.Get(ctx, v.Payload.Name)
+		serv, err := m.Services.Get(ctx, v.Payload.Path)
 		if err != nil {
 			return steps, err
 		}
 		switch v.Todo {
 		case ActionRestart, ActionStart:
 			if serv.State == "activating" {
-				activating = append(activating, v.Payload.Name)
+				activating = append(activating, v.Payload.Path)
 			} else if serv.State != "active" {
 				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
 			}
 		case ActionStop:
 			if serv.State == "deactivating" {
-				deactivating = append(deactivating, v.Payload.Name)
+				deactivating = append(deactivating, v.Payload.Path)
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
@@ -139,119 +133,119 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	switch command.Todo {
 	case ActionStart:
 		cmd = services.ServiceStart
-		log.Debug("starting service", "unit", res.Name)
+		log.Debug("starting service", "unit", res.Path)
 	case ActionStop:
-		log.Debug("stopping service", "unit", res.Name)
+		log.Debug("stopping service", "unit", res.Path)
 		cmd = services.ServiceStop
 	case ActionRestart:
-		log.Debug("restarting service", "unit", res.Name)
+		log.Debug("restarting service", "unit", res.Path)
 		cmd = services.ServiceRestart
 	case ActionReload:
 		if isUnits {
 			log.Debug("reloading units")
 			cmd = services.ServiceReloadUnits
 		} else {
-			log.Debug("reloading service", "unit", res.Name)
+			log.Debug("reloading service", "unit", res.Path)
 			cmd = services.ServiceReloadService
 		}
 	case ActionEnable:
-		log.Debug("enabling service", "unit", res.Name)
+		log.Debug("enabling service", "unit", res.Path)
 		cmd = services.ServiceEnable
 	case ActionDisable:
-		log.Debug("disabling service", "unit", res.Name)
+		log.Debug("disabling service", "unit", res.Path)
 		cmd = services.ServiceDisable
 
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Services.Apply(ctx, res.Name, cmd)
+	return m.Services.Apply(ctx, res.Path, cmd)
 }
 
-func (m *Materia) installVolumeFile(ctx context.Context, parent *components.Component, res components.Resource) error {
-	var vrConf *manifests.VolumeResourceConfig
-	for _, vr := range parent.VolumeResources {
-		if vr.Resource == res.Name {
-			vrConf = &vr
-			break
-		}
-	}
-	if vrConf == nil {
-		return fmt.Errorf("tried to install volume file for nonexistent volume resource: %v", res.Name)
-	}
-	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
-	volumes, err := m.Containers.ListVolumes(ctx)
-	if err != nil {
-		return err
-	}
-	var volume *containers.Volume
-	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
-		if v.Name == vrConf.Volume {
-			volume = v
-			return true
-		}
-		return false
-	}) {
-		return fmt.Errorf("tried to install volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
-	}
-	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
-	data, err := os.ReadFile(res.Path)
-	if err != nil {
-		return err
-	}
-	mode := vrConf.Mode
-	if mode == "" {
-		mode = "0o755"
-	}
-	parsedMode, err := strconv.ParseInt(mode, 8, 32)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(inVolumeLoc, bytes.NewBuffer(data).Bytes(), os.FileMode(parsedMode))
-	if err != nil {
-		return err
-	}
-	if vrConf.Owner != "" {
-		uid, err := strconv.ParseInt(vrConf.Owner, 10, 32)
-		if err != nil {
-			return err
-		}
-		err = os.Chown(inVolumeLoc, int(uid), -1)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (m *Materia) removeVolumeFile(ctx context.Context, parent *components.Component, res components.Resource) error {
-	var vrConf *manifests.VolumeResourceConfig
-	for _, vr := range parent.VolumeResources {
-		if vr.Resource == res.Name {
-			vrConf = &vr
-		}
-	}
-	if vrConf == nil {
-		return fmt.Errorf("tried to remove volume file for nonexistent volume resource: /%v", res.Name)
-	}
-	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
-	volumes, err := m.Containers.ListVolumes(ctx)
-	if err != nil {
-		return err
-	}
-	var volume *containers.Volume
-	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
-		if v.Name == vrConf.Volume {
-			volume = v
-			return true
-		}
-		return false
-	}) {
-		return fmt.Errorf("tried to remove volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
-	}
-	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
-	return os.Remove(inVolumeLoc)
-}
+// func (m *Materia) installVolumeFile(ctx context.Context, parent *components.Component, res components.Resource) error {
+// 	var vrConf *manifests.VolumeResourceConfig
+// 	for _, vr := range parent.VolumeResources {
+// 		if vr.Resource == res.Name {
+// 			vrConf = &vr
+// 			break
+// 		}
+// 	}
+// 	if vrConf == nil {
+// 		return fmt.Errorf("tried to install volume file for nonexistent volume resource: %v", res.Name)
+// 	}
+// 	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
+// 	volumes, err := m.Containers.ListVolumes(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	var volume *containers.Volume
+// 	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
+// 		if v.Name == vrConf.Volume {
+// 			volume = v
+// 			return true
+// 		}
+// 		return false
+// 	}) {
+// 		return fmt.Errorf("tried to install volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
+// 	}
+// 	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
+// 	data, err := os.ReadFile(res.Path)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	mode := vrConf.Mode
+// 	if mode == "" {
+// 		mode = "0o755"
+// 	}
+// 	parsedMode, err := strconv.ParseInt(mode, 8, 32)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = os.WriteFile(inVolumeLoc, bytes.NewBuffer(data).Bytes(), os.FileMode(parsedMode))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if vrConf.Owner != "" {
+// 		uid, err := strconv.ParseInt(vrConf.Owner, 10, 32)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		err = os.Chown(inVolumeLoc, int(uid), -1)
+// 		if err != nil {
+// 			return err
+// 		}
+// 	}
+//
+// 	return nil
+// }
+//
+// func (m *Materia) removeVolumeFile(ctx context.Context, parent *components.Component, res components.Resource) error {
+// 	var vrConf *manifests.VolumeResourceConfig
+// 	for _, vr := range parent.VolumeResources {
+// 		if vr.Resource == res.Name {
+// 			vrConf = &vr
+// 		}
+// 	}
+// 	if vrConf == nil {
+// 		return fmt.Errorf("tried to remove volume file for nonexistent volume resource: /%v", res.Name)
+// 	}
+// 	vrConf.Volume = fmt.Sprintf("systemd-%v", vrConf.Volume)
+// 	volumes, err := m.Containers.ListVolumes(ctx)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	var volume *containers.Volume
+// 	if !slices.ContainsFunc(volumes, func(v *containers.Volume) bool {
+// 		if v.Name == vrConf.Volume {
+// 			volume = v
+// 			return true
+// 		}
+// 		return false
+// 	}) {
+// 		return fmt.Errorf("tried to remove volume file into nonexistent volume: %v/%v", vrConf.Volume, res.Name)
+// 	}
+// 	inVolumeLoc := filepath.Join(volume.Mountpoint, vrConf.Path)
+// 	return os.Remove(inVolumeLoc)
+// }
 
 func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]any) error {
 	switch v.Payload.Kind {
@@ -302,13 +296,13 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if v.Payload.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to ensure non volume resource: %v", v.Payload)
 			}
-			service := strings.TrimSuffix(v.Payload.Name, ".volume")
+			service := strings.TrimSuffix(v.Payload.Path, ".volume")
 			err := m.modifyService(ctx, Action{
 				Todo:   ActionStart,
 				Parent: v.Parent,
 				Payload: components.Resource{
 					Parent: v.Parent.Name,
-					Name:   fmt.Sprintf("%v-volume.service", service),
+					Path:   fmt.Sprintf("%v-volume.service", service),
 					Kind:   components.ResourceTypeService,
 				},
 			})
@@ -321,13 +315,13 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			}
 			switch v.Payload.Kind {
 			case components.ResourceTypeNetwork:
-				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".network"))})
+				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".network"))})
 				if err != nil {
 					return err
 				}
 			case components.ResourceTypeVolume:
 				if m.cleanupVolumes {
-					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".volume"))})
+					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".volume"))})
 					if err != nil {
 						return err
 					}
@@ -339,9 +333,9 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if v.Payload.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to dump non volume resource: %v", v.Payload)
 			}
-			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Name, ".volume"))}, m.OutputDir, false)
+			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".volume"))}, m.OutputDir, false)
 			if err != nil {
-				return fmt.Errorf("error dumping volume %v:%e", v.Payload.Name, err)
+				return fmt.Errorf("error dumping volume %v:%e", v.Payload.Path, err)
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
@@ -360,7 +354,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
 				return err
 			}
-			if err := m.ScriptRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+			if err := m.ScriptRepo.Install(ctx, v.Payload.Path, resourceData); err != nil {
 				return err
 			}
 
@@ -368,7 +362,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
 				return err
 			}
-			if err := m.ScriptRepo.Remove(ctx, v.Payload.Name); err != nil {
+			if err := m.ScriptRepo.Remove(ctx, v.Payload.Path); err != nil {
 				return err
 			}
 
@@ -411,14 +405,14 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
 				return err
 			}
-			if err := m.ServiceRepo.Install(ctx, v.Payload.Name, resourceData); err != nil {
+			if err := m.ServiceRepo.Install(ctx, v.Payload.Path, resourceData); err != nil {
 				return err
 			}
 		case ActionRemove:
 			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
 				return err
 			}
-			if err := m.ServiceRepo.Remove(ctx, v.Payload.Name); err != nil {
+			if err := m.ServiceRepo.Remove(ctx, v.Payload.Path); err != nil {
 				return err
 			}
 		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
@@ -458,54 +452,54 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		case ActionInstall, ActionUpdate:
 			var secretVar any
 			var ok bool
-			if secretVar, ok = vars[v.Payload.Name]; !ok {
+			if secretVar, ok = vars[v.Payload.Path]; !ok {
 				return errors.New("can't install/update Podman Secret: no matching Materia secret")
 			}
 			if value, ok := secretVar.(string); !ok {
 				return errors.New("can't install/update Podman Secret: materia secret isn't string")
 			} else {
-				if err := m.Containers.WriteSecret(ctx, v.Payload.Name, value); err != nil {
+				if err := m.Containers.WriteSecret(ctx, v.Payload.Path, value); err != nil {
 					return err
 				}
 			}
 
 		case ActionRemove:
-			if err := m.Containers.RemoveSecret(ctx, v.Payload.Name); err != nil {
+			if err := m.Containers.RemoveSecret(ctx, v.Payload.Path); err != nil {
 				return err
 			}
 
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
 		}
-	case components.ResourceTypeVolumeFile:
-		switch v.Todo {
-		case ActionInstall, ActionUpdate:
-			resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-			if err != nil {
-				return err
-			}
-			resourceData, err := m.executeResource(resourceTemplate, vars)
-			if err != nil {
-				return err
-			}
-			if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-				return err
-			}
-			if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
-			}
-
-		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-				return err
-			}
-			if err := m.removeVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-				return err
-			}
-
-		default:
-			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
-		}
+	// case components.ResourceTypeVolumeFile:
+	// 	switch v.Todo {
+	// 	case ActionInstall, ActionUpdate:
+	// 		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		resourceData, err := m.executeResource(resourceTemplate, vars)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
+	// 			return err
+	// 		}
+	// 		if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
+	// 			return err
+	// 		}
+	//
+	// 	case ActionRemove:
+	// 		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
+	// 			return err
+	// 		}
+	// 		if err := m.removeVolumeFile(ctx, v.Parent, v.Payload); err != nil {
+	// 			return err
+	// 		}
+	//
+	// 	default:
+	// 		return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
+	// 	}
 	default:
 		panic(fmt.Sprintf("unexpected components.ResourceType: %v", v.Payload.Kind))
 	}

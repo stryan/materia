@@ -43,14 +43,14 @@ func (p *Plan) Add(a Action) {
 		case ActionSetup:
 			p.secondMain = append(p.secondMain, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeDirectory:
 		switch a.Todo {
 		case ActionInstall, ActionRemove:
 			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret, components.ResourceTypeManifest:
 		switch a.Todo {
@@ -61,13 +61,13 @@ func (p *Plan) Add(a Action) {
 		case ActionDump:
 			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeVolumeFile:
 		switch a.Todo {
 		case ActionInstall:
 			p.secondMain = append(p.secondMain, a)
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
+			vcr, ok := a.Parent.VolumeResources[a.Payload.Path]
 			if !ok {
 				return
 			}
@@ -75,7 +75,7 @@ func (p *Plan) Add(a Action) {
 		case ActionRemove, ActionUpdate:
 			p.secondMain = append(p.secondMain, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeService:
 		switch a.Todo {
@@ -83,7 +83,7 @@ func (p *Plan) Add(a Action) {
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 		case ActionRestart, ActionStart, ActionStop, ActionEnable, ActionDisable:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
@@ -91,13 +91,13 @@ func (p *Plan) Add(a Action) {
 
 		case ActionReload:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeHost:
 		if a.Todo == ActionReload {
@@ -138,19 +138,19 @@ func (p *Plan) Validate() error {
 		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
-		if a.Todo == ActionReload && a.Payload.Name == "" {
+		if a.Todo == ActionReload && a.Payload.Path == "" {
 			reload = true
 		}
 		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
-			deletedVoles = append(deletedVoles, a.Payload.Name)
+			deletedVoles = append(deletedVoles, a.Payload.Path)
 		}
 		if a.Todo == ActionDump && a.Payload.Kind == components.ResourceTypeVolume {
-			if !slices.Contains(deletedVoles, a.Payload.Name) {
-				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Name)
+			if !slices.Contains(deletedVoles, a.Payload.Path) {
+				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Path)
 			}
 		}
 		if a.Payload.Kind == components.ResourceTypeVolumeFile {
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
+			vcr, ok := a.Parent.VolumeResources[a.Payload.Path]
 			if !ok {
 				return fmt.Errorf("invalid plan: no volume resource for %v", a.Payload)
 			}

@@ -49,14 +49,7 @@ func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponen
 }
 
 func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {
-	oldComp := &components.Component{
-		Name:             name,
-		Resources:        []components.Resource{},
-		State:            components.StateStale,
-		Defaults:         make(map[string]any),
-		VolumeResources:  make(map[string]manifests.VolumeResourceConfig),
-		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
-	}
+	oldComp := components.NewComponent(name)
 	dataPath := filepath.Join(r.DataPrefix, name)
 	quadletPath := filepath.Join(r.QuadletPrefix, name)
 	// load resources
@@ -96,12 +89,13 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if d.Name() == oldComp.Name || d.Name() == ".component_version" {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, dataPath)
-		resName := filepath.Base(fullPath)
+		resName, err := filepath.Rel(dataPath, fullPath)
+		if err != nil {
+			return err
+		}
 		newRes := components.Resource{
 			Parent:   name,
-			Path:     resPath,
-			Name:     resName,
+			Path:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}
@@ -128,10 +122,9 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 				slices.Sort(man.Secrets)
 				for _, s := range man.Secrets {
 					secretResource = append(secretResource, components.Resource{
-						Name:     s,
+						Path:     s,
 						Kind:     components.ResourceTypePodmanSecret,
 						Parent:   name,
-						Path:     "",
 						Template: false,
 					})
 				}
@@ -158,12 +151,13 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if d.Name() == oldComp.Name || d.Name() == ".materia_managed" {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, quadletPath)
-		resName := filepath.Base(fullPath)
+		resName, err := filepath.Rel(quadletPath, fullPath)
+		if err != nil {
+			return err
+		}
 		newRes := components.Resource{
 			Parent:   name,
-			Path:     resPath,
-			Name:     resName,
+			Path:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}
@@ -179,7 +173,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	}
 	oldComp.Resources = append(oldComp.Resources, secretResource...)
 	for k, r := range oldComp.Resources {
-		if man != nil && r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+		if man != nil && r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
 			r.Kind = components.ResourceTypeScript
 			oldComp.Resources[k] = r
 		}
@@ -198,45 +192,29 @@ func (r *HostComponentRepository) GetResource(parent *components.Component, name
 	}
 	dataPath := filepath.Join(r.DataPrefix, parent.Name)
 	quadletPath := filepath.Join(r.QuadletPrefix, parent.Name)
-	resourcePath := ""
-	breakWalk := false
-	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if breakWalk {
-			return nil
-		}
-		if d.Name() == parent.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
-			return nil
-		}
-		if d.Name() == name {
-			resourcePath = fullPath
-			breakWalk = true
-			return nil
-		}
-		return nil
-	}
-	err := filepath.WalkDir(dataPath, searchFunc)
-	if err != nil {
+	_, err := os.Stat(filepath.Join(dataPath, name))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return components.Resource{}, err
+	} else if err != nil {
+		return components.Resource{
+			Parent:   parent.Name,
+			Path:     name,
+			Kind:     components.FindResourceType(name),
+			Template: components.IsTemplate(name),
+		}, nil
 	}
-	err = filepath.WalkDir(quadletPath, searchFunc)
-	if err != nil {
+	_, err = os.Stat(filepath.Join(quadletPath, name))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return components.Resource{}, err
+	} else if err != nil {
+		return components.Resource{
+			Parent:   parent.Name,
+			Path:     name,
+			Kind:     components.FindResourceType(name),
+			Template: components.IsTemplate(name),
+		}, nil
 	}
-	if resourcePath == "" {
-		return components.Resource{}, errors.New("resource not found")
-	}
-	resPath := strings.TrimPrefix(resourcePath, dataPath)
-	resName := filepath.Base(resourcePath)
-	return components.Resource{
-		Parent:   name,
-		Path:     resPath,
-		Name:     resName,
-		Kind:     components.FindResourceType(resName),
-		Template: components.IsTemplate(resName),
-	}, nil
+	return components.Resource{}, errors.New("resource not found")
 }
 
 func (r *HostComponentRepository) ListResources(c *components.Component) ([]components.Resource, error) {
@@ -246,32 +224,35 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 	resources := []components.Resource{}
 	dataPath := filepath.Join(r.DataPrefix, c.Name)
 	quadletPath := filepath.Join(r.QuadletPrefix, c.Name)
-	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+	searchFunc := func(prefix string) fs.WalkDirFunc {
+		return func(fullPath string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
 
-		if d.Name() == c.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
+			if d.Name() == c.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
+				return nil
+			}
+			resName, err := filepath.Rel(prefix, fullPath)
+			if err != nil {
+				return err
+			}
+			newRes := components.Resource{
+				Parent:   c.Name,
+				Path:     strings.TrimSuffix(resName, ".gotmpl"),
+				Kind:     components.FindResourceType(resName),
+				Template: components.IsTemplate(resName),
+			}
+			resources = append(resources, newRes)
+
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, dataPath)
-		resName := filepath.Base(fullPath)
-		newRes := components.Resource{
-			Parent:   c.Name,
-			Path:     resPath,
-			Name:     resName,
-			Kind:     components.FindResourceType(resName),
-			Template: components.IsTemplate(resName),
-		}
-		resources = append(resources, newRes)
-
-		return nil
 	}
-	err := filepath.WalkDir(dataPath, searchFunc)
+	err := filepath.WalkDir(dataPath, searchFunc(dataPath))
 	if err != nil {
 		return resources, err
 	}
-	err = filepath.WalkDir(quadletPath, searchFunc)
+	err = filepath.WalkDir(quadletPath, searchFunc(quadletPath))
 	if err != nil {
 		return resources, err
 	}
@@ -381,9 +362,9 @@ func (r *HostComponentRepository) ReadResource(res components.Resource) (string,
 		return "", nil
 	}
 	if res.IsQuadlet() {
-		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Path)
+		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Name())
 	} else {
-		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Path)
+		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Name())
 	}
 
 	curFile, err := os.ReadFile(resPath)
@@ -398,19 +379,18 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 		return fmt.Errorf("can't install invalid resource: %w", err)
 	}
 	if res.IsQuadlet() {
-		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Name), data.Bytes(), 0o755)
+		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Path), data.Bytes(), 0o755)
 	}
 	// TODO probably doing something stupid here
 	prefix := filepath.Join(r.DataPrefix, res.Parent)
-	parent := filepath.Dir(res.Path)
 	if res.Kind == components.ResourceTypeDirectory {
-		err := os.Mkdir(filepath.Join(prefix, parent, res.Name), 0o755)
+		err := os.Mkdir(filepath.Join(prefix, res.Path), 0o755)
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	resPath := filepath.Join(prefix, parent, res.Name)
+	resPath := filepath.Join(prefix, res.Path)
 	err := os.WriteFile(resPath, data.Bytes(), 0o755)
 	return err
 }

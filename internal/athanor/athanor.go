@@ -97,7 +97,7 @@ func (a *Athanor) GenerateTarget(ctx context.Context, comp *components.Component
 			}
 			name, foundName := unitfile.Lookup("Container", "ContainerName")
 			if !foundName {
-				name = strings.TrimSuffix(r.Name, ".container")
+				name = strings.TrimSuffix(r.Path, ".container")
 			}
 			container.Name = name
 			volumes, err := parseContainerFileForVolumes(a.Repo, comp, unitfile)
@@ -107,7 +107,7 @@ func (a *Athanor) GenerateTarget(ctx context.Context, comp *components.Component
 			container.Volumes = volumes
 			newTarget.Containers = append(newTarget.Containers, container)
 		}
-		if r.Name == "MANIFEST.toml" {
+		if r.Path == "MANIFEST.toml" {
 			newTarget.Manifest, err = a.Repo.GetManifest(comp)
 			if err != nil {
 				return nil, err
