@@ -249,7 +249,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	actions = append(actions, Action{
 		Todo:    ActionInstall,
 		Parent:  newComponent,
-		Payload: components.Resource{Kind: components.ResourceTypeComponent, Name: newComponent.Name},
+		Payload: components.Resource{Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 	})
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
@@ -330,24 +330,24 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 		return actions, nil
 	}
 	for _, d := range resourceActions {
-		if updatedService, ok := restartmap[d.Payload.Name]; ok {
+		if updatedService, ok := restartmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionRestart,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
-					Name:   updatedService.Service,
+					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
 				},
 			})
 		}
-		if updatedService, ok := reloadmap[d.Payload.Name]; ok {
+		if updatedService, ok := reloadmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionReload,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
-					Name:   updatedService.Service,
+					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
 				},
 			})
@@ -415,7 +415,7 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 	var result []Action
 	res := components.Resource{
 		Parent: comp.Name,
-		Name:   osrc.Service,
+		Path:   osrc.Service,
 		Kind:   components.ResourceTypeService,
 	}
 	if osrc.Static {
@@ -437,7 +437,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	var actions []Action
 	res := components.Resource{
 		Parent: comp.Name,
-		Name:   osrc.Service,
+		Path:   osrc.Service,
 		Kind:   components.ResourceTypeService,
 	}
 	if shouldEnableService(osrc, liveService) {
@@ -490,7 +490,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 	for _, s := range comp.ServiceResources {
 		res := components.Resource{
 			Parent: comp.Name,
-			Name:   s.Service,
+			Path:   s.Service,
 			Kind:   components.ResourceTypeService,
 		}
 		liveService, err := m.Services.Get(ctx, s.Service)
@@ -528,10 +528,10 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	maps.Copy(diffVars, other.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, v := range base.Resources {
-		currentResources[v.Name] = v
+		currentResources[v.Path] = v
 	}
 	for _, v := range other.Resources {
-		newResources[v.Name] = v
+		newResources[v.Path] = v
 	}
 
 	sortedCurrentResourceKeys := sortedKeys(currentResources)
@@ -543,7 +543,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			if err != nil {
 				return diffActions, fmt.Errorf("error listing secrets during resource validation")
 			}
-			if !slices.Contains(secretsList, cur.Name) {
+			if !slices.Contains(secretsList, cur.Path) {
 				// secret isn't there so we treat it like the resource never existed
 				delete(currentResources, k)
 				continue
@@ -551,7 +551,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		}
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			log.Debug("diffing resource", "component", base.Name, "file", cur.Name)
+			log.Debug("diffing resource", "component", base.Name, "file", cur.Path)
 			diffs, err := m.diffResource(cur, newRes, diffVars)
 			if err != nil {
 				return diffActions, err
@@ -561,7 +561,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				continue
 			}
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
-				log.Debug("updating current resource", "file", cur.Name, "diffs", diffs)
+				log.Debug("updating current resource", "file", cur.Path, "diffs", diffs)
 				a := Action{
 					Todo:    ActionUpdate,
 					Parent:  other,
@@ -573,7 +573,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			}
 		} else {
 			// in current resources but not source resources, remove old
-			log.Debug("removing existing resource", "file", cur.Name)
+			log.Debug("removing existing resource", "file", cur.Path)
 			a := Action{
 				Todo:    ActionRemove,
 				Parent:  base,
@@ -594,7 +594,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
 						// TODO support custom network names
-						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".network")) {
+						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Path, ".network")) {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
 								Todo:    ActionCleanup,
@@ -607,7 +607,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 					if m.cleanupVolumes {
 						for _, v := range volumes {
 							// TODO custome volume names
-							if v.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".volume")) {
+							if v.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Path, ".volume")) {
 								if m.backupVolumes {
 									diffActions = append(diffActions, Action{
 										Todo:    ActionDump,
@@ -679,18 +679,18 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 		if err != nil {
 			return diffs, err
 		}
-		if !slices.Contains(secretsList, cur.Name) {
+		if !slices.Contains(secretsList, cur.Path) {
 			curSecret = &containers.PodmanSecret{
-				Name:  cur.Name,
+				Name:  cur.Path,
 				Value: "",
 			}
 		} else {
-			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Name)
+			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Path)
 			if err != nil {
 				return diffs, err
 			}
 		}
-		newSecret, ok := vars[cur.Name]
+		newSecret, ok := vars[cur.Path]
 		if !ok {
 			newString = ""
 		} else {

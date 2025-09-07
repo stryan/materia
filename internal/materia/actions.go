@@ -51,9 +51,9 @@ func (a Action) Validate() error {
 }
 
 func (a *Action) String() string {
-	return fmt.Sprintf("{a %v %v %v }", a.Todo, a.Parent.Name, a.Payload.Name)
+	return fmt.Sprintf("{a %v %v %v }", a.Todo, a.Parent.Name, a.Payload.Path)
 }
 
 func (a *Action) Pretty() string {
-	return fmt.Sprintf("%v %v %v", a.Todo, a.Payload.Kind, a.Payload.Name)
+	return fmt.Sprintf("%v %v %v", a.Todo, a.Payload.Kind, a.Payload.Path)
 }
