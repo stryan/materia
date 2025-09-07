@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"slices"
 	"strings"
 	"text/template"
@@ -583,7 +582,6 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 
 			diffActions = append(diffActions, a)
 			if m.cleanup {
-				fmt.Fprintf(os.Stderr, "FBLTHP[323]: planner.go:583 (after if m.cleanup )\n")
 				networks, err := m.Containers.ListNetworks(ctx)
 				if err != nil {
 					return diffActions, err
@@ -594,11 +592,8 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				}
 				switch cur.Kind {
 				case components.ResourceTypeNetwork:
-					fmt.Fprintf(os.Stderr, "FBLTHP[324]: planner.go:594 (after case components.ResourceTypeNetwork:)\n")
 					for _, n := range networks {
-						fmt.Fprintf(os.Stderr, "FBLTHP[325]: planner.go:596: n=%+v\n", n)
 						// TODO support custom network names
-						fmt.Fprintf(os.Stderr, "FBLTHP[326]: planner.go:599: cur=%+v\n", cur)
 						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".network")) {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
