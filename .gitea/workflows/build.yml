@@ -4,6 +4,7 @@ on:
   push:
     branches: [master]
     tags-ignore: ['**']
+    paths: [internal/**, cmd/**, scripts/**, go.mod, go.sum]
   pull_request:
     branches: [master]
 env:
