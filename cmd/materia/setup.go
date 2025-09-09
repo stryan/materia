@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/parsers/toml"
+	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -30,22 +31,11 @@ import (
 )
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
-	k := koanf.New(".")
-	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
-		return strings.ReplaceAll(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
-	}), nil)
+	man, k, err := loadConfigs(ctx, configFile, cliflags)
 	if err != nil {
-		return nil, fmt.Errorf("error loading config from env: %w", err)
+		return nil, fmt.Errorf("error generating config blob: %w", err)
 	}
-	if configFile != "" {
-		err = k.Load(file.Provider(configFile), toml.Parser())
-		if err != nil {
-			return nil, fmt.Errorf("error loading config file: %w", err)
-		}
-	}
-
-	c, err := materia.NewConfig(k, cliflags)
+	c, err := materia.NewConfig(k)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,19 +137,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
 
-	log.Debug("loading manifest")
-	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
-	man, err := manifests.LoadMateriaManifest(manifestLocation)
-	if err != nil {
-		return nil, fmt.Errorf("error loading manifest: %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid materia manifest: %w", err)
-	}
-	err = k.Load(file.Provider(manifestLocation), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
 	var secretManager materia.SecretsManager
 	// TODO replace this with secrets chaining
 	switch man.Secrets {
@@ -199,23 +176,71 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	return m, nil
 }
 
-func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
+func loadConfigs(_ context.Context, configFile string, cliflags map[string]any) (*manifests.MateriaManifest, *koanf.Koanf, error) {
 	k := koanf.New(".")
-	err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
+	fileConf := koanf.New(".")
+	envConf := koanf.New(".")
+	cliConf := koanf.New(".")
+	maniConfig := koanf.New(".")
+	if configFile != "" {
+		err := fileConf.Load(file.Provider(configFile), toml.Parser())
+		if err != nil {
+			return nil, nil, fmt.Errorf("error loading config file: %w", err)
+		}
+	}
+	err := envConf.Load(env.Provider("MATERIA", ".", func(s string) string {
 		return strings.ReplaceAll(strings.ToLower(
 			strings.TrimPrefix(s, "MATERIA_")), "_", ".")
 	}), nil)
 	if err != nil {
-		return nil, fmt.Errorf("error loading config from env: %w", err)
+		return nil, nil, fmt.Errorf("error loading config from env: %w", err)
 	}
-	if configFile != "" {
-		err = k.Load(file.Provider(configFile), toml.Parser())
-		if err != nil {
-			return nil, fmt.Errorf("error loading config file: %w", err)
-		}
+	err = cliConf.Load(confmap.Provider(cliflags, "."), nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	// merge non-manifest confs
+	err = k.Merge(fileConf)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building config: %w", err)
+	}
+	err = k.Merge(envConf)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building config: %w", err)
+	}
+	err = k.Merge(cliConf)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error building config: %w", err)
 	}
 
-	c, err := materia.NewConfig(k, cliflags)
+	c, err := materia.NewConfig(k)
+	if err != nil {
+		log.Fatal(err)
+	}
+	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
+	man, err := manifests.LoadMateriaManifest(manifestLocation)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error loading manifest: %w", err)
+	}
+	if err := man.Validate(); err != nil {
+		return nil, nil, fmt.Errorf("invalid materia manifest: %w", err)
+	}
+
+	err = maniConfig.Load(file.Provider(manifestLocation), toml.Parser())
+	if err != nil {
+		return nil, nil, err
+	}
+	err = maniConfig.Merge(k)
+	return man, maniConfig, err
+}
+
+func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
+	_, k, err := loadConfigs(ctx, configFile, cliflags)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := materia.NewConfig(k)
 	if err != nil {
 		log.Fatal(err)
 	}

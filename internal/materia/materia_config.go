@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/secrets/age"
 	filesecrets "primamateria.systems/materia/internal/secrets/file"
@@ -44,7 +43,7 @@ type MateriaConfig struct {
 // 	"scriptsdir": "",
 // }
 
-func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) {
+func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var c MateriaConfig
 	var err error
 	c.SourceDir = k.String("sourcedir")
@@ -67,13 +66,13 @@ func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) 
 	c.ScriptsDir = k.String("scriptsdir")
 	c.OutputDir = k.String("outputdir")
 	if k.Exists("age") {
-		c.AgeConfig, err = age.NewConfig(k.Cut("age"))
+		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if k.Exists("file") {
-		c.FileConfig, err = filesecrets.NewConfig(k.Cut("file"))
+		c.FileConfig, err = filesecrets.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
@@ -130,12 +129,6 @@ func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) 
 		c.OutputDir = filepath.Join(dataPath, "materia", "output")
 	}
 
-	// apply cli flags
-	err = k.Load(confmap.Provider(cliflags, "."), nil)
-	if err != nil {
-		return nil, err
-	}
-
 	return &c, nil
 }
 
@@ -171,5 +164,13 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
+	if c.AgeConfig != nil {
+		result += "Age Config: \n"
+		result += fmt.Sprintf("%v", c.AgeConfig.String())
+	}
+	if c.FileConfig != nil {
+		result += "File Config: \n"
+		result += fmt.Sprintf("%v", c.FileConfig.String())
+	}
 	return result
 }

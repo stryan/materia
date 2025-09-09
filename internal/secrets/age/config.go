@@ -29,6 +29,9 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 	c.IdentPath = k.String("age.keyfile")
 	c.BaseDir = k.String("age.basedir")
 	c.GeneralVaults = k.Strings("age.vaults")
+	if len(c.GeneralVaults) == 0 {
+		c.GeneralVaults = []string{"vault.age", "secrets.age"}
+	}
 	return &c, nil
 }
 

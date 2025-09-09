@@ -5,29 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime/debug"
-	"strings"
 
 	"github.com/charmbracelet/log"
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
 )
 
-var Commit = func() string {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value
-			}
-		}
-	}
-
-	return ""
-}()
+var Version string
 
 func main() {
 	cliflags := make(map[string]any)
@@ -74,21 +58,11 @@ func main() {
 				Name:  "config",
 				Usage: "Dump active config",
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					k := koanf.New(".")
-					err := k.Load(env.Provider("MATERIA", ".", func(s string) string {
-						return strings.ReplaceAll(strings.ToLower(
-							strings.TrimPrefix(s, "MATERIA_")), "_", ".")
-					}), nil)
+					_, k, err := loadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
-						return fmt.Errorf("error loading config from env: %w", err)
+						return err
 					}
-					if configFile != "" {
-						err = k.Load(file.Provider(configFile), toml.Parser())
-						if err != nil {
-							return fmt.Errorf("error loading config file: %w", err)
-						}
-					}
-					c, err := materia.NewConfig(k, cliflags)
+					c, err := materia.NewConfig(k)
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -355,7 +329,7 @@ func main() {
 				Name:  "version",
 				Usage: "show version",
 				Action: func(_ context.Context, _ *cli.Command) error {
-					fmt.Printf("materia version git-%v\n", Commit)
+					fmt.Printf("materia version %v\n", Version)
 					return nil
 				},
 			},

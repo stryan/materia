@@ -2,15 +2,9 @@ package manifests
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 
-	"primamateria.systems/materia/internal/secrets"
-	"primamateria.systems/materia/internal/secrets/age"
-	"primamateria.systems/materia/internal/secrets/mem"
-
-	filesecrets "primamateria.systems/materia/internal/secrets/file"
-
+	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -22,12 +16,11 @@ type SnippetConfig struct {
 }
 
 type MateriaManifest struct {
-	Secrets       string
-	SecretsConfig secrets.SecretsConfig
-	Hosts         map[string]Host
-	Snippets      []SnippetConfig
-	Roles         map[string]Role
-	RoleCommand   string
+	Secrets     string
+	Hosts       map[string]Host
+	Snippets    []SnippetConfig
+	Roles       map[string]Role
+	RoleCommand string
 }
 
 type Host struct {
@@ -50,19 +43,8 @@ func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	switch m.Secrets {
-	case "age":
-		m.SecretsConfig, err = age.NewConfig(k.Cut("age"))
-		if err != nil {
-			return nil, fmt.Errorf("error creating age secrets config: %w", err)
-		}
-	case "file":
-		m.SecretsConfig, err = filesecrets.NewConfig(k.Cut("file"))
-		if err != nil {
-			return nil, fmt.Errorf("error creating file secrets config: %w", err)
-		}
-	case "memory":
-		m.SecretsConfig = mem.MemoryConfig{}
+	if m.Secrets != "" {
+		log.Warn("WARNING: configuring secrets in the manifest file is deprecated and will be removed next release")
 	}
 	return &m, nil
 }

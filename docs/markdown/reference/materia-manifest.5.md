@@ -26,6 +26,8 @@ Manifest files are required for a repository or component to be considered valid
 
 #### **secrets**
 
+(DEPRECATED) - will be removed in materia v0.3.0 . Configure this in the config file or environment instead.
+
 What secrets manager to use. Accepted values are `age` (recommended), `memory`, or `file`.
 
 For `age` you may also specify a private key file to use with `age.idents`.
@@ -56,8 +58,6 @@ Experimental
 ## Example
 
 ```
-secrets = "age"
-age.idents = "/etc/materia/key.txt"
 [roles.base]
 components = ["nagios-agent"]
 
