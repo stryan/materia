@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/secrets/age"
 	filesecrets "primamateria.systems/materia/internal/secrets/file"
@@ -44,7 +43,7 @@ type MateriaConfig struct {
 // 	"scriptsdir": "",
 // }
 
-func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) {
+func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var c MateriaConfig
 	var err error
 	c.SourceDir = k.String("sourcedir")
@@ -128,12 +127,6 @@ func NewConfig(k *koanf.Koanf, cliflags map[string]any) (*MateriaConfig, error) 
 	}
 	if c.OutputDir == "" {
 		c.OutputDir = filepath.Join(dataPath, "materia", "output")
-	}
-
-	// apply cli flags
-	err = k.Load(confmap.Provider(cliflags, "."), nil)
-	if err != nil {
-		return nil, err
 	}
 
 	return &c, nil
