@@ -5,24 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime/debug"
 
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
 )
 
-var Commit = func() string {
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "vcs.revision" {
-				return setting.Value
-			}
-		}
-	}
-
-	return ""
-}()
+var Version string
 
 func main() {
 	cliflags := make(map[string]any)
@@ -340,7 +329,7 @@ func main() {
 				Name:  "version",
 				Usage: "show version",
 				Action: func(_ context.Context, _ *cli.Command) error {
-					fmt.Printf("materia version git-%v\n", Commit)
+					fmt.Printf("materia version %v\n", Version)
 					return nil
 				},
 			},
