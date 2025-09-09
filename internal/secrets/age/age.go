@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"filippo.io/age"
-	"primamateria.systems/materia/internal/secrets"
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
+	"primamateria.systems/materia/internal/secrets"
 )
 
 type AgeStore struct {

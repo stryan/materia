@@ -66,13 +66,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.ScriptsDir = k.String("scriptsdir")
 	c.OutputDir = k.String("outputdir")
 	if k.Exists("age") {
-		c.AgeConfig, err = age.NewConfig(k.Cut("age"))
+		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if k.Exists("file") {
-		c.FileConfig, err = filesecrets.NewConfig(k.Cut("file"))
+		c.FileConfig, err = filesecrets.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
@@ -164,5 +164,13 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
+	if c.AgeConfig != nil {
+		result += "Age Config: \n"
+		result += fmt.Sprintf("%v", c.AgeConfig.String())
+	}
+	if c.FileConfig != nil {
+		result += "File Config: \n"
+		result += fmt.Sprintf("%v", c.FileConfig.String())
+	}
 	return result
 }
