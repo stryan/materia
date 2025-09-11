@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
@@ -594,7 +593,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
 						// TODO support custom network names
-						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Path, ".network")) {
+						if n.Name == cur.PodmanObject {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
 								Todo:    ActionCleanup,
@@ -607,7 +606,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 					if m.cleanupVolumes {
 						for _, v := range volumes {
 							// TODO custome volume names
-							if v.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Path, ".volume")) {
+							if v.Name == cur.PodmanObject {
 								if m.backupVolumes {
 									diffActions = append(diffActions, Action{
 										Todo:    ActionDump,
@@ -631,7 +630,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	for _, k := range sortedNewResourceKeys {
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
-			fmt.Printf("Creating new resource %v", k)
+			log.Debugf("Creating new resource %v", k)
 			a := Action{
 				Todo:    ActionInstall,
 				Parent:  base,

@@ -315,13 +315,13 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			}
 			switch v.Payload.Kind {
 			case components.ResourceTypeNetwork:
-				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".network"))})
+				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Payload.PodmanObject})
 				if err != nil {
 					return err
 				}
 			case components.ResourceTypeVolume:
 				if m.cleanupVolumes {
-					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".volume"))})
+					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Payload.PodmanObject})
 					if err != nil {
 						return err
 					}
@@ -333,7 +333,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if v.Payload.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to dump non volume resource: %v", v.Payload)
 			}
-			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: fmt.Sprintf("systemd-%v", strings.TrimSuffix(v.Payload.Path, ".volume"))}, m.OutputDir, false)
+			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Payload.PodmanObject}, m.OutputDir, false)
 			if err != nil {
 				return fmt.Errorf("error dumping volume %v:%e", v.Payload.Path, err)
 			}
