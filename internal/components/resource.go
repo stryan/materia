@@ -6,10 +6,11 @@ import (
 )
 
 type Resource struct {
-	Path     string
-	Parent   string
-	Kind     ResourceType
-	Template bool
+	Path         string
+	PodmanObject string
+	Parent       string
+	Kind         ResourceType
+	Template     bool
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType

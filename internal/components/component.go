@@ -81,6 +81,9 @@ func (c *Component) VersonData() (*bytes.Buffer, error) {
 }
 
 func FindResourceType(file string) ResourceType {
+	if filepath.Base(file) == "setup.sh" || filepath.Base(file) == "cleanup.sh" {
+		return ResourceTypeComponentScript
+	}
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
 	case ".pod":
