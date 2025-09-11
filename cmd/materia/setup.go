@@ -148,7 +148,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 
 	log.Debug("loading manifest")
-	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
+	manifestLocation := filepath.Join(c.SourceDir, manifests.MateriaManifestFile)
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)

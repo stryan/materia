@@ -51,7 +51,7 @@ func testMateria(services []string) *materia.Materia {
 		log.Fatalf("error syncing source: %v", err)
 	}
 	log.Debug("loading manifest")
-	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, "MANIFEST.toml"))
+	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, manifests.MateriaManifestFile))
 	if err != nil {
 		log.Fatalf("error loading manifest: %v", err)
 	}
@@ -164,13 +164,13 @@ var expectedActions = []materia.Action{
 	planHelper(materia.ActionInstall, "double", "hello.timer"),
 	planHelper(materia.ActionInstall, "double", "inner/test.data"),
 	planHelper(materia.ActionInstall, "double", "foo"),
-	planHelper(materia.ActionInstall, "double", "MANIFEST.toml"),
+	planHelper(materia.ActionInstall, "double", manifests.ComponentManifestFile),
 	planHelper(materia.ActionInstall, "hello", ""),
 	planHelper(materia.ActionInstall, "hello", "hello.container"),
 	planHelper(materia.ActionInstall, "hello", "hello.env"),
 	planHelper(materia.ActionInstall, "hello", "hello.volume"),
 	planHelper(materia.ActionInstall, "hello", "test.env"),
-	planHelper(materia.ActionInstall, "hello", "MANIFEST.toml"),
+	planHelper(materia.ActionInstall, "hello", manifests.ComponentManifestFile),
 	planHelper(materia.ActionReload, "", ""),
 	planHelper(materia.ActionStart, "double", "goodbye.service"),
 	planHelper(materia.ActionEnable, "double", "hello.timer"),

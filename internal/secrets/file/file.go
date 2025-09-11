@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
-	"primamateria.systems/materia/internal/secrets"
 	"github.com/BurntSushi/toml"
+	"primamateria.systems/materia/internal/secrets"
 )
 
 type FileStore struct {

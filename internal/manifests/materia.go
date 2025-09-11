@@ -16,6 +16,8 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+var MateriaManifestFile = "MANIFEST.toml"
+
 type SnippetConfig struct {
 	Name, Body string
 	Parameters []string

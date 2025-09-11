@@ -8,6 +8,8 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+var ComponentManifestFile = "MANIFEST.toml"
+
 type VolumeResourceConfig struct {
 	Volume      string
 	Resource    string
