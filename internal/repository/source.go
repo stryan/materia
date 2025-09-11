@@ -94,7 +94,31 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	scripts := 0
 
 	secretResources := []components.Resource{}
-	err := filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
+	manifestPath := filepath.Join(path, manifests.ComponentManifestFile)
+	if _, err := os.Stat(manifestPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, components.ErrCorruptComponent
+		}
+		return nil, err
+	}
+	log.Debugf("loading source component manifest %v", c.Name)
+	man, err := manifests.LoadComponentManifest(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("error loading component manifest: %w", err)
+	}
+	maps.Copy(c.Defaults, man.Defaults)
+	maps.Copy(c.VolumeResources, man.VolumeResources)
+	slices.Sort(man.Secrets)
+	for _, s := range man.Secrets {
+		secretResources = append(secretResources, components.Resource{
+			Path:     s,
+			Kind:     components.ResourceTypePodmanSecret,
+			Parent:   name,
+			Template: false,
+		})
+	}
+
+	err = filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -105,24 +129,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if err != nil {
 			return err
 		}
-		if d.Name() == "MANIFEST.toml" {
-			log.Debugf("loading source component manifest %v", c.Name)
-			man, err = manifests.LoadComponentManifest(fullPath)
-			if err != nil {
-				return fmt.Errorf("error loading component manifest: %w", err)
-			}
-			maps.Copy(c.Defaults, man.Defaults)
-			maps.Copy(c.VolumeResources, man.VolumeResources)
-			slices.Sort(man.Secrets)
-			for _, s := range man.Secrets {
-				secretResources = append(secretResources, components.Resource{
-					Path:     s,
-					Kind:     components.ResourceTypePodmanSecret,
-					Parent:   name,
-					Template: false,
-				})
-			}
-
+		if d.Name() == manifests.ComponentManifestFile {
 			return nil
 		}
 		var newRes components.Resource
@@ -173,7 +180,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	c.Resources = append(c.Resources, secretResources...)
 	c.Resources = append(c.Resources, components.Resource{
 		Parent:   c.Name,
-		Path:     "MANIFEST.toml",
+		Path:     manifests.ComponentManifestFile,
 		Kind:     components.ResourceTypeManifest,
 		Template: false,
 	})
@@ -288,5 +295,5 @@ func (s SourceComponentRepository) RunSetup(comp *components.Component) error {
 }
 
 func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifest(filepath.Join(s.Prefix, parent.Name, "MANIFEST.toml"))
+	return manifests.LoadComponentManifest(filepath.Join(s.Prefix, parent.Name, manifests.ComponentManifestFile))
 }

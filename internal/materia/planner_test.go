@@ -83,7 +83,7 @@ var testResources = []components.Resource{
 		Template: false,
 	},
 	{
-		Path:     "MANIFEST.toml",
+		Path:     manifests.MateriaManifestFile,
 		Parent:   "updated",
 		Kind:     components.ResourceTypeManifest,
 		Template: false,

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hmdsefi/gograph"
 	"github.com/knadh/koanf/parsers/toml"
 	"primamateria.systems/materia/internal/manifests"
 )
@@ -17,7 +16,6 @@ var ErrCorruptComponent = errors.New("error corrupt component")
 type Component struct {
 	Name             string
 	Resources        []Resource
-	ResourceGraph    gograph.Graph[Resource]
 	Scripted         bool
 	State            ComponentLifecycle
 	Defaults         map[string]any
@@ -55,7 +53,6 @@ func NewComponent(name string) *Component {
 		VolumeResources:  make(map[string]manifests.VolumeResourceConfig),
 		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
 		Resources:        []Resource{},
-		ResourceGraph:    gograph.New[Resource](gograph.Directed()),
 	}
 }
 
