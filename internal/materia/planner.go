@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"text/template"
 
 	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
@@ -148,6 +150,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
+		maps.Copy(vars, newComponent.Defaults)
 
 		switch newComponent.State {
 		case components.StateFresh:
@@ -258,10 +261,42 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 			if err != nil {
 				return actions, err
 			}
-			_, err = m.executeResource(newStringTempl, vars)
+			resourceBody, err := m.executeResource(newStringTempl, vars)
 			if err != nil {
 				return actions, err
 			}
+			if r.IsQuadlet() {
+				unitfile := parser.NewUnitFile()
+				err = unitfile.Parse(resourceBody.String())
+				if err != nil {
+					return actions, fmt.Errorf("error parsing container file: %w", err)
+				}
+				nameOption := ""
+				group := ""
+				switch r.Kind {
+				case components.ResourceTypeContainer:
+					group = "Container"
+					nameOption = "ContainerName"
+				case components.ResourceTypeVolume:
+					group = "Volume"
+					nameOption = "VolumeName"
+				case components.ResourceTypeNetwork:
+					group = "Network"
+					nameOption = "NetworkName"
+				case components.ResourceTypePod:
+					group = "Pod"
+					nameOption = "PodName"
+				}
+				if nameOption != "" {
+					name, foundName := unitfile.Lookup(group, nameOption)
+					if foundName {
+						r.PodmanObject = name
+					} else {
+						r.PodmanObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+					}
+				}
+			}
+
 		}
 		actions = append(actions, Action{
 			Todo:    ActionInstall,
@@ -592,7 +627,6 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				switch cur.Kind {
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
-						// TODO support custom network names
 						if n.Name == cur.PodmanObject {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
@@ -631,10 +665,55 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
 			log.Debugf("Creating new resource %v", k)
+			r := newResources[k]
+			// do a test run just to make sure we can actually install this resource
+			if r.Kind != components.ResourceTypePodmanSecret {
+				newStringTempl, err := m.SourceRepo.ReadResource(r)
+				if err != nil {
+					return diffActions, err
+				}
+				resourceBody, err := m.executeResource(newStringTempl, vars)
+				if err != nil {
+					return diffActions, err
+				}
+				if r.IsQuadlet() {
+					unitfile := parser.NewUnitFile()
+					err = unitfile.Parse(resourceBody.String())
+					if err != nil {
+						return diffActions, fmt.Errorf("error parsing container file: %w", err)
+					}
+					nameOption := ""
+					group := ""
+					switch r.Kind {
+					case components.ResourceTypeContainer:
+						group = "Container"
+						nameOption = "ContainerName"
+					case components.ResourceTypeVolume:
+						group = "Volume"
+						nameOption = "VolumeName"
+					case components.ResourceTypeNetwork:
+						group = "Network"
+						nameOption = "NetworkName"
+					case components.ResourceTypePod:
+						group = "Pod"
+						nameOption = "PodName"
+					}
+					if nameOption != "" {
+						name, foundName := unitfile.Lookup(group, nameOption)
+						if foundName {
+							r.PodmanObject = name
+						} else {
+							r.PodmanObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+						}
+					}
+				}
+
+			}
+
 			a := Action{
 				Todo:    ActionInstall,
 				Parent:  base,
-				Payload: newResources[k],
+				Payload: r,
 			}
 			diffActions = append(diffActions, a)
 		}
