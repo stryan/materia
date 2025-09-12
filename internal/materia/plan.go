@@ -141,6 +141,9 @@ func (p *Plan) Validate() error {
 		if a.Todo == ActionReload && a.Payload.Path == "" {
 			reload = true
 		}
+		if a.Payload.IsQuadlet() && a.Payload.PodmanObject == "" {
+			return fmt.Errorf("tried to operate on a quadlet without a backing podman object: %v", a.Payload)
+		}
 		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
 			deletedVoles = append(deletedVoles, a.Payload.Path)
 		}

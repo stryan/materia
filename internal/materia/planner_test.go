@@ -100,6 +100,12 @@ var testResources = []components.Resource{
 		Kind:     components.ResourceTypeFile,
 		Template: true,
 	},
+	{
+		Path:     manifests.MateriaManifestFile,
+		Parent:   "hello",
+		Kind:     components.ResourceTypeManifest,
+		Template: false,
+	},
 }
 
 var testSnippets = func() map[string]*Snippet {
@@ -288,7 +294,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 				},
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
-				source.EXPECT().ReadResource(testResources[0]).Return("Hello", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
 			},
 			wantErr: false,
 		},
@@ -319,7 +325,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
 				source.EXPECT().ReadResource(testResources[5]).Return("inner file", nil)
-				source.EXPECT().ReadResource(testResources[0]).Return("Hello container", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(testResources[1]).Return("Hello env", nil)
 				source.EXPECT().ReadResource(testResources[2]).Return("Hello service", nil)
 			},
@@ -693,6 +699,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},
 			want: []Action{
