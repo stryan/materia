@@ -13,10 +13,10 @@ type SecretFilter struct {
 }
 
 type SecretsVault struct {
-	Globals    map[string]any
-	Components map[string]map[string]any
-	Hosts      map[string]map[string]any
-	Roles      map[string]map[string]any
+	Globals    map[string]any            `toml:"globals" yaml:"globals" json:"globals" ini:"globals"`
+	Components map[string]map[string]any `toml:"components" yaml:"components" json:"components" ini:"components"`
+	Hosts      map[string]map[string]any `toml:"hosts" yaml:"hosts" json:"hosts" ini:"hosts"`
+	Roles      map[string]map[string]any `toml:"roles" yaml:"roles" json:"roles" ini:"roles"`
 }
 
 func MergeSecrets(higher map[string]any, lower map[string]any) map[string]any {
