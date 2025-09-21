@@ -145,11 +145,11 @@ The last thing we need is a manifest file for the component. Create the file in 
 Add the following content:
 
 ```
-[defaults]
+[Defaults]
 containerTag = "latest"
 
 [[services]]
-service = "caddy.service"
+Service = "caddy.service"
 ```
 
 The `[defaults]` section is a TOML table describing default secret values. In this case, the `containerTag` secret is set to `latest` by default.
@@ -225,11 +225,11 @@ Open the `materia-repo/MANIFEST.toml` file and add the following content:
 ```
 secrets = "age"
 
-[age]
-keyfile = "/etc/materia/key.txt"
-basedir = "secrets"
+[Age]
+Keyfile = "/etc/materia/key.txt"
+Basedir = "secrets"
 
-[hosts.ivy]
+[Hosts.ivy]
 components = ["caddy"]
 ```
 
