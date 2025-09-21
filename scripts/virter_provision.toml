@@ -10,7 +10,7 @@ MATERIA_DEBUG = "true"
 MATERIA_DIFFS = "true"
 MATERIA_SOURCE_URL = "{{ .Repo }}"
 MATERIA_GIT_PRIVATEKEY = ".ssh/materia_key"
-MATERIA_HOSTNAME="localhost"
+MATERIA_HOSTNAME = "localhost"
 REMOTEHOST = "{{ .RemoteHost }}"
 
 [[steps]]
@@ -56,5 +56,5 @@ set -e
 diff -r /tmp/out/etc/containers/systemd /etc/containers/systemd/
 diff -r /tmp/out/var/lib/materia/components /var/lib/materia/components/
 diff -r /tmp/out/etc/systemd/system/* /etc/systemd/system/
+MATERIA_HOSTNAME=noname materia update
 """
-

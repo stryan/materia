@@ -20,7 +20,6 @@ type Component struct {
 	State            ComponentLifecycle
 	Defaults         map[string]any
 	Secrets          []string
-	VolumeResources  map[string]manifests.VolumeResourceConfig
 	ServiceResources map[string]manifests.ServiceResourceConfig
 	Version          int
 }
@@ -44,6 +43,16 @@ type ComponentVersion struct {
 }
 
 const DefaultComponentVersion = 1
+
+func NewComponent(name string) *Component {
+	return &Component{
+		Name:             name,
+		State:            StateStale,
+		Defaults:         make(map[string]any),
+		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
+		Resources:        []Resource{},
+	}
+}
 
 func (c *Component) String() string {
 	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, len(c.Resources), len(c.ServiceResources), c.Defaults)
@@ -70,6 +79,9 @@ func (c *Component) VersonData() (*bytes.Buffer, error) {
 }
 
 func FindResourceType(file string) ResourceType {
+	if filepath.Base(file) == "setup.sh" || filepath.Base(file) == "cleanup.sh" {
+		return ResourceTypeComponentScript
+	}
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
 	case ".pod":

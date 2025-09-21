@@ -1,0 +1,6 @@
+---
+# See the dedicated "version" documentation section.
+version: '2'
+linters:
+  exclusions:
+    presets: [comments]

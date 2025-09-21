@@ -43,7 +43,7 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 	if res.Kind == components.ResourceTypeDirectory {
 		return "", nil
 	}
-	resPath := filepath.Join(s.Prefix, res.Parent, res.Path)
+	resPath := filepath.Join(s.Prefix, res.Parent, res.Name())
 
 	curFile, err := os.ReadFile(resPath)
 	if err != nil {
@@ -87,70 +87,49 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	c.State = components.StateFresh
 	c.Defaults = make(map[string]any)
 	c.Version = components.DefaultComponentVersion
-	c.VolumeResources = make(map[string]manifests.VolumeResourceConfig)
 	c.ServiceResources = make(map[string]manifests.ServiceResourceConfig)
 	log.Debugf("loading source component %v from path %v", c.Name, path)
 	var man *manifests.ComponentManifest
 	scripts := 0
 
 	secretResources := []components.Resource{}
-	err := filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
+	manifestPath := filepath.Join(path, manifests.ComponentManifestFile)
+	if _, err := os.Stat(manifestPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, components.ErrCorruptComponent
+		}
+		return nil, err
+	}
+	log.Debugf("loading source component manifest %v", c.Name)
+	man, err := manifests.LoadComponentManifest(manifestPath)
+	if err != nil {
+		return nil, fmt.Errorf("error loading component manifest: %w", err)
+	}
+	maps.Copy(c.Defaults, man.Defaults)
+	slices.Sort(man.Secrets)
+	for _, s := range man.Secrets {
+		secretResources = append(secretResources, components.Resource{
+			Path:     s,
+			Kind:     components.ResourceTypePodmanSecret,
+			Parent:   name,
+			Template: false,
+		})
+	}
+
+	err = filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.Name() == c.Name {
+		if d.Name() == c.Name || d.Name() == manifests.ComponentManifestFile {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, path)
-		if d.Name() == "MANIFEST.toml" {
-			log.Debugf("loading source component manifest %v", c.Name)
-			man, err = manifests.LoadComponentManifest(fullPath)
-			if err != nil {
-				return fmt.Errorf("error loading component manifest: %w", err)
-			}
-			maps.Copy(c.Defaults, man.Defaults)
-			maps.Copy(c.VolumeResources, man.VolumeResources)
-			slices.Sort(man.Secrets)
-			for _, s := range man.Secrets {
-				secretResources = append(secretResources, components.Resource{
-					Name:     s,
-					Kind:     components.ResourceTypePodmanSecret,
-					Parent:   name,
-					Path:     "",
-					Template: false,
-				})
-			}
-
-			return nil
+		newRes, err := s.NewResource(c, fullPath)
+		if err != nil {
+			return err
 		}
-		var newRes components.Resource
-		if d.Name() == "setup.sh" || d.Name() == "cleanup.sh" {
+		if newRes.Kind == components.ResourceTypeComponentScript {
 			scripts++
 			c.Scripted = true
-			newRes = components.Resource{
-				Path:     resPath,
-				Name:     d.Name(),
-				Parent:   c.Name,
-				Kind:     components.ResourceTypeComponentScript,
-				Template: false,
-			}
-		} else {
-			newRes = components.Resource{
-				Path:     resPath,
-				Parent:   c.Name,
-				Name:     strings.TrimSuffix(d.Name(), ".gotmpl"),
-				Kind:     components.FindResourceType(d.Name()),
-				Template: components.IsTemplate(d.Name()),
-			}
-			if d.IsDir() {
-				newRes.Kind = components.ResourceTypeDirectory
-				newRes.Template = false
-			}
-		}
-		for _, vr := range c.VolumeResources {
-			if vr.Resource == newRes.Name {
-				newRes.Kind = components.ResourceTypeVolumeFile
-			}
 		}
 		c.Resources = append(c.Resources, newRes)
 		return nil
@@ -171,15 +150,13 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		c.ServiceResources[s.Service] = s
 	}
 	c.Resources = append(c.Resources, secretResources...)
-	c.Resources = append(c.Resources, components.Resource{
-		Parent:   c.Name,
-		Path:     "/MANIFEST.toml",
-		Name:     "MANIFEST.toml",
-		Kind:     components.ResourceTypeManifest,
-		Template: false,
-	})
+	manifestResource, err := s.NewResource(c, manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	c.Resources = append(c.Resources, manifestResource)
 	for k, r := range c.Resources {
-		if r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Name) {
+		if r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
 			r.Kind = components.ResourceTypeScript
 			c.Resources[k] = r
 		}
@@ -193,41 +170,8 @@ func (s *SourceComponentRepository) GetResource(parent *components.Component, na
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
 	dataPath := filepath.Join(s.Prefix, parent.Name)
-	resourcePath := ""
-	breakWalk := false
-	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if breakWalk {
-			return nil
-		}
-		if d.Name() == parent.Name {
-			return nil
-		}
-		if d.Name() == name {
-			resourcePath = fullPath
-			breakWalk = true
-			return nil
-		}
-		return nil
-	}
-	err := filepath.WalkDir(dataPath, searchFunc)
-	if err != nil {
-		return components.Resource{}, err
-	}
-	if resourcePath == "" {
-		return components.Resource{}, errors.New("resource not found")
-	}
-	resPath := strings.TrimPrefix(resourcePath, dataPath)
-	resName := filepath.Base(resourcePath)
-	return components.Resource{
-		Parent:   name,
-		Path:     resPath,
-		Name:     resName,
-		Kind:     components.FindResourceType(resName),
-		Template: components.IsTemplate(resName),
-	}, nil
+	resourcePath := filepath.Join(dataPath, name)
+	return s.NewResource(parent, resourcePath)
 }
 
 func (s *SourceComponentRepository) ListResources(c *components.Component) ([]components.Resource, error) {
@@ -244,12 +188,13 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 		if d.Name() == c.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
 			return nil
 		}
-		resPath := strings.TrimPrefix(fullPath, dataPath)
-		resName := filepath.Base(fullPath)
+		resName, err := filepath.Rel(dataPath, fullPath)
+		if err != nil {
+			return err
+		}
 		newRes := components.Resource{
 			Parent:   c.Name,
-			Path:     resPath,
-			Name:     resName,
+			Path:     resName,
 			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}
@@ -312,5 +257,67 @@ func (s SourceComponentRepository) RunSetup(comp *components.Component) error {
 }
 
 func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifest(filepath.Join(s.Prefix, parent.Name, "MANIFEST.toml"))
+	return manifests.LoadComponentManifest(filepath.Join(s.Prefix, parent.Name, manifests.ComponentManifestFile))
+}
+
+func (s *SourceComponentRepository) NewResource(parent *components.Component, path string) (components.Resource, error) {
+	filename := strings.TrimSuffix(path, ".gotmpl")
+	parentPath := filepath.Join(s.Prefix, parent.Name)
+	resName, err := filepath.Rel(parentPath, filename)
+	if err != nil {
+		return components.Resource{}, err
+	}
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return components.Resource{}, err
+	}
+	res := components.Resource{
+		Path:     resName,
+		Parent:   parent.Name,
+		Template: components.IsTemplate(path),
+	}
+	if fileInfo.IsDir() {
+		res.Kind = components.ResourceTypeDirectory
+	} else {
+		res.Kind = components.FindResourceType(path)
+	}
+
+	// TODO is this something we can do at source level? we can't parse unit files until they're templated
+	// if res.IsQuadlet() {
+	// 	unitData, err := s.ReadResource(res)
+	// 	if err != nil {
+	// 		return res, err
+	// 	}
+	// 	unitfile := parser.NewUnitFile()
+	// 	err = unitfile.Parse(unitData)
+	// 	if err != nil {
+	// 		return res, fmt.Errorf("error parsing container file: %w", err)
+	// 	}
+	// 	nameOption := ""
+	// 	group := ""
+	// 	switch res.Kind {
+	// 	case components.ResourceTypeContainer:
+	// 		group = "Container"
+	// 		nameOption = "ContainerName"
+	// 	case components.ResourceTypeVolume:
+	// 		group = "Volume"
+	// 		nameOption = "VolumeName"
+	// 	case components.ResourceTypeNetwork:
+	// 		group = "Network"
+	// 		nameOption = "NetworkName"
+	// 	case components.ResourceTypePod:
+	// 		group = "Pod"
+	// 		nameOption = "PodName"
+	// 	}
+	// 	if nameOption != "" {
+	// 		name, foundName := unitfile.Lookup(group, nameOption)
+	// 		if foundName {
+	// 			res.PodmanObject = name
+	// 		} else {
+	// 			res.PodmanObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
+	// 		}
+	// 	}
+	//
+	// }
+	return res, nil
 }

@@ -4,3 +4,5 @@ containerTag = "latest"
 
 [[services]]
 service = "carpal.service"
+ReloadedBy = ["conf/config.yml","conf/ldap.yml"]
+RestartedBy = ["conf/config.yml","carpal.container"]

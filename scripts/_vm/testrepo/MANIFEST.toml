@@ -1,9 +1,10 @@
 secrets = "age"
 age.keyfile = "./test-key.txt"
 age.basedir = "secrets"
+
 [hosts.localhost]
-components = ["hello","freshrss"]
-roles = ["base","double"]
+components = ["hello", "freshrss"]
+roles = ["base", "double"]
 
 [roles.base]
 components = ["carpal"]

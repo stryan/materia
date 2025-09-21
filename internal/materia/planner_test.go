@@ -21,12 +21,12 @@ var testComponents = []*components.Component{
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0]},
+		Resources: []components.Resource{testResources[6]},
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0]},
+		Resources: []components.Resource{testResources[0], testResources[6]},
 		ServiceResources: map[string]manifests.ServiceResourceConfig{
 			"hello.service": {
 				Service: "hello.service",
@@ -65,46 +65,46 @@ var testComponents = []*components.Component{
 
 var testResources = []components.Resource{
 	{
-		Name:     "hello.container",
+		Path:     "hello.container",
 		Parent:   "hello",
-		Path:     "/hello.container.gotmpl",
 		Kind:     components.ResourceTypeContainer,
 		Template: true,
 	},
 	{
-		Name:     "hello.env",
+		Path:     "hello.env",
 		Parent:   "hello",
-		Path:     "/hello.env.gotmpl",
 		Kind:     components.ResourceTypeFile,
 		Template: true,
 	},
 	{
-		Path:     "/hello.sh",
-		Name:     "hello.sh",
+		Path:     "hello.sh",
 		Parent:   "hello",
 		Kind:     components.ResourceTypeScript,
 		Template: false,
 	},
 	{
-		Path:     "/MANIFEST.toml",
-		Name:     "MANIFEST.toml",
+		Path:     manifests.MateriaManifestFile,
 		Parent:   "updated",
 		Kind:     components.ResourceTypeManifest,
 		Template: false,
 	},
 	{
-		Name:     "goodbye.container",
+		Path:     "goodbye.container",
 		Parent:   "goodbye",
-		Path:     "/goodbye.container.gotmpl",
 		Kind:     components.ResourceTypeContainer,
 		Template: true,
 	},
 	{
-		Name:     "deep.env",
+		Path:     "conf/deep.env",
 		Parent:   "hello",
-		Path:     "conf/deep.env.gotmpl",
 		Kind:     components.ResourceTypeFile,
 		Template: true,
+	},
+	{
+		Path:     manifests.MateriaManifestFile,
+		Parent:   "hello",
+		Kind:     components.ResourceTypeManifest,
+		Template: false,
 	},
 }
 
@@ -176,6 +176,8 @@ var testMacroMap = func(vars map[string]any) template.FuncMap {
 		},
 	}
 }
+
+// TODO add newComponent,removeComponent tests
 
 func TestMateria_updateComponents(t *testing.T) {
 	tests := []struct {
@@ -286,15 +288,21 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstall,
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: "hello"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
-				source.EXPECT().ReadResource(testResources[0]).Return("Hello", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
+				source.EXPECT().ReadResource(testResources[6]).Return("manifest!", nil)
 			},
 			wantErr: false,
 		},
@@ -304,28 +312,29 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstall,
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: "hello"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "deep.env"},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.env"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "hello.env"},
+					Payload: components.Resource{Path: "hello.sh"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "hello.sh"},
+					Payload: components.Resource{Path: "conf/deep.env"},
 				},
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
 				source.EXPECT().ReadResource(testResources[5]).Return("inner file", nil)
-				source.EXPECT().ReadResource(testResources[0]).Return("Hello container", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(testResources[1]).Return("Hello env", nil)
 				source.EXPECT().ReadResource(testResources[2]).Return("Hello service", nil)
 			},
@@ -358,8 +367,8 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 				if k >= len(got) {
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Name, tt.want[k].Payload.Name)
+				assert.Equal(t, v.Todo, got[k].Todo, "wanted %v got %v", v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path, "wanted %v got %v", v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -378,16 +387,20 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0]},
+				Resources: []components.Resource{testResources[0], testResources[6]},
 			},
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello", Kind: components.ResourceTypeComponent},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
 			wantErr: false,
@@ -397,7 +410,7 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5]},
+				Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5], testResources[6]},
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -408,23 +421,28 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "deep.env"},
+					Payload: components.Resource{Path: "conf/deep.env"},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.sh"},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.env"},
+					Payload: components.Resource{Path: "hello.env"},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.sh"},
+					Payload: components.Resource{Path: "hello.container"},
+				},
+
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello", Kind: components.ResourceTypeComponent},
+					Payload: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
 			wantErr: false,
@@ -450,11 +468,10 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			}
 			for k, v := range tt.want {
 				if k >= len(got) {
-					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Name, tt.want[k].Payload.Name)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -482,7 +499,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				{
 					Todo: ActionStart,
 					Payload: components.Resource{
-						Name: "hello.service",
+						Path: "hello.service",
 					},
 				},
 			},
@@ -526,13 +543,13 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				{
 					Todo: ActionEnable,
 					Payload: components.Resource{
-						Name: "hello.service",
+						Path: "hello.service",
 					},
 				},
 				{
 					Todo: ActionStart,
 					Payload: components.Resource{
-						Name: "hello.service",
+						Path: "hello.service",
 					},
 				},
 			},
@@ -567,8 +584,8 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Name, tt.want[k].Payload.Name)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -600,14 +617,14 @@ func TestMateria_diffComponent(t *testing.T) {
 			newComponent: testComponents[4],
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container file!", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("a new container file!", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage=ubi8", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
 					Todo:    ActionUpdate,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 			},
 		},
@@ -639,14 +656,14 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container hello", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("container {{ .var }}", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage={{ .var }}", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
 					Todo:    ActionUpdate,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 			},
 		},
@@ -675,7 +692,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 			},
 		},
@@ -699,16 +716,17 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Name: "hello.container"},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Name: "goodbye.container"},
+					Payload: components.Resource{Path: "goodbye.container"},
 				},
 			},
 		},
@@ -734,8 +752,8 @@ func TestMateria_diffComponent(t *testing.T) {
 					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Name, tt.want[k].Payload.Name)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}

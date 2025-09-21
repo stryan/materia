@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
-	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
@@ -149,6 +150,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
+		maps.Copy(vars, newComponent.Defaults)
 
 		switch newComponent.State {
 		case components.StateFresh:
@@ -249,7 +251,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	actions = append(actions, Action{
 		Todo:    ActionInstall,
 		Parent:  newComponent,
-		Payload: components.Resource{Kind: components.ResourceTypeComponent, Name: newComponent.Name},
+		Payload: components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 	})
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
@@ -259,10 +261,42 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 			if err != nil {
 				return actions, err
 			}
-			_, err = m.executeResource(newStringTempl, vars)
+			resourceBody, err := m.executeResource(newStringTempl, vars)
 			if err != nil {
 				return actions, err
 			}
+			if r.IsQuadlet() {
+				unitfile := parser.NewUnitFile()
+				err = unitfile.Parse(resourceBody.String())
+				if err != nil {
+					return actions, fmt.Errorf("error parsing container file: %w", err)
+				}
+				nameOption := ""
+				group := ""
+				switch r.Kind {
+				case components.ResourceTypeContainer:
+					group = "Container"
+					nameOption = "ContainerName"
+				case components.ResourceTypeVolume:
+					group = "Volume"
+					nameOption = "VolumeName"
+				case components.ResourceTypeNetwork:
+					group = "Network"
+					nameOption = "NetworkName"
+				case components.ResourceTypePod:
+					group = "Pod"
+					nameOption = "PodName"
+				}
+				if nameOption != "" {
+					name, foundName := unitfile.Lookup(group, nameOption)
+					if foundName {
+						r.HostObject = name
+					} else {
+						r.HostObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+					}
+				}
+			}
+
 		}
 		actions = append(actions, Action{
 			Todo:    ActionInstall,
@@ -330,31 +364,32 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 		return actions, nil
 	}
 	for _, d := range resourceActions {
-		if updatedService, ok := restartmap[d.Payload.Name]; ok {
+		if m.diffs && d.Todo == ActionUpdate {
+			diffs := d.Content.([]diffmatchpatch.Diff)
+			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
+		}
+		if updatedService, ok := restartmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionRestart,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
-					Name:   updatedService.Service,
+					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
 				},
 			})
+			continue // No need to reload if we restart
 		}
-		if updatedService, ok := reloadmap[d.Payload.Name]; ok {
+		if updatedService, ok := reloadmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionReload,
 				Parent: newComponent,
 				Payload: components.Resource{
 					Parent: newComponent.Name,
-					Name:   updatedService.Service,
+					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
 				},
 			})
-		}
-		if m.diffs && d.Todo == ActionUpdate {
-			diffs := d.Content.([]diffmatchpatch.Diff)
-			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
 
 	}
@@ -415,7 +450,7 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 	var result []Action
 	res := components.Resource{
 		Parent: comp.Name,
-		Name:   osrc.Service,
+		Path:   osrc.Service,
 		Kind:   components.ResourceTypeService,
 	}
 	if osrc.Static {
@@ -437,7 +472,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	var actions []Action
 	res := components.Resource{
 		Parent: comp.Name,
-		Name:   osrc.Service,
+		Path:   osrc.Service,
 		Kind:   components.ResourceTypeService,
 	}
 	if shouldEnableService(osrc, liveService) {
@@ -462,12 +497,16 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	if comp.State != components.StateNeedRemoval {
 		return actions, errors.New("expected to be removed component")
 	}
-	for _, r := range comp.Resources {
-		actions = append(actions, Action{
-			Todo:    ActionRemove,
-			Parent:  comp,
-			Payload: r,
-		})
+	resourceList := comp.Resources
+	slices.Reverse(resourceList)
+	for _, r := range resourceList {
+		if r.Path != manifests.ComponentManifestFile {
+			actions = append(actions, Action{
+				Todo:    ActionRemove,
+				Parent:  comp,
+				Payload: r,
+			})
+		}
 	}
 	if comp.Scripted {
 		actions = append(actions, Action{
@@ -476,8 +515,14 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 		})
 	}
 	actions = append(actions, Action{
-		Todo:   ActionRemove,
-		Parent: comp,
+		Todo:    ActionRemove,
+		Parent:  comp,
+		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile},
+	})
+	actions = append(actions, Action{
+		Todo:    ActionRemove,
+		Parent:  comp,
+		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
 	})
 	return actions, nil
 }
@@ -490,7 +535,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 	for _, s := range comp.ServiceResources {
 		res := components.Resource{
 			Parent: comp.Name,
-			Name:   s.Service,
+			Path:   s.Service,
 			Kind:   components.ResourceTypeService,
 		}
 		liveService, err := m.Services.Get(ctx, s.Service)
@@ -528,10 +573,10 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	maps.Copy(diffVars, other.Defaults)
 	maps.Copy(diffVars, vars)
 	for _, v := range base.Resources {
-		currentResources[v.Name] = v
+		currentResources[v.Path] = v
 	}
 	for _, v := range other.Resources {
-		newResources[v.Name] = v
+		newResources[v.Path] = v
 	}
 
 	sortedCurrentResourceKeys := sortedKeys(currentResources)
@@ -543,7 +588,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			if err != nil {
 				return diffActions, fmt.Errorf("error listing secrets during resource validation")
 			}
-			if !slices.Contains(secretsList, cur.Name) {
+			if !slices.Contains(secretsList, cur.Path) {
 				// secret isn't there so we treat it like the resource never existed
 				delete(currentResources, k)
 				continue
@@ -551,8 +596,9 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		}
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
-			log.Debug("diffing resource", "component", base.Name, "file", cur.Name)
-			diffs, err := m.diffResource(cur, newRes, diffVars)
+			log.Debug("diffing resource", "component", base.Name, "file", cur.Path)
+			// TODO Refactor to not use pointers
+			diffs, err := m.diffResource(&cur, &newRes, diffVars)
 			if err != nil {
 				return diffActions, err
 			}
@@ -561,7 +607,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				continue
 			}
 			if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
-				log.Debug("updating current resource", "file", cur.Name, "diffs", diffs)
+				log.Debug("updating current resource", "file", cur.Path, "diffs", diffs)
 				a := Action{
 					Todo:    ActionUpdate,
 					Parent:  other,
@@ -573,7 +619,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			}
 		} else {
 			// in current resources but not source resources, remove old
-			log.Debug("removing existing resource", "file", cur.Name)
+			log.Debug("removing existing resource", "file", cur.Path)
 			a := Action{
 				Todo:    ActionRemove,
 				Parent:  base,
@@ -593,8 +639,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				switch cur.Kind {
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
-						// TODO support custom network names
-						if n.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".network")) {
+						if n.Name == cur.HostObject {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
 								Todo:    ActionCleanup,
@@ -607,7 +652,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 					if m.cleanupVolumes {
 						for _, v := range volumes {
 							// TODO custome volume names
-							if v.Name == fmt.Sprintf("systemd-%v", strings.TrimSuffix(cur.Name, ".volume")) {
+							if v.Name == cur.HostObject {
 								if m.backupVolumes {
 									diffActions = append(diffActions, Action{
 										Todo:    ActionDump,
@@ -631,11 +676,33 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	for _, k := range sortedNewResourceKeys {
 		if _, ok := currentResources[k]; !ok {
 			// if new resource is not in old resource we need to install it
-			fmt.Printf("Creating new resource %v", k)
+			log.Debugf("Creating new resource %v", k)
+			r := newResources[k]
+			// do a test run just to make sure we can actually install this resource
+			if r.Kind != components.ResourceTypePodmanSecret {
+				newStringTempl, err := m.SourceRepo.ReadResource(r)
+				if err != nil {
+					return diffActions, err
+				}
+				resourceBody, err := m.executeResource(newStringTempl, vars)
+				if err != nil {
+					return diffActions, err
+				}
+				// update the attached object since we parsed the resource
+				if r.IsQuadlet() && r.HostObject == "" {
+					newName, err := parseQuadletName(r, resourceBody.String())
+					if err != nil {
+						return diffActions, err
+					}
+					r.HostObject = newName
+				}
+
+			}
+
 			a := Action{
 				Todo:    ActionInstall,
 				Parent:  base,
-				Payload: newResources[k],
+				Payload: r,
 			}
 			diffActions = append(diffActions, a)
 		}
@@ -644,11 +711,45 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	return diffActions, nil
 }
 
+func parseQuadletName(r components.Resource, resourceBody string) (string, error) {
+	var name string
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(resourceBody)
+	if err != nil {
+		return name, fmt.Errorf("error parsing container file: %w", err)
+	}
+	nameOption := ""
+	group := ""
+	switch r.Kind {
+	case components.ResourceTypeContainer:
+		group = "Container"
+		nameOption = "ContainerName"
+	case components.ResourceTypeVolume:
+		group = "Volume"
+		nameOption = "VolumeName"
+	case components.ResourceTypeNetwork:
+		group = "Network"
+		nameOption = "NetworkName"
+	case components.ResourceTypePod:
+		group = "Pod"
+		nameOption = "PodName"
+	}
+	if nameOption != "" {
+		unitName, foundName := unitfile.Lookup(group, nameOption)
+		if foundName {
+			name = unitName
+		} else {
+			name = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+		}
+	}
+	return name, nil
+}
+
 func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
 	return !s.Disabled && s.Static && !liveService.Enabled
 }
 
-func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
+func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -660,11 +761,11 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	var curString, newString string
 	var err error
 	if cur.Kind != components.ResourceTypePodmanSecret {
-		curString, err = m.CompRepo.ReadResource(cur)
+		curString, err = m.CompRepo.ReadResource(*cur)
 		if err != nil {
 			return diffs, err
 		}
-		newStringTempl, err := m.SourceRepo.ReadResource(newRes)
+		newStringTempl, err := m.SourceRepo.ReadResource(*newRes)
 		if err != nil {
 			return diffs, err
 		}
@@ -673,24 +774,31 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 			return diffs, err
 		}
 		newString = result.String()
+		if newRes.IsQuadlet() && newRes.HostObject == "" {
+			newResourceName, err := parseQuadletName(*newRes, newString)
+			if err != nil {
+				return diffs, err
+			}
+			newRes.HostObject = newResourceName
+		}
 	} else {
 		var curSecret *containers.PodmanSecret
 		secretsList, err := m.Containers.ListSecrets(context.TODO())
 		if err != nil {
 			return diffs, err
 		}
-		if !slices.Contains(secretsList, cur.Name) {
+		if !slices.Contains(secretsList, cur.Path) {
 			curSecret = &containers.PodmanSecret{
-				Name:  cur.Name,
+				Name:  cur.Path,
 				Value: "",
 			}
 		} else {
-			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Name)
+			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Path)
 			if err != nil {
 				return diffs, err
 			}
 		}
-		newSecret, ok := vars[cur.Name]
+		newSecret, ok := vars[cur.Path]
 		if !ok {
 			newString = ""
 		} else {

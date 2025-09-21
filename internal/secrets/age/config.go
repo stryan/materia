@@ -7,9 +7,9 @@ import (
 )
 
 type Config struct {
-	IdentPath     string
-	BaseDir       string
-	GeneralVaults []string
+	IdentPath     string   `toml:"Keyfile"`
+	BaseDir       string   `toml:"BaseDir"`
+	GeneralVaults []string `toml:"Vaults"`
 }
 
 func (c Config) Validate() error {

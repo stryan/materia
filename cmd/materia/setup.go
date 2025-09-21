@@ -163,7 +163,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-
 	var secretManager materia.SecretsManager
 	// TODO replace this with secrets chaining
 	switch man.Secrets {

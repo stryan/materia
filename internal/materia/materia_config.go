@@ -13,26 +13,26 @@ import (
 )
 
 type MateriaConfig struct {
-	Debug          bool
-	UseStdout      bool
-	Diffs          bool
-	Hostname       string
-	Roles          []string
-	Timeout        int
-	MateriaDir     string
-	QuadletDir     string
-	ServiceDir     string
-	ScriptsDir     string
-	SourceDir      string
-	OutputDir      string
-	OnlyResources  bool
-	Quiet          bool
-	Cleanup        bool
-	CleanupVolumes bool
-	BackupVolumes  bool
-	AgeConfig      *age.Config
-	FileConfig     *filesecrets.Config
-	User           *user.User
+	Debug          bool                `toml:"Debug"`
+	UseStdout      bool                `toml:"UseStdout"`
+	Diffs          bool                `toml:"Diffs"`
+	Hostname       string              `toml:"Hostname"`
+	Roles          []string            `toml:"Roles"`
+	Timeout        int                 `toml:"Timeout"`
+	MateriaDir     string              `toml:"MateriaDir"`
+	QuadletDir     string              `toml:"QuadletDir"`
+	ServiceDir     string              `toml:"ServiceDir"`
+	ScriptsDir     string              `toml:"ScriptsDir"`
+	SourceDir      string              `toml:"SourceDir"`
+	OutputDir      string              `toml:"OutputDir"`
+	OnlyResources  bool                `toml:"OnlyResources"`
+	Quiet          bool                `toml:"Quiet"`
+	Cleanup        bool                `toml:"Cleanup"`
+	CleanupVolumes bool                `toml:"CleanupVolumes"`
+	BackupVolumes  bool                `toml:"BackupVolumes"`
+	AgeConfig      *age.Config         `toml:"AgeConfig"`
+	FileConfig     *filesecrets.Config `toml:"FileConfig"`
+	User           *user.User          `toml:"User"`
 }
 
 // var defaultConfig = map[string]any{

@@ -1,7 +1,6 @@
 package materia
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -9,13 +8,13 @@ import (
 )
 
 type Plan struct {
-	size       int
-	volumes    []string
-	components []string
-
-	combatPhase   []Action
-	secondMain    []Action
-	servicesPhase []Action
+	size                int
+	volumes             []string
+	components          []string
+	serviceRemovalPhase []Action
+	combatPhase         []Action
+	secondMain          []Action
+	servicesPhase       []Action
 
 	resourceChanges  map[string][]Action
 	structureChanges map[string][]Action
@@ -43,16 +42,25 @@ func (p *Plan) Add(a Action) {
 		case ActionSetup:
 			p.secondMain = append(p.secondMain, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeDirectory:
 		switch a.Todo {
 		case ActionInstall, ActionRemove:
 			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret, components.ResourceTypeManifest:
+	case components.ResourceTypeManifest:
+		switch a.Todo {
+		case ActionInstall, ActionRemove:
+			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+		case ActionUpdate:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+		}
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
@@ -61,43 +69,35 @@ func (p *Plan) Add(a Action) {
 		case ActionDump:
 			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
-		}
-	case components.ResourceTypeVolumeFile:
-		switch a.Todo {
-		case ActionInstall:
-			p.secondMain = append(p.secondMain, a)
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
-			if !ok {
-				return
-			}
-			p.volumes = append(p.volumes, vcr.Volume)
-		case ActionRemove, ActionUpdate:
-			p.secondMain = append(p.secondMain, a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeService:
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionRestart, ActionStart, ActionStop, ActionEnable, ActionDisable:
+		case ActionRestart, ActionStart, ActionEnable, ActionDisable:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
-
+		case ActionStop:
+			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
+			}) {
+				return
+			}
+			p.serviceRemovalPhase = append(p.serviceRemovalPhase, a)
 		case ActionReload:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Name == a.Payload.Name && modification.Todo == a.Todo)
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Name))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
 	case components.ResourceTypeHost:
 		if a.Todo == ActionReload {
@@ -109,7 +109,7 @@ func (p *Plan) Add(a Action) {
 			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
 		}
 	default:
-		panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
+		panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Payload.Kind, a))
 	}
 	p.size++
 }
@@ -134,43 +134,40 @@ func (p *Plan) Validate() error {
 	needReload := false
 	reload := false
 	deletedVoles := []string{}
+	currentStep := 1
+	maxSteps := len(steps)
 	for _, a := range steps {
 		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
-		if a.Todo == ActionReload && a.Payload.Name == "" {
+		if a.Todo == ActionReload && a.Payload.Path == "" {
 			reload = true
 		}
+		if a.Payload.IsQuadlet() && a.Payload.HostObject == "" {
+			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Payload)
+		}
 		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
-			deletedVoles = append(deletedVoles, a.Payload.Name)
+			deletedVoles = append(deletedVoles, a.Payload.Path)
 		}
 		if a.Todo == ActionDump && a.Payload.Kind == components.ResourceTypeVolume {
-			if !slices.Contains(deletedVoles, a.Payload.Name) {
-				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Name)
+			if !slices.Contains(deletedVoles, a.Payload.Path) {
+				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Payload.Path)
 			}
 		}
-		if a.Payload.Kind == components.ResourceTypeVolumeFile {
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Name]
-			if !ok {
-				return fmt.Errorf("invalid plan: no volume resource for %v", a.Payload)
-			}
-			if slices.Contains(p.volumes, vcr.Volume) {
-				continue
-			}
-			return fmt.Errorf("invalid plan: no volume for resource %v", a.Payload)
-		}
+
 		if a.Todo == ActionInstall {
 			if a.Payload.Kind == components.ResourceTypeComponent {
 				componentList = append(componentList, a.Parent.Name)
 			} else {
 				if !slices.Contains(componentList, a.Parent.Name) {
-					return fmt.Errorf("invalid plan: installed resource %v before parent component %v", a.Payload, a.Parent.Name)
+					return fmt.Errorf("%v/%v: invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Payload, a.Parent.Name)
 				}
 			}
 		}
+		currentStep++
 	}
 	if needReload && !reload {
-		return errors.New("invalid plan: systemd units added without a daemon-reload")
+		return fmt.Errorf("invalid plan: %v/%v: systemd units added without a daemon-reload", currentStep, maxSteps) // yeah yeah this is always at the end
 	}
 
 	return nil
@@ -179,11 +176,7 @@ func (p *Plan) Validate() error {
 func (p *Plan) Steps() []Action {
 	var mainPhase []Action
 	var cleanupPhase []Action
-	keys := make([]string, 0, len(p.resourceChanges))
-	for k := range p.resourceChanges {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
+	keys := sortedKeys(p.resourceChanges)
 	for _, k := range keys {
 		componentActions := []Action{}
 		beginningStep := []Action{}
@@ -203,7 +196,7 @@ func (p *Plan) Steps() []Action {
 
 	}
 
-	return slices.Concat(mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
+	return slices.Concat(p.serviceRemovalPhase, mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
 }
 
 func (p *Plan) Pretty() string {

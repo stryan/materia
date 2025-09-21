@@ -10,26 +10,29 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+var MateriaManifestFile = "MANIFEST.toml"
+
 type SnippetConfig struct {
-	Name, Body string
-	Parameters []string
+	Name       string   `toml:"Name"`
+	Body       string   `toml:"Body"`
+	Parameters []string `toml:"Parameters"`
 }
 
 type MateriaManifest struct {
-	Secrets     string
-	Hosts       map[string]Host
-	Snippets    []SnippetConfig
-	Roles       map[string]Role
-	RoleCommand string
+	Secrets     string          `toml:"Secrets"`
+	Hosts       map[string]Host `toml:"Hosts"`
+	Snippets    []SnippetConfig `toml:"Snippets"`
+	Roles       map[string]Role `toml:"Roles"`
+	RoleCommand string          `toml:"RoleCommnad"`
 }
 
 type Host struct {
-	Components []string
-	Roles      []string
+	Components []string `toml:"Components"`
+	Roles      []string `toml:"Roles"`
 }
 
 type Role struct {
-	Components []string
+	Components []string `toml:"Components"`
 }
 
 func LoadMateriaManifest(path string) (*MateriaManifest, error) {
