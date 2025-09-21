@@ -3,7 +3,7 @@ age.keyfile = "./test-key.txt"
 age.basedir = "secrets"
 
 [hosts.localhost]
-components = ["freshrss"]
+components = ["hello", "freshrss"]
 roles = ["base", "double"]
 
 [roles.base]

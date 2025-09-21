@@ -288,7 +288,8 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstall,
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: "hello"},
 				},
 				{
 					Todo:    ActionInstall,
@@ -306,11 +307,8 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			vars:         map[string]any{},
 			want: []Action{
 				{
-					Todo: ActionInstall,
-				},
-				{
 					Todo:    ActionInstall,
-					Payload: components.Resource{Path: "deep.env"},
+					Payload: components.Resource{Path: "hello"},
 				},
 				{
 					Todo:    ActionInstall,
@@ -323,6 +321,10 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 				{
 					Todo:    ActionInstall,
 					Payload: components.Resource{Path: "hello.sh"},
+				},
+				{
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: "conf/deep.env"},
 				},
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
@@ -360,8 +362,8 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 				if k >= len(got) {
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Path, tt.want[k].Payload.Path)
+				assert.Equal(t, v.Todo, got[k].Todo, "wanted %v got %v", v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path, "wanted %v got %v", v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -385,11 +387,11 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
+					Payload: components.Resource{Path: "hello.container"},
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "hello.container"},
+					Payload: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
 			wantErr: false,
@@ -410,10 +412,6 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "deep.env"},
-				},
-				{
-					Todo:    ActionRemove,
 					Payload: components.Resource{Path: "hello.container"},
 				},
 				{
@@ -423,6 +421,10 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 				{
 					Todo:    ActionRemove,
 					Payload: components.Resource{Path: "hello.sh"},
+				},
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: "conf/deep.env"},
 				},
 				{
 					Todo:    ActionRemove,
@@ -452,11 +454,10 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			}
 			for k, v := range tt.want {
 				if k >= len(got) {
-					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Path, tt.want[k].Payload.Path)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -569,8 +570,8 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Path, tt.want[k].Payload.Path)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
@@ -737,8 +738,8 @@ func TestMateria_diffComponent(t *testing.T) {
 					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, tt.want[k].Todo)
-				assert.Equal(t, v.Payload.Path, tt.want[k].Payload.Path)
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Payload.Path, got[k].Payload.Path)
 			}
 		})
 	}
