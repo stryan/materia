@@ -1,6 +1,8 @@
 package manifests
 
 import (
+	"errors"
+
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -9,31 +11,34 @@ import (
 var ComponentManifestFile = "MANIFEST.toml"
 
 type ServiceResourceConfig struct {
-	Service     string
-	RestartedBy []string
-	ReloadedBy  []string
-	Disabled    bool
-	Static      bool
+	Service     string   `toml:"Service"`
+	RestartedBy []string `toml:"RestartedBy"`
+	ReloadedBy  []string `toml:"ReloadedBy"`
+	Disabled    bool     `toml:"Disabled"`
+	Static      bool     `toml:"Static"`
 }
 
 type BackupsConfig struct {
-	Online     bool
-	Pause      bool
-	Skip       []string
-	NoCompress bool
+	Online     bool     `toml:"Online"`
+	Pause      bool     `toml:"Pause"`
+	Skip       []string `toml:"Skip"`
+	NoCompress bool     `toml:"NoCompress"`
 }
 
 func (src ServiceResourceConfig) Validate() error {
+	if src.Service == "" {
+		return errors.New("service config without a name")
+	}
 	return nil
 }
 
 type ComponentManifest struct {
-	Defaults map[string]any
-	Snippets []SnippetConfig
-	Services []ServiceResourceConfig `toml:"services"`
-	Backups  *BackupsConfig          `toml:"backups"`
-	Scripts  []string
-	Secrets  []string
+	Defaults map[string]any          `toml:"Defaults"`
+	Snippets []SnippetConfig         `toml:"Snippets"`
+	Services []ServiceResourceConfig `toml:"Services"`
+	Backups  *BackupsConfig          `toml:"Backups"`
+	Scripts  []string                `toml:"Scripts"`
+	Secrets  []string                `toml:"Secrets"`
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {
