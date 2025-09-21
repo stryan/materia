@@ -8,13 +8,13 @@ import (
 )
 
 type Plan struct {
-	size       int
-	volumes    []string
-	components []string
-
-	combatPhase   []Action
-	secondMain    []Action
-	servicesPhase []Action
+	size                int
+	volumes             []string
+	components          []string
+	serviceRemovalPhase []Action
+	combatPhase         []Action
+	secondMain          []Action
+	servicesPhase       []Action
 
 	resourceChanges  map[string][]Action
 	structureChanges map[string][]Action
@@ -51,7 +51,16 @@ func (p *Plan) Add(a Action) {
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret, components.ResourceTypeManifest:
+	case components.ResourceTypeManifest:
+		switch a.Todo {
+		case ActionInstall, ActionRemove:
+			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+		case ActionUpdate:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+		}
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
@@ -66,14 +75,20 @@ func (p *Plan) Add(a Action) {
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionRestart, ActionStart, ActionStop, ActionEnable, ActionDisable:
+		case ActionRestart, ActionStart, ActionEnable, ActionDisable:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
 				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
-
+		case ActionStop:
+			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
+				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
+			}) {
+				return
+			}
+			p.serviceRemovalPhase = append(p.serviceRemovalPhase, a)
 		case ActionReload:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
 				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
@@ -181,7 +196,7 @@ func (p *Plan) Steps() []Action {
 
 	}
 
-	return slices.Concat(mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
+	return slices.Concat(p.serviceRemovalPhase, mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
 }
 
 func (p *Plan) Pretty() string {

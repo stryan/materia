@@ -11,6 +11,17 @@ See the [Documentation site](https://primamateria.systems) for more details, or 
 
 # Install
 
+## Requirements
+
+The following are run time requirements and reflect what systems Materia is tested on. It may work without the specified versions (especially the systemd requirement).
+
+Materia will not work with Podman versions lower than 4.4, as that is the version Quadlets were introduced in.
+
+- Podman 5.4 or higher
+- Systemd v254 or higher
+
+Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
+
 ## From source
 Build from source using `mise build`. By default this will generate binaries for amd64 and arm64.
 

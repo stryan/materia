@@ -497,12 +497,16 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	if comp.State != components.StateNeedRemoval {
 		return actions, errors.New("expected to be removed component")
 	}
-	for _, r := range comp.Resources {
-		actions = append(actions, Action{
-			Todo:    ActionRemove,
-			Parent:  comp,
-			Payload: r,
-		})
+	resourceList := comp.Resources
+	slices.Reverse(resourceList)
+	for _, r := range resourceList {
+		if r.Path != manifests.ComponentManifestFile {
+			actions = append(actions, Action{
+				Todo:    ActionRemove,
+				Parent:  comp,
+				Payload: r,
+			})
+		}
 	}
 	if comp.Scripted {
 		actions = append(actions, Action{
@@ -510,6 +514,11 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 			Parent: comp,
 		})
 	}
+	actions = append(actions, Action{
+		Todo:    ActionRemove,
+		Parent:  comp,
+		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile},
+	})
 	actions = append(actions, Action{
 		Todo:    ActionRemove,
 		Parent:  comp,

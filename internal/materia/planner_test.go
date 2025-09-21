@@ -21,12 +21,12 @@ var testComponents = []*components.Component{
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0]},
+		Resources: []components.Resource{testResources[6]},
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0]},
+		Resources: []components.Resource{testResources[0], testResources[6]},
 		ServiceResources: map[string]manifests.ServiceResourceConfig{
 			"hello.service": {
 				Service: "hello.service",
@@ -295,9 +295,14 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 					Todo:    ActionInstall,
 					Payload: components.Resource{Path: "hello.container"},
 				},
+				{
+					Todo:    ActionInstall,
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
+				},
 			},
 			setup: func(comp *components.Component, source *MockComponentRepository) {
 				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
+				source.EXPECT().ReadResource(testResources[6]).Return("manifest!", nil)
 			},
 			wantErr: false,
 		},
@@ -382,12 +387,16 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0]},
+				Resources: []components.Resource{testResources[0], testResources[6]},
 			},
 			want: []Action{
 				{
 					Todo:    ActionRemove,
 					Payload: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
 					Todo:    ActionRemove,
@@ -401,7 +410,7 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5]},
+				Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5], testResources[6]},
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -412,11 +421,7 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			want: []Action{
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "hello.container"},
-				},
-				{
-					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "hello.env"},
+					Payload: components.Resource{Path: "conf/deep.env"},
 				},
 				{
 					Todo:    ActionRemove,
@@ -424,7 +429,16 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 				},
 				{
 					Todo:    ActionRemove,
-					Payload: components.Resource{Path: "conf/deep.env"},
+					Payload: components.Resource{Path: "hello.env"},
+				},
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: "hello.container"},
+				},
+
+				{
+					Todo:    ActionRemove,
+					Payload: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
 					Todo:    ActionRemove,

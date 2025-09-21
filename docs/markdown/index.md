@@ -23,7 +23,7 @@ The following are run time requirements and reflect what systems Materia is test
 
 Materia will not work with Podman versions lower than 4.4, as that is the version Quadlets were introduced in.
 
-- Podman 5.0 or higher
+- Podman 5.4 or higher
 - Systemd v254 or higher
 
 Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
