@@ -117,10 +117,9 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	if err := command.Validate(); err != nil {
 		return err
 	}
-	var res components.Resource
+	res := command.Payload
 	isUnits := command.Payload.Kind == components.ResourceTypeHost
-	if command.Todo != ActionReload && !isUnits {
-		res = command.Payload
+	if !isUnits {
 		if err := res.Validate(); err != nil {
 			return fmt.Errorf("invalid resource when modifying service: %w", err)
 		}
@@ -133,26 +132,26 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	switch command.Todo {
 	case ActionStart:
 		cmd = services.ServiceStart
-		log.Debug("starting service", "unit", res.Path)
+		log.Debug("starting service", "unit", res)
 	case ActionStop:
-		log.Debug("stopping service", "unit", res.Path)
+		log.Debug("stopping service", "unit", res)
 		cmd = services.ServiceStop
 	case ActionRestart:
-		log.Debug("restarting service", "unit", res.Path)
+		log.Debug("restarting service", "unit", res)
 		cmd = services.ServiceRestart
 	case ActionReload:
 		if isUnits {
 			log.Debug("reloading units")
 			cmd = services.ServiceReloadUnits
 		} else {
-			log.Debug("reloading service", "unit", res.Path)
+			log.Debug("reloading service", "unit", res)
 			cmd = services.ServiceReloadService
 		}
 	case ActionEnable:
-		log.Debug("enabling service", "unit", res.Path)
+		log.Debug("enabling service", "unit", res)
 		cmd = services.ServiceEnable
 	case ActionDisable:
-		log.Debug("disabling service", "unit", res.Path)
+		log.Debug("disabling service", "unit", res)
 		cmd = services.ServiceDisable
 
 	default:

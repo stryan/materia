@@ -364,6 +364,10 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 		return actions, nil
 	}
 	for _, d := range resourceActions {
+		if m.diffs && d.Todo == ActionUpdate {
+			diffs := d.Content.([]diffmatchpatch.Diff)
+			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
+		}
 		if updatedService, ok := restartmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionRestart,
@@ -374,6 +378,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 					Kind:   components.ResourceTypeService,
 				},
 			})
+			continue // No need to reload if we restart
 		}
 		if updatedService, ok := reloadmap[d.Payload.Path]; ok {
 			actions = append(actions, Action{
@@ -385,10 +390,6 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 					Kind:   components.ResourceTypeService,
 				},
 			})
-		}
-		if m.diffs && d.Todo == ActionUpdate {
-			diffs := d.Content.([]diffmatchpatch.Diff)
-			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
 
 	}
