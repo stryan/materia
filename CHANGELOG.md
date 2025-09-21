@@ -6,6 +6,7 @@ Best effort list of major changes and bugfixes
 - Materia secrets are renamed as Component Attributes (I got tired of writing "materia secrets" to differentiate from Podman secrets)
 
 ## Unreleased
+- SOPS support as secrets backend
 - All manifest keys are now CamelCased to match systemd style
 - Configuring secrets in repository manifests is removed
 - Volume File Resources are removed (they never really worked)

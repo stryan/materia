@@ -33,7 +33,7 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 		if d.Name() == ".git" {
 			return nil
 		}
-		// we're not supporting binary files here
+		// we're not supporting binary or env files here
 		// note, the formats package isn't technically stable
 		if formats.IsIniFile(path) || formats.IsJSONFile(path) || formats.IsYAMLFile(path) {
 			s.vaultfiles = append(s.vaultfiles, path)
