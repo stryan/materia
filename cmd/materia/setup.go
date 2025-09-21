@@ -163,20 +163,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-
-	log.Debug("loading manifest")
-	manifestLocation := filepath.Join(c.SourceDir, manifests.MateriaManifestFile)
-	man, err = manifests.LoadMateriaManifest(manifestLocation)
-	if err != nil {
-		return nil, fmt.Errorf("error loading manifest: %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid materia manifest: %w", err)
-	}
-	err = k.Load(file.Provider(manifestLocation), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
 	var secretManager materia.SecretsManager
 	// TODO replace this with secrets chaining
 	switch man.Secrets {
