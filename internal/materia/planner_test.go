@@ -600,7 +600,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			newComponent: testComponents[4],
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container file!", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("a new container file!", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage=ubi8", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},
@@ -639,7 +639,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container hello", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("container {{ .var }}", nil)
+				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage={{ .var }}", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
 			},

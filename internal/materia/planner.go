@@ -587,7 +587,8 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 		if newRes, ok := newResources[k]; ok {
 			// check for diffs and update
 			log.Debug("diffing resource", "component", base.Name, "file", cur.Path)
-			diffs, err := m.diffResource(cur, newRes, diffVars)
+			// TODO Refactor to not use pointers
+			diffs, err := m.diffResource(&cur, &newRes, diffVars)
 			if err != nil {
 				return diffActions, err
 			}
@@ -677,36 +678,13 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				if err != nil {
 					return diffActions, err
 				}
-				if r.IsQuadlet() {
-					unitfile := parser.NewUnitFile()
-					err = unitfile.Parse(resourceBody.String())
+				// update the attached object since we parsed the resource
+				if r.IsQuadlet() && r.PodmanObject == "" {
+					newName, err := parseQuadletName(r, resourceBody.String())
 					if err != nil {
-						return diffActions, fmt.Errorf("error parsing container file: %w", err)
+						return diffActions, err
 					}
-					nameOption := ""
-					group := ""
-					switch r.Kind {
-					case components.ResourceTypeContainer:
-						group = "Container"
-						nameOption = "ContainerName"
-					case components.ResourceTypeVolume:
-						group = "Volume"
-						nameOption = "VolumeName"
-					case components.ResourceTypeNetwork:
-						group = "Network"
-						nameOption = "NetworkName"
-					case components.ResourceTypePod:
-						group = "Pod"
-						nameOption = "PodName"
-					}
-					if nameOption != "" {
-						name, foundName := unitfile.Lookup(group, nameOption)
-						if foundName {
-							r.PodmanObject = name
-						} else {
-							r.PodmanObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
-						}
-					}
+					r.PodmanObject = newName
 				}
 
 			}
@@ -723,11 +701,45 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	return diffActions, nil
 }
 
+func parseQuadletName(r components.Resource, resourceBody string) (string, error) {
+	var name string
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(resourceBody)
+	if err != nil {
+		return name, fmt.Errorf("error parsing container file: %w", err)
+	}
+	nameOption := ""
+	group := ""
+	switch r.Kind {
+	case components.ResourceTypeContainer:
+		group = "Container"
+		nameOption = "ContainerName"
+	case components.ResourceTypeVolume:
+		group = "Volume"
+		nameOption = "VolumeName"
+	case components.ResourceTypeNetwork:
+		group = "Network"
+		nameOption = "NetworkName"
+	case components.ResourceTypePod:
+		group = "Pod"
+		nameOption = "PodName"
+	}
+	if nameOption != "" {
+		unitName, foundName := unitfile.Lookup(group, nameOption)
+		if foundName {
+			name = unitName
+		} else {
+			name = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+		}
+	}
+	return name, nil
+}
+
 func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
 	return !s.Disabled && s.Static && !liveService.Enabled
 }
 
-func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
+func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -739,11 +751,11 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 	var curString, newString string
 	var err error
 	if cur.Kind != components.ResourceTypePodmanSecret {
-		curString, err = m.CompRepo.ReadResource(cur)
+		curString, err = m.CompRepo.ReadResource(*cur)
 		if err != nil {
 			return diffs, err
 		}
-		newStringTempl, err := m.SourceRepo.ReadResource(newRes)
+		newStringTempl, err := m.SourceRepo.ReadResource(*newRes)
 		if err != nil {
 			return diffs, err
 		}
@@ -752,6 +764,13 @@ func (m *Materia) diffResource(cur, newRes components.Resource, vars map[string]
 			return diffs, err
 		}
 		newString = result.String()
+		if newRes.IsQuadlet() && newRes.PodmanObject == "" {
+			newResourceName, err := parseQuadletName(*newRes, newString)
+			if err != nil {
+				return diffs, err
+			}
+			newRes.PodmanObject = newResourceName
+		}
 	} else {
 		var curSecret *containers.PodmanSecret
 		secretsList, err := m.Containers.ListSecrets(context.TODO())

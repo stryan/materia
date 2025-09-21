@@ -11,7 +11,6 @@ ContainerName=carpal
 Volume=/var/lib/materia/components/carpal/conf:/etc/carpal:Z
 PublishPort=8000:8008
 Label=io.containers.autoupdate=registry
-ExecReload=/bin/true
 
 [Install]
 # Start by default on boot
