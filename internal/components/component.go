@@ -20,7 +20,6 @@ type Component struct {
 	State            ComponentLifecycle
 	Defaults         map[string]any
 	Secrets          []string
-	VolumeResources  map[string]manifests.VolumeResourceConfig
 	ServiceResources map[string]manifests.ServiceResourceConfig
 	Version          int
 }
@@ -50,7 +49,6 @@ func NewComponent(name string) *Component {
 		Name:             name,
 		State:            StateStale,
 		Defaults:         make(map[string]any),
-		VolumeResources:  make(map[string]manifests.VolumeResourceConfig),
 		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
 		Resources:        []Resource{},
 	}

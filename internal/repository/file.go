@@ -52,21 +52,21 @@ func (filerepository *FileRepository) Exists(ctx context.Context, path string) (
 	return true, nil
 }
 
-func (f *FileRepository) Get(ctx context.Context, path string) (string, error) {
-	return filepath.Join(f.Prefix, path), nil
+func (filerepository *FileRepository) Get(ctx context.Context, path string) (string, error) {
+	return filepath.Join(filerepository.Prefix, path), nil
 }
 
-func (f *FileRepository) List(ctx context.Context) ([]string, error) {
+func (filerepository *FileRepository) List(ctx context.Context) ([]string, error) {
 	panic("unimplemented")
 }
 
-func (f *FileRepository) Clean(ctx context.Context) error {
-	entries, err := os.ReadDir(f.Prefix)
+func (filerepository *FileRepository) Clean(ctx context.Context) error {
+	entries, err := os.ReadDir(filerepository.Prefix)
 	if err != nil {
 		return err
 	}
 	for _, v := range entries {
-		err := os.RemoveAll(filepath.Join(f.Prefix, v.Name()))
+		err := os.RemoveAll(filepath.Join(filerepository.Prefix, v.Name()))
 		if err != nil {
 			return err
 		}

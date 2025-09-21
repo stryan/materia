@@ -29,7 +29,6 @@ const (
 	ResourceTypeKube
 	ResourceTypeFile
 	ResourceTypeManifest
-	ResourceTypeVolumeFile
 	ResourceTypeScript
 	ResourceTypeComponentScript
 	ResourceTypeDirectory

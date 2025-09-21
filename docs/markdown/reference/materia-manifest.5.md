@@ -112,10 +112,6 @@ A list of materia secrets that will used in the form of podman secrets. Materia 
 secrets = ["secret1"]
 ```
 
-#### *VolumeResources*
-
-Experimental. Used to indicate resources that should be installed inside a volume
-
 ## Example
 
 `arcade-agent/MANIFEST.toml`

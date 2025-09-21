@@ -63,20 +63,6 @@ func (p *Plan) Add(a Action) {
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
 		}
-	case components.ResourceTypeVolumeFile:
-		switch a.Todo {
-		case ActionInstall:
-			p.secondMain = append(p.secondMain, a)
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Path]
-			if !ok {
-				return
-			}
-			p.volumes = append(p.volumes, vcr.Volume)
-		case ActionRemove, ActionUpdate:
-			p.secondMain = append(p.secondMain, a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
-		}
 	case components.ResourceTypeService:
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
@@ -152,16 +138,7 @@ func (p *Plan) Validate() error {
 				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Path)
 			}
 		}
-		if a.Payload.Kind == components.ResourceTypeVolumeFile {
-			vcr, ok := a.Parent.VolumeResources[a.Payload.Path]
-			if !ok {
-				return fmt.Errorf("invalid plan: no volume resource for %v", a.Payload)
-			}
-			if slices.Contains(p.volumes, vcr.Volume) {
-				continue
-			}
-			return fmt.Errorf("invalid plan: no volume for resource %v", a.Payload)
-		}
+
 		if a.Todo == ActionInstall {
 			if a.Payload.Kind == components.ResourceTypeComponent {
 				componentList = append(componentList, a.Parent.Name)

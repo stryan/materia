@@ -87,7 +87,6 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	c.State = components.StateFresh
 	c.Defaults = make(map[string]any)
 	c.Version = components.DefaultComponentVersion
-	c.VolumeResources = make(map[string]manifests.VolumeResourceConfig)
 	c.ServiceResources = make(map[string]manifests.ServiceResourceConfig)
 	log.Debugf("loading source component %v from path %v", c.Name, path)
 	var man *manifests.ComponentManifest
@@ -107,7 +106,6 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		return nil, fmt.Errorf("error loading component manifest: %w", err)
 	}
 	maps.Copy(c.Defaults, man.Defaults)
-	maps.Copy(c.VolumeResources, man.VolumeResources)
 	slices.Sort(man.Secrets)
 	for _, s := range man.Secrets {
 		secretResources = append(secretResources, components.Resource{
@@ -132,11 +130,6 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if newRes.Kind == components.ResourceTypeComponentScript {
 			scripts++
 			c.Scripted = true
-		}
-		for _, vr := range c.VolumeResources {
-			if vr.Resource == newRes.Path {
-				newRes.Kind = components.ResourceTypeVolumeFile
-			}
 		}
 		c.Resources = append(c.Resources, newRes)
 		return nil

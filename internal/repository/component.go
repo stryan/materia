@@ -117,7 +117,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			}
 			secretResource = append(secretResource, secretRes)
 		}
-		maps.Copy(oldComp.VolumeResources, man.VolumeResources)
 	}
 
 	err = filepath.WalkDir(dataPath, func(fullPath string, d fs.DirEntry, err error) error {
