@@ -177,6 +177,8 @@ var testMacroMap = func(vars map[string]any) template.FuncMap {
 	}
 }
 
+// TODO add newComponent,removeComponent tests
+
 func TestMateria_updateComponents(t *testing.T) {
 	tests := []struct {
 		name                string

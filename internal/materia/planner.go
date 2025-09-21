@@ -251,7 +251,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	actions = append(actions, Action{
 		Todo:    ActionInstall,
 		Parent:  newComponent,
-		Payload: components.Resource{Kind: components.ResourceTypeComponent, Path: newComponent.Name},
+		Payload: components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 	})
 	maps.Copy(vars, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
@@ -290,9 +290,9 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 				if nameOption != "" {
 					name, foundName := unitfile.Lookup(group, nameOption)
 					if foundName {
-						r.PodmanObject = name
+						r.HostObject = name
 					} else {
-						r.PodmanObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+						r.HostObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
 					}
 				}
 			}
@@ -511,8 +511,9 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 		})
 	}
 	actions = append(actions, Action{
-		Todo:   ActionRemove,
-		Parent: comp,
+		Todo:    ActionRemove,
+		Parent:  comp,
+		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
 	})
 	return actions, nil
 }
@@ -629,7 +630,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				switch cur.Kind {
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
-						if n.Name == cur.PodmanObject {
+						if n.Name == cur.HostObject {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
 								Todo:    ActionCleanup,
@@ -642,7 +643,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 					if m.cleanupVolumes {
 						for _, v := range volumes {
 							// TODO custome volume names
-							if v.Name == cur.PodmanObject {
+							if v.Name == cur.HostObject {
 								if m.backupVolumes {
 									diffActions = append(diffActions, Action{
 										Todo:    ActionDump,
@@ -679,12 +680,12 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 					return diffActions, err
 				}
 				// update the attached object since we parsed the resource
-				if r.IsQuadlet() && r.PodmanObject == "" {
+				if r.IsQuadlet() && r.HostObject == "" {
 					newName, err := parseQuadletName(r, resourceBody.String())
 					if err != nil {
 						return diffActions, err
 					}
-					r.PodmanObject = newName
+					r.HostObject = newName
 				}
 
 			}
@@ -764,12 +765,12 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string
 			return diffs, err
 		}
 		newString = result.String()
-		if newRes.IsQuadlet() && newRes.PodmanObject == "" {
+		if newRes.IsQuadlet() && newRes.HostObject == "" {
 			newResourceName, err := parseQuadletName(*newRes, newString)
 			if err != nil {
 				return diffs, err
 			}
-			newRes.PodmanObject = newResourceName
+			newRes.HostObject = newResourceName
 		}
 	} else {
 		var curSecret *containers.PodmanSecret

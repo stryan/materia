@@ -1,7 +1,6 @@
 package materia
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 
@@ -95,7 +94,7 @@ func (p *Plan) Add(a Action) {
 			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
 		}
 	default:
-		panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
+		panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Payload.Kind, a))
 	}
 	p.size++
 }
@@ -120,6 +119,8 @@ func (p *Plan) Validate() error {
 	needReload := false
 	reload := false
 	deletedVoles := []string{}
+	currentStep := 1
+	maxSteps := len(steps)
 	for _, a := range steps {
 		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
@@ -127,15 +128,15 @@ func (p *Plan) Validate() error {
 		if a.Todo == ActionReload && a.Payload.Path == "" {
 			reload = true
 		}
-		if a.Payload.IsQuadlet() && a.Payload.PodmanObject == "" {
-			return fmt.Errorf("tried to operate on a quadlet without a backing podman object: %v", a.Payload)
+		if a.Payload.IsQuadlet() && a.Payload.HostObject == "" {
+			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Payload)
 		}
 		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
 			deletedVoles = append(deletedVoles, a.Payload.Path)
 		}
 		if a.Todo == ActionDump && a.Payload.Kind == components.ResourceTypeVolume {
 			if !slices.Contains(deletedVoles, a.Payload.Path) {
-				return fmt.Errorf("invalid plan: deleted volume %v before dumping", a.Payload.Path)
+				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Payload.Path)
 			}
 		}
 
@@ -144,13 +145,14 @@ func (p *Plan) Validate() error {
 				componentList = append(componentList, a.Parent.Name)
 			} else {
 				if !slices.Contains(componentList, a.Parent.Name) {
-					return fmt.Errorf("invalid plan: installed resource %v before parent component %v", a.Payload, a.Parent.Name)
+					return fmt.Errorf("%v/%v: invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Payload, a.Parent.Name)
 				}
 			}
 		}
+		currentStep++
 	}
 	if needReload && !reload {
-		return errors.New("invalid plan: systemd units added without a daemon-reload")
+		return fmt.Errorf("invalid plan: %v/%v: systemd units added without a daemon-reload", currentStep, maxSteps) // yeah yeah this is always at the end
 	}
 
 	return nil
@@ -159,11 +161,7 @@ func (p *Plan) Validate() error {
 func (p *Plan) Steps() []Action {
 	var mainPhase []Action
 	var cleanupPhase []Action
-	keys := make([]string, 0, len(p.resourceChanges))
-	for k := range p.resourceChanges {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
+	keys := sortedKeys(p.resourceChanges)
 	for _, k := range keys {
 		componentActions := []Action{}
 		beginningStep := []Action{}

@@ -228,13 +228,13 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			}
 			switch v.Payload.Kind {
 			case components.ResourceTypeNetwork:
-				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Payload.PodmanObject})
+				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Payload.HostObject})
 				if err != nil {
 					return err
 				}
 			case components.ResourceTypeVolume:
 				if m.cleanupVolumes {
-					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Payload.PodmanObject})
+					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Payload.HostObject})
 					if err != nil {
 						return err
 					}
@@ -246,7 +246,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if v.Payload.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to dump non volume resource: %v", v.Payload)
 			}
-			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Payload.PodmanObject}, m.OutputDir, false)
+			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Payload.HostObject}, m.OutputDir, false)
 			if err != nil {
 				return fmt.Errorf("error dumping volume %v:%e", v.Payload.Path, err)
 			}
@@ -384,35 +384,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
 		}
-	// case components.ResourceTypeVolumeFile:
-	// 	switch v.Todo {
-	// 	case ActionInstall, ActionUpdate:
-	// 		resourceTemplate, err := m.SourceRepo.ReadResource(v.Payload)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		resourceData, err := m.executeResource(resourceTemplate, vars)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		if err := m.CompRepo.InstallResource(v.Payload, resourceData); err != nil {
-	// 			return err
-	// 		}
-	// 		if err := m.installVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-	// 			return err
-	// 		}
-	//
-	// 	case ActionRemove:
-	// 		if err := m.CompRepo.RemoveResource(v.Payload); err != nil {
-	// 			return err
-	// 		}
-	// 		if err := m.removeVolumeFile(ctx, v.Parent, v.Payload); err != nil {
-	// 			return err
-	// 		}
-	//
-	// 	default:
-	// 		return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Payload.Kind)
-	// 	}
 	default:
 		panic(fmt.Sprintf("unexpected components.ResourceType: %v", v.Payload.Kind))
 	}

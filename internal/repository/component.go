@@ -276,7 +276,7 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 		return fmt.Errorf("error installing component: %w", err)
 	}
 
-	qFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", qpath), os.O_RDONLY|os.O_CREATE, 0666)
+	qFile, err := os.OpenFile(fmt.Sprintf("%v/.materia_managed", qpath), os.O_RDONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
@@ -392,9 +392,9 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		if nameOption != "" {
 			name, foundName := unitfile.Lookup(group, nameOption)
 			if foundName {
-				res.PodmanObject = name
+				res.HostObject = name
 			} else {
-				res.PodmanObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
+				res.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
 			}
 		}
 	} else {

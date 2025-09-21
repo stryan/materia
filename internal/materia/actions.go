@@ -47,6 +47,9 @@ func (a Action) Validate() error {
 	if a.Parent == nil {
 		return errors.New("action without parent")
 	}
+	if err := a.Payload.Validate(); err != nil {
+		return fmt.Errorf("invalid payload %v for action: %w", a.Payload, err)
+	}
 	return nil
 }
 

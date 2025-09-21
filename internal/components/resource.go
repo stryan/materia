@@ -6,11 +6,11 @@ import (
 )
 
 type Resource struct {
-	Path         string
-	PodmanObject string
-	Parent       string
-	Kind         ResourceType
-	Template     bool
+	Path       string
+	HostObject string
+	Parent     string
+	Kind       ResourceType
+	Template   bool
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType
@@ -38,11 +38,14 @@ const (
 )
 
 func (r Resource) Validate() error {
+	if r.Kind == ResourceTypeHost {
+		if r.Path != "" {
+			return errors.New("can't name host resource")
+		}
+		return nil
+	}
 	if r.Kind == ResourceTypeUnknown {
 		return errors.New("unknown resource type")
-	}
-	if r.Kind == ResourceTypeHost && r.Path != "" {
-		return errors.New("can't name host")
 	}
 	if r.Path == "" {
 		return errors.New("resource without name")
