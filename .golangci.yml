@@ -1,6 +1,9 @@
 ---
 # See the dedicated "version" documentation section.
 version: '2'
+formatters:
+  enable: [gofumpt, goimports]
 linters:
+  default: standard
   exclusions:
-    presets: [comments]
+    presets: [comments, common-false-positives]
