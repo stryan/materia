@@ -1,8 +1,8 @@
 # High Priority Goals
 - [ ] Re-create volumes when .volume resource updates
 - [ ] Override component manifests on per-host/role basis
-- [ ] Re-work internal resource tracking
-- [ ] Add secrets/sops backend
+- [x] Re-work internal resource tracking
+- [x] Add secrets/sops backend
 
 # Near term goals
 - [ ] Investigate `podman quadlet` command integration
