@@ -145,12 +145,12 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 		if err := newComponent.Validate(); err != nil {
 			return plannedActions, err
 		}
+
 		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: newComponent.Name,
 		})
-		maps.Copy(vars, newComponent.Defaults)
 
 		switch newComponent.State {
 		case components.StateFresh:

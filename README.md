@@ -110,10 +110,10 @@ A resource can be any file type; resource files ending with `.gotmpl` are interp
 Create the following *manifest resource* for the component:
 ```
 cat > repo/components/hello/MANIFEST.toml << EOL
-[defaults]
+[Defaults]
 containerTag = "latest"
-[[services]]
-service = "hello.service"
+[[Services]]
+Service = "hello.service"
 EOL
 ```
 
