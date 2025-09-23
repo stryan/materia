@@ -24,7 +24,7 @@ Settings for Git based source repositories.
 
 Git branch to checkout.
 
-#### **MATERIA_GIT_PRIVATEKEY**/ **git.private_key**
+#### **MATERIA_GIT_PRIVATE_KEY**/ **git.private_key**
 
 Private key used for SSH-based git operations
 
