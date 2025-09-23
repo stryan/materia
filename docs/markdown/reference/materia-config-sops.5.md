@@ -26,7 +26,7 @@ Supports YAML,JSON, and INI files.
 
 ## Options
 
-#### **MATERIA_SOPS_BASE__DIR**/**sops.base_dir**
+#### **MATERIA_SOPS_BASE_DIR**/**sops.base_dir**
 
 Directory that contains secrets
 
