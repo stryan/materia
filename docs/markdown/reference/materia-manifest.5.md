@@ -28,9 +28,9 @@ Manifest files are required for a repository or component to be considered valid
 
 (DEPRECATED) - will be removed in materia v0.3.0 . Configure this in the config file or environment instead.
 
-What secrets manager to use. Accepted values are `age` (recommended), `memory`, or `file`.
+What secrets manager to use. Accepted values are `age` (recommended), `memory`,`sops`, or `file`.
 
-For `age` you may also specify a private key file to use with `age.idents`.
+For `age` you may also specify a private key file to use with `age.keyfile`.
 
 #### **hosts**
 
@@ -108,7 +108,7 @@ Under construction. Used to indicate custom snippets. See *materia-templates(5)*
 A list of materia secrets that will used in the form of podman secrets. Materia secrets listed here will be added to the podman secrets vault and are accesible in templates with the related macros.
 
 ```
-secrets = ["secret1"]
+Secrets = ["secret1"]
 ```
 
 ## Example
