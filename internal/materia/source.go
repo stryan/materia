@@ -14,8 +14,8 @@ type Source interface {
 }
 
 type SourceConfig struct {
-	URL    string
-	NoSync bool
+	URL    string `toml:"URL" json:"URL" yaml:"URL"`
+	NoSync bool   `toml:"no_sync" json:"no_sync" yaml:"no_sync"`
 }
 
 func (c SourceConfig) String() string {
@@ -31,7 +31,7 @@ func (c SourceConfig) Validate() error {
 
 func NewSourceConfig(k *koanf.Koanf) (*SourceConfig, error) {
 	var c SourceConfig
-	c.URL = k.String("url")
-	c.NoSync = k.Bool("nosync")
+	c.URL = k.String("URL")
+	c.NoSync = k.Bool("no_sync")
 	return &c, nil
 }

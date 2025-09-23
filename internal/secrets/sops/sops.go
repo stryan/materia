@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
 	"github.com/getsops/sops/v3/decrypt"
 	"gopkg.in/ini.v1"
@@ -65,7 +64,7 @@ func (s *SopsStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string
 	for _, v := range files {
 		decrypted, err := decrypt.File(v, filepath.Ext(v))
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("error decrypting SOPS file: %v", err)
 		}
 		if formats.IsYAMLFile(v) {
 			err = yaml.Unmarshal(decrypted, &secrets)
@@ -87,13 +86,9 @@ func (s *SopsStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string
 			if err != nil {
 				log.Fatal(err)
 			}
+		} else {
+			log.Fatalf("invalid sops file: %v", v)
 		}
-
-		err = toml.Unmarshal(decrypted, &secrets)
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		maps.Copy(results, secrets.Globals)
 		if f.Component != "" {
 			maps.Copy(results, secrets.Components[f.Component])
