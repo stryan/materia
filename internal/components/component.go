@@ -115,12 +115,3 @@ func FindResourceType(file string) ResourceType {
 func IsTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
 }
-
-// func isQuadlet(file string) bool {
-// 	filename := strings.TrimSuffix(file, ".gotmpl")
-// 	switch filepath.Ext(filename) {
-// 	case ".pod", ".container", ".network", ".volume", ".kube":
-// 		return true
-// 	}
-// 	return false
-// }

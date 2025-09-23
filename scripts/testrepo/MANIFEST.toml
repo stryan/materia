@@ -1,5 +1,6 @@
 secrets = "age"
 age.keyfile = "./test-key.txt"
-age.basedir = "secrets"
+age.base_dir = "secrets"
+
 [hosts.localhost]
-components = ["hello","double"]
+components = ["hello", "double"]
