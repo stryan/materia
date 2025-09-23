@@ -8,7 +8,7 @@ Best effort list of major changes and bugfixes
 ## Unreleased
 - SOPS support as secrets backend
 - All manifest keys are now CamelCased to match systemd style
-- All config keys are now snake_case to be more readable
+- All config keys are now lowercase and snake_case to be more readable. I'm sure this will not be confusing wit the above
 - Configuring secrets in repository manifests is removed
 - Volume File Resources are removed (they never really worked)
 - Resources now use their full relative filepaths as their names. If you have a resource in a folder e.g. `/var/lib/materia/source/components/hello/inner/foo.txt` it's name would be `inner/foo.txt` not `foo.txt`
