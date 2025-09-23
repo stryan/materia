@@ -35,7 +35,7 @@ func (src ServiceResourceConfig) Validate() error {
 type ComponentManifest struct {
 	Defaults map[string]any          `toml:"Defaults"`
 	Snippets []SnippetConfig         `toml:"Snippets"`
-	Services []ServiceResourceConfig `toml:"services"`
+	Services []ServiceResourceConfig `toml:"Services"`
 	Backups  *BackupsConfig          `toml:"Backups"`
 	Scripts  []string                `toml:"Scripts"`
 	Secrets  []string                `toml:"Secrets"`
