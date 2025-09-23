@@ -7,9 +7,9 @@ import (
 )
 
 type Config struct {
-	IdentPath     string   `toml:"Keyfile"`
-	BaseDir       string   `toml:"BaseDir"`
-	GeneralVaults []string `toml:"Vaults"`
+	IdentPath     string   `toml:"keyfile"`
+	BaseDir       string   `toml:"base_dir"`
+	GeneralVaults []string `toml:"vaults"`
 }
 
 func (c Config) Validate() error {
@@ -27,7 +27,7 @@ func (c Config) SecretsType() string { return "age" }
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
 	c.IdentPath = k.String("age.keyfile")
-	c.BaseDir = k.String("age.basedir")
+	c.BaseDir = k.String("age.base_dir")
 	c.GeneralVaults = k.Strings("age.vaults")
 	if len(c.GeneralVaults) == 0 {
 		c.GeneralVaults = []string{"vault.age", "secrets.age"}

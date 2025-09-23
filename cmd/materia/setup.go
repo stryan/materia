@@ -22,6 +22,7 @@ import (
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/secrets/age"
 	"primamateria.systems/materia/internal/secrets/mem"
+	"primamateria.systems/materia/internal/secrets/sops"
 
 	filesecrets "primamateria.systems/materia/internal/secrets/file"
 	"primamateria.systems/materia/internal/services"
@@ -184,10 +185,19 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		if err != nil {
 			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
+	case "sops":
+		sopsConfig, err := sops.NewConfig(finalconf)
+		if err != nil {
+			return nil, fmt.Errorf("error creating sops config: %w", err)
+		}
+		secretManager, err = sops.NewSopsStore(*sopsConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating sops store: %w", err)
+		}
 	case "mem":
 		secretManager = mem.NewMemoryManager()
 	default:
-		secretManager = mem.NewMemoryManager()
+		return nil, fmt.Errorf("failed to initialize secrets manager: invalid type")
 	}
 	log.Debug("loading host facts")
 	factsm, err := facts.NewHostFacts(ctx, c.Hostname)

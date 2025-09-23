@@ -8,8 +8,8 @@ import (
 )
 
 type Config struct {
-	BaseDir       string   `toml:"BaseDir"`
-	GeneralVaults []string `toml:"Vaults"`
+	BaseDir       string   `toml:"base_dir"`
+	GeneralVaults []string `toml:"vaults"`
 }
 
 func (c Config) Validate() error {
@@ -21,7 +21,7 @@ func (c Config) Validate() error {
 
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
-	c.BaseDir = k.String("file.basedir")
+	c.BaseDir = k.String("file.base_dir")
 	c.GeneralVaults = k.Strings("file.vaults")
 
 	return &c, nil

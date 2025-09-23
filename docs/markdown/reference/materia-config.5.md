@@ -34,75 +34,75 @@ Presented in *environmental variable*/**TOML config line option** format.
 
    Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
 
-#### *MATERIA_HOSTNAME*/**Hostname**
+#### *MATERIA_HOSTNAME*/**hostname**
 
 Hostname to use for fact generation and component assignment. If not specified, defaults to system hostname
 
-#### *MATERIA_DEBUG*/**Debug**
+#### *MATERIA_DEBUG*/**debug**
 
 Enable extra debug logging. Default false
 
-#### *MATERIA_USESTDOUT*/**Stdout**
+#### *MATERIA_USE__STDOUT*/**use_stdout**
 
 Log to `STDOUT` instead of `STDERR`
 
-#### *MATERIA_ROLES*/**Roles**
+#### *MATERIA_ROLES*/**roles**
 
 Use these assigned roles instead of what's in the `materia-manifest(5)`
 
-#### *MATERIA_DIFFS*/**Diffs**
+#### *MATERIA_DIFFS*/**diffs**
 
 When calculating resource differences, show diffs. Default false.
 
-#### *MATERIA_TIMEOUT*/**Timeout**
+#### *MATERIA_TIMEOUT*/**timeout**
 
 How long to wait when starting/stopping systemd services. Default 30 seconds.
 
-#### *MATERIA_NOSYNC*/**NoSync**
+#### *MATERIA_NO__SYNC*/**no_sync**
 
 Do not sync source repository before running operations.
 
-#### *MATERIA_CLEANUP*/**Cleanup**
+#### *MATERIA_CLEANUP*/**cleanup**
 
 If an error occurs while installing a component, don't leave any files behind. Defaults false.
 
-#### *MATERIA_PREFIX*/**Prefix**
+#### *MATERIA_MATERIA__DIR*/**materia_dir**
 
 Root directory for materia directories. Defaults to `/var/lib/materia` for root and `XDG_DATA_HOME/.local/share/materia` for nonroot.
 
-#### *MATERIA_SOURCEDIR*/**SourceDir**
+#### *MATERIA_SOURCE__DIR*/**source_dir**
 
 Directory where materia keeps local cache of source repository. Defaults to `PREFIX/source`
 
-#### *MATERIA_OUTPUTDIR*/**OutputDir**
+#### *MATERIA_OUTPUT__DIR*/**output_dir**
 
 Directory where materia outputs `lastrun` and `plan` files. Defaults to `PREFIX/output`
 
-#### *MATERIA_QUADLETDIR*/**QuadletDir**
+#### *MATERIA_QUADLET__DIR*/**quadlet_dir**
 
 Directory where materia installs quadlet files. Defaults to `/etc/containers/systemd` for root and `XDG_CONFIG_HOME/containers/systemd` for nonroot.
 
-#### *MATERIA_SERVICEDIR*/**ServiceDir**
+#### *MATERIA_SERVICE__DIR*/**service_dir**
 
 Directory where materia installs non-generated systemd unit files. Defaults to `/etc/systemd/system` for root and `XDG_DATA_HOME/systemd/user` for nonroot.
 
-#### *MATERIA_SCRIPTSDIR*/**ScriptsDir**
+#### *MATERIA_SCRIPTS__DIR*/**scripts_dir**
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
 
-#### *MATERIA_CLEANUP*/**Cleanup**
+#### *MATERIA_CLEANUP*/**cleanup**
 
 When removing Quadlet resources that aren't volumes, remove the resources from Podman as well. Defaults to false.
 
 Example: If a resource `test.network` file is removed, materia will also run a `podman network rm systemd-test` command.
 
-#### *MATERIA_CLEANUPVOLUMES*/**CleanupVolumes**
+#### *MATERIA_CLEANUP__VOLUMES*/**cleanup_volumes**
 
 When removing a `.volume` Quadlet resource, remove the volume from Podman as well. Defaults to false.
 
 This is separate from the above **cleanup** option since volumes container user data. It is recommended to leave this to false or use this in conjunctino with the **backupvolumes** option.
 
-#### *MATERIA_BACKUPVOLUMES*/**BackupVolumes**
+#### *MATERIA_BACKUP__VOLUMES*/**backup_volumes**
 
 If an action would delete a Podman volume, create a backup of it first using `podman volume export` and store it in **outputdir**. Defaults to true
 

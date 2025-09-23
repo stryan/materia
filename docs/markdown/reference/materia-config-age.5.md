@@ -20,14 +20,14 @@ Settings for Age based secret management.
 
 ## Options
 
-#### **MATERIA_AGE_KEYFILE**
+#### **MATERIA_AGE_KEYFILE**/**age.keyfile**
 
 File that contains the Age private key to use
 
-#### **MATERIA_AGE_BASEDIR**
+#### **MATERIA_AGE_BASEDIR**/**age.base_dir**
 
 Directory that contains secrets
 
-#### **MATERIA_AGE_VAULTS**
+#### **MATERIA_AGE_VAULTS**/**age.vaults**
 
 Files that are general secrets vaults. Defaults to "vault.age" and "secrets.age".

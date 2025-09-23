@@ -1,0 +1,41 @@
+---
+title: MATERIA-CONFIG-SOPS
+section: 5
+header: User Manual
+footer: materia 0.1.0
+date: September 2025
+author: stryan
+---
+
+## Name
+materia-config-sops - Materia configuration for SOPS based secrets management
+
+## Synopsis
+
+**$MATERIA_SOPS_<option-name>**
+
+## Description
+
+**EXPERIMENTAL**
+
+Settings for SOPS based secret management.
+
+These are in addition to the normal SOPs configuration settings.
+
+Supports YAML,JSON, and INI files.
+
+## Options
+
+#### **MATERIA_SOPS_BASE__DIR**/**sops.base_dir**
+
+Directory that contains secrets
+
+#### **MATERIA_SOPS_VAULTS**/**sops.vaults**
+
+Files that are general secrets vaults. Defaults to "vault.yml" and "secrets.yml".
+
+#### **MATERIA_SOPS_SUFFIX**/**sops.suffix**
+
+Suffix that denotes an encrypted file and comes before the base file type. Use this if your base directory includes both encrypted and un-encrypted files.
+
+Example: `sops.suffix = "enc"` will cause materia to look for files like `vault.enc.yml` instead of `vault.yml`.

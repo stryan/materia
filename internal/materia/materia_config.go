@@ -10,29 +10,31 @@ import (
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/secrets/age"
 	filesecrets "primamateria.systems/materia/internal/secrets/file"
+	"primamateria.systems/materia/internal/secrets/sops"
 )
 
 type MateriaConfig struct {
-	Debug          bool                `toml:"Debug"`
-	UseStdout      bool                `toml:"UseStdout"`
-	Diffs          bool                `toml:"Diffs"`
-	Hostname       string              `toml:"Hostname"`
-	Roles          []string            `toml:"Roles"`
-	Timeout        int                 `toml:"Timeout"`
-	MateriaDir     string              `toml:"MateriaDir"`
-	QuadletDir     string              `toml:"QuadletDir"`
-	ServiceDir     string              `toml:"ServiceDir"`
-	ScriptsDir     string              `toml:"ScriptsDir"`
-	SourceDir      string              `toml:"SourceDir"`
-	OutputDir      string              `toml:"OutputDir"`
-	OnlyResources  bool                `toml:"OnlyResources"`
-	Quiet          bool                `toml:"Quiet"`
-	Cleanup        bool                `toml:"Cleanup"`
-	CleanupVolumes bool                `toml:"CleanupVolumes"`
-	BackupVolumes  bool                `toml:"BackupVolumes"`
-	AgeConfig      *age.Config         `toml:"AgeConfig"`
-	FileConfig     *filesecrets.Config `toml:"FileConfig"`
-	User           *user.User          `toml:"User"`
+	Debug          bool                `toml:"debug"`
+	UseStdout      bool                `toml:"use_stdout"`
+	Diffs          bool                `toml:"diffs"`
+	Hostname       string              `toml:"hostname"`
+	Roles          []string            `toml:"roles"`
+	Timeout        int                 `toml:"timeout"`
+	MateriaDir     string              `toml:"materia_dir"`
+	QuadletDir     string              `toml:"quadlet_dir"`
+	ServiceDir     string              `toml:"service_dir"`
+	ScriptsDir     string              `toml:"scripts_dir"`
+	SourceDir      string              `toml:"source_dir"`
+	OutputDir      string              `toml:"output_dir"`
+	OnlyResources  bool                `toml:"only_resources"`
+	Quiet          bool                `toml:"quiet"`
+	Cleanup        bool                `toml:"cleanup"`
+	CleanupVolumes bool                `toml:"cleanup_volumes"`
+	BackupVolumes  bool                `toml:"backup_volumes"`
+	AgeConfig      *age.Config         `toml:"age"`
+	FileConfig     *filesecrets.Config `toml:"file"`
+	SopsConfig     *sops.Config        `toml:"sops"`
+	User           *user.User
 }
 
 // var defaultConfig = map[string]any{
@@ -46,25 +48,25 @@ type MateriaConfig struct {
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var c MateriaConfig
 	var err error
-	c.SourceDir = k.String("sourcedir")
+	c.SourceDir = k.String("source_dir")
 	c.Debug = k.Bool("debug")
 	c.Cleanup = k.Bool("cleanup")
 	c.Hostname = k.String("hostname")
 	c.Timeout = k.Int("timeout")
 	c.Roles = k.Strings("roles")
 	c.Diffs = k.Bool("diffs")
-	c.CleanupVolumes = k.Bool("cleanupvolumes")
-	if k.Exists("backupvolumes") {
-		c.BackupVolumes = k.Bool("backupvolumes")
+	c.CleanupVolumes = k.Bool("cleanup_volumes")
+	if k.Exists("backup_volumes") {
+		c.BackupVolumes = k.Bool("backup_volumes")
 	} else {
 		c.BackupVolumes = true
 	}
-	c.UseStdout = k.Bool("stdout")
-	c.MateriaDir = k.String("prefix")
-	c.QuadletDir = k.String("quadletdir")
-	c.ServiceDir = k.String("servicedir")
-	c.ScriptsDir = k.String("scriptsdir")
-	c.OutputDir = k.String("outputdir")
+	c.UseStdout = k.Bool("use_stdout")
+	c.MateriaDir = k.String("materia_dir")
+	c.QuadletDir = k.String("quadlet_dir")
+	c.ServiceDir = k.String("service_dir")
+	c.ScriptsDir = k.String("scripts_dir")
+	c.OutputDir = k.String("output_dir")
 	if k.Exists("age") {
 		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
@@ -73,6 +75,12 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	}
 	if k.Exists("file") {
 		c.FileConfig, err = filesecrets.NewConfig(k)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if k.Exists("sops") {
+		c.SopsConfig, err = sops.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
@@ -171,6 +179,10 @@ func (c *MateriaConfig) String() string {
 	if c.FileConfig != nil {
 		result += "File Config: \n"
 		result += fmt.Sprintf("%v", c.FileConfig.String())
+	}
+	if c.SopsConfig != nil {
+		result += "Sops Config: \n"
+		result += fmt.Sprintf("%v", c.SopsConfig.String())
 	}
 	return result
 }

@@ -225,7 +225,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 			}
 			newRes := components.Resource{
 				Parent:   c.Name,
-				Path:     strings.TrimSuffix(resName, ".gotmpl"),
+				Path:     resName,
 				Kind:     components.FindResourceType(resName),
 				Template: components.IsTemplate(resName),
 			}
@@ -343,7 +343,6 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 }
 
 func (r *HostComponentRepository) NewResource(parent *components.Component, path string) (components.Resource, error) {
-	filename := strings.TrimSuffix(path, ".gotmpl")
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return components.Resource{}, err
@@ -352,7 +351,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		Path:     path,
 		Parent:   parent.Name,
 		Kind:     components.FindResourceType(path),
-		Template: components.IsTemplate(path),
+		Template: false,
 	}
 	if fileInfo.IsDir() {
 		res.Kind = components.ResourceTypeDirectory
@@ -360,7 +359,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		res.Kind = components.FindResourceType(path)
 	}
 	if res.IsQuadlet() {
-		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.Name), filename)
+		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.Name), path)
 		if err != nil {
 			return res, err
 		}
@@ -394,11 +393,11 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 			if foundName {
 				res.HostObject = name
 			} else {
-				res.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
+				res.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
 			}
 		}
 	} else {
-		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), filename)
+		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), path)
 		if err != nil {
 			return res, err
 		}
