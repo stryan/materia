@@ -58,7 +58,7 @@ func main() {
 				Name:  "config",
 				Usage: "Dump active config",
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					k, err := loadConfigs(ctx, configFile, map[string]any{})
+					k, err := LoadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
 						return err
 					}

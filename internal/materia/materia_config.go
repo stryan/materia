@@ -31,6 +31,7 @@ type MateriaConfig struct {
 	Cleanup        bool                `toml:"cleanup"`
 	CleanupVolumes bool                `toml:"cleanup_volumes"`
 	BackupVolumes  bool                `toml:"backup_volumes"`
+	Secrets        string              `toml:"secrets"`
 	AgeConfig      *age.Config         `toml:"age"`
 	FileConfig     *filesecrets.Config `toml:"file"`
 	SopsConfig     *sops.Config        `toml:"sops"`
@@ -61,6 +62,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	} else {
 		c.BackupVolumes = true
 	}
+	c.Secrets = k.String("secrets")
 	c.UseStdout = k.Bool("use_stdout")
 	c.MateriaDir = k.String("materia_dir")
 	c.QuadletDir = k.String("quadlet_dir")
@@ -171,6 +173,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Quadlet Dir: %v\n", c.QuadletDir)
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
+	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	if c.AgeConfig != nil {
 		result += "Age Config: \n"

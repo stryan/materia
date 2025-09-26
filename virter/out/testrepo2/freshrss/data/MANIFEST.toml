@@ -1,0 +1,7 @@
+Defaults.containerTag = "latest"
+Defaults.Port = 80
+Defaults.dataContents = "[Volume]"
+Secrets = ["domain"]
+
+[[Services]]
+Service = "freshrss.service"

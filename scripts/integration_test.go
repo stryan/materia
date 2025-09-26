@@ -38,9 +38,9 @@ func testMateria(services []string) *materia.Materia {
 		Destination:      sourcedir,
 	}
 
-	mockservices := &MockServices{}
+	mockservices := &FakeServices{}
 	mockservices.Services = make(map[string]string)
-	mockcontainers := &MockContainers{make(map[string]string), make(map[string]string)}
+	mockcontainers := &FakeContainers{make(map[string]string), make(map[string]string)}
 	for _, v := range services {
 		mockservices.Services[v] = "unknown"
 	}
@@ -108,6 +108,7 @@ func TestMain(m *testing.M) {
 		Debug:      true,
 		Hostname:   "localhost",
 		Timeout:    0,
+		Secrets:    "age",
 		MateriaDir: testPrefix,
 		QuadletDir: installdir,
 		ServiceDir: servicedir,
@@ -143,7 +144,7 @@ func TestMain(m *testing.M) {
 	ctx = context.Background()
 
 	code := m.Run()
-	// _ = os.RemoveAll(testPrefix)
+	_ = os.RemoveAll(testPrefix)
 	os.Exit(code)
 }
 
@@ -181,14 +182,13 @@ func TestPlan(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
 
 	expectedManifest := &manifests.MateriaManifest{
-		Secrets: "age",
-		Hosts:   map[string]manifests.Host{},
+		Hosts: map[string]manifests.Host{},
 	}
 	expectedManifest.Hosts["localhost"] = manifests.Host{
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
-	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
+	assert.Equal(t, expectedManifest.SecretsProvider, m.Manifest.SecretsProvider)
 	plan, err := m.Plan(ctx)
 	require.Nil(t, err, "error generating plan")
 	require.False(t, plan.Empty(), "plan should not be empty")
@@ -219,14 +219,13 @@ func TestPlan(t *testing.T) {
 func TestExecuteFresh(t *testing.T) {
 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
 	expectedManifest := &manifests.MateriaManifest{
-		Secrets: "age",
-		Hosts:   map[string]manifests.Host{},
+		Hosts: map[string]manifests.Host{},
 	}
 	expectedManifest.Hosts["localhost"] = manifests.Host{
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
-	assert.Equal(t, expectedManifest.Secrets, m.Manifest.Secrets)
+	assert.Equal(t, expectedManifest.SecretsProvider, m.Manifest.SecretsProvider)
 	plan, err := m.Plan(ctx)
 	require.Nil(t, err)
 	require.False(t, plan.Empty(), "plan should not be empty")

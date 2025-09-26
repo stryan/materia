@@ -1,0 +1,17 @@
+[Unit]
+Description=carpal container
+After=local-fs.target network.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+
+[Container]
+Image=docker.io/peeley/carpal:latest
+ContainerName=carpal
+Volume=/var/lib/materia/components/carpal/conf:/etc/carpal:Z
+PublishPort=8000:8008
+Label=io.containers.autoupdate=registry
+
+[Install]
+# Start by default on boot
+WantedBy=multi-user.target default.target

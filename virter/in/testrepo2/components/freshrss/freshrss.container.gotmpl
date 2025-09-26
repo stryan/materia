@@ -1,0 +1,26 @@
+[Unit]
+Description=FreshRSS container
+After={{ m_deps "after" }}
+Wants={{ m_deps "wants" }}
+Requires={{ m_deps "requires" }}
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+
+
+[Container]
+Image=docker.io/freshrss/freshrss:{{.containerTag}}
+ContainerName=freshrss
+EnvironmentFile={{ m_dataDir "freshrss" }}/freshrss.env
+Volume=freshrss-data.volume:/var/www/FreshRSS/data
+Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
+PublishPort={{ .Port }}:80
+{{ secretEnv "domain" "SERVER_DNS" }}
+{{snippet "autoUpdate" "registry" }}
+[Install]
+# Start by default on boot
+WantedBy=multi-user.target default.target

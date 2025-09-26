@@ -1,0 +1,8 @@
+[Defaults]
+port = 8000
+containerTag = "latest"
+
+[[Services]]
+Service = "carpal.service"
+ReloadedBy = ["conf/config.yml", "conf/ldap.yml"]
+RestartedBy = ["conf/config.yml", "carpal.container"]

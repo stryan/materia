@@ -10,13 +10,14 @@ pandoc = "latest"
 pipx = "latest"
 "pipx:mkdocs" = "latest"
 python = "latest"
+sops = "latest"
 
 [settings]
 experimental = true
 
 [vars]
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
-LDFLAGS="{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
+LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
 
 [tasks.container]
 depends = ["build", "lint", "test"]
@@ -32,28 +33,37 @@ sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = { auto = true }
 run = "golangci-lint run ./cmd/... ./internal/..."
 
-[tasks.virter-age]
-run = [
-  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/vault.toml > scripts/_vm/testrepo/secrets/vault.age",
-  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/localhost.toml > scripts/_vm/testrepo/secrets/localhost.age",
-  "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/_vm/testrepo/secrets/base.toml > scripts/_vm/testrepo/secrets/base.age",
-]
-
 [tasks.test]
 depends = ["lint"]
 run = [
   "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/vault.toml > scripts/testrepo/secrets/vault.age",
   "age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 scripts/testrepo/secrets/localhost.toml > scripts/testrepo/secrets/localhost.age",
-  "gotestsum",
+  "gotestsum ./internal/... ./scripts",
 ]
 
+[tasks.virter-age]
+dir = "virter"
+run = """
+  for file in $(find . -path "./in/*/secrets/*.toml"); do
+    echo "encrypting $file"
+    age -r age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 -o $(dirname $file)/$(basename $file .toml).age $file;
+  done
+"""
+
+[tasks.virter-sops]
+dir = "virter"
+run = """
+  for file in $(find . -path "*/secrets/*.yml" ! -name "*.enc.yml"); do
+    echo "encrypting $file"
+    sops encrypt --age age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606 $file > $(dirname $file)/$(basename $file .yml).enc.yml
+  done
+"""
+
 [tasks.virter-test]
-depends = ["build-amd64", "lint", "test", "virter-age"]
-env = { REPO = "file:///tmp/testrepo" }
+depends = ["build", "test", "virter-age", "virter-sops"]
 run = [
-  "if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
-  "virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
-  "virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision.toml --set values.Repo=$REPO --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+  "if ! virter vm exists materia-test-alma-9; then virter vm run --name materia-test-alma-9 --id 102 --wait-ssh alma-9; fi",
+  "virter vm exec materia-test-alma-9 --provision ./virter/virter_test.toml",
   "virter vm rm materia-test-alma-9",
 ]
 
@@ -102,7 +112,7 @@ description = "Build the project for arm64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-arm64"]
 env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
-run = 'go build  -o bin/athanor-arm64 ./cmd/athanor/'
+run = "go build  -o bin/athanor-arm64 ./cmd/athanor/"
 
 [tasks.build-athanor-amd64]
 depends = ["lint"]
@@ -110,7 +120,7 @@ description = "Build the project for amd64"
 sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/athanor-amd64"]
 env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
-run = 'go build  -o bin/athanor-amd64 ./cmd/athanor/'
+run = "go build  -o bin/athanor-amd64 ./cmd/athanor/"
 
 [tasks.docs]
 description = "generate manpage and html docs"

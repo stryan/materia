@@ -1,6 +1,2 @@
-secrets = "age"
-age.keyfile = "./test-key.txt"
-age.base_dir = "secrets"
-
 [hosts.localhost]
 components = ["hello", "double"]

@@ -35,7 +35,13 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 		// we're not supporting binary or env files here
 		// note, the formats package isn't technically stable
 		if formats.IsIniFile(path) || formats.IsJSONFile(path) || formats.IsYAMLFile(path) {
-			s.vaultfiles = append(s.vaultfiles, path)
+			if c.Suffix != "" {
+				if strings.Contains(path, c.Suffix) {
+					s.vaultfiles = append(s.vaultfiles, path)
+				}
+			} else {
+				s.vaultfiles = append(s.vaultfiles, path)
+			}
 		}
 		return nil
 	})
@@ -51,6 +57,7 @@ func (s *SopsStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string
 
 	results := make(map[string]any)
 	files := []string{}
+
 	for _, v := range s.vaultfiles {
 		if strings.Contains(v, f.Hostname) || slices.Contains(s.generalVaults, filepath.Base(v)) {
 			files = append(files, v)
@@ -64,7 +71,7 @@ func (s *SopsStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string
 	for _, v := range files {
 		decrypted, err := decrypt.File(v, filepath.Ext(v))
 		if err != nil {
-			log.Fatalf("error decrypting SOPS file: %v", err)
+			log.Fatalf("error decrypting SOPS file %v: %v", v, err)
 		}
 		if formats.IsYAMLFile(v) {
 			err = yaml.Unmarshal(decrypted, &secrets)

@@ -1,0 +1,62 @@
+version = 1
+
+[values]
+Repo = "git@github.com:materia/materia_repo"
+RemoteHost = "github.com"
+AgeKeyLocation = "scripts/testrepo/test-key.txt"
+
+[env]
+MATERIA_DEBUG = "true"
+MATERIA_DIFFS = "true"
+MATERIA_SOURCE_URL = "{{ .Repo }}"
+MATERIA_GIT_PRIVATE_KEY = ".ssh/materia_key"
+MATERIA_HOSTNAME = "localhost"
+REMOTEHOST = "{{ .RemoteHost }}"
+
+[[steps]]
+[steps.shell]
+script = """
+yum install -y make rsync podman git go
+mkdir -p /var/lib/materia
+mkdir -p /etc/materia
+rm -rf /root/materia
+mkdir -p /root/materia
+"""
+
+[[steps]]
+[steps.rsync]
+source = "bin/materia-amd64"
+dest = "/usr/local/bin/materia"
+
+[[steps]]
+[steps.rsync]
+source = "virter/auth/*"
+dest = "/root/.ssh/"
+
+[[steps]]
+[steps.rsync]
+source = "{{ .AgeKeyLocation }}"
+dest = "/etc/materia/key.txt"
+
+[[steps]]
+[steps.rsync]
+source = "virter/out/"
+dest = "/tmp/out/"
+
+[[steps]]
+[steps.rsync]
+source = "."
+dest = "/root/materia"
+
+[[steps]]
+[steps.shell]
+script = """
+cd /root/materia/
+if ! command -v mise >/dev/null 2>&1
+then
+	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+	mise trust .
+	mise install
+fi
+mise x -- gotestsum ./virter
+"""

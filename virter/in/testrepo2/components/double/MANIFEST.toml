@@ -1,0 +1,9 @@
+[Defaults]
+containerTag = "latest"
+
+[[Services]]
+Service = "goodbye.service"
+
+[[Services]]
+Service = "hello.timer"
+Static = true

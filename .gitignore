@@ -7,6 +7,7 @@ mocks_test.go
 *recipient
 test_repo/
 **/*.age
+**/*.enc.yml
 scripts/vm/auth/*
 docs/man
 docs/site

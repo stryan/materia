@@ -19,11 +19,11 @@ type SnippetConfig struct {
 }
 
 type MateriaManifest struct {
-	Secrets     string          `toml:"Secrets"`
-	Hosts       map[string]Host `toml:"Hosts"`
-	Snippets    []SnippetConfig `toml:"Snippets"`
-	Roles       map[string]Role `toml:"Roles"`
-	RoleCommand string          `toml:"RoleCommnad"`
+	SecretsProvider string          `toml:"Secrets"`
+	Hosts           map[string]Host `toml:"Hosts"`
+	Snippets        []SnippetConfig `toml:"Snippets"`
+	Roles           map[string]Role `toml:"Roles"`
+	RoleCommand     string          `toml:"RoleCommnad"`
 }
 
 type Host struct {
@@ -46,7 +46,7 @@ func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	if m.Secrets != "" {
+	if m.SecretsProvider != "" {
 		log.Warn("WARNING: configuring secrets in the manifest file is deprecated and will be removed next release")
 	}
 	return &m, nil

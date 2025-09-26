@@ -7,6 +7,7 @@ Best effort list of major changes and bugfixes
 
 ## Unreleased
 - SOPS support as secrets backend
+- more flexible testing harness
 - All manifest keys are now CamelCased to match systemd style
 - All config keys are now lowercase and snake_case to be more readable. I'm sure this will not be confusing with the above
 - Configuring secrets in repository manifests is removed

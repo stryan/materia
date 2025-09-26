@@ -32,7 +32,7 @@ import (
 )
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
-	k, err := loadConfigs(ctx, configFile, cliflags)
+	k, err := LoadConfigs(ctx, configFile, cliflags)
 	if err != nil {
 		return nil, fmt.Errorf("error generating config blob: %w", err)
 	}
@@ -166,7 +166,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	var secretManager materia.SecretsManager
 	// TODO replace this with secrets chaining
-	switch man.Secrets {
+	switch c.Secrets {
 	case "age":
 		ageConfig, err := age.NewConfig(finalconf)
 		if err != nil {
@@ -212,7 +212,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	return m, nil
 }
 
-func loadConfigs(_ context.Context, configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
+func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 	fileConf := koanf.New(".")
 	envConf := koanf.New(".")
@@ -252,7 +252,7 @@ func loadConfigs(_ context.Context, configFile string, cliflags map[string]any) 
 }
 
 func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
-	k, err := loadConfigs(ctx, configFile, cliflags)
+	k, err := LoadConfigs(ctx, configFile, cliflags)
 	if err != nil {
 		return nil, err
 	}
