@@ -1,0 +1,5 @@
+attributes = "age"
+
+[age]
+keyfile = "./key.txt"
+base_dir = "attributes"
