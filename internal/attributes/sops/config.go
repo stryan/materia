@@ -27,10 +27,10 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 	c.GeneralVaults = k.Strings("sops.vaults")
 	c.Suffix = k.String("sops.suffix")
 	if len(c.GeneralVaults) == 0 {
-		c.GeneralVaults = []string{"vault.yml", "secrets.yml"}
+		c.GeneralVaults = []string{"vault.yml", "attributes.yml"}
 		if c.Suffix != "" {
 			c.GeneralVaults = append(c.GeneralVaults, fmt.Sprintf("vault.%v.yml", c.Suffix))
-			c.GeneralVaults = append(c.GeneralVaults, fmt.Sprintf("secrets.%v.yml", c.Suffix))
+			c.GeneralVaults = append(c.GeneralVaults, fmt.Sprintf("attributes.%v.yml", c.Suffix))
 		}
 	}
 	return &c, nil

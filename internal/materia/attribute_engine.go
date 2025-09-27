@@ -6,6 +6,6 @@ import (
 	"primamateria.systems/materia/internal/attributes"
 )
 
-type AttributesManager interface {
+type AttributesEngine interface {
 	Lookup(context.Context, attributes.AttributesFilter) map[string]any
 }

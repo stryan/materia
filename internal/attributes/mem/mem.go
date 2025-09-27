@@ -6,7 +6,7 @@ import (
 	"primamateria.systems/materia/internal/attributes"
 )
 
-type MemoryManager struct {
+type MemoryEngine struct {
 	secrets map[string]any
 }
 
@@ -20,15 +20,15 @@ func (m MemoryConfig) Validate() error { return nil }
 
 func (m MemoryConfig) SourceType() string { return "memory" }
 
-func NewMemoryManager() *MemoryManager {
+func NewMemoryEngine() *MemoryEngine {
 	secrets := make(map[string]any)
-	return &MemoryManager{secrets}
+	return &MemoryEngine{secrets}
 }
 
-func (m *MemoryManager) Lookup(_ context.Context, _ attributes.AttributesFilter) map[string]any {
+func (m *MemoryEngine) Lookup(_ context.Context, _ attributes.AttributesFilter) map[string]any {
 	return m.secrets
 }
 
-func (m *MemoryManager) Add(key, value string) {
+func (m *MemoryEngine) Add(key, value string) {
 	m.secrets[key] = value
 }

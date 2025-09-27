@@ -18,6 +18,7 @@ Work in progress online docs for the Materia Project.
 
 [Git config](materia-config-git.5.md)
 
-## Secrets Engines
+## Attributes Engines
 [Age engine config](materia-config-age.5.md)
+[SOPS engine config](materia-config-sops.5.md)
 

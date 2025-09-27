@@ -186,7 +186,7 @@ func servicesRunning(ctx context.Context, conn *dbus.Conn, goldenPath string) bo
 	}
 	result := true
 	for _, s := range states {
-		if s.SubState != "running" {
+		if s.ActiveState != "active" {
 			log.Warnf("service %v isn't running", s.Name)
 			result = false
 		}

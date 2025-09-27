@@ -20,7 +20,9 @@ materia-config - Materia configuration settings
 
 When both environmental variables and a config file are used, config file settings are overwritten by environmental variables.
 
-For configuring secrets management with `age`, see `materia-config-age(5)`.
+For configuring attributes management with `age`, see `materia-config-age(5)`.
+
+For configuring attributes management with `sops`, see `materia-config-sops(5)`.
 
 ## Options
 

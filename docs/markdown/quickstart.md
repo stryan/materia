@@ -4,7 +4,7 @@
 
 In this quickstart we will install the [caddy](https://caddyserver.com/) service on a host named `ivy`.
 
-For [secrets](secrets.md) management we will use the default [age](https://github.com/FiloSottile/age) based encrypted vaults. If you do not wish to setup age encryption, you can skip the steps marked `OPTIONAL-AGE` and use ` secrets = "file"` in your `MANIFEST.toml`.
+For [attributes](attributes.md) management we will use the default [age](https://github.com/FiloSottile/age) based encrypted vaults. If you do not wish to setup age encryption, you can skip the steps marked `OPTIONAL-AGE` and use `MATERIA_ATTRIBUTES='file'`.
 
 ## Installation
 
@@ -30,7 +30,7 @@ Create a git repository on your workstation named whatever you like; we're going
 
 Inside the git repo, create the base directories:
 
-`mkdir components secrets`
+`mkdir components attributes`
 
 Finally, create a [manifest](reference/materia-manifest.5.md) file:
 
@@ -65,7 +65,7 @@ The next few steps are done in `components/caddy`:
 
 #### Create the Caddy container Quadlet resource
 
-Create a file `caddy.container.gotmpl` for the Caddy container Quadlet: `touch caddy.container.gotmpl`. We want to *template* secrets into the file later, so make sure the file ends with `.gotmpl` to designate it as a templated resource. Materia uses the standard [Go Templating engine](https://pkg.go.dev/text/template).
+Create a file `caddy.container.gotmpl` for the Caddy container Quadlet: `touch caddy.container.gotmpl`. We want to *template* attributes into the file later, so make sure the file ends with `.gotmpl` to designate it as a templated resource. Materia uses the standard [Go Templating engine](https://pkg.go.dev/text/template).
 
 Using your editor of choice, insert the following lines into the file we just created:
 
@@ -134,7 +134,7 @@ Insert the following line into your freshly created Caddyfile:
 {{ .caddyfile }}
 ```
 
-In the real world most config files are simple and can be templated more directly i.e. `ConfigOption = {{ .configValue }}` but since Caddy's is more complicated and this is a quickstart, we're going to store the entire configuration as a secret.
+In the real world most config files are simple and can be templated more directly i.e. `ConfigOption = {{ .configValue }}` but since Caddy's is more complicated and this is a quickstart, we're going to store the entire configuration as an attribute.
 
 #### Create the Manifest resource
 
@@ -148,32 +148,32 @@ Add the following content:
 [Defaults]
 containerTag = "latest"
 
-[[services]]
+[[Services]]
 Service = "caddy.service"
 ```
 
-The `[defaults]` section is a TOML table describing default secret values. In this case, the `containerTag` secret is set to `latest` by default.
+The `[Defaults]` section is a TOML table describing default attribute values. In this case, the `containerTag` attribute is set to `latest` by default.
 
-The `[[services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed seperately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped,when the component has updated files it will restart the service, and if the service is detected as not-running when materia runs it will attempt to start it again.
+The `[[Services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed seperately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped,when the component has updated files it will restart the service, and if the service is detected as not-running when materia runs it will attempt to start it again.
 
 For more details, such as how to set services to only restart when certain files are updated, see the [component section of the manifest reference](reference/materia-manifest.5.md).
 
 
-### Create repository secrets
+### Create repository attributes
 
-We've created the `caddy` component, but some of the resources in it use **secrets**. It's time to setup our secrets engine and store some secrets.
+We've created the `caddy` component, but some of the resources in it use **attributes**. It's time to setup our attributes engine and store some attributes.
 
-By default, the `age` secrets engine will look for `*.age` files named either `vault.age`, `secrets.age`, or the hostname of the node e.g. `ivy.age`.
+By default, the `age` attributes engine will look for `*.age` files named either `vault.age`, `attributes.age`, or the hostname of the node e.g. `ivy.age`.
 
-We will be setting up two age-based **vaults** in our repository: one that applies to all hosts (`secrets/vault.age`) and one that only applies to `ivy` (`secrets/ivy.age`). For the age secrets engine, a vault is just an encrypted TOML file.
+We will be setting up two age-based **vaults** in our repository: one that applies to all hosts (`attributes/vault.age`) and one that only applies to `ivy` (`attributes/ivy.age`). For the age attributes engine, a vault is just an encrypted TOML file.
 
-If you do not have the `age` cli tool installed, follow the instructions [here](https://github.com/FiloSottile/age/blob/main/README.md) to install it. While materia has age decryption built in it does not manage secrets vaults on its own and expects you to handle it.
+If you do not have the `age` cli tool installed, follow the instructions [here](https://github.com/FiloSottile/age/blob/main/README.md) to install it. While materia has age decryption built in it does not manage attributes vaults on its own and expects you to handle it.
 
 #### Create the general vault
 
-First we create the vault used by all hosts. Create a file named `secrets/vault.toml`:
+First we create the vault used by all hosts. Create a file named `attributes/vault.toml`:
 
-`touch secrets/vault.toml`
+`touch attributes/vault.toml`
 
 Put the following content in it:
 
@@ -185,17 +185,17 @@ containerTag = "stable"
 containerTag = "latest"
 ```
 
-Secrets in the `[global]` section will be available to all hosts and all components.
+Attributes in the `[global]` section will be available to all hosts and all components.
 
-Secrets in a `[components.componentname]` section will only be available to the component `componentname`.
+Attributes in a `[components.componentname]` section will only be available to the component `componentname`.
 
-With this file, all components with the `containerTag` secret will have the value `stable`, except for the `caddy` component which will have `latest`.
+With this file, all components with the `containerTag` attribute will have the value `stable`, except for the `caddy` component which will have `latest`.
 
 #### Create the host vault
 
 Next, create a vault that will only apply to components installed on `ivy`:
 
-`touch secrets/ivy.toml`
+`touch attributes/ivy.toml`
 
 Insert the following content in it:
 
@@ -204,7 +204,7 @@ Insert the following content in it:
 localWeb = "/srv/www"
 ```
 
-This means the `localWeb` secret on `ivy` *and only ivy* will be set to "/srv/www".
+This means the `localWeb` attribute on `ivy` *and only ivy* will be set to "/srv/www".
 
 
 #### Setup age based encryption (OPTIONAL-AGE)
@@ -212,32 +212,22 @@ This means the `localWeb` secret on `ivy` *and only ivy* will be set to "/srv/ww
 1. Create an age key: `age-keygen -o key.txt`.
 2. Extract the public key from the generated private key: `age-keygen -y key.txt`. Store this somewhere convenient.
 3. Install the key on `ivy`; for this guide we'll put it in `/etc/materia/key.txt`. **DO NOT STORE THIS IN YOUR MATERIA REPOSITORY**
-4. Encrypt the files to extracted public key: `cd secrets && for file in $(find  -name '*.toml'); do age -r <INSERT PUBLIC KEY HERE> -o $(basename $file .toml).age $file; done`
-5. Once the files are successfully encrypted, remove the no longer needed raw TOML files: `rm secrets/*.toml`.
+4. Encrypt the files to extracted public key: `cd attributes && for file in $(find  -name '*.toml'); do age -r <INSERT PUBLIC KEY HERE> -o $(basename $file .toml).age $file; done`
+5. Once the files are successfully encrypted, remove the no longer needed raw TOML files: `rm attributes/*.toml`.
 
 
 ### Create the repository manifest
 
-We have a component and we have secrets to use with the component, now to put it all together in the repository manifest.
+We have a component and we have attributes to use with the component, now to put it all together in the repository manifest.
 
 Open the `materia-repo/MANIFEST.toml` file and add the following content:
 
 ```
-secrets = "age"
-
-[Age]
-Keyfile = "/etc/materia/key.txt"
-Basedir = "secrets"
-
 [Hosts.ivy]
 components = ["caddy"]
 ```
 
-First we set what secrets engine we're using with `secrets = "age"`.
-
-Then, we configure the `age secrets engine` by telling it what file on the host contains the age key (`identity`) and where in the repository to find secrets (`secrets`). These settings can also be configured at runtime or on the target node.
-
-Finally, we define the `ivy` host (`[hosts.ivy]`) and assign the `caddy` component to it: `components = ["caddy"]`.
+Here we've defined the `ivy` host (`[hosts.ivy]`) and assign the `caddy` component to it: `components = ["caddy"]`.
 
 
 ### Final results
@@ -253,9 +243,9 @@ materia-repo/components/caddy/conf/Caddyfile.gotmpl
 materia-repo/components/caddy/caddy.container.gotmpl
 materia-repo/components/caddy/caddy-config.volume
 materia-repo/components/caddy/caddy-data.volume
-materia-repo/secrets/
-materia-repo/secrets/ivy.age
-materia-repo/secrets/vault.age
+materia-repo/attributes/
+materia-repo/attributes/ivy.age
+materia-repo/attributes/vault.age
 materia-repo/MANIFEST.toml
 ```
 
@@ -271,7 +261,16 @@ These steps will assume your git repository is at `github.com/user/materia-repo`
 
 Materia needs to know where your repository is. This can be done in a config file, but we'll just use an environmental variable
 
-`export MATERIA_SOURCE_URL=git://git@github.com:user/materia-repo"`
+`export MATERIA_SOURCE_URL=git://git@github.com:user/materia-repo`
+
+### Configure materia's attributes engine
+
+Materia needs to know where to find attributes. This can also be done in a config file, but we'll just use environmental varibables again:
+
+`export MATERIA_ATTRIBUTES=age`
+`export MATERIA_AGE_KEYFILE=/etc/materia/key.txt`
+`export MATERIA_AGE_BASE_DIR=attributes`
+
 
 ### Update known_hosts (OPTIONAL)
 
@@ -280,6 +279,7 @@ This is optional if you're using git over HTTP or you've already set this up on 
 Make sure your Git forge is in your `known_hosts` file for SSH access:
 
 `ssh-keyscan github.com >> ~/.ssh/known_hosts`
+
 
 ### Run materia plan
 
@@ -299,7 +299,7 @@ Plan:
 $
 ```
 
-The output is deterministic and will make sure that your repository is valid. If there's any missing secrets or other information not available to the host it will fail.
+The output is deterministic and will make sure that your repository is valid. If there's any missing attributes or other information not available to the host it will fail.
 
 ## Update the host
 

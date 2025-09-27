@@ -8,7 +8,7 @@ author: stryan
 ---
 
 ## Name
-materia-config-age - Materia configuration for Age based secrets management
+materia-config-age - Materia configuration for Age based attribute management
 
 ## Synopsis
 
@@ -26,8 +26,8 @@ File that contains the Age private key to use
 
 #### **MATERIA_AGE_BASEDIR**/**age.base_dir**
 
-Directory that contains secrets
+Directory that contains attributes
 
 #### **MATERIA_AGE_VAULTS**/**age.vaults**
 
-Files that are general secrets vaults. Defaults to "vault.age" and "secrets.age".
+Files that are general attribute vaults. Defaults to "vault.age" and "attributes.age".

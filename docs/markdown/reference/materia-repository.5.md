@@ -25,8 +25,8 @@ materia-repo/components
 materia-repo/components/hello
 materia-repo/components/hello/hello.container.gotmpl
 materia-repo/components/hello/MANIFEST.toml
-materia-repo/secrets
-materia-repo/secrets/vault.age
+materia-repo/attributes
+materia-repo/attributes/vault.age
 materia-repo/MANIFEST.toml
 ```
 
@@ -68,17 +68,17 @@ A single file in a component. Resources are either static files or Golang templa
 
 #### **variable**
 
-A Golang template variable. Usually defined as either a `secret` or in the `defaults` section of a component manifest
+A Golang template variable. Usually defined as either an `attribute` or in the `defaults` section of a component manifest
 
-#### **secret**
+#### **Attributes**
 
 A Golang template variable stored encrypted in the repository, like the default `age` encryption.
 
-   Secrets are usually stored in a subdirectory `materia-repo/secrets`. There are three main types of secrets files:
+   Attributes are usually stored in a subdirectory `materia-repo/attributes`. There are three main types of attributes files:
 
-   `secrets/vault.(toml|age)`: A general list of secrets available to all components, hosts, and roles.
+   `attributes/vault.(toml|age)`: A general list of attributes available to all components, hosts, and roles.
 
-   `secrets/<hostname>.(toml|age)`: Secrets available only to a specific host
+   `attributes/<hostname>.(toml|age)`: Attributes available only to a specific host
 
-   `secrets/<role>.(toml|age)`: Secrets available to a specific role
+   `attributes/<role>.(toml|age)`: Attributes available to a specific role
 

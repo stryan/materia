@@ -30,7 +30,7 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 	c.BaseDir = k.String("age.base_dir")
 	c.GeneralVaults = k.Strings("age.vaults")
 	if len(c.GeneralVaults) == 0 {
-		c.GeneralVaults = []string{"vault.age", "secrets.age"}
+		c.GeneralVaults = []string{"vault.age", "attributes.age"}
 	}
 	return &c, nil
 }
@@ -48,5 +48,5 @@ func (c *Config) Merge(other *Config) {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("Ident Path:%v\nBase Path: %v\nVaults: %v\n", c.IdentPath, c.BaseDir, c.GeneralVaults)
+	return fmt.Sprintf("Keyfile Path:%v\nBase Path: %v\nVaults: %v\n", c.IdentPath, c.BaseDir, c.GeneralVaults)
 }

@@ -47,7 +47,7 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 	}
 	a.identities = idents
 	if len(c.GeneralVaults) == 0 {
-		c.GeneralVaults = []string{"vault.age", "secrets.age"}
+		c.GeneralVaults = []string{"vault.age", "attributes.age"}
 	}
 	a.generalVaults = c.GeneralVaults
 	err = filepath.WalkDir(filepath.Join(sourceDir, c.BaseDir), func(path string, d fs.DirEntry, err error) error {
@@ -66,7 +66,7 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 }
 
 func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
-	secrets := attributes.AttributeVault{}
+	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
 	files := []string{}
@@ -94,21 +94,21 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = toml.Unmarshal(buf.Bytes(), &secrets)
+		err = toml.Unmarshal(buf.Bytes(), &attrs)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		maps.Copy(results, secrets.Globals)
+		maps.Copy(results, attrs.Globals)
 		if f.Component != "" {
-			maps.Copy(results, secrets.Components[f.Component])
+			maps.Copy(results, attrs.Components[f.Component])
 		}
 		if f.Hostname != "" {
-			maps.Copy(results, secrets.Hosts[f.Hostname])
+			maps.Copy(results, attrs.Hosts[f.Hostname])
 		}
 		if len(f.Roles) != 0 {
 			for _, r := range f.Roles {
-				maps.Copy(results, secrets.Roles[r])
+				maps.Copy(results, attrs.Roles[r])
 			}
 		}
 

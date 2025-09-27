@@ -14,9 +14,9 @@ materia-templates - Variables, functions, and snippets accessible within Materia
 
 Materia uses the standard Go templating engine for executing resources that end in the `.gotmpl` file type.
 
-To access a secret within a templated resource, use the standard Go Template method of accessing variables: `{{ .containerTag }}` will resolve to the `containerTag` secret.
+To access a attribute within a templated resource, use the standard Go Template method of accessing variables: `{{ .containerTag }}` will resolve to the `containerTag` attribute.
 
-Besides normal secrets insertion, Materia also supports **macros** and **snippets**.
+Besides normal attributes insertion, Materia also supports **macros** and **snippets**.
 
 ## Macros
 
@@ -36,23 +36,23 @@ Reference the components **data directory**. Often used for templating bind moun
 
 Lookup a fact about the host.
 
-   Example: `PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}` would template as `PublishPort=<tailscale interface IP address>:<port secret>:<port secret>`
+   Example: `PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}` would template as `PublishPort=<tailscale interface IP address>:<port attribute>:<port attribute>`
 
-#### **m_default secret value**
+#### **m_default attribute value**
 
-Return a secret's value or the provided value if the secret is not defined
+Return a attribute's value or the provided value if the attribute is not defined
 
-#### **exists secret**
+#### **exists attribute**
 
-Returns true if the secret is defined, otherwise false
+Returns true if the attribute is defined, otherwise false
 
 #### **snippet "snippet_name" "argument"**
 
 Special macro, see the Snippets section below
 
-#### **secretEnv "secret name" "TARGET (OPTIONAL)"**
+#### **secretEnv "attribute name" "TARGET (OPTIONAL)"**
 
-Access a Materia secret that is specified as a podman secret in the component manifest. The "secret name" should be as specified in the `secrets = ["secret_name"]`. Optionally, provide the target as defined in the Podman manual
+Access a Materia attribute that is specified as a podman secret in the component manifest. The "attribute name" should be as specified in the `secrets = ["attribute_name"]`. Optionally, provide the target as defined in the Podman manual
 
 #### **secretMount "secret name" "ARGS (OPTIONAL)"**
 

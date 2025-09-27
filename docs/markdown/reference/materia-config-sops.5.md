@@ -8,7 +8,7 @@ author: stryan
 ---
 
 ## Name
-materia-config-sops - Materia configuration for SOPS based secrets management
+materia-config-sops - Materia configuration for SOPS based attribute management
 
 ## Synopsis
 
@@ -18,7 +18,7 @@ materia-config-sops - Materia configuration for SOPS based secrets management
 
 **EXPERIMENTAL**
 
-Settings for SOPS based secret management.
+Settings for SOPS based attribute management.
 
 These are in addition to the normal SOPs configuration settings.
 
@@ -28,11 +28,11 @@ Supports YAML,JSON, and INI files.
 
 #### **MATERIA_SOPS_BASE_DIR**/**sops.base_dir**
 
-Directory that contains secrets
+Directory that contains attributes
 
 #### **MATERIA_SOPS_VAULTS**/**sops.vaults**
 
-Files that are general secrets vaults. Defaults to "vault.yml" and "secrets.yml".
+Files that are general attributes vaults. Defaults to "vault.yml" and "attributes.yml".
 
 #### **MATERIA_SOPS_SUFFIX**/**sops.suffix**
 

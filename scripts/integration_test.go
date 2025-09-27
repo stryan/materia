@@ -62,7 +62,7 @@ func testMateria(services []string) *materia.Materia {
 		IdentPath: "./test-key.txt",
 		BaseDir:   "secrets",
 	}
-	secretManager, err := age.NewAgeStore(sc, sourcedir)
+	attributesEngine, err := age.NewAgeStore(sc, sourcedir)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error creating age store: %w", err))
 	}
@@ -87,7 +87,7 @@ func testMateria(services []string) *materia.Materia {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m, err := materia.NewMateria(ctx, cfg, source, man, facts, secretManager, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
+	m, err := materia.NewMateria(ctx, cfg, source, man, facts, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
 	if err != nil {
 		log.Fatal(err)
 	}

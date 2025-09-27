@@ -24,14 +24,6 @@ Manifest files are required for a repository or component to be considered valid
 
 ## Options
 
-#### **Secrets**
-
-(DEPRECATED) - will be removed in materia v0.3.0 . Configure this in the config file or environment instead.
-
-What secrets manager to use. Accepted values are `age` (recommended), `memory`,`sops`, or `file`.
-
-For `age` you may also specify a private key file to use with `age.keyfile`.
-
 #### **hosts**
 
 A TOML table containing hosts entries of the following format:
@@ -77,7 +69,7 @@ components = ["authelia"]
 
 #### *Defaults*
 
-Key-value pairs describing default variable/secret values for a component.
+Key-value pairs describing default variable/attribute values for a component.
 
 Example: `defaults.containerTag = "latest"`
 
@@ -105,10 +97,10 @@ Under construction. Used to indicate custom snippets. See *materia-templates(5)*
 
 #### *Secrets*
 
-A list of materia secrets that will used in the form of podman secrets. Materia secrets listed here will be added to the podman secrets vault and are accesible in templates with the related macros.
+A list of materia attributes that will used in the form of podman secrets. Attributes listed here will be added to the podman secrets vault and are accessible in templates with the related macros.
 
 ```
-Secrets = ["secret1"]
+Secrets = ["attribute1"]
 ```
 
 ## Example

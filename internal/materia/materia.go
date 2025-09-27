@@ -31,7 +31,7 @@ type Materia struct {
 	Manifest            *manifests.MateriaManifest
 	Services            Services
 	Containers          ContainerManager
-	Attributes          AttributesManager
+	Attributes          AttributesEngine
 	source              Source
 	CompRepo            ComponentRepository
 	ScriptRepo          Repository
@@ -52,7 +52,7 @@ type Materia struct {
 	backupVolumes       bool
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, attributes AttributesManager, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}

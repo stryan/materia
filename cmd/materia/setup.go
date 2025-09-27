@@ -150,7 +150,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-	var secretManager materia.AttributesManager
+	var attributesEngine materia.AttributesEngine
 	// TODO replace this with attributes chaining
 	switch c.Attributes {
 	case "age":
@@ -158,7 +158,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		if err != nil {
 			return nil, fmt.Errorf("error creating age config: %w", err)
 		}
-		secretManager, err = age.NewAgeStore(*ageConfig, c.SourceDir)
+		attributesEngine, err = age.NewAgeStore(*ageConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
@@ -167,7 +167,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		if err != nil {
 			return nil, fmt.Errorf("error creating file config: %w", err)
 		}
-		secretManager, err = fileattrs.NewFileStore(*fileConfig, c.SourceDir)
+		attributesEngine, err = fileattrs.NewFileStore(*fileConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
@@ -176,12 +176,12 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		if err != nil {
 			return nil, fmt.Errorf("error creating sops config: %w", err)
 		}
-		secretManager, err = sops.NewSopsStore(*sopsConfig, c.SourceDir)
+		attributesEngine, err = sops.NewSopsStore(*sopsConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating sops store: %w", err)
 		}
 	case "mem":
-		secretManager = mem.NewMemoryManager()
+		attributesEngine = mem.NewMemoryEngine()
 	default:
 		return nil, fmt.Errorf("failed to initialize attributes manager: invalid type")
 	}
@@ -191,7 +191,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
 
-	m, err := materia.NewMateria(ctx, c, source, man, factsm, secretManager, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
+	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
 	if err != nil {
 		log.Fatal(err)
 	}

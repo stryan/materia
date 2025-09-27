@@ -53,7 +53,7 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 }
 
 func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
-	secrets := attributes.AttributeVault{}
+	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
 	files := []string{}
@@ -74,12 +74,12 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 			log.Fatalf("error decrypting SOPS file %v: %v", v, err)
 		}
 		if formats.IsYAMLFile(v) {
-			err = yaml.Unmarshal(decrypted, &secrets)
+			err = yaml.Unmarshal(decrypted, &attrs)
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else if formats.IsJSONFile(v) {
-			err = json.Unmarshal(decrypted, &secrets)
+			err = json.Unmarshal(decrypted, &attrs)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -89,23 +89,23 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = interformat.MapTo(secrets)
+			err = interformat.MapTo(attrs)
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else {
 			log.Fatalf("invalid sops file: %v", v)
 		}
-		maps.Copy(results, secrets.Globals)
+		maps.Copy(results, attrs.Globals)
 		if f.Component != "" {
-			maps.Copy(results, secrets.Components[f.Component])
+			maps.Copy(results, attrs.Components[f.Component])
 		}
 		if f.Hostname != "" {
-			maps.Copy(results, secrets.Hosts[f.Hostname])
+			maps.Copy(results, attrs.Hosts[f.Hostname])
 		}
 		if len(f.Roles) != 0 {
 			for _, r := range f.Roles {
-				maps.Copy(results, secrets.Roles[r])
+				maps.Copy(results, attrs.Roles[r])
 			}
 		}
 

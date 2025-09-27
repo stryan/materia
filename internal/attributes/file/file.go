@@ -43,7 +43,7 @@ func NewFileStore(c Config, sourceDir string) (*FileStore, error) {
 		return nil, err
 	}
 	if len(c.GeneralVaults) == 0 {
-		c.GeneralVaults = []string{"vault.toml", "secrets.toml"}
+		c.GeneralVaults = []string{"vault.toml", "attributes.toml"}
 	}
 	f.generalVaults = c.GeneralVaults
 	return &f, nil

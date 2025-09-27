@@ -14,7 +14,7 @@ type Config struct {
 
 func (c Config) Validate() error {
 	if c.BaseDir == "" {
-		return errors.New("need base directory for file secrets")
+		return errors.New("need base directory for file attributes")
 	}
 	return nil
 }
