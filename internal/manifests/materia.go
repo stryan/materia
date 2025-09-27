@@ -4,7 +4,6 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -19,11 +18,10 @@ type SnippetConfig struct {
 }
 
 type MateriaManifest struct {
-	SecretsProvider string          `toml:"Secrets"`
-	Hosts           map[string]Host `toml:"Hosts"`
-	Snippets        []SnippetConfig `toml:"Snippets"`
-	Roles           map[string]Role `toml:"Roles"`
-	RoleCommand     string          `toml:"RoleCommnad"`
+	Hosts       map[string]Host `toml:"Hosts"`
+	Snippets    []SnippetConfig `toml:"Snippets"`
+	Roles       map[string]Role `toml:"Roles"`
+	RoleCommand string          `toml:"RoleCommnad"`
 }
 
 type Host struct {
@@ -45,9 +43,6 @@ func LoadMateriaManifest(path string) (*MateriaManifest, error) {
 	err = k.Unmarshal("", &m)
 	if err != nil {
 		return nil, err
-	}
-	if m.SecretsProvider != "" {
-		log.Warn("WARNING: configuring secrets in the manifest file is deprecated and will be removed next release")
 	}
 	return &m, nil
 }

@@ -253,11 +253,11 @@ func TestCNF(t *testing.T) {
 	require.Error(t, exec.Command("materia", "not-found").Run())
 }
 
-func TestRepo1(t *testing.T) {
+func TestRepo1_Simple(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", "file:///root/materia/virter/in/testrepo1"))
-	require.Nil(t, os.Setenv("MATERIA_SECRETS", "age"))
+	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "age"))
 	require.Nil(t, os.Setenv("MATERIA_AGE_KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
 	require.Nil(t, os.Setenv("MATERIA_AGE_BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
@@ -280,7 +280,7 @@ func TestRepo1(t *testing.T) {
 	require.True(t, componentRemoved("hello"))
 }
 
-func TestRepo2(t *testing.T) {
+func TestRepo2_Complex(t *testing.T) {
 	ctx := context.Background()
 	repoPath := "/root/materia/virter/in/testrepo2"
 	goldenPath := "/root/materia/virter/out/testrepo2"
@@ -289,7 +289,7 @@ func TestRepo2(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", fmt.Sprintf("file://%v", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_SECRETS", "age"))
+	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "age"))
 	require.Nil(t, os.Setenv("MATERIA_AGE_KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
 	require.Nil(t, os.Setenv("MATERIA_AGE_BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
@@ -323,7 +323,7 @@ func TestRepo2(t *testing.T) {
 	require.NoError(t, stopService(ctx, conn, "hello.service"))
 }
 
-func TestRepo3(t *testing.T) {
+func TestRepo3_SOPS(t *testing.T) {
 	ctx := context.Background()
 	repoPath := "/root/materia/virter/in/testrepo3"
 	goldenPath := "/root/materia/virter/out/testrepo3"
@@ -332,7 +332,7 @@ func TestRepo3(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", fmt.Sprintf("file://%v", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_SECRETS", "sops"))
+	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "sops"))
 	require.Nil(t, os.Setenv("MATERIA_SOPS_SUFFIX", "enc"))
 	require.Nil(t, os.Setenv("MATERIA_SOPS_BASE_DIR", "secrets"))
 	require.Nil(t, os.Setenv("SOPS_AGE_KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))

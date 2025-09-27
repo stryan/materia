@@ -8,33 +8,33 @@ import (
 	"path/filepath"
 
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/secrets/age"
-	filesecrets "primamateria.systems/materia/internal/secrets/file"
-	"primamateria.systems/materia/internal/secrets/sops"
+	"primamateria.systems/materia/internal/attributes/age"
+	fileattrs "primamateria.systems/materia/internal/attributes/file"
+	"primamateria.systems/materia/internal/attributes/sops"
 )
 
 type MateriaConfig struct {
-	Debug          bool                `toml:"debug"`
-	UseStdout      bool                `toml:"use_stdout"`
-	Diffs          bool                `toml:"diffs"`
-	Hostname       string              `toml:"hostname"`
-	Roles          []string            `toml:"roles"`
-	Timeout        int                 `toml:"timeout"`
-	MateriaDir     string              `toml:"materia_dir"`
-	QuadletDir     string              `toml:"quadlet_dir"`
-	ServiceDir     string              `toml:"service_dir"`
-	ScriptsDir     string              `toml:"scripts_dir"`
-	SourceDir      string              `toml:"source_dir"`
-	OutputDir      string              `toml:"output_dir"`
-	OnlyResources  bool                `toml:"only_resources"`
-	Quiet          bool                `toml:"quiet"`
-	Cleanup        bool                `toml:"cleanup"`
-	CleanupVolumes bool                `toml:"cleanup_volumes"`
-	BackupVolumes  bool                `toml:"backup_volumes"`
-	Secrets        string              `toml:"secrets"`
-	AgeConfig      *age.Config         `toml:"age"`
-	FileConfig     *filesecrets.Config `toml:"file"`
-	SopsConfig     *sops.Config        `toml:"sops"`
+	Debug          bool              `toml:"debug"`
+	UseStdout      bool              `toml:"use_stdout"`
+	Diffs          bool              `toml:"diffs"`
+	Hostname       string            `toml:"hostname"`
+	Roles          []string          `toml:"roles"`
+	Timeout        int               `toml:"timeout"`
+	MateriaDir     string            `toml:"materia_dir"`
+	QuadletDir     string            `toml:"quadlet_dir"`
+	ServiceDir     string            `toml:"service_dir"`
+	ScriptsDir     string            `toml:"scripts_dir"`
+	SourceDir      string            `toml:"source_dir"`
+	OutputDir      string            `toml:"output_dir"`
+	OnlyResources  bool              `toml:"only_resources"`
+	Quiet          bool              `toml:"quiet"`
+	Cleanup        bool              `toml:"cleanup"`
+	CleanupVolumes bool              `toml:"cleanup_volumes"`
+	BackupVolumes  bool              `toml:"backup_volumes"`
+	Attributes     string            `toml:"attributes"`
+	AgeConfig      *age.Config       `toml:"age"`
+	FileConfig     *fileattrs.Config `toml:"file"`
+	SopsConfig     *sops.Config      `toml:"sops"`
 	User           *user.User
 }
 
@@ -62,7 +62,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	} else {
 		c.BackupVolumes = true
 	}
-	c.Secrets = k.String("secrets")
+	c.Attributes = k.String("attributes")
 	c.UseStdout = k.Bool("use_stdout")
 	c.MateriaDir = k.String("materia_dir")
 	c.QuadletDir = k.String("quadlet_dir")
@@ -76,7 +76,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		}
 	}
 	if k.Exists("file") {
-		c.FileConfig, err = filesecrets.NewConfig(k)
+		c.FileConfig, err = fileattrs.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}

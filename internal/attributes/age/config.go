@@ -22,7 +22,7 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func (c Config) SecretsType() string { return "age" }
+func (c Config) SourceType() string { return "age" }
 
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config

@@ -15,16 +15,16 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/attributes/age"
+	"primamateria.systems/materia/internal/attributes/mem"
+	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/secrets/age"
-	"primamateria.systems/materia/internal/secrets/mem"
-	"primamateria.systems/materia/internal/secrets/sops"
 
-	filesecrets "primamateria.systems/materia/internal/secrets/file"
+	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/internal/source/git"
 
@@ -112,7 +112,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	// load manifest
 
-	finalconf := koanf.New(".")
 	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
@@ -122,20 +121,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, fmt.Errorf("invalid materia manifest: %w", err)
 	}
 
-	err = finalconf.Load(file.Provider(manifestLocation), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
-	err = finalconf.Merge(k)
-	if err != nil {
-		return nil, err
-	}
 	// reparse config with new data from manifest
-	// TODO remove once we no longer parse secrets config from the manifest
-	c, err = materia.NewConfig(finalconf)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config: %w", err)
-	}
 
 	sm, err := services.NewServices(ctx, &services.ServicesConfig{
 		Timeout: c.Timeout,
@@ -164,11 +150,11 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-	var secretManager materia.SecretsManager
-	// TODO replace this with secrets chaining
-	switch c.Secrets {
+	var secretManager materia.AttributesManager
+	// TODO replace this with attributes chaining
+	switch c.Attributes {
 	case "age":
-		ageConfig, err := age.NewConfig(finalconf)
+		ageConfig, err := age.NewConfig(k)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age config: %w", err)
 		}
@@ -177,16 +163,16 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
 	case "file":
-		fileConfig, err := filesecrets.NewConfig(finalconf)
+		fileConfig, err := fileattrs.NewConfig(k)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file config: %w", err)
 		}
-		secretManager, err = filesecrets.NewFileStore(*fileConfig, c.SourceDir)
+		secretManager, err = fileattrs.NewFileStore(*fileConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
 	case "sops":
-		sopsConfig, err := sops.NewConfig(finalconf)
+		sopsConfig, err := sops.NewConfig(k)
 		if err != nil {
 			return nil, fmt.Errorf("error creating sops config: %w", err)
 		}
@@ -197,7 +183,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	case "mem":
 		secretManager = mem.NewMemoryManager()
 	default:
-		return nil, fmt.Errorf("failed to initialize secrets manager: invalid type")
+		return nil, fmt.Errorf("failed to initialize attributes manager: invalid type")
 	}
 	log.Debug("loading host facts")
 	factsm, err := facts.NewHostFacts(ctx, c.Hostname)

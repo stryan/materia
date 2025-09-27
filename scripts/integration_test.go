@@ -12,12 +12,12 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"primamateria.systems/materia/internal/attributes/age"
 	"primamateria.systems/materia/internal/components"
 	fprov "primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/secrets/age"
 	"primamateria.systems/materia/internal/source"
 
 	filesource "primamateria.systems/materia/internal/source/file"
@@ -108,7 +108,7 @@ func TestMain(m *testing.M) {
 		Debug:      true,
 		Hostname:   "localhost",
 		Timeout:    0,
-		Secrets:    "age",
+		Attributes: "age",
 		MateriaDir: testPrefix,
 		QuadletDir: installdir,
 		ServiceDir: servicedir,
@@ -188,7 +188,7 @@ func TestPlan(t *testing.T) {
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
-	assert.Equal(t, expectedManifest.SecretsProvider, m.Manifest.SecretsProvider)
+
 	plan, err := m.Plan(ctx)
 	require.Nil(t, err, "error generating plan")
 	require.False(t, plan.Empty(), "plan should not be empty")
@@ -225,7 +225,7 @@ func TestExecuteFresh(t *testing.T) {
 		Components: []string{"hello", "double"},
 	}
 	assert.Equal(t, expectedManifest.Hosts, m.Manifest.Hosts)
-	assert.Equal(t, expectedManifest.SecretsProvider, m.Manifest.SecretsProvider)
+
 	plan, err := m.Plan(ctx)
 	require.Nil(t, err)
 	require.False(t, plan.Empty(), "plan should not be empty")

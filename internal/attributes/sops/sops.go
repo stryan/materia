@@ -14,7 +14,7 @@ import (
 	"github.com/getsops/sops/v3/decrypt"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
-	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/attributes"
 )
 
 type SopsStore struct {
@@ -52,8 +52,8 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 	return &s, nil
 }
 
-func (s *SopsStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]any {
-	secrets := secrets.SecretsVault{}
+func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+	secrets := attributes.AttributeVault{}
 
 	results := make(map[string]any)
 	files := []string{}

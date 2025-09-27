@@ -3,9 +3,9 @@ package materia
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/attributes"
 )
 
-type SecretsManager interface {
-	Lookup(context.Context, secrets.SecretFilter) map[string]any
+type AttributesManager interface {
+	Lookup(context.Context, attributes.AttributesFilter) map[string]any
 }

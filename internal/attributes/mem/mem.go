@@ -3,7 +3,7 @@ package mem
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/attributes"
 )
 
 type MemoryManager struct {
@@ -18,14 +18,14 @@ func (m MemoryConfig) String() string {
 
 func (m MemoryConfig) Validate() error { return nil }
 
-func (m MemoryConfig) SecretsType() string { return "memory" }
+func (m MemoryConfig) SourceType() string { return "memory" }
 
 func NewMemoryManager() *MemoryManager {
 	secrets := make(map[string]any)
 	return &MemoryManager{secrets}
 }
 
-func (m *MemoryManager) Lookup(_ context.Context, _ secrets.SecretFilter) map[string]any {
+func (m *MemoryManager) Lookup(_ context.Context, _ attributes.AttributesFilter) map[string]any {
 	return m.secrets
 }
 

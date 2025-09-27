@@ -14,7 +14,7 @@ import (
 	"filippo.io/age"
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/attributes"
 )
 
 type AgeStore struct {
@@ -65,8 +65,8 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 	return &a, nil
 }
 
-func (a *AgeStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]any {
-	secrets := secrets.SecretsVault{}
+func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+	secrets := attributes.AttributeVault{}
 
 	results := make(map[string]any)
 	files := []string{}

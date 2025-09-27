@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"primamateria.systems/materia/internal/secrets"
+	"primamateria.systems/materia/internal/attributes"
 )
 
 type FileStore struct {
@@ -49,8 +49,8 @@ func NewFileStore(c Config, sourceDir string) (*FileStore, error) {
 	return &f, nil
 }
 
-func (s *FileStore) Lookup(_ context.Context, f secrets.SecretFilter) map[string]any {
-	secrets := secrets.SecretsVault{}
+func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+	secrets := attributes.AttributeVault{}
 
 	results := make(map[string]any)
 	files := []string{}

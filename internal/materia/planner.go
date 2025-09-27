@@ -13,10 +13,10 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/manifests"
-	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
 )
 
@@ -146,7 +146,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			return plannedActions, err
 		}
 
-		vars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
+		attrs := m.Attributes.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: newComponent.Name,
@@ -154,7 +154,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 
 		switch newComponent.State {
 		case components.StateFresh:
-			actions, err := m.calculateFreshComponentResources(newComponent, vars)
+			actions, err := m.calculateFreshComponentResources(newComponent, attrs)
 			if err != nil {
 				return plannedActions, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
@@ -179,7 +179,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 				return plannedActions, fmt.Errorf("enable to calculate component diff for %v: could not get installed component", compName)
 			}
 
-			actions, err := m.calculatePotentialComponentResources(original, newComponent, vars)
+			actions, err := m.calculatePotentialComponentResources(original, newComponent, attrs)
 			if err != nil {
 				return plannedActions, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
@@ -243,7 +243,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 	return plannedActions, nil
 }
 
-func (m *Materia) calculateFreshComponentResources(newComponent *components.Component, vars map[string]any) ([]Action, error) {
+func (m *Materia) calculateFreshComponentResources(newComponent *components.Component, attrs map[string]any) ([]Action, error) {
 	var actions []Action
 	if newComponent.State != components.StateFresh {
 		return actions, errors.New("expected fresh component")
@@ -253,7 +253,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 		Parent:  newComponent,
 		Payload: components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 	})
-	maps.Copy(vars, newComponent.Defaults)
+	maps.Copy(attrs, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
 		// do a test run just to make sure we can actually install this resource
 		if r.Kind != components.ResourceTypePodmanSecret {
@@ -261,7 +261,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 			if err != nil {
 				return actions, err
 			}
-			resourceBody, err := m.executeResource(newStringTempl, vars)
+			resourceBody, err := m.executeResource(newStringTempl, attrs)
 			if err != nil {
 				return actions, err
 			}
@@ -338,12 +338,12 @@ func (m *Materia) processFreshComponentServices(ctx context.Context, component *
 	return actions, nil
 }
 
-func (m *Materia) calculatePotentialComponentResources(original, newComponent *components.Component, vars map[string]any) ([]Action, error) {
+func (m *Materia) calculatePotentialComponentResources(original, newComponent *components.Component, attrs map[string]any) ([]Action, error) {
 	var actions []Action
 	if newComponent.State != components.StateMayNeedUpdate {
 		return actions, fmt.Errorf("expected potential component, got %v", newComponent.State)
 	}
-	actions, err := m.diffComponent(original, newComponent, vars)
+	actions, err := m.diffComponent(original, newComponent, attrs)
 	if err != nil {
 		log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
 		return actions, err
@@ -553,7 +553,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 	return actions, nil
 }
 
-func (m *Materia) diffComponent(base, other *components.Component, vars map[string]any) ([]Action, error) {
+func (m *Materia) diffComponent(base, other *components.Component, attrs map[string]any) ([]Action, error) {
 	ctx := context.TODO()
 	var diffActions []Action
 	if len(other.Resources) == 0 {
@@ -568,10 +568,10 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 	}
 	currentResources := make(map[string]components.Resource)
 	newResources := make(map[string]components.Resource)
-	diffVars := make(map[string]any)
-	maps.Copy(diffVars, base.Defaults)
-	maps.Copy(diffVars, other.Defaults)
-	maps.Copy(diffVars, vars)
+	diffAttrs := make(map[string]any)
+	maps.Copy(diffAttrs, base.Defaults)
+	maps.Copy(diffAttrs, other.Defaults)
+	maps.Copy(diffAttrs, attrs)
 	for _, v := range base.Resources {
 		currentResources[v.Path] = v
 	}
@@ -598,7 +598,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 			// check for diffs and update
 			log.Debug("diffing resource", "component", base.Name, "file", cur.Path)
 			// TODO Refactor to not use pointers
-			diffs, err := m.diffResource(&cur, &newRes, diffVars)
+			diffs, err := m.diffResource(&cur, &newRes, diffAttrs)
 			if err != nil {
 				return diffActions, err
 			}
@@ -684,7 +684,7 @@ func (m *Materia) diffComponent(base, other *components.Component, vars map[stri
 				if err != nil {
 					return diffActions, err
 				}
-				resourceBody, err := m.executeResource(newStringTempl, vars)
+				resourceBody, err := m.executeResource(newStringTempl, attrs)
 				if err != nil {
 					return diffActions, err
 				}
@@ -749,7 +749,7 @@ func shouldEnableService(s manifests.ServiceResourceConfig, liveService *service
 	return !s.Disabled && s.Static && !liveService.Enabled
 }
 
-func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string]any) ([]diffmatchpatch.Diff, error) {
+func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[string]any) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 	var diffs []diffmatchpatch.Diff
 	if err := cur.Validate(); err != nil {
@@ -769,7 +769,7 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string
 		if err != nil {
 			return diffs, err
 		}
-		result, err := m.executeResource(newStringTempl, vars)
+		result, err := m.executeResource(newStringTempl, attrs)
 		if err != nil {
 			return diffs, err
 		}
@@ -798,7 +798,7 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string
 				return diffs, err
 			}
 		}
-		newSecret, ok := vars[cur.Path]
+		newSecret, ok := attrs[cur.Path]
 		if !ok {
 			newString = ""
 		} else {
@@ -813,13 +813,13 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, vars map[string
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (m *Materia) executeResource(resourceTemplate string, vars map[string]any) (*bytes.Buffer, error) {
+func (m *Materia) executeResource(resourceTemplate string, attrs map[string]any) (*bytes.Buffer, error) {
 	result := bytes.NewBuffer([]byte{})
-	tmpl, err := template.New("resource").Option("missingkey=error").Funcs(m.macros(vars)).Parse(resourceTemplate)
+	tmpl, err := template.New("resource").Option("missingkey=error").Funcs(m.macros(attrs)).Parse(resourceTemplate)
 	if err != nil {
 		return nil, err
 	}
-	err = tmpl.Execute(result, vars)
+	err = tmpl.Execute(result, attrs)
 	if err != nil {
 		return nil, err
 	}

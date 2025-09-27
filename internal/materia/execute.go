@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/log"
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/secrets"
 	"primamateria.systems/materia/internal/services"
 )
 
@@ -39,18 +39,18 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	steps := 0
 	// Template and install resources
 	for _, v := range plan.Steps() {
-		vars := make(map[string]any)
+		attrs := make(map[string]any)
 		if err := v.Validate(); err != nil {
 			return steps, err
 		}
-		vaultVars := m.Secrets.Lookup(ctx, secrets.SecretFilter{
+		vaultAttrs := m.Attributes.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  m.HostFacts.GetHostname(),
 			Roles:     m.Roles,
 			Component: v.Parent.Name,
 		})
-		maps.Copy(vars, v.Parent.Defaults)
-		maps.Copy(vars, vaultVars)
-		err := m.executeAction(ctx, v, vars)
+		maps.Copy(attrs, v.Parent.Defaults)
+		maps.Copy(attrs, vaultAttrs)
+		err := m.executeAction(ctx, v, attrs)
 		if err != nil {
 			return steps, err
 		}
@@ -160,7 +160,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	return m.Services.Apply(ctx, res.Path, cmd)
 }
 
-func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]any) error {
+func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
 	switch v.Payload.Kind {
 	case components.ResourceTypeComponent:
 		switch v.Todo {
@@ -194,7 +194,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, vars)
+			resourceData, err := m.executeResource(resourceTemplate, attrs)
 			if err != nil {
 				return err
 			}
@@ -260,7 +260,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, vars)
+			resourceData, err := m.executeResource(resourceTemplate, attrs)
 			if err != nil {
 				return err
 			}
@@ -311,7 +311,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, vars)
+			resourceData, err := m.executeResource(resourceTemplate, attrs)
 			if err != nil {
 				return err
 			}
@@ -344,7 +344,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, vars)
+			resourceData, err := m.executeResource(resourceTemplate, attrs)
 			if err != nil {
 				return err
 			}
@@ -365,7 +365,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, vars map[string]a
 		case ActionInstall, ActionUpdate:
 			var secretVar any
 			var ok bool
-			if secretVar, ok = vars[v.Payload.Path]; !ok {
+			if secretVar, ok = attrs[v.Payload.Path]; !ok {
 				return errors.New("can't install/update Podman Secret: no matching Materia secret")
 			}
 			if value, ok := secretVar.(string); !ok {

@@ -40,6 +40,6 @@ func (c Config) String() string {
 	return fmt.Sprintf("Base Path: %v\nVaults: %v\n", c.BaseDir, c.GeneralVaults)
 }
 
-func (c Config) SecretsType() string {
+func (c Config) SourceType() string {
 	return "file"
 }
