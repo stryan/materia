@@ -141,7 +141,7 @@ git push
 ### Set environment variables
 Materia is designed to be configured with environment variables; if you would like to use config files see the [config docs](docs/markdown/reference/materia-config.5.md).
 
-Since we're not using any [secrets](docs/markdown/reference/materia-config-age.5.md) we only need to set the source URL:
+Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
 
 `export MATERIA_SOURCE_URL="git://git@github.com:user/materia_repo"`
 
@@ -207,11 +207,11 @@ Probably not. Materia is specifically designed to handle the application level; 
 The rough intention is that this tool is deployed on top of an atomic distro like **OpenSUSE MicroOS** or **Fedora CoreOS**, where the majority of the system is controlled as a read-only image and the application servers (like app backends and `nginx`) are run as containers in the read/write section.
 While traditional distros are a supported platform, most design work and testing is done assuming one of the above.
 
-## Will more secrets backends be supported besides age?
+## Will more attributes backends be supported besides age and sops?
 
-Yes. I hope to add other secrets backends like Vault soon; `age` was just an easy first target and works well with the GitOps style.
+Yes. I hope to add other attributes backends like Vault soon; `age` and `sops` were just easy first targets and work well with the GitOps style.
 
-On a related note, secrets management tools like `ansible-vault` are not within scope of the project. It is expected to manage secrets entirely with a third party tool.
+On a related note, management tools like `ansible-vault` are not within scope of the project. It is expected to manage attributes entirely with a third party tool.
 
 ## Is this related to Final Fantasy?
 
