@@ -2,7 +2,7 @@
 title: MATERIA-CONFIG-SOPS
 section: 5
 header: User Manual
-footer: materia 0.1.0
+footer: materia 0.3.0
 date: September 2025
 author: stryan
 ---

@@ -4,7 +4,7 @@ nav:
   - Home: index.md
   - Quickstart: quickstart.md
   - Cheatsheet: cheatsheet.md
-  - Secrets: secrets.md
+  - Attributes: attributes.md
   - Reference: reference/index.md
 theme:
   name: readthedocs

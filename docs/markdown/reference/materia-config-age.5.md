@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-AGE
 section: 5
 header: User Manual
-footer: materia 0.1.0
-date: August 2025
+footer: materia 0.3.0
+date: September 2025
 author: stryan
 ---
 
