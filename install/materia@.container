@@ -9,6 +9,9 @@ Type=oneshot
 Image=github.com/stryan/materia:stable
 ContainerName=materia
 Environment=MATERIA_SOURCE_URL=file:///tmp/test_repo
+Environment=MATERIA_ATTRIBUTES=age
+Environment=MATERIA_AGE_KEYFILE=/etc/materia/key.txt
+Environment=MATERIA_AGE_BASE_DIR=attributes
 SecurityLabelDisable=true
 HostName=%q
 Exec=$SCRIPT_ARGS
