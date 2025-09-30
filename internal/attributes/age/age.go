@@ -51,6 +51,9 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 	}
 	a.generalVaults = c.GeneralVaults
 	err = filepath.WalkDir(filepath.Join(sourceDir, c.BaseDir), func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if d.Name() == ".git" {
 			return nil
 		}

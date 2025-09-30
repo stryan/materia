@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
+	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/materia"
 )
 
@@ -199,7 +200,7 @@ func main() {
 			},
 			{
 				Name:  "remove",
-				Usage: "Remove a component",
+				Usage: "Remove a non-corrupted component",
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					comp := cCtx.Args().First()
 					if comp == "" {
@@ -212,6 +213,9 @@ func main() {
 					}
 					err = m.CleanComponent(ctx, comp)
 					if err != nil {
+						if errors.Is(err, components.ErrCorruptComponent) {
+							return cli.Exit("Component is corrupted, try `materia doctor` instead", 1)
+						}
 						return cli.Exit(fmt.Sprintf("error removing component: %v", err), 1)
 					}
 					fmt.Printf("component %v removed succesfully\n", comp)

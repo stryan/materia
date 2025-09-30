@@ -506,6 +506,9 @@ func (r *HostComponentRepository) Clean() error {
 		return err
 	}
 	for _, v := range entries {
+		if !v.IsDir() {
+			continue
+		}
 		_, err := os.Stat(fmt.Sprintf("%v/%v/.materia_managed", r.QuadletPrefix, v.Name()))
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -519,7 +522,7 @@ func (r *HostComponentRepository) Clean() error {
 		}
 
 	}
-	return nil
+	return os.RemoveAll(r.DataPrefix)
 }
 
 func (r *HostComponentRepository) RunCleanup(comp *components.Component) error {

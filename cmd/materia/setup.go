@@ -140,7 +140,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
-	sourceRepo, err := repository.NewSourceComponentRepository(filepath.Join(c.SourceDir, "components"))
+	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
@@ -218,7 +218,6 @@ func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) 
 	if err != nil {
 		return nil, err
 	}
-	// merge non-manifest confs
 	err = k.Merge(fileConf)
 	if err != nil {
 		return nil, fmt.Errorf("error building config: %w", err)

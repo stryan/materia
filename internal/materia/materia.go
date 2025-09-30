@@ -237,7 +237,7 @@ func (m *Materia) Clean(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return os.RemoveAll(m.OutputDir)
 }
 
 func (m *Materia) CleanComponent(ctx context.Context, name string) error {
@@ -249,18 +249,15 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	emptyVars := make(map[string]any)
-	for _, r := range comp.Resources {
-		err := m.executeAction(ctx, Action{
-			Todo:    ActionRemove,
-			Parent:  comp,
-			Payload: r,
-		}, emptyVars)
-		if err != nil {
-			return err
-		}
+	m.InstalledComponents = []string{comp.Name}
+	m.AssignedComponents = []string{}
+
+	removalPlan, err := m.Plan(ctx)
+	if err != nil {
+		return err
 	}
-	return m.CompRepo.RemoveComponent(comp)
+	_, err = m.Execute(ctx, removalPlan)
+	return err
 }
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {

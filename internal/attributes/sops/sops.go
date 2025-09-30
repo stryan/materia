@@ -29,6 +29,9 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 	var s SopsStore
 	s.generalVaults = c.GeneralVaults
 	err := filepath.WalkDir(filepath.Join(sourceDir, c.BaseDir), func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if d.Name() == ".git" {
 			return nil
 		}

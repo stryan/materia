@@ -19,16 +19,18 @@ import (
 var ErrNeedHostRepository = errors.New("action can't be done on source repository")
 
 type SourceComponentRepository struct {
-	Prefix string
+	basedir string
+	Prefix  string
 }
 
-func NewSourceComponentRepository(dataPrefix string) (*SourceComponentRepository, error) {
-	if _, err := os.Stat(dataPrefix); err != nil {
+func NewSourceComponentRepository(sourceDir string) (*SourceComponentRepository, error) {
+	if _, err := os.Stat(sourceDir); err != nil {
 		// we expect the source repo to be pre-created for us
 		return nil, err
 	}
 	return &SourceComponentRepository{
-		Prefix: dataPrefix,
+		basedir: sourceDir,
+		Prefix:  filepath.Join(sourceDir, "components"),
 	}, nil
 }
 
@@ -67,17 +69,7 @@ func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 }
 
 func (s *SourceComponentRepository) Clean() error {
-	entries, err := os.ReadDir(s.Prefix)
-	if err != nil {
-		return err
-	}
-	for _, v := range entries {
-		err = os.RemoveAll(filepath.Join(s.Prefix, v.Name()))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return os.RemoveAll(s.basedir)
 }
 
 func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
