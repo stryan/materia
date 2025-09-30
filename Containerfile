@@ -1,3 +1,5 @@
+LABEL org.opencontainers.image.description Materia: a GitOps tool for managing Quadlets
+
 FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
 WORKDIR /go/src/app
 COPY . .

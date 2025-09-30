@@ -303,7 +303,7 @@ type planOutput struct {
 }
 
 type change struct {
-	ResourceName, Diff string
+	ResourceName, Before, After string
 }
 
 func (m *Materia) SavePlan(p *Plan, outputfile string) error {
@@ -315,10 +315,13 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	for _, a := range p.Steps() {
 		if a.Todo == ActionUpdate {
 			diffs := a.Content.([]diffmatchpatch.Diff)
-			content := diffmatchpatch.New().DiffText1(diffs)
+			dmp := diffmatchpatch.New()
+			before := dmp.DiffText1(diffs)
+			after := dmp.DiffText2(diffs)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
 				ResourceName: a.Payload.Path,
-				Diff:         content,
+				Before:       before,
+				After:        after,
 			})
 		}
 	}

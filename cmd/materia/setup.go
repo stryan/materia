@@ -121,8 +121,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, fmt.Errorf("invalid materia manifest: %w", err)
 	}
 
-	// reparse config with new data from manifest
-
 	sm, err := services.NewServices(ctx, &services.ServicesConfig{
 		Timeout: c.Timeout,
 	})
