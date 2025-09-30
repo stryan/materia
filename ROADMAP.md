@@ -9,3 +9,4 @@
 - [ ] Increasing test coverage
 - [ ] Component sharing
 - [ ] Slimmer container image
+- [ ] Consider [X-Materia] support
