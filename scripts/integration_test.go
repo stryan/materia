@@ -79,7 +79,7 @@ func testMateria(services []string) *materia.Materia {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sourceRepo, err := repository.NewSourceComponentRepository(filepath.Join(sourcedir, "components"))
+	sourceRepo, err := repository.NewSourceComponentRepository(sourcedir)
 	if err != nil {
 		log.Fatal(err)
 	}
