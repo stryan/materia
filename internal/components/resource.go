@@ -78,7 +78,7 @@ func (r Resource) IsQuadlet() bool {
 
 func (r Resource) IsFile() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeScript, ResourceTypeVolume:
+	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService:
 		return true
 	default:
 		return false

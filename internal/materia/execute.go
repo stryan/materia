@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/log"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
@@ -190,15 +192,12 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			resourceTemplate, err := m.SourceRepo.ReadResource(v.Target)
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, attrs)
-			if err != nil {
-				return err
-			}
-			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
+			resourceData := diffmatchpatch.New().DiffText2(diffs)
+			if err := m.CompRepo.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
 				return err
 			}
 		case ActionRemove:
@@ -256,14 +255,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeScript:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			resourceTemplate, err := m.SourceRepo.ReadResource(v.Target)
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, attrs)
-			if err != nil {
-				return err
-			}
+			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
 			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
@@ -307,14 +303,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeService:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			resourceTemplate, err := m.SourceRepo.ReadResource(v.Target)
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, attrs)
-			if err != nil {
-				return err
-			}
+			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
 			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
@@ -340,14 +333,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeComponentScript:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			resourceTemplate, err := m.SourceRepo.ReadResource(v.Target)
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
 				return err
 			}
-			resourceData, err := m.executeResource(resourceTemplate, attrs)
-			if err != nil {
-				return err
-			}
+			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
 			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
