@@ -2,7 +2,7 @@ FROM registry.opensuse.org/opensuse/tumbleweed-microdnf:latest
 WORKDIR /app
 ARG TARGETARCH
 
-LABEL org.opencontainers.image.description Materia: a GitOps tool for managing Quadlets
+LABEL org.opencontainers.image.description=Materia: a GitOps tool for managing Quadlets
 
 WORKDIR /app
 RUN mkdir -p /lib64
