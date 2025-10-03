@@ -1,12 +1,13 @@
-LABEL org.opencontainers.image.description Materia: a GitOps tool for managing Quadlets
-
 FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
 WORKDIR /go/src/app
 COPY . .
-RUN curl https://mise.run | sh && /root/.local/bin/mise trust && /root/.local/bin/mise install && go install golang.org/x/tools/cmd/stringer
+RUN curl https://mise.run | sh && /root/.local/bin/mise trust && /root/.local/bin/mise install
 RUN /root/.local/bin/mise build
 
+
 FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
+LABEL org.opencontainers.image.description Materia: a GitOps tool for managing Quadlets
+ARG TARGETARCH
 WORKDIR /app
 RUN mkdir -p /lib64
 RUN mkdir -p /root/.ssh && \
@@ -15,6 +16,6 @@ RUN mkdir -p /root/.ssh && \
 
 RUN zypper in -y podman git openssh openssh-clients
 
-COPY --from=builder /go/src/app/materia /app/
+COPY --from=builder /go/src/app/materia/bin/materia-${TARGETARCH} /app/
 
 ENTRYPOINT ["/app/materia"]
