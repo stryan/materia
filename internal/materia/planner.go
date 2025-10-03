@@ -160,9 +160,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			}
 			if len(actions) > 0 {
 				actions = append(actions, Action{
-					Todo:    ActionReload,
-					Parent:  rootComponent,
-					Payload: components.Resource{Kind: components.ResourceTypeHost},
+					Todo:   ActionReload,
+					Parent: rootComponent,
+					Target: components.Resource{Kind: components.ResourceTypeHost},
 				})
 			}
 			serviceActions, err := m.processFreshComponentServices(ctx, newComponent)
@@ -211,6 +211,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 				actions = append(actions, Action{
 					Todo:   ActionUpdate,
 					Parent: original,
+					Target: components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 				})
 			}
 			if len(actions) > 0 {
@@ -251,11 +252,12 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	actions = append(actions, Action{
 		Todo:    ActionInstall,
 		Parent:  newComponent,
-		Payload: components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
+		Target:  components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
+		Content: []diffmatchpatch.Diff{},
 	})
 	maps.Copy(attrs, newComponent.Defaults)
 	for _, r := range newComponent.Resources {
-		// do a test run just to make sure we can actually install this resource
+		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
 			newStringTempl, err := m.SourceRepo.ReadResource(r)
 			if err != nil {
@@ -296,12 +298,13 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 					}
 				}
 			}
-
+			content = resourceBody.String()
 		}
 		actions = append(actions, Action{
 			Todo:    ActionInstall,
 			Parent:  newComponent,
-			Payload: r,
+			Target:  r,
+			Content: diffmatchpatch.New().DiffMain("", content, false),
 		})
 	}
 	if newComponent.Scripted {
@@ -350,9 +353,9 @@ func (m *Materia) calculatePotentialComponentResources(original, newComponent *c
 	}
 	if len(actions) > 0 {
 		actions = append(actions, Action{
-			Todo:    ActionReload,
-			Parent:  rootComponent,
-			Payload: components.Resource{Kind: components.ResourceTypeHost},
+			Todo:   ActionReload,
+			Parent: rootComponent,
+			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
 	return actions, nil
@@ -365,14 +368,17 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 	}
 	for _, d := range resourceActions {
 		if m.diffs && d.Todo == ActionUpdate {
-			diffs := d.Content.([]diffmatchpatch.Diff)
+			diffs, err := d.GetContentAsDiffs()
+			if err != nil {
+				return actions, err
+			}
 			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
-		if updatedService, ok := restartmap[d.Payload.Path]; ok {
+		if updatedService, ok := restartmap[d.Target.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionRestart,
 				Parent: newComponent,
-				Payload: components.Resource{
+				Target: components.Resource{
 					Parent: newComponent.Name,
 					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
@@ -380,11 +386,11 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 			})
 			continue // No need to reload if we restart
 		}
-		if updatedService, ok := reloadmap[d.Payload.Path]; ok {
+		if updatedService, ok := reloadmap[d.Target.Path]; ok {
 			actions = append(actions, Action{
 				Todo:   ActionReload,
 				Parent: newComponent,
-				Payload: components.Resource{
+				Target: components.Resource{
 					Parent: newComponent.Name,
 					Path:   updatedService.Service,
 					Kind:   components.ResourceTypeService,
@@ -455,15 +461,15 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 	}
 	if osrc.Static {
 		result = append(result, Action{
-			Todo:    ActionDisable,
-			Parent:  comp,
-			Payload: res,
+			Todo:   ActionDisable,
+			Parent: comp,
+			Target: res,
 		})
 	}
 	result = append(result, Action{
-		Todo:    ActionStop,
-		Parent:  comp,
-		Payload: res,
+		Todo:   ActionStop,
+		Parent: comp,
+		Target: res,
 	})
 	return result
 }
@@ -477,16 +483,16 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	}
 	if shouldEnableService(osrc, liveService) {
 		actions = append(actions, Action{
-			Todo:    ActionEnable,
-			Parent:  comp,
-			Payload: res,
+			Todo:   ActionEnable,
+			Parent: comp,
+			Target: res,
 		})
 	}
 	if !liveService.Started() {
 		actions = append(actions, Action{
-			Todo:    ActionStart,
-			Parent:  comp,
-			Payload: res,
+			Todo:   ActionStart,
+			Parent: comp,
+			Target: res,
 		})
 	}
 	return actions, nil
@@ -501,10 +507,19 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	slices.Reverse(resourceList)
 	for _, r := range resourceList {
 		if r.Path != manifests.ComponentManifestFile {
+			resourceBody := ""
+			var err error
+			if r.IsFile() {
+				resourceBody, err = m.CompRepo.ReadResource(r)
+				if err != nil {
+					return actions, fmt.Errorf("error reading resource for deletion: %w", err)
+				}
+			}
 			actions = append(actions, Action{
 				Todo:    ActionRemove,
 				Parent:  comp,
-				Payload: r,
+				Target:  r,
+				Content: diffmatchpatch.New().DiffMain(resourceBody, "", false),
 			})
 		}
 	}
@@ -514,15 +529,21 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 			Parent: comp,
 		})
 	}
+	manifest := components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile}
+	manifestBody, err := m.CompRepo.ReadResource(manifest)
+	if err != nil {
+		return actions, fmt.Errorf("error reading resource for deletion: %w", err)
+	}
 	actions = append(actions, Action{
 		Todo:    ActionRemove,
 		Parent:  comp,
-		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile},
+		Target:  manifest,
+		Content: diffmatchpatch.New().DiffMain(manifestBody, "", false),
 	})
 	actions = append(actions, Action{
-		Todo:    ActionRemove,
-		Parent:  comp,
-		Payload: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
+		Todo:   ActionRemove,
+		Parent: comp,
+		Target: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
 	})
 	return actions, nil
 }
@@ -544,9 +565,9 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 		}
 		if liveService.Started() {
 			actions = append(actions, Action{
-				Todo:    ActionStop,
-				Parent:  comp,
-				Payload: res,
+				Todo:   ActionStop,
+				Parent: comp,
+				Target: res,
 			})
 		}
 	}
@@ -611,7 +632,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				a := Action{
 					Todo:    ActionUpdate,
 					Parent:  other,
-					Payload: newRes,
+					Target:  newRes,
 					Content: diffs,
 				}
 
@@ -623,7 +644,8 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 			a := Action{
 				Todo:    ActionRemove,
 				Parent:  base,
-				Payload: cur,
+				Target:  cur,
+				Content: []diffmatchpatch.Diff{},
 			}
 
 			diffActions = append(diffActions, a)
@@ -642,9 +664,9 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 						if n.Name == cur.HostObject {
 							// TODO also check that containers aren't using it
 							diffActions = append(diffActions, Action{
-								Todo:    ActionCleanup,
-								Parent:  base,
-								Payload: cur,
+								Todo:   ActionCleanup,
+								Parent: base,
+								Target: cur,
 							})
 						}
 					}
@@ -655,15 +677,15 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 							if v.Name == cur.HostObject {
 								if m.backupVolumes {
 									diffActions = append(diffActions, Action{
-										Todo:    ActionDump,
-										Parent:  base,
-										Payload: cur,
+										Todo:   ActionDump,
+										Parent: base,
+										Target: cur,
 									})
 								}
 								diffActions = append(diffActions, Action{
-									Todo:    ActionCleanup,
-									Parent:  base,
-									Payload: cur,
+									Todo:   ActionCleanup,
+									Parent: base,
+									Target: cur,
 								})
 							}
 						}
@@ -679,6 +701,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 			log.Debugf("Creating new resource %v", k)
 			r := newResources[k]
 			// do a test run just to make sure we can actually install this resource
+			content := ""
 			if r.Kind != components.ResourceTypePodmanSecret {
 				newStringTempl, err := m.SourceRepo.ReadResource(r)
 				if err != nil {
@@ -696,13 +719,15 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 					}
 					r.HostObject = newName
 				}
+				content = resourceBody.String()
 
 			}
 
 			a := Action{
 				Todo:    ActionInstall,
 				Parent:  base,
-				Payload: r,
+				Target:  r,
+				Content: diffmatchpatch.New().DiffMain("", content, false),
 			}
 			diffActions = append(diffActions, a)
 		}

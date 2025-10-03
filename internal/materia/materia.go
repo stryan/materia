@@ -316,7 +316,7 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 			before := dmp.DiffText1(diffs)
 			after := dmp.DiffText2(diffs)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
-				ResourceName: a.Payload.Path,
+				ResourceName: a.Target.Path,
 				Before:       before,
 				After:        after,
 			})

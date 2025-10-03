@@ -32,7 +32,7 @@ func NewPlan(installedComps, volList []string) *Plan {
 }
 
 func (p *Plan) Add(a Action) {
-	switch a.Payload.Kind {
+	switch a.Target.Kind {
 	case components.ResourceTypeComponent:
 		switch a.Todo {
 		case ActionInstall, ActionRemove:
@@ -42,14 +42,14 @@ func (p *Plan) Add(a Action) {
 		case ActionSetup:
 			p.secondMain = append(p.secondMain, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
 	case components.ResourceTypeDirectory:
 		switch a.Todo {
 		case ActionInstall, ActionRemove:
 			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
 	case components.ResourceTypeManifest:
 		switch a.Todo {
@@ -58,7 +58,7 @@ func (p *Plan) Add(a Action) {
 		case ActionUpdate:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
 	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
 		switch a.Todo {
@@ -69,7 +69,7 @@ func (p *Plan) Add(a Action) {
 		case ActionDump:
 			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
 	case components.ResourceTypeService:
 		switch a.Todo {
@@ -77,27 +77,27 @@ func (p *Plan) Add(a Action) {
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
 		case ActionRestart, ActionStart, ActionEnable, ActionDisable:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
+				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
 		case ActionStop:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
+				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.serviceRemovalPhase = append(p.serviceRemovalPhase, a)
 		case ActionReload:
 			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Payload.Path == a.Payload.Path && modification.Todo == a.Todo)
+				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
 			}) {
 				return
 			}
 			p.servicesPhase = append(p.servicesPhase, a)
 		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Payload.Path))
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
 	case components.ResourceTypeHost:
 		if a.Todo == ActionReload {
@@ -106,10 +106,10 @@ func (p *Plan) Add(a Action) {
 				p.combatPhase = slices.Insert(p.combatPhase, 0, a)
 			}
 		} else {
-			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Payload.Kind, a.Payload))
+			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Target.Kind, a.Target))
 		}
 	default:
-		panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Payload.Kind, a))
+		panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
 	}
 	p.size++
 }
@@ -137,30 +137,30 @@ func (p *Plan) Validate() error {
 	currentStep := 1
 	maxSteps := len(steps)
 	for _, a := range steps {
-		if (a.Payload.Kind == components.ResourceTypeService || a.Payload.IsQuadlet()) && a.Todo == ActionInstall {
+		if (a.Target.Kind == components.ResourceTypeService || a.Target.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
-		if a.Todo == ActionReload && a.Payload.Path == "" {
+		if a.Todo == ActionReload && a.Target.Path == "" {
 			reload = true
 		}
-		if a.Payload.IsQuadlet() && a.Payload.HostObject == "" {
-			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Payload)
+		if a.Target.IsQuadlet() && a.Target.HostObject == "" {
+			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Target)
 		}
-		if a.Todo == ActionRemove && a.Payload.Kind == components.ResourceTypeVolume {
-			deletedVoles = append(deletedVoles, a.Payload.Path)
+		if a.Todo == ActionRemove && a.Target.Kind == components.ResourceTypeVolume {
+			deletedVoles = append(deletedVoles, a.Target.Path)
 		}
-		if a.Todo == ActionDump && a.Payload.Kind == components.ResourceTypeVolume {
-			if !slices.Contains(deletedVoles, a.Payload.Path) {
-				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Payload.Path)
+		if a.Todo == ActionDump && a.Target.Kind == components.ResourceTypeVolume {
+			if !slices.Contains(deletedVoles, a.Target.Path) {
+				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Target.Path)
 			}
 		}
 
 		if a.Todo == ActionInstall {
-			if a.Payload.Kind == components.ResourceTypeComponent {
+			if a.Target.Kind == components.ResourceTypeComponent {
 				componentList = append(componentList, a.Parent.Name)
 			} else {
 				if !slices.Contains(componentList, a.Parent.Name) {
-					return fmt.Errorf("%v/%v: invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Payload, a.Parent.Name)
+					return fmt.Errorf("%v/%v: invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Target, a.Parent.Name)
 				}
 			}
 		}
@@ -182,7 +182,7 @@ func (p *Plan) Steps() []Action {
 		beginningStep := []Action{}
 		endstep := []Action{}
 		for _, sc := range p.structureChanges[k] {
-			if sc.Todo == ActionInstall && (sc.Payload.Kind == components.ResourceTypeComponent || sc.Payload.Kind == components.ResourceTypeDirectory) {
+			if sc.Todo == ActionInstall && (sc.Target.Kind == components.ResourceTypeComponent || sc.Target.Kind == components.ResourceTypeDirectory) {
 				beginningStep = append(beginningStep, sc)
 			} else {
 				endstep = append(endstep, sc)

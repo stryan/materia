@@ -1,15 +1,10 @@
 [tools]
 go = "1.24"
 age = "latest"
-gh = "latest"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 golangci-lint = "2.1.2"
 gotestsum = "latest"
 mockery = "latest"
-pandoc = "latest"
-pipx = "latest"
-"pipx:mkdocs" = "latest"
-python = "latest"
 sops = "latest"
 
 [settings]
@@ -129,6 +124,7 @@ depends = ["docs-man", "docs-html"]
 [tasks.docs-man]
 description = "generate manpages"
 dir = "docs"
+tools.pandoc = "latest"
 run = [
   "mkdir -p man",
   "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
@@ -136,12 +132,16 @@ run = [
 
 [tasks.docs-html]
 description = "generate HTML documentation"
+tools."pipx:mkdocs" = "latest"
+tools.pipx = "latest"
+tools.python = "latest"
 dir = "docs"
 run = "mkdocs build"
 
 [tasks.release]
 description = "Generate github release"
 depends = ["build"]
+tools.gh = "latest"
 run = [
   "git remote add mirror git@github.com:stryan/materia",
   'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
