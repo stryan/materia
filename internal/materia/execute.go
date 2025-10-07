@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -67,6 +68,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	// verify services
 	activating := []string{}
 	deactivating := []string{}
+	// TODO rework this to handle a service that gets stopped and then started later
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Target.Path)
 		if err != nil {
@@ -208,8 +210,22 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if v.Target.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to ensure non volume resource: %v", v.Target)
 			}
+			curVols, err := m.Containers.ListVolumes(ctx)
+			if err != nil {
+				return fmt.Errorf("error fetching current volumes: %w", err)
+			}
+			for _, vol := range curVols {
+				if strings.TrimSuffix(v.Target.Path, ".volume") == vol.Name {
+					err = m.Containers.RemoveVolume(ctx, &containers.Volume{
+						Name: v.Target.HostObject,
+					})
+					if err != nil {
+						return fmt.Errorf("error removing existing volume during ensure: %w", err)
+					}
+				}
+			}
 			service := strings.TrimSuffix(v.Target.Path, ".volume")
-			err := m.modifyService(ctx, Action{
+			err = m.modifyService(ctx, Action{
 				Todo:   ActionStart,
 				Parent: v.Parent,
 				Target: components.Resource{
@@ -222,9 +238,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 		case ActionCleanup:
-			if !m.cleanup {
-				return fmt.Errorf("cleanup is disabled: %v", v.Target)
-			}
 			switch v.Target.Kind {
 			case components.ResourceTypeNetwork:
 				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
@@ -232,11 +245,9 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 					return err
 				}
 			case components.ResourceTypeVolume:
-				if m.cleanupVolumes {
-					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
-					if err != nil {
-						return err
-					}
+				err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+				if err != nil {
+					return err
 				}
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)
@@ -247,7 +258,15 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			}
 			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
 			if err != nil {
-				return fmt.Errorf("error dumping volume %v:%e", v.Target.Path, err)
+				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+			}
+		case ActionImport:
+			if v.Target.Kind != components.ResourceTypeVolume {
+				return fmt.Errorf("tried to import a non-volume resource: %v", v.Target)
+			}
+			err := m.Containers.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+			if err != nil {
+				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)

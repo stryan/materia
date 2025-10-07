@@ -60,7 +60,7 @@ func (p *Plan) Add(a Action) {
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
 		switch a.Todo {
 		case ActionInstall, ActionUpdate, ActionRemove:
 			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
@@ -68,6 +68,19 @@ func (p *Plan) Add(a Action) {
 			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
 		case ActionDump:
 			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
+		default:
+			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+		}
+	case components.ResourceTypeVolume:
+		switch a.Todo {
+		case ActionInstall, ActionUpdate, ActionRemove:
+			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
+		case ActionCleanup:
+			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
+		case ActionDump:
+			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
+		case ActionEnsure, ActionImport:
+			p.secondMain = append(p.secondMain, a)
 		default:
 			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 		}
@@ -150,7 +163,7 @@ func (p *Plan) Validate() error {
 			deletedVoles = append(deletedVoles, a.Target.Path)
 		}
 		if a.Todo == ActionDump && a.Target.Kind == components.ResourceTypeVolume {
-			if !slices.Contains(deletedVoles, a.Target.Path) {
+			if slices.Contains(deletedVoles, a.Target.Path) {
 				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Target.Path)
 			}
 		}

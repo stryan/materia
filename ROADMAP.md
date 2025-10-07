@@ -4,7 +4,7 @@
 - [ ] agent/server mode to simulate traditional GitOPs CI
 
 # Near term goals
-- [ ] Rework action application
+- [x] Rework action application
 - [ ] Investigate `podman quadlet` command integration
 - [ ] Increasing test coverage
 - [ ] Component sharing

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
@@ -637,6 +638,37 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				}
 
 				diffActions = append(diffActions, a)
+				if newRes.Kind == components.ResourceTypeVolume && m.migrateVolumes {
+					// volume resource has been updated and volume migration has been enabled, add extra actions
+					for _, s := range other.ServiceResources {
+						// stop all services so that we're safe to dump
+						diffActions = append(diffActions, Action{
+							Todo:   ActionStop,
+							Parent: other,
+							Target: components.Resource{
+								Kind:   components.ResourceTypeService,
+								Path:   s.Service,
+								Parent: other.Name,
+							},
+							Content: nil,
+						})
+					}
+					diffActions = append(diffActions, Action{
+						Todo:   ActionDump,
+						Parent: other,
+						Target: newRes,
+					})
+					diffActions = append(diffActions, Action{
+						Todo:   ActionEnsure,
+						Parent: other,
+						Target: newRes,
+					})
+					diffActions = append(diffActions, Action{
+						Todo:   ActionImport,
+						Parent: other,
+						Target: newRes,
+					})
+				}
 			}
 		} else {
 			// in current resources but not source resources, remove old
@@ -764,7 +796,7 @@ func parseQuadletName(r components.Resource, resourceBody string) (string, error
 		if foundName {
 			name = unitName
 		} else {
-			name = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
+			name = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path)))
 		}
 	}
 	return name, nil

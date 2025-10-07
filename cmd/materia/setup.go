@@ -209,7 +209,7 @@ func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) 
 	}
 	err := envConf.Load(env.Provider("MATERIA", ".", func(s string) string {
 		return strings.Replace(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA_")), "_", ".", 1)
+			strings.TrimPrefix(s, "MATERIA_")), "__", ".", 1)
 	}), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error loading config from env: %w", err)
