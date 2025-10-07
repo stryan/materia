@@ -210,8 +210,8 @@ func TestPlan(t *testing.T) {
 		if expected.Parent.Name != v.Parent.Name {
 			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
 		}
-		if expected.Payload.Path != v.Payload.Path {
-			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Path, v.Payload.Path)
+		if expected.Target.Path != v.Target.Path {
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Target.Path, v.Target.Path)
 		}
 	}
 }
@@ -238,8 +238,8 @@ func TestExecuteFresh(t *testing.T) {
 		if expected.Parent.Name != v.Parent.Name {
 			t.Fatalf("failed on step %v:expected parent %v != planned  %v", k, expected.Parent.Name, v.Parent.Name)
 		}
-		if expected.Payload.Path != v.Payload.Path {
-			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Payload.Path, v.Payload.Path)
+		if expected.Target.Path != v.Target.Path {
+			t.Fatalf("failed on step %v:expected payload %v != planned %v", k, expected.Target.Path, v.Target.Path)
 		}
 	}
 	count, err := m.Execute(ctx, plan)
@@ -252,24 +252,24 @@ func TestExecuteFresh(t *testing.T) {
 	for _, v := range plan.Steps() {
 		switch v.Todo {
 		case materia.ActionInstall:
-			if v.Payload.Kind == components.ResourceTypeFile || v.Payload.IsQuadlet() {
+			if v.Target.Kind == components.ResourceTypeFile || v.Target.IsQuadlet() {
 				var dest string
-				if v.Payload.Kind == components.ResourceTypeFile || v.Payload.Kind == components.ResourceTypeManifest {
-					dest = filepath.Join(prefix, "components", v.Parent.Name, v.Payload.Path)
+				if v.Target.Kind == components.ResourceTypeFile || v.Target.Kind == components.ResourceTypeManifest {
+					dest = filepath.Join(prefix, "components", v.Parent.Name, v.Target.Path)
 				} else {
-					dest = filepath.Join(installdir, v.Parent.Name, v.Payload.Path)
+					dest = filepath.Join(installdir, v.Parent.Name, v.Target.Path)
 				}
 				_, err := os.Stat(dest)
-				assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Payload.Path))
-			} else if v.Payload.Kind == components.ResourceTypeComponent {
+				assert.Nil(t, err, fmt.Sprintf("error file not found: %v", v.Target.Path))
+			} else if v.Target.Kind == components.ResourceTypeComponent {
 				_, err := os.Stat(fmt.Sprintf("%v/components/%v", prefix, v.Parent.Name))
-				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Path))
+				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Target.Path))
 				_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
-				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Payload.Path))
+				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Target.Path))
 			}
 		case materia.ActionStart:
-			if v.Payload.Kind == components.ResourceTypeService {
-				state, err := m.Services.Get(ctx, v.Payload.Path)
+			if v.Target.Kind == components.ResourceTypeService {
+				state, err := m.Services.Get(ctx, v.Target.Path)
 				assert.Nil(t, err, "error getting service state")
 				assert.Equal(t, "active", state.State)
 			}
@@ -285,7 +285,7 @@ func planHelper(todo materia.ActionType, name, res string) materia.Action {
 				Parent: &components.Component{
 					Name: "root",
 				},
-				Payload: components.Resource{
+				Target: components.Resource{
 					Parent: name,
 					Kind:   components.ResourceTypeHost,
 				},
@@ -294,7 +294,7 @@ func planHelper(todo materia.ActionType, name, res string) materia.Action {
 			return materia.Action{
 				Todo:   todo,
 				Parent: &components.Component{Name: name},
-				Payload: components.Resource{
+				Target: components.Resource{
 					Parent: name,
 					Kind:   components.ResourceTypeComponent,
 					Path:   name,
@@ -307,7 +307,7 @@ func planHelper(todo materia.ActionType, name, res string) materia.Action {
 		Parent: &components.Component{
 			Name: name,
 		},
-		Payload: components.Resource{
+		Target: components.Resource{
 			Parent: name,
 			Kind:   components.FindResourceType(res),
 			Path:   res,

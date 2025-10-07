@@ -75,3 +75,12 @@ func (r Resource) IsQuadlet() bool {
 		return false
 	}
 }
+
+func (r Resource) IsFile() bool {
+	switch r.Kind {
+	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService:
+		return true
+	default:
+		return false
+	}
+}
