@@ -199,22 +199,8 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if v.Target.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to ensure non volume resource: %v", v.Target)
 			}
-			curVols, err := m.Containers.ListVolumes(ctx)
-			if err != nil {
-				return fmt.Errorf("error fetching current volumes: %w", err)
-			}
-			for _, vol := range curVols {
-				if strings.TrimSuffix(v.Target.Path, ".volume") == vol.Name {
-					err = m.Containers.RemoveVolume(ctx, &containers.Volume{
-						Name: v.Target.HostObject,
-					})
-					if err != nil {
-						return fmt.Errorf("error removing existing volume during ensure: %w", err)
-					}
-				}
-			}
 			service := strings.TrimSuffix(v.Target.Path, ".volume")
-			err = m.modifyService(ctx, Action{
+			err := m.modifyService(ctx, Action{
 				Todo:   ActionReload,
 				Parent: rootComponent,
 				Target: components.Resource{Kind: components.ResourceTypeHost},
