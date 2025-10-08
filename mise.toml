@@ -62,6 +62,9 @@ run = [
   "virter vm rm materia-test-alma-9",
 ]
 
+[tasks.virter-testsuite]
+run = "gotestsum ./virter"
+
 [tasks.virter-explore]
 depends = ["build-amd64", "lint", "test", "virter-age"]
 run = [

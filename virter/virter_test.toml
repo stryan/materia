@@ -56,7 +56,6 @@ if ! command -v mise >/dev/null 2>&1
 then
 	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 	mise trust .
-	mise install
 fi
-mise x -- gotestsum ./virter
+mise task run virter-testsuite
 """

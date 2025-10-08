@@ -67,7 +67,6 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 
 	// verify services
 	servicesMap := make(map[string]string)
-	// TODO rework this to handle a service that gets stopped and then started later
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Target.Path)
 		if err != nil {
