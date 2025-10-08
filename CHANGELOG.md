@@ -5,6 +5,13 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- Env variable settings now correctly use `MATERIA_AGE__KEYFILE` format for attributes/source/other sub configs
+- New `MIGRATE_VOLUMES` config option to enable volume migration on quadlet update: if a `.volume` quadlet is updated materia will:
+    1. Stop services for the component
+    2. Dump the existing volume to a tarball
+    3. Delete the existing volume
+    4. Restart the updated service to create the new volume
+    5. Import the old volume tarball into the new volume
 
 ## 0.3.0
 - Materia secrets are renamed as Component Attributes in order to better differentiate them from podman secrets.

@@ -1,5 +1,5 @@
 # High Priority Goals
-- [ ] Re-create volumes when .volume resource updates
+- [x] Re-create volumes when .volume resource updates
 - [ ] Override component manifests on per-host/role basis
 - [ ] agent/server mode to simulate traditional GitOPs CI
 
