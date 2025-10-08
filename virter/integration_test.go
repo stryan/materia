@@ -333,9 +333,9 @@ func TestRepo3_SOPS(t *testing.T) {
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
 	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "sops"))
-	require.Nil(t, os.Setenv("MATERIA_SOPS_SUFFIX", "enc"))
-	require.Nil(t, os.Setenv("MATERIA_SOPS_BASE_DIR", "secrets"))
-	require.Nil(t, os.Setenv("SOPS_AGE__KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, os.Setenv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, os.Setenv("MATERIA_SOPS__BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("SOPS_AGE_KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
 	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout

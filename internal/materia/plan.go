@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
@@ -8,121 +9,109 @@ import (
 )
 
 type Plan struct {
-	size                int
-	volumes             []string
-	components          []string
-	serviceRemovalPhase []Action
-	combatPhase         []Action
-	secondMain          []Action
-	servicesPhase       []Action
+	size          int
+	volumes       []string
+	components    []string
+	servicesPhase []Action
 
-	resourceChanges  map[string][]Action
-	structureChanges map[string][]Action
-	cleanupChanges   map[string][]Action
+	componentChanges map[string][]Action
 }
 
 func NewPlan(installedComps, volList []string) *Plan {
 	return &Plan{
 		volumes:          volList,
 		components:       installedComps,
-		resourceChanges:  make(map[string][]Action),
-		structureChanges: make(map[string][]Action),
-		cleanupChanges:   make(map[string][]Action),
+		componentChanges: make(map[string][]Action),
 	}
 }
 
 func (p *Plan) Add(a Action) {
-	switch a.Target.Kind {
-	case components.ResourceTypeComponent:
-		switch a.Todo {
-		case ActionInstall, ActionRemove:
-			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-		case ActionUpdate, ActionCleanup:
-			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionSetup:
-			p.secondMain = append(p.secondMain, a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeDirectory:
-		switch a.Todo {
-		case ActionInstall, ActionRemove:
-			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeManifest:
-		switch a.Todo {
-		case ActionInstall, ActionRemove:
-			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-		case ActionUpdate:
-			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
-		switch a.Todo {
-		case ActionInstall, ActionUpdate, ActionRemove:
-			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionCleanup:
-			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
-		case ActionDump:
-			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeVolume:
-		switch a.Todo {
-		case ActionInstall, ActionUpdate, ActionRemove:
-			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionCleanup:
-			p.cleanupChanges[a.Parent.Name] = append(p.cleanupChanges[a.Parent.Name], a)
-		case ActionDump:
-			p.structureChanges[a.Parent.Name] = append(p.structureChanges[a.Parent.Name], a)
-		case ActionEnsure, ActionImport:
-			p.secondMain = append(p.secondMain, a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeService:
-		switch a.Todo {
-		case ActionInstall, ActionUpdate, ActionRemove:
-			p.resourceChanges[a.Parent.Name] = append(p.resourceChanges[a.Parent.Name], a)
-		case ActionRestart, ActionStart, ActionEnable, ActionDisable:
-			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
-			}) {
-				return
+	if a.Priority == 0 {
+		switch a.Target.Kind {
+		case components.ResourceTypeComponent:
+			switch a.Todo {
+			case ActionInstall:
+				a.Priority = 2
+			case ActionUpdate, ActionCleanup:
+				a.Priority = 3
+			case ActionSetup, ActionRemove:
+				a.Priority = 4
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 			}
+		case components.ResourceTypeDirectory:
+			switch a.Todo {
+			case ActionInstall:
+				a.Priority = 2
+			case ActionRemove:
+				a.Priority = 4
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+			}
+		case components.ResourceTypeManifest:
+			switch a.Todo {
+			case ActionInstall, ActionRemove:
+				a.Priority = 3
+			case ActionUpdate:
+				a.Priority = 3
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+			}
+		case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
+			switch a.Todo {
+			case ActionInstall, ActionUpdate, ActionRemove:
+				a.Priority = 3
+			case ActionCleanup:
+				a.Priority = 6
+			case ActionDump:
+				a.Priority = 6
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+			}
+		case components.ResourceTypeVolume:
+			switch a.Todo {
+			case ActionInstall, ActionUpdate, ActionRemove:
+				a.Priority = 3
+			case ActionCleanup:
+				a.Priority = 6
+			case ActionDump:
+				a.Priority = 2
+			case ActionEnsure, ActionImport:
+				a.Priority = 4
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+			}
+		case components.ResourceTypeService:
+			switch a.Todo {
+			case ActionInstall, ActionUpdate, ActionRemove:
+				a.Priority = 3
+			case ActionRestart, ActionStart, ActionEnable, ActionDisable:
+				a.Priority = 5
+			case ActionStop:
+				a.Priority = 1
+			case ActionReload:
+				a.Priority = 5
+			default:
+				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
+			}
+		case components.ResourceTypeHost:
+			if a.Todo == ActionReload {
+				// TODO only need one reload by default
+				a.Priority = 4
+			} else {
+				panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Target.Kind, a.Target))
+			}
+		default:
+			panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
+		}
+		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable) {
 			p.servicesPhase = append(p.servicesPhase, a)
-		case ActionStop:
-			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
-			}) {
-				return
-			}
-			p.serviceRemovalPhase = append(p.serviceRemovalPhase, a)
-		case ActionReload:
-			if slices.ContainsFunc(p.servicesPhase, func(modification Action) bool {
-				return (modification.Target.Path == a.Target.Path && modification.Todo == a.Todo)
-			}) {
-				return
-			}
-			p.servicesPhase = append(p.servicesPhase, a)
-		default:
-			panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-		}
-	case components.ResourceTypeHost:
-		if a.Todo == ActionReload {
-			if len(p.combatPhase) == 0 || (p.combatPhase[0].Todo != ActionReload && p.combatPhase[0].Parent.Name != "") {
-				// only need to reload once but we do need to do it before any other service actions
-				p.combatPhase = slices.Insert(p.combatPhase, 0, a)
-			}
 		} else {
-			panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Target.Kind, a.Target))
+			p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
 		}
-	default:
-		panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
+	} else {
+		// we have a manually set priority, don't seperate out services
+		p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
 	}
 	p.size++
 }
@@ -187,29 +176,21 @@ func (p *Plan) Validate() error {
 }
 
 func (p *Plan) Steps() []Action {
-	var mainPhase []Action
-	var cleanupPhase []Action
-	keys := sortedKeys(p.resourceChanges)
-	for _, k := range keys {
-		componentActions := []Action{}
-		beginningStep := []Action{}
-		endstep := []Action{}
-		for _, sc := range p.structureChanges[k] {
-			if sc.Todo == ActionInstall && (sc.Target.Kind == components.ResourceTypeComponent || sc.Target.Kind == components.ResourceTypeDirectory) {
-				beginningStep = append(beginningStep, sc)
-			} else {
-				endstep = append(endstep, sc)
-			}
-		}
-		componentActions = append(componentActions, beginningStep...)
-		componentActions = append(componentActions, p.resourceChanges[k]...)
-		componentActions = append(componentActions, endstep...)
-		mainPhase = append(mainPhase, componentActions...)
-		cleanupPhase = append(cleanupPhase, p.cleanupChanges[k]...)
-
+	var steps []Action
+	sortedComps := sortedKeys(p.componentChanges)
+	for _, k := range sortedComps {
+		slices.SortStableFunc(p.componentChanges[k], func(a, b Action) int {
+			return cmp.Compare(a.Priority, b.Priority)
+		})
+		steps = append(steps, p.componentChanges[k]...)
 	}
 
-	return slices.Concat(p.serviceRemovalPhase, mainPhase, p.combatPhase, p.secondMain, p.servicesPhase, cleanupPhase)
+	// slices.SortStableFunc(steps, func(a, b Action) int {
+	// 	return cmp.Compare(a.Priority, b.Priority)
+	// })
+	steps = append(steps, p.servicesPhase...)
+
+	return steps
 }
 
 func (p *Plan) Pretty() string {

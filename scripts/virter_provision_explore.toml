@@ -16,9 +16,11 @@ REMOTEHOST = "{{ .RemoteHost }}"
 [[steps]]
 [steps.shell]
 script = """
-yum install -y make rsync podman git
+yum install -y make rsync podman git go vim
 mkdir -p /var/lib/materia
 mkdir -p /etc/materia
+rm -rf /root/materia
+mkdir -p /root/materia
 """
 
 [[steps]]
@@ -28,7 +30,7 @@ dest = "/usr/local/bin/materia"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/_vm/auth/*"
+source = "virter/auth/*"
 dest = "/root/.ssh/"
 
 [[steps]]
@@ -38,16 +40,23 @@ dest = "/etc/materia/key.txt"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/testrepo"
-dest = "/tmp/testrepo/"
+source = "virter/out/"
+dest = "/tmp/out/"
 
 [[steps]]
 [steps.rsync]
-source = "scripts/_vm/out/"
-dest = "/tmp/out/"
+source = "."
+dest = "/root/materia"
 
 [[steps]]
 [steps.shell]
 script = """
 ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
+cd /root/materia/
+if ! command -v mise >/dev/null 2>&1
+then
+	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
+	mise trust .
+	mise install
+fi
 """

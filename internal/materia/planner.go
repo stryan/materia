@@ -140,6 +140,7 @@ func updateComponents(assignedComponents map[string]*components.Component, insta
 func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, error) {
 	keys := sortedKeys(updates)
 	hostname := m.HostFacts.GetHostname()
+	needReload := false
 	var plannedActions []Action
 	for _, compName := range keys {
 		newComponent := updates[compName]
@@ -160,11 +161,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 				return plannedActions, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
 			if len(actions) > 0 {
-				actions = append(actions, Action{
-					Todo:   ActionReload,
-					Parent: rootComponent,
-					Target: components.Resource{Kind: components.ResourceTypeHost},
-				})
+				needReload = true
 			}
 			serviceActions, err := m.processFreshComponentServices(ctx, newComponent)
 			if err != nil {
@@ -183,6 +180,9 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			actions, err := m.calculatePotentialComponentResources(original, newComponent, attrs)
 			if err != nil {
 				return plannedActions, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
+			}
+			if len(actions) > 0 {
+				needReload = true
 			}
 			restartmap := make(map[string]manifests.ServiceResourceConfig)
 			reloadmap := make(map[string]manifests.ServiceResourceConfig)
@@ -240,6 +240,14 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
 
+	}
+
+	if needReload {
+		plannedActions = append(plannedActions, Action{
+			Todo:   ActionReload,
+			Parent: rootComponent,
+			Target: components.Resource{Kind: components.ResourceTypeHost},
+		})
 	}
 
 	return plannedActions, nil
@@ -351,13 +359,6 @@ func (m *Materia) calculatePotentialComponentResources(original, newComponent *c
 	if err != nil {
 		log.Debugf("error diffing components: L (%v) R (%v)", original, newComponent)
 		return actions, err
-	}
-	if len(actions) > 0 {
-		actions = append(actions, Action{
-			Todo:   ActionReload,
-			Parent: rootComponent,
-			Target: components.Resource{Kind: components.ResourceTypeHost},
-		})
 	}
 	return actions, nil
 }
@@ -506,6 +507,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	}
 	resourceList := comp.Resources
 	slices.Reverse(resourceList)
+	dirs := []components.Resource{}
 	for _, r := range resourceList {
 		if r.Path != manifests.ComponentManifestFile {
 			resourceBody := ""
@@ -515,14 +517,23 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 				if err != nil {
 					return actions, fmt.Errorf("error reading resource for deletion: %w", err)
 				}
+				actions = append(actions, Action{
+					Todo:    ActionRemove,
+					Parent:  comp,
+					Target:  r,
+					Content: diffmatchpatch.New().DiffMain(resourceBody, "", false),
+				})
+			} else {
+				dirs = append(dirs, r)
 			}
-			actions = append(actions, Action{
-				Todo:    ActionRemove,
-				Parent:  comp,
-				Target:  r,
-				Content: diffmatchpatch.New().DiffMain(resourceBody, "", false),
-			})
 		}
+	}
+	for _, d := range dirs {
+		actions = append(actions, Action{
+			Todo:   ActionRemove,
+			Parent: comp,
+			Target: d,
+		})
 	}
 	if comp.Scripted {
 		actions = append(actions, Action{
@@ -640,8 +651,10 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				diffActions = append(diffActions, a)
 				if newRes.Kind == components.ResourceTypeVolume && m.migrateVolumes {
 					// volume resource has been updated and volume migration has been enabled, add extra actions
+					runningServices := []string{}
 					for _, s := range other.ServiceResources {
 						// stop all services so that we're safe to dump
+						// TODO only stop those actually running
 						diffActions = append(diffActions, Action{
 							Todo:   ActionStop,
 							Parent: other,
@@ -650,24 +663,46 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 								Path:   s.Service,
 								Parent: other.Name,
 							},
-							Content: nil,
+							Priority: 1,
 						})
+						runningServices = append(runningServices, s.Service)
 					}
 					diffActions = append(diffActions, Action{
-						Todo:   ActionDump,
-						Parent: other,
-						Target: newRes,
+						Todo:     ActionDump,
+						Parent:   other,
+						Target:   newRes,
+						Priority: 1,
 					})
 					diffActions = append(diffActions, Action{
-						Todo:   ActionEnsure,
-						Parent: other,
-						Target: newRes,
+						Todo:     ActionCleanup,
+						Parent:   other,
+						Target:   newRes,
+						Priority: 2,
 					})
 					diffActions = append(diffActions, Action{
-						Todo:   ActionImport,
-						Parent: other,
-						Target: newRes,
+						Todo:     ActionEnsure,
+						Parent:   other,
+						Target:   newRes,
+						Priority: 4,
 					})
+					diffActions = append(diffActions, Action{
+						Todo:     ActionImport,
+						Parent:   other,
+						Target:   newRes,
+						Priority: 4,
+					})
+					for _, s := range runningServices {
+						diffActions = append(diffActions, Action{
+							Todo:   ActionStart,
+							Parent: other,
+							Target: components.Resource{
+								Kind:   components.ResourceTypeService,
+								Path:   s,
+								Parent: other.Name,
+							},
+							Priority: 5,
+						})
+					}
 				}
 			}
 		} else {

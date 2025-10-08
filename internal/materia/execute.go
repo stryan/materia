@@ -226,7 +226,15 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			}
 			service := strings.TrimSuffix(v.Target.Path, ".volume")
 			err = m.modifyService(ctx, Action{
-				Todo:   ActionStart,
+				Todo:   ActionReload,
+				Parent: rootComponent,
+				Target: components.Resource{Kind: components.ResourceTypeHost},
+			})
+			if err != nil {
+				return err
+			}
+			err = m.modifyService(ctx, Action{
+				Todo:   ActionRestart,
 				Parent: v.Parent,
 				Target: components.Resource{
 					Parent: v.Parent.Name,
