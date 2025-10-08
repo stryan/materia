@@ -66,8 +66,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}
 
 	// verify services
-	activating := []string{}
-	deactivating := []string{}
+	servicesMap := make(map[string]string)
 	// TODO rework this to handle a service that gets stopped and then started later
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Target.Path)
@@ -77,13 +76,13 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		switch v.Todo {
 		case ActionRestart, ActionStart:
 			if serv.State == "activating" {
-				activating = append(activating, v.Target.Path)
+				servicesMap[serv.Name] = "active"
 			} else if serv.State != "active" {
 				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
 			}
 		case ActionStop:
 			if serv.State == "deactivating" {
-				deactivating = append(deactivating, v.Target.Path)
+				servicesMap[serv.Name] = "inactive"
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
@@ -93,25 +92,16 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 	}
 	var servWG sync.WaitGroup
-	for _, v := range activating {
+	for serv, state := range servicesMap {
 		servWG.Add(1)
 		go func() {
 			defer servWG.Done()
-			err := m.Services.WaitUntilState(ctx, v, "active")
+			err := m.Services.WaitUntilState(ctx, serv, state)
 			if err != nil {
 				log.Warn(err)
 			}
 		}()
-	}
-	for _, v := range deactivating {
-		servWG.Add(1)
-		go func() {
-			defer servWG.Done()
-			err := m.Services.WaitUntilState(ctx, v, "inactive")
-			if err != nil {
-				log.Warn(err)
-			}
-		}()
+
 	}
 	servWG.Wait()
 	return steps, nil
