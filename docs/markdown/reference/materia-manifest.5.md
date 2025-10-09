@@ -22,7 +22,7 @@ Manifest files are required for a repository or component to be considered valid
 
 ## Repository manifests
 
-## Options
+### Options
 
 #### **hosts**
 
@@ -65,7 +65,7 @@ components = ["authelia"]
 ## Component manifests
 
 
-## Options
+### Options
 
 #### *Defaults*
 

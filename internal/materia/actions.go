@@ -35,10 +35,11 @@ const (
 )
 
 type Action struct {
-	Todo    ActionType
-	Parent  *components.Component
-	Target  components.Resource
-	Content any
+	Todo     ActionType
+	Parent   *components.Component
+	Target   components.Resource
+	Content  any
+	Priority int
 }
 
 func (a Action) Validate() error {
@@ -66,7 +67,7 @@ func (a *Action) String() string {
 }
 
 func (a *Action) Pretty() string {
-	return fmt.Sprintf("%v %v %v", a.Todo, a.Target.Kind, a.Target.Path)
+	return fmt.Sprintf("(%v) %v %v %v", a.Parent.Name, a.Todo, a.Target.Kind, a.Target.Path)
 }
 
 func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {

@@ -62,12 +62,16 @@ run = [
   "virter vm rm materia-test-alma-9",
 ]
 
+[tasks.virter-testsuite]
+run = "gotestsum ./virter"
+
 [tasks.virter-explore]
 depends = ["build-amd64", "lint", "test", "virter-age"]
 run = [
-  "if virter vm exists materia-test-alma-9; then virter vm rm materia-test-alma-9; fi",
-  "virter vm run --name materia-test-alma-9 --id 0 --wait-ssh alma-9",
-  "virter vm exec materia-test-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+  "if virter vm exists materia-explore-alma-9; then virter vm rm materia-explore-alma-9; fi",
+  "virter vm run --name materia-explore-alma-9 --id 0 --wait-ssh alma-9",
+  "virter vm exec materia-explore-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
+  "virter vm ssh materia-explore-alma-9",
 ]
 
 [tasks.generate]

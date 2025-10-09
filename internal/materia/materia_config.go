@@ -31,7 +31,9 @@ type MateriaConfig struct {
 	Cleanup        bool              `toml:"cleanup"`
 	CleanupVolumes bool              `toml:"cleanup_volumes"`
 	BackupVolumes  bool              `toml:"backup_volumes"`
+	MigrateVolumes bool              `toml:"migrate_volumes"`
 	Attributes     string            `toml:"attributes"`
+	CompressionCmd string            `toml:"compression_cmd"`
 	AgeConfig      *age.Config       `toml:"age"`
 	FileConfig     *fileattrs.Config `toml:"file"`
 	SopsConfig     *sops.Config      `toml:"sops"`
@@ -62,6 +64,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	} else {
 		c.BackupVolumes = true
 	}
+	c.MigrateVolumes = k.Bool("migrate_volumes")
 	c.Attributes = k.String("attributes")
 	c.UseStdout = k.Bool("use_stdout")
 	c.MateriaDir = k.String("materia_dir")
@@ -92,6 +95,11 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		return nil, err
 	}
 	c.User = currentUser
+	if k.Exists("compression_cmd") {
+		c.CompressionCmd = k.String("compression_cmd")
+	} else {
+		c.CompressionCmd = "zstd"
+	}
 
 	// calculate defaults
 	dataPath := "/var/lib"
@@ -165,6 +173,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Show Diffs: %v\n", c.Diffs)
 	result += fmt.Sprintf("Clean-up Volumes: %v\n", c.CleanupVolumes)
 	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
+	result += fmt.Sprintf("Migrate Volumes: %v\n", c.MigrateVolumes)
 	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
 	result += fmt.Sprintf("Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)

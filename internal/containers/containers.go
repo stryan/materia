@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/charmbracelet/log"
 )
 
-var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".tgz", ".bzip", ".tar.xz", ".txz"}
+var supportedVolumeDumpExts = []string{"tar", "tar.gz", "tgz", "bzip", "tar.xz", "txz"}
 
 type PodmanManager struct {
 	secretsPrefix string
@@ -131,6 +133,7 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir 
 	if compressed {
 		outputFilename = fmt.Sprintf("%v.zstd", outputFilename)
 	}
+	log.Debugf("dumping volume %v to path %v", volume.Name, outputFilename)
 	outfile, err := os.Create(outputFilename)
 	if err != nil {
 		return err
@@ -157,13 +160,9 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir 
 		return nil
 	}
 	exportCmd.Stdout = outfile
-	err = exportCmd.Start()
+	err = exportCmd.Run()
 	if err != nil {
-		return err
-	}
-	err = exportCmd.Wait()
-	if err != nil {
-		return err
+		return fmt.Errorf("error starting export command: %w", err)
 	}
 	return nil
 }
@@ -183,12 +182,12 @@ func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
 
 func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, sourcePath string) error {
 	if slices.Contains(supportedVolumeDumpExts, filepath.Ext(sourcePath)) {
-		return errors.New("unsupported volume dump type for import")
+		return fmt.Errorf("unsupported volume dump type %v for import", filepath.Ext(sourcePath))
 	}
-	if volume.Driver != "local" {
+	if volume.Driver != "local" && volume.Driver != "" {
 		return errors.New("can only import into local volume")
 	}
-	cmd := exec.CommandContext(ctx, "podman", "volume", "import", sourcePath)
+	cmd := exec.CommandContext(ctx, "podman", "volume", "import", volume.Name, sourcePath)
 	output, err := cmd.Output()
 	if err != nil {
 		return err

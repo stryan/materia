@@ -1,0 +1,6 @@
+[env]
+MATERIA_SOURCE__URL = "file:///root/materia/virter/in/testrepo4"
+MATERIA_HOSTNAME = "localhost"
+MATERIA_ATTRIBUTES = "age"
+MATERIA_AGE__KEYFILE = "/root/materia/virter/auth/key.txt"
+MATERIA_AGE__BASE_DIR = "secrets"

@@ -50,6 +50,7 @@ type Materia struct {
 	cleanup             bool
 	cleanupVolumes      bool
 	backupVolumes       bool
+	migrateVolumes      bool
 }
 
 func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
@@ -83,6 +84,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 		rootComponent:  rootComponent,
 		cleanupVolumes: c.CleanupVolumes,
 		backupVolumes:  c.BackupVolumes,
+		migrateVolumes: c.MigrateVolumes,
 	}
 	m.macros = func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{

@@ -256,10 +256,10 @@ func TestCNF(t *testing.T) {
 func TestRepo1_Simple(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", "file:///root/materia/virter/in/testrepo1"))
+	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo1"))
 	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "age"))
-	require.Nil(t, os.Setenv("MATERIA_AGE_KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
-	require.Nil(t, os.Setenv("MATERIA_AGE_BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -288,10 +288,10 @@ func TestRepo2_Complex(t *testing.T) {
 	require.NoError(t, err, "could't connect to systemd over dbus")
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
 	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "age"))
-	require.Nil(t, os.Setenv("MATERIA_AGE_KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_AGE_BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -331,12 +331,12 @@ func TestRepo3_SOPS(t *testing.T) {
 	require.NoError(t, err, "could't connect to systemd over dbus")
 	require.NoError(t, clearMateria(), "unable to clean up before test")
 	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE_URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
 	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "sops"))
-	require.Nil(t, os.Setenv("MATERIA_SOPS_SUFFIX", "enc"))
-	require.Nil(t, os.Setenv("MATERIA_SOPS_BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, os.Setenv("MATERIA_SOPS__BASE_DIR", "secrets"))
 	require.Nil(t, os.Setenv("SOPS_AGE_KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_AGE_BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -366,4 +366,31 @@ func TestRepo3_SOPS(t *testing.T) {
 	require.True(t, componentRemoved("carpal"))
 	require.True(t, componentRemoved("freshrss"))
 	require.NoError(t, stopService(ctx, conn, "hello.service"))
+}
+
+func TestRepo4_VolumeMigration(t *testing.T) {
+	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4"))
+	require.Nil(t, os.Setenv("MATERIA_ATTRIBUTES", "age"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo4/test-key.txt"))
+	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
+	require.Nil(t, os.Setenv("MATERIA_MIGRATE_VOLUMES", "true"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err := planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo4/hello"))
+	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4_pt2"))
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
 }

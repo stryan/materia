@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -65,8 +66,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}
 
 	// verify services
-	activating := []string{}
-	deactivating := []string{}
+	servicesMap := make(map[string]string)
 	for _, v := range serviceActions {
 		serv, err := m.Services.Get(ctx, v.Target.Path)
 		if err != nil {
@@ -75,13 +75,13 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		switch v.Todo {
 		case ActionRestart, ActionStart:
 			if serv.State == "activating" {
-				activating = append(activating, v.Target.Path)
+				servicesMap[serv.Name] = "active"
 			} else if serv.State != "active" {
 				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
 			}
 		case ActionStop:
 			if serv.State == "deactivating" {
-				deactivating = append(deactivating, v.Target.Path)
+				servicesMap[serv.Name] = "inactive"
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
@@ -91,25 +91,16 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 	}
 	var servWG sync.WaitGroup
-	for _, v := range activating {
+	for serv, state := range servicesMap {
 		servWG.Add(1)
 		go func() {
 			defer servWG.Done()
-			err := m.Services.WaitUntilState(ctx, v, "active")
+			err := m.Services.WaitUntilState(ctx, serv, state)
 			if err != nil {
 				log.Warn(err)
 			}
 		}()
-	}
-	for _, v := range deactivating {
-		servWG.Add(1)
-		go func() {
-			defer servWG.Done()
-			err := m.Services.WaitUntilState(ctx, v, "inactive")
-			if err != nil {
-				log.Warn(err)
-			}
-		}()
+
 	}
 	servWG.Wait()
 	return steps, nil
@@ -210,7 +201,15 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			}
 			service := strings.TrimSuffix(v.Target.Path, ".volume")
 			err := m.modifyService(ctx, Action{
-				Todo:   ActionStart,
+				Todo:   ActionReload,
+				Parent: rootComponent,
+				Target: components.Resource{Kind: components.ResourceTypeHost},
+			})
+			if err != nil {
+				return err
+			}
+			err = m.modifyService(ctx, Action{
+				Todo:   ActionRestart,
 				Parent: v.Parent,
 				Target: components.Resource{
 					Parent: v.Parent.Name,
@@ -222,9 +221,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 		case ActionCleanup:
-			if !m.cleanup {
-				return fmt.Errorf("cleanup is disabled: %v", v.Target)
-			}
 			switch v.Target.Kind {
 			case components.ResourceTypeNetwork:
 				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
@@ -232,11 +228,9 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 					return err
 				}
 			case components.ResourceTypeVolume:
-				if m.cleanupVolumes {
-					err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
-					if err != nil {
-						return err
-					}
+				err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+				if err != nil {
+					return err
 				}
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)
@@ -247,7 +241,15 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			}
 			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
 			if err != nil {
-				return fmt.Errorf("error dumping volume %v:%e", v.Target.Path, err)
+				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+			}
+		case ActionImport:
+			if v.Target.Kind != components.ResourceTypeVolume {
+				return fmt.Errorf("tried to import a non-volume resource: %v", v.Target)
+			}
+			err := m.Containers.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+			if err != nil {
+				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)

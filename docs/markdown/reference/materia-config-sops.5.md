@@ -3,7 +3,7 @@ title: MATERIA-CONFIG-SOPS
 section: 5
 header: User Manual
 footer: materia 0.3.0
-date: September 2025
+date: October 2025
 author: stryan
 ---
 
@@ -26,15 +26,15 @@ Supports YAML,JSON, and INI files.
 
 ## Options
 
-#### **MATERIA_SOPS_BASE_DIR**/**sops.base_dir**
+#### **MATERIA_SOPS__BASE_DIR**/**sops.base_dir**
 
 Directory that contains attributes
 
-#### **MATERIA_SOPS_VAULTS**/**sops.vaults**
+#### **MATERIA_SOPS__VAULTS**/**sops.vaults**
 
 Files that are general attributes vaults. Defaults to "vault.yml" and "attributes.yml".
 
-#### **MATERIA_SOPS_SUFFIX**/**sops.suffix**
+#### **MATERIA_SOPS__SUFFIX**/**sops.suffix**
 
 Suffix that denotes an encrypted file and comes before the base file type. Use this if your base directory includes both encrypted and un-encrypted files.
 
