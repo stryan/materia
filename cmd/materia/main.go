@@ -118,15 +118,24 @@ func main() {
 						Aliases: []string{"r"},
 						Usage:   "Only install resources",
 					},
+					&cli.StringFlag{
+						Name:    "format",
+						Aliases: []string{"f"},
+						Usage:   "Control output format. Supports text,json",
+					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					quiet := false
+					format := "text"
 					if cCtx.IsSet("quiet") {
 						cliflags["quiet"] = cCtx.Bool("quiet")
 						quiet = cCtx.Bool("quiet")
 					}
 					if cCtx.IsSet("resource-only") {
 						cliflags["onlyresource"] = cCtx.Bool("resource-only")
+					}
+					if cCtx.IsSet("format") {
+						format = cCtx.String("format")
 					}
 					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
@@ -136,12 +145,23 @@ func main() {
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
 					}
-					if plan.Empty() {
-						fmt.Println("No changes being made")
-						return nil
-					}
 					if !quiet {
-						fmt.Println(plan.Pretty())
+						switch format {
+						case "text":
+							if plan.Empty() {
+								fmt.Println("No changes made")
+								return nil
+							}
+							fmt.Println(plan.Pretty())
+						case "json":
+							jsonPlan, err := plan.ToJson()
+							if err != nil {
+								return fmt.Errorf("error converting to json: %w", err)
+							}
+							fmt.Printf("%s", string(jsonPlan))
+						default:
+							return fmt.Errorf("unsupported output format")
+						}
 					}
 					err = m.SavePlan(plan, "plan.toml")
 					if err != nil {

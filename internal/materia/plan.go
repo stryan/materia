@@ -2,6 +2,7 @@ package materia
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -204,6 +205,11 @@ func (p *Plan) Pretty() string {
 		result += fmt.Sprintf("%v. %v\n", i+1, a.Pretty())
 	}
 	return result
+}
+
+func (p *Plan) ToJson() ([]byte, error) {
+	actions := p.Steps()
+	return json.Marshal(actions)
 }
 
 func (p *Plan) PrettyLines() []string {

@@ -5,6 +5,7 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- `Plan` now supports setting the output format. Adds support for JSON output.
 - Env variable settings now correctly use `MATERIA_AGE__KEYFILE` format for attributes/source/other sub configs
 - New `MIGRATE_VOLUMES` config option to enable volume migration on quadlet update: if a `.volume` quadlet is updated materia will:
     1. Stop services for the component

@@ -58,6 +58,7 @@ Display host facts and role information
 
 **--resource-only, -r**: Only install resources instead of also starting/stopping services
 
+**--format, -f**: Control output format. Supports json,text. Defaults text.
 
 
 #### update [flags]

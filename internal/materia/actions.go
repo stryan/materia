@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -35,11 +36,11 @@ const (
 )
 
 type Action struct {
-	Todo     ActionType
-	Parent   *components.Component
-	Target   components.Resource
-	Content  any
-	Priority int
+	Todo     ActionType            `json:"todo" toml:"todo"`
+	Parent   *components.Component `json:"parent" toml:"parent"`
+	Target   components.Resource   `json:"target" toml:"target"`
+	Content  any                   `json:"content" toml:"content"`
+	Priority int                   `json:"priority" toml:"priority"`
 }
 
 func (a Action) Validate() error {
@@ -80,4 +81,18 @@ func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {
 		return diffs, errors.New("should have diffs but don't")
 	}
 	return diffs, nil
+}
+
+func (a *Action) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Todo     ActionType
+		Parent   string
+		Target   components.Resource
+		Priority int
+	}{
+		Todo:     a.Todo,
+		Parent:   a.Parent.Name,
+		Target:   a.Target,
+		Priority: a.Priority,
+	})
 }

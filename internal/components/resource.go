@@ -6,11 +6,11 @@ import (
 )
 
 type Resource struct {
-	Path       string
-	HostObject string
-	Parent     string
-	Kind       ResourceType
-	Template   bool
+	Path       string       `json:"path" toml:"path"`
+	HostObject string       `json:"host_object" toml:"host_object"`
+	Parent     string       `json:"parent" toml:"parent"`
+	Kind       ResourceType `json:"kind" toml:"kind"`
+	Template   bool         `json:"template" toml:"template"`
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType
