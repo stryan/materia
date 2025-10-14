@@ -774,7 +774,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				if err != nil {
 					return diffActions, err
 				}
-				resourceBody, err := m.executeResource(newStringTempl, attrs)
+				resourceBody, err := m.executeResource(newStringTempl, diffAttrs)
 				if err != nil {
 					return diffActions, err
 				}
