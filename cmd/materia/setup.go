@@ -140,7 +140,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir)
+	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
@@ -189,8 +189,8 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
 	log.Debug("loading remote components")
-	if len(man.Remote) > 0 {
-		for _, r := range man.Remote {
+	if len(man.Remotes) > 0 {
+		for name, r := range man.Remotes {
 			parsedPath := strings.Split(r.URL, "://")
 			var remoteSource materia.Source
 			switch parsedPath[0] {
@@ -199,6 +199,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 				// if err != nil {
 				// return nil, fmt.Errorf("error creating git config: %w", err)
 				// }
+				localpath := filepath.Join(c.RemoteDir, "components", name)
 				remoteSource, err = git.NewGitSource(&git.Config{
 					Branch:           r.Version,
 					PrivateKey:       "",
@@ -206,7 +207,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 					Password:         "",
 					KnownHosts:       "",
 					Insecure:         false,
-					LocalRepository:  "remotes/components",
+					LocalRepository:  localpath,
 					RemoteRepository: parsedPath[1],
 				})
 				if err != nil {

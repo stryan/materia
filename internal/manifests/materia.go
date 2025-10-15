@@ -23,11 +23,11 @@ type RemoteComponentConfig struct {
 }
 
 type MateriaManifest struct {
-	Hosts       map[string]Host         `toml:"Hosts"`
-	Snippets    []SnippetConfig         `toml:"Snippets"`
-	Roles       map[string]Role         `toml:"Roles"`
-	RoleCommand string                  `toml:"RoleCommnad"`
-	Remote      []RemoteComponentConfig `toml:"Remotes"`
+	Hosts       map[string]Host                  `toml:"Hosts" koanf:"Hosts"`
+	Snippets    []SnippetConfig                  `toml:"Snippets" koanf:"Snippets"`
+	Roles       map[string]Role                  `toml:"Roles" koanf:"Roles"`
+	RoleCommand string                           `toml:"RoleCommand" koanf:"RoleCommand"`
+	Remotes     map[string]RemoteComponentConfig `toml:"Remotes" koanf:"Remotes"`
 }
 
 type Host struct {

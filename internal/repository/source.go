@@ -143,6 +143,9 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if d.Name() == c.Name || d.Name() == manifests.ComponentManifestFile {
 			return nil
 		}
+		if strings.Contains(fullPath, ".git") {
+			return nil
+		}
 		newRes, err := s.NewResource(c, fullPath)
 		if err != nil {
 			return err

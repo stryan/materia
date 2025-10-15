@@ -57,13 +57,18 @@ func NewGitSource(c *Config) (*GitSource, error) {
 			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
 		}
 		g.auth = publicKeys
-	} else if c.Username != "" {
-		g.auth = &http.BasicAuth{
-			Username: c.Username,
-			Password: c.Password,
-		}
 	} else {
-		return nil, errors.New("no valid authentication set for git")
+		if c.Username != "" {
+			g.auth = &http.BasicAuth{
+				Username: c.Username,
+				Password: c.Password,
+			}
+		}
+		if g.insecure {
+			g.remoteRepository = fmt.Sprintf("http://%v", g.remoteRepository)
+		} else {
+			g.remoteRepository = fmt.Sprintf("https://%v", g.remoteRepository)
+		}
 	}
 	return g, nil
 }

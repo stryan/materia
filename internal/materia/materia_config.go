@@ -26,6 +26,7 @@ type MateriaConfig struct {
 	ScriptsDir     string            `toml:"scripts_dir"`
 	SourceDir      string            `toml:"source_dir"`
 	OutputDir      string            `toml:"output_dir"`
+	RemoteDir      string            `toml:"remote_dir"`
 	OnlyResources  bool              `toml:"only_resources"`
 	Quiet          bool              `toml:"quiet"`
 	Cleanup        bool              `toml:"cleanup"`
@@ -72,6 +73,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.ServiceDir = k.String("service_dir")
 	c.ScriptsDir = k.String("scripts_dir")
 	c.OutputDir = k.String("output_dir")
+	c.RemoteDir = k.String("remote_dir")
 	if k.Exists("age") {
 		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
@@ -143,6 +145,9 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if c.SourceDir == "" {
 		c.SourceDir = filepath.Join(dataPath, "materia", "source")
 	}
+	if c.RemoteDir == "" {
+		c.RemoteDir = filepath.Join(dataPath, "materia", "remote")
+	}
 	if c.OutputDir == "" {
 		c.OutputDir = filepath.Join(dataPath, "materia", "output")
 	}
@@ -182,6 +187,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Quadlet Dir: %v\n", c.QuadletDir)
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
+	result += fmt.Sprintf("Remote cache dir: %v\n", c.RemoteDir)
 	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	if c.AgeConfig != nil {
