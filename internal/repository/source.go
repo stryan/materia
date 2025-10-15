@@ -19,24 +19,38 @@ import (
 var ErrNeedHostRepository = errors.New("action can't be done on source repository")
 
 type SourceComponentRepository struct {
-	basedir string
-	Prefix  string
+	basedirs []string
 }
 
-func NewSourceComponentRepository(sourceDir string) (*SourceComponentRepository, error) {
-	if _, err := os.Stat(sourceDir); err != nil {
-		// we expect the source repo to be pre-created for us
-		return nil, err
+func NewSourceComponentRepository(sourceDirs ...string) (*SourceComponentRepository, error) {
+	for _, sourceDir := range sourceDirs {
+		if _, err := os.Stat(sourceDir); err != nil {
+			// we expect the source repos to be pre-created for us
+			return nil, err
+		}
 	}
 	return &SourceComponentRepository{
-		basedir: sourceDir,
-		Prefix:  filepath.Join(sourceDir, "components"),
+		basedirs: sourceDirs,
 	}, nil
 }
 
+func (s SourceComponentRepository) getPrefix(name string) (string, error) {
+	for _, bd := range s.basedirs {
+		if _, err := os.Stat(filepath.Join(bd, "components", name)); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return "", err
+		} else {
+			return filepath.Join(bd, "components", name), nil
+		}
+	}
+	return "", fmt.Errorf("can't get prefix for resource %v", name)
+}
+
 func (s SourceComponentRepository) Validate() error {
-	if s.Prefix == "" {
-		return errors.New("no data prefix")
+	if len(s.basedirs) < 1 {
+		return errors.New("no search paths for source components")
 	}
 	return nil
 }
@@ -45,7 +59,11 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 	if res.Kind == components.ResourceTypeDirectory {
 		return "", nil
 	}
-	resPath := filepath.Join(s.Prefix, res.Parent, res.Name())
+	prefix, err := s.getPrefix(res.Parent)
+	if err != nil {
+		return "", err
+	}
+	resPath := filepath.Join(prefix, res.Name())
 
 	curFile, err := os.ReadFile(resPath)
 	if err != nil {
@@ -56,24 +74,34 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 
 func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 	var compPaths []string
-	entries, err := os.ReadDir(s.Prefix)
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			compPaths = append(compPaths, v.Name())
+	for _, bd := range s.basedirs {
+		entries, err := os.ReadDir(bd)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range entries {
+			if v.IsDir() {
+				compPaths = append(compPaths, v.Name())
+			}
 		}
 	}
 	return compPaths, nil
 }
 
 func (s *SourceComponentRepository) Clean() error {
-	return os.RemoveAll(s.basedir)
+	for _, bd := range s.basedirs {
+		if err := os.RemoveAll(bd); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
-	path := filepath.Join(s.Prefix, name)
+	path, err := s.getPrefix(name)
+	if err != nil {
+		return nil, err
+	}
 	c := &components.Component{}
 	c.Name = name
 	c.State = components.StateFresh
@@ -93,7 +121,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		return nil, err
 	}
 	log.Debugf("loading source component manifest %v", c.Name)
-	man, err := manifests.LoadComponentManifest(manifestPath)
+	man, err = manifests.LoadComponentManifest(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("error loading component manifest: %w", err)
 	}
@@ -161,8 +189,11 @@ func (s *SourceComponentRepository) GetResource(parent *components.Component, na
 	if parent == nil || name == "" {
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
-	dataPath := filepath.Join(s.Prefix, parent.Name)
-	resourcePath := filepath.Join(dataPath, name)
+	prefix, err := s.getPrefix(parent.Name)
+	if err != nil {
+		return components.Resource{}, err
+	}
+	resourcePath := filepath.Join(prefix, name)
 	return s.NewResource(parent, resourcePath)
 }
 
@@ -171,7 +202,10 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 		return []components.Resource{}, errors.New("invalid parent or resource")
 	}
 	resources := []components.Resource{}
-	dataPath := filepath.Join(s.Prefix, c.Name)
+	dataPath, err := s.getPrefix(c.Name)
+	if err != nil {
+		return resources, err
+	}
 	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -194,7 +228,7 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 
 		return nil
 	}
-	err := filepath.WalkDir(dataPath, searchFunc)
+	err = filepath.WalkDir(dataPath, searchFunc)
 	if err != nil {
 		return resources, err
 	}
@@ -222,14 +256,8 @@ func (s *SourceComponentRepository) RemoveResource(res components.Resource) erro
 }
 
 func (s *SourceComponentRepository) ComponentExists(name string) (bool, error) {
-	_, err := os.Stat(filepath.Join(s.Prefix, name))
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	_, err := s.getPrefix(name)
+	return (err == nil), err
 }
 
 func (s *SourceComponentRepository) PurgeComponent(c *components.Component) error {
@@ -249,13 +277,21 @@ func (s SourceComponentRepository) RunSetup(comp *components.Component) error {
 }
 
 func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifest(filepath.Join(s.Prefix, parent.Name, manifests.ComponentManifestFile))
+	prefix, err := s.getPrefix(parent.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests.LoadComponentManifest(filepath.Join(prefix, manifests.ComponentManifestFile))
 }
 
 func (s *SourceComponentRepository) NewResource(parent *components.Component, path string) (components.Resource, error) {
 	filename := strings.TrimSuffix(path, ".gotmpl")
-	parentPath := filepath.Join(s.Prefix, parent.Name)
-	resName, err := filepath.Rel(parentPath, filename)
+	prefix, err := s.getPrefix(parent.Name)
+	if err != nil {
+		return components.Resource{}, err
+	}
+	resName, err := filepath.Rel(prefix, filename)
 	if err != nil {
 		return components.Resource{}, err
 	}

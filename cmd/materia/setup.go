@@ -188,6 +188,49 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
+	log.Debug("loading remote components")
+	if len(man.Remote) > 0 {
+		for _, r := range man.Remote {
+			parsedPath := strings.Split(r.URL, "://")
+			var remoteSource materia.Source
+			switch parsedPath[0] {
+			case "git":
+				// config, err := git.NewConfig(k, c.SourceDir, parsedPath[1])
+				// if err != nil {
+				// return nil, fmt.Errorf("error creating git config: %w", err)
+				// }
+				remoteSource, err = git.NewGitSource(&git.Config{
+					Branch:           r.Version,
+					PrivateKey:       "",
+					Username:         "",
+					Password:         "",
+					KnownHosts:       "",
+					Insecure:         false,
+					LocalRepository:  "remotes/components",
+					RemoteRepository: parsedPath[1],
+				})
+				if err != nil {
+					return nil, fmt.Errorf("invalid git source: %w", err)
+				}
+			case "file":
+				// config, err := filesource.NewConfig(k, c.SourceDir, parsedPath[1])
+				// if err != nil {
+				// return nil, fmt.Errorf("error creating file config: %w", err)
+				// }
+				// source, err = filesource.NewFileSource(config)
+				// if err != nil {
+				// return nil, fmt.Errorf("invalid file source: %w", err)
+				// }
+			default:
+				return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
+			}
+			if err := remoteSource.Sync(ctx); err != nil {
+				return nil, err
+			}
+
+		}
+		// TODO cleanup system for remote repos
+	}
 
 	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
 	if err != nil {
