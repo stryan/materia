@@ -195,10 +195,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 			var remoteSource materia.Source
 			switch parsedPath[0] {
 			case "git":
-				// config, err := git.NewConfig(k, c.SourceDir, parsedPath[1])
-				// if err != nil {
-				// return nil, fmt.Errorf("error creating git config: %w", err)
-				// }
 				localpath := filepath.Join(c.RemoteDir, "components", name)
 				remoteSource, err = git.NewGitSource(&git.Config{
 					Branch:           r.Version,
@@ -214,14 +210,14 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 					return nil, fmt.Errorf("invalid git source: %w", err)
 				}
 			case "file":
-				// config, err := filesource.NewConfig(k, c.SourceDir, parsedPath[1])
-				// if err != nil {
-				// return nil, fmt.Errorf("error creating file config: %w", err)
-				// }
-				// source, err = filesource.NewFileSource(config)
-				// if err != nil {
-				// return nil, fmt.Errorf("invalid file source: %w", err)
-				// }
+				localpath := filepath.Join(c.RemoteDir, "components", name)
+				source, err = filesource.NewFileSource(&filesource.Config{
+					SourcePath:  parsedPath[1],
+					Destination: localpath,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("invalid file source: %w", err)
+				}
 			default:
 				return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
 			}
@@ -230,7 +226,23 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 			}
 
 		}
-		// TODO cleanup system for remote repos
+	}
+	// remove old remote components to keep things tidy
+	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
+	entries, err := os.ReadDir(filepath.Join(c.RemoteDir, "components"))
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range entries {
+		if v.IsDir() {
+			if _, ok := man.Remotes[v.Name()]; !ok {
+				log.Debugf("Removing old remote component %v", v.Name())
+				err := os.RemoveAll(filepath.Join(c.RemoteDir, "components", v.Name()))
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
