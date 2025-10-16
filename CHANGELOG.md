@@ -5,6 +5,7 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- Repository Manifests now support `Remote` components; components downloaded from a remote git repository or other location
 - `Plan` now supports setting the output format. Adds support for JSON output.
 - Env variable settings now correctly use `MATERIA_AGE__KEYFILE` format for attributes/source/other sub configs
 - New `MIGRATE_VOLUMES` config option to enable volume migration on quadlet update: if a `.volume` quadlet is updated materia will:

@@ -28,20 +28,28 @@ Manifest files are required for a repository or component to be considered valid
 
 A TOML table containing hosts entries of the following format:
 
-      [hosts.localhost]
-      components = ["caddy","openldap"]
-      roles = ["base"]
+      [Hosts.localhost]
+      Components = ["caddy","openldap"]
+      Roles = ["base"]
 
 #### **roles**
 
 A TOML table of containing roles entries of the following format:
 
-      [roles.base]
-      components = ["nagios-agent"]
+      [Roles.base]
+      Components = ["nagios-agent"]
 
 #### **RoleCommand**
 
 (EXPERIMENTAL) An external command ran on a host to determine what role(s) it has.
+
+#### Remote
+
+A TOML table containing Remote Component entries of the following format:
+
+      [Remote.COMPONENT_LOCAL_NAME]
+      URL = "git://github.com/example/component_name"
+      Version = "v1" # optional
 
 #### **Snippets**
 
