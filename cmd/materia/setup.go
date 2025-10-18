@@ -63,6 +63,10 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating source repo: %w", err)
 	}
+	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return nil, fmt.Errorf("error creating source repo: %w", err)
+	}
 	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating components in prefix: %w", err)
