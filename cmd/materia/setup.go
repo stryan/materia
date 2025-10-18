@@ -63,6 +63,10 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating source repo: %w", err)
 	}
+	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return nil, fmt.Errorf("error creating source repo: %w", err)
+	}
 	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return nil, fmt.Errorf("error creating components in prefix: %w", err)
@@ -140,7 +144,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir)
+	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
@@ -187,6 +191,62 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	factsm, err := facts.NewHostFacts(ctx, c.Hostname)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
+	}
+	log.Debug("loading remote components")
+	if len(man.Remotes) > 0 {
+		for name, r := range man.Remotes {
+			parsedPath := strings.Split(r.URL, "://")
+			var remoteSource materia.Source
+			switch parsedPath[0] {
+			case "git":
+				localpath := filepath.Join(c.RemoteDir, "components", name)
+				remoteSource, err = git.NewGitSource(&git.Config{
+					Branch:           r.Version,
+					PrivateKey:       "",
+					Username:         "",
+					Password:         "",
+					KnownHosts:       "",
+					Insecure:         false,
+					LocalRepository:  localpath,
+					RemoteRepository: parsedPath[1],
+				})
+				if err != nil {
+					return nil, fmt.Errorf("invalid git source: %w", err)
+				}
+			case "file":
+				localpath := filepath.Join(c.RemoteDir, "components", name)
+				source, err = filesource.NewFileSource(&filesource.Config{
+					SourcePath:  parsedPath[1],
+					Destination: localpath,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("invalid file source: %w", err)
+				}
+			default:
+				return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
+			}
+			if err := remoteSource.Sync(ctx); err != nil {
+				return nil, err
+			}
+
+		}
+	}
+	// remove old remote components to keep things tidy
+	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
+	entries, err := os.ReadDir(filepath.Join(c.RemoteDir, "components"))
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range entries {
+		if v.IsDir() {
+			if _, ok := man.Remotes[v.Name()]; !ok {
+				log.Debugf("Removing old remote component %v", v.Name())
+				err := os.RemoveAll(filepath.Join(c.RemoteDir, "components", v.Name()))
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
 
 	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)

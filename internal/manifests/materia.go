@@ -17,11 +17,17 @@ type SnippetConfig struct {
 	Parameters []string `toml:"Parameters"`
 }
 
+type RemoteComponentConfig struct {
+	URL     string `toml:"URL"`
+	Version string `toml:"Version"`
+}
+
 type MateriaManifest struct {
-	Hosts       map[string]Host `toml:"Hosts"`
-	Snippets    []SnippetConfig `toml:"Snippets"`
-	Roles       map[string]Role `toml:"Roles"`
-	RoleCommand string          `toml:"RoleCommnad"`
+	Hosts       map[string]Host                  `toml:"Hosts" koanf:"Hosts"`
+	Snippets    []SnippetConfig                  `toml:"Snippets" koanf:"Snippets"`
+	Roles       map[string]Role                  `toml:"Roles" koanf:"Roles"`
+	RoleCommand string                           `toml:"RoleCommand" koanf:"RoleCommand"`
+	Remotes     map[string]RemoteComponentConfig `toml:"Remotes" koanf:"Remotes"`
 }
 
 type Host struct {
