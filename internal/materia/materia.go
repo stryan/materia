@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"text/template"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/internal/source/file"
+	"primamateria.systems/materia/internal/source/git"
 )
 
 type MacroMap func(map[string]any) template.FuncMap
@@ -51,19 +54,34 @@ type Materia struct {
 	cleanupVolumes      bool
 	backupVolumes       bool
 	migrateVolumes      bool
+	remoteDir           string
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func NewMateria(ctx context.Context, c *MateriaConfig, source Source, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
 	var err error
-
+	err = source.Sync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error syncing source: %w", err)
+	}
 	snips := make(map[string]*Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v
 	}
+	// load manifest
+
+	manifestLocation := filepath.Join(c.SourceDir, manifests.MateriaManifestFile)
+	man, err := manifests.LoadMateriaManifest(manifestLocation)
+	if err != nil {
+		return nil, fmt.Errorf("error loading manifest: %w", err)
+	}
+	if err := man.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid materia manifest: %w", err)
+	}
+
 	m := &Materia{
 		Services:       sm,
 		Containers:     cm,
@@ -198,7 +216,6 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manif
 			m.AssignedComponents = append(m.AssignedComponents, man.Roles[v].Components...)
 		}
 	}
-
 	slices.Sort(m.AssignedComponents)
 	return m, nil
 }
@@ -223,6 +240,66 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 		}
 	}
 	return roles, nil
+}
+
+func (m *Materia) SyncRemote(ctx context.Context) error {
+	if len(m.Manifest.Remotes) > 0 {
+		for name, r := range m.Manifest.Remotes {
+			parsedPath := strings.Split(r.URL, "://")
+			var remoteSource Source
+			var err error
+			switch parsedPath[0] {
+			case "git":
+				localpath := filepath.Join(m.remoteDir, "components", name)
+				remoteSource, err = git.NewGitSource(&git.Config{
+					Branch:           r.Version,
+					PrivateKey:       "",
+					Username:         "",
+					Password:         "",
+					KnownHosts:       "",
+					Insecure:         false,
+					LocalRepository:  localpath,
+					RemoteRepository: parsedPath[1],
+				})
+				if err != nil {
+					return fmt.Errorf("invalid git source: %w", err)
+				}
+			case "file":
+				localpath := filepath.Join(m.remoteDir, "components", name)
+				remoteSource, err = file.NewFileSource(&file.Config{
+					SourcePath:  parsedPath[1],
+					Destination: localpath,
+				})
+				if err != nil {
+					return fmt.Errorf("invalid file source: %w", err)
+				}
+			default:
+				return fmt.Errorf("invalid source: %v", parsedPath[0])
+			}
+			if err := remoteSource.Sync(ctx); err != nil {
+				return err
+			}
+
+		}
+	}
+	// remove old remote components to keep things tidy
+	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
+	entries, err := os.ReadDir(filepath.Join(m.remoteDir, "components"))
+	if err != nil {
+		return err
+	}
+	for _, v := range entries {
+		if v.IsDir() {
+			if _, ok := m.Manifest.Remotes[v.Name()]; !ok {
+				log.Debugf("Removing old remote component %v", v.Name())
+				err := os.RemoveAll(filepath.Join(m.remoteDir, "components", v.Name()))
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (m *Materia) Close() {

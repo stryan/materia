@@ -20,7 +20,6 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/facts"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
 
@@ -30,6 +29,40 @@ import (
 
 	filesource "primamateria.systems/materia/internal/source/file"
 )
+
+func setupDirectories(c *materia.MateriaConfig) error {
+	err := os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating prefix: %w", err)
+	}
+	err = os.Mkdir(c.OutputDir, 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating output dir: %w", err)
+	}
+	err = os.Mkdir(c.SourceDir, 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating source repo: %w", err)
+	}
+	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating source repo: %w", err)
+	}
+	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating components in prefix: %w", err)
+	}
+	return nil
+}
+
+func setupLogger(c *materia.MateriaConfig) {
+	if c.UseStdout {
+		log.Default().SetOutput(os.Stdout)
+	}
+	if c.Debug {
+		log.Default().SetLevel(log.DebugLevel)
+		log.Default().SetReportCaller(true)
+	}
+}
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
 	k, err := LoadConfigs(ctx, configFile, cliflags)
@@ -44,33 +77,10 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("error validating config: %w", err)
 	}
-	if c.UseStdout {
-		log.Default().SetOutput(os.Stdout)
+	if err := setupDirectories(c); err != nil {
+		return nil, fmt.Errorf("error creating base directories: %w", err)
 	}
-	if c.Debug {
-		log.Default().SetLevel(log.DebugLevel)
-		log.Default().SetReportCaller(true)
-	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating prefix: %w", err)
-	}
-	err = os.Mkdir(c.OutputDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating output dir: %w", err)
-	}
-	err = os.Mkdir(c.SourceDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating source repo: %w", err)
-	}
-	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating source repo: %w", err)
-	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating components in prefix: %w", err)
-	}
+	setupLogger(c)
 	sourceConfig, err := materia.NewSourceConfig(k.Cut("source"))
 	if err != nil {
 		return nil, err
@@ -113,16 +123,6 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		if err != nil {
 			return nil, fmt.Errorf("error syncing source: %w", err)
 		}
-	}
-	// load manifest
-
-	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
-	man, err := manifests.LoadMateriaManifest(manifestLocation)
-	if err != nil {
-		return nil, fmt.Errorf("error loading manifest: %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid materia manifest: %w", err)
 	}
 
 	sm, err := services.NewServices(ctx, &services.ServicesConfig{
@@ -192,64 +192,8 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
-	log.Debug("loading remote components")
-	if len(man.Remotes) > 0 {
-		for name, r := range man.Remotes {
-			parsedPath := strings.Split(r.URL, "://")
-			var remoteSource materia.Source
-			switch parsedPath[0] {
-			case "git":
-				localpath := filepath.Join(c.RemoteDir, "components", name)
-				remoteSource, err = git.NewGitSource(&git.Config{
-					Branch:           r.Version,
-					PrivateKey:       "",
-					Username:         "",
-					Password:         "",
-					KnownHosts:       "",
-					Insecure:         false,
-					LocalRepository:  localpath,
-					RemoteRepository: parsedPath[1],
-				})
-				if err != nil {
-					return nil, fmt.Errorf("invalid git source: %w", err)
-				}
-			case "file":
-				localpath := filepath.Join(c.RemoteDir, "components", name)
-				source, err = filesource.NewFileSource(&filesource.Config{
-					SourcePath:  parsedPath[1],
-					Destination: localpath,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("invalid file source: %w", err)
-				}
-			default:
-				return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
-			}
-			if err := remoteSource.Sync(ctx); err != nil {
-				return nil, err
-			}
 
-		}
-	}
-	// remove old remote components to keep things tidy
-	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
-	entries, err := os.ReadDir(filepath.Join(c.RemoteDir, "components"))
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			if _, ok := man.Remotes[v.Name()]; !ok {
-				log.Debugf("Removing old remote component %v", v.Name())
-				err := os.RemoveAll(filepath.Join(c.RemoteDir, "components", v.Name()))
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
+	m, err := materia.NewMateria(ctx, c, source, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -345,7 +289,7 @@ func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any
 	// 	return nil, err
 	// }
 
-	m, err := materia.NewMateria(ctx, c, nil, nil, nil, nil, sm, cm, nil, nil, nil, hostRepo)
+	m, err := materia.NewMateria(ctx, c, nil, nil, nil, sm, cm, nil, nil, nil, hostRepo)
 	if err != nil {
 		log.Fatal(err)
 	}

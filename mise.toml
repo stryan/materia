@@ -84,10 +84,12 @@ run = [
 ]
 
 [tasks.build-amd64]
-depends = ["build-materia-amd64", "build-athanor-amd64"]
+depends = ["build-materia-amd64"]
 
 [tasks.build-arm64]
-depends = ["build-materia-arm64", "build-athanor-arm64"]
+depends = [
+  "build-materia-arm64",
+]
 
 [tasks.build-materia-arm64]
 depends = ["lint"]
@@ -104,22 +106,6 @@ sources = ["go.mod", "go.sum", "**/*.go"]
 outputs = ["./bin/materia-amd64"]
 env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="{{vars.LDFLAGS}}" -o bin/materia-amd64 ./cmd/materia/'
-
-[tasks.build-athanor-arm64]
-depends = ["lint"]
-description = "Build the project for arm64"
-sources = ["go.mod", "go.sum", "**/*.go"]
-outputs = ["./bin/athanor-arm64"]
-env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
-run = "go build  -o bin/athanor-arm64 ./cmd/athanor/"
-
-[tasks.build-athanor-amd64]
-depends = ["lint"]
-description = "Build the project for amd64"
-sources = ["go.mod", "go.sum", "**/*.go"]
-outputs = ["./bin/athanor-amd64"]
-env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
-run = "go build  -o bin/athanor-amd64 ./cmd/athanor/"
 
 [tasks.docs]
 description = "generate manpage and html docs"

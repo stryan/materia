@@ -13,13 +13,6 @@ import (
 
 var ErrServiceNotFound = errors.New("no service found")
 
-type Services interface {
-	Apply(context.Context, string, ServiceAction) error
-	Get(context.Context, string) (*Service, error)
-	WaitUntilState(context.Context, string, string) error
-	Close()
-}
-
 type ServiceManager struct {
 	Conn    *dbus.Conn
 	Timeout int

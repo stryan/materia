@@ -18,7 +18,6 @@ import (
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/source"
 
 	filesource "primamateria.systems/materia/internal/source/file"
 )
@@ -30,7 +29,7 @@ var (
 )
 
 func testMateria(services []string) *materia.Materia {
-	var source source.Source
+	var source materia.Source
 	var err error
 
 	source = &filesource.FileSource{
@@ -51,13 +50,6 @@ func testMateria(services []string) *materia.Materia {
 		log.Fatalf("error syncing source: %v", err)
 	}
 	log.Debug("loading manifest")
-	man, err := manifests.LoadMateriaManifest(filepath.Join(cfg.SourceDir, manifests.MateriaManifestFile))
-	if err != nil {
-		log.Fatalf("error loading manifest: %v", err)
-	}
-	if err := man.Validate(); err != nil {
-		log.Fatal(err)
-	}
 	sc := age.Config{
 		IdentPath: "./test-key.txt",
 		BaseDir:   "secrets",
@@ -87,7 +79,7 @@ func testMateria(services []string) *materia.Materia {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m, err := materia.NewMateria(ctx, cfg, source, man, facts, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
+	m, err := materia.NewMateria(ctx, cfg, source, facts, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
