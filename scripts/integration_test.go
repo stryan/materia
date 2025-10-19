@@ -59,7 +59,7 @@ func testMateria(services []string) *materia.Materia {
 		log.Fatal(fmt.Errorf("error creating age store: %w", err))
 	}
 	log.Debug("loading facts")
-	facts, err := fprov.NewHostFacts(ctx, cfg.Hostname)
+	facts, err := fprov.NewHostFacts(cfg.Hostname)
 	if err != nil {
 		log.Fatalf("error generating facts: %v", err)
 	}
@@ -79,7 +79,7 @@ func testMateria(services []string) *materia.Materia {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m, err := materia.NewMateria(ctx, cfg, source, facts, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
+	m, err := materia.NewMateria(ctx, cfg, facts, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
 	if err != nil {
 		log.Fatal(err)
 	}

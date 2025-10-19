@@ -16,8 +16,13 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"primamateria.systems/materia/internal/attributes/age"
+	fileattrs "primamateria.systems/materia/internal/attributes/file"
+	"primamateria.systems/materia/internal/attributes/mem"
+	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
@@ -28,13 +33,19 @@ type MacroMap func(map[string]any) template.FuncMap
 // TODO ugly hack, remove
 var rootComponent = &components.Component{Name: "root"}
 
+type HostManager interface {
+	Services
+	ContainerManager
+	ComponentRepository
+	FactsProvider
+}
+
 type Materia struct {
 	HostFacts           FactsProvider
 	Manifest            *manifests.MateriaManifest
 	Services            Services
 	Containers          ContainerManager
 	Attributes          AttributesEngine
-	source              Source
 	CompRepo            ComponentRepository
 	ScriptRepo          Repository
 	ServiceRepo         Repository
@@ -56,14 +67,58 @@ type Materia struct {
 	remoteDir           string
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, source Source, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func setupVault(c *MateriaConfig) (AttributesEngine, error) {
+	var attributesEngine AttributesEngine
+	var err error
+	// TODO replace this with attributes chaining
+	if c.AgeConfig != nil {
+		attributesEngine, err = age.NewAgeStore(*c.AgeConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating age store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	if c.FileConfig != nil {
+		attributesEngine, err = fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating file store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	if c.SopsConfig != nil {
+		attributesEngine, err = sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating sops store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	return mem.NewMemoryEngine(), nil
+}
+
+func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager) (*Materia, error) {
+	scriptRepo, err := repository.NewFileRepository(c.ScriptsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create script repo: %w", err)
+	}
+	serviceRepo, err := repository.NewFileRepository(c.ServiceDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create service repo: %w", err)
+	}
+	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create source component repo: %w", err)
+	}
+	vault, err := setupVault(c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attributes engine: %w", err)
+	}
+
+	return NewMateria(ctx, c, hm, vault, hm, hm, scriptRepo, serviceRepo, sourceRepo, hm)
+}
+
+func NewMateria(ctx context.Context, c *MateriaConfig, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
-	}
-	var err error
-	err = source.Sync(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error syncing source: %w", err)
 	}
 	snips := make(map[string]*Snippet)
 	defaultSnippets := loadDefaultSnippets()
@@ -93,7 +148,6 @@ func NewMateria(ctx context.Context, c *MateriaConfig, source Source, facts Fact
 		Containers:     cm,
 		HostFacts:      facts,
 		Manifest:       man,
-		source:         source,
 		debug:          c.Debug,
 		diffs:          c.Diffs,
 		cleanup:        c.Cleanup,
@@ -218,11 +272,6 @@ func (m *Materia) SyncRemote(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func (m *Materia) Close() {
-	m.Services.Close()
-	m.Containers.Close()
 }
 
 func (m *Materia) Clean(ctx context.Context) error {

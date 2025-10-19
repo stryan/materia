@@ -45,9 +45,10 @@ type ServicesConfig struct {
 	Timeout int
 }
 
-func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
+func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
 	var err error
+	ctx := context.Background()
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err

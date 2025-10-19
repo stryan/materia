@@ -119,30 +119,6 @@ var testSnippets = func() map[string]*Snippet {
 
 var testMacroMap = func(vars map[string]any) template.FuncMap {
 	return template.FuncMap{
-		"m_deps": func(arg string) (string, error) {
-			switch arg {
-			case "after":
-				if res, ok := vars["After"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			case "wants":
-				if res, ok := vars["Wants"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			case "requires":
-				if res, ok := vars["Requires"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			default:
-				return "", errors.New("err bad default")
-			}
-		},
 		"m_dataDir": func(arg string) (string, error) {
 			return filepath.Join(filepath.Join("/var/lib/", "materia", "components"), arg), nil
 		},

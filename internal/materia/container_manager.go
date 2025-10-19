@@ -22,5 +22,4 @@ type ContainerManager interface {
 	WriteSecret(context.Context, string, string) error
 	RemoveSecret(context.Context, string) error
 	SecretName(string) string
-	Close()
 }

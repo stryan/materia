@@ -8,14 +8,6 @@ type FactsProvider interface {
 	GetInterfaces() []string
 }
 
-func (m *Materia) LookupFact(arg string) (string, error) {
-	fact, err := m.HostFacts.Lookup(arg)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%v", fact), nil
-}
-
 func (m *Materia) GetFacts(host bool) string {
 	var result string
 	result += "Facts\n"

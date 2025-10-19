@@ -1,7 +1,6 @@
 package facts
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -14,7 +13,7 @@ type HostFactsManager struct {
 	Interfaces map[string]NetworkInterfaces
 }
 
-func NewHostFacts(ctx context.Context, hostname string) (*HostFactsManager, error) {
+func NewHostFacts(hostname string) (*HostFactsManager, error) {
 	facts := &HostFactsManager{}
 	var err error
 	if hostname != "" {
