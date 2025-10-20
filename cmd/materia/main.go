@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/pkg/hostman"
 )
 
 var Version string
@@ -93,7 +94,7 @@ func main() {
 						return err
 					}
 					if arg != "" {
-						fact, err := m.HostFacts.Lookup(arg)
+						fact, err := m.Host.Lookup(arg)
 						if err != nil {
 							return err
 						}
@@ -322,7 +323,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := NewHostManager(c)
+					hm, err := hostman.NewHostManager(c)
 					if err != nil {
 						return err
 					}

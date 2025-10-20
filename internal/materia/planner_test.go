@@ -472,7 +472,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 		name string // description of this test case
 		// Named input parameters for receiver constructor.
 		component *components.Component
-		setup     func(comp *components.Component, sm *MockServices)
+		setup     func(comp *components.Component, sm *MockHostManager)
 		want      []Action
 		wantErr   bool
 	}{
@@ -480,7 +480,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			name:      "no services",
 			component: testComponents[0],
 			want:      []Action{},
-			setup:     func(comp *components.Component, services *MockServices) {},
+			setup:     func(comp *components.Component, services *MockHostManager) {},
 		},
 		{
 			name:      "services - none running",
@@ -493,7 +493,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -506,7 +506,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 		{
 			name:      "services - running",
 			component: testComponents[1],
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -543,7 +543,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -556,9 +556,9 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ms := NewMockServices(t)
-			m := &Materia{Services: ms}
-			tt.setup(tt.component, ms)
+			hm := NewMockHostManager(t)
+			m := &Materia{Host: hm}
+			tt.setup(tt.component, hm)
 			got, gotErr := m.processFreshComponentServices(context.Background(), tt.component)
 			if gotErr != nil {
 				if !tt.wantErr {

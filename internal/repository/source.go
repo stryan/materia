@@ -85,6 +85,7 @@ func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 			}
 		}
 	}
+	slices.Sort(compPaths)
 	return compPaths, nil
 }
 

@@ -46,8 +46,8 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		if err := v.Validate(); err != nil {
 			return steps, err
 		}
-		vaultAttrs := m.Attributes.Lookup(ctx, attributes.AttributesFilter{
-			Hostname:  m.HostFacts.GetHostname(),
+		vaultAttrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+			Hostname:  m.Host.GetHostname(),
 			Roles:     m.Roles,
 			Component: v.Parent.Name,
 		})
@@ -68,7 +68,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	// verify services
 	servicesMap := make(map[string]string)
 	for _, v := range serviceActions {
-		serv, err := m.Services.Get(ctx, v.Target.Path)
+		serv, err := m.Host.Get(ctx, v.Target.Path)
 		if err != nil {
 			return steps, err
 		}
@@ -95,7 +95,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		servWG.Add(1)
 		go func() {
 			defer servWG.Done()
-			err := m.Services.WaitUntilState(ctx, serv, state)
+			err := m.Host.WaitUntilState(ctx, serv, state)
 			if err != nil {
 				log.Warn(err)
 			}
@@ -150,7 +150,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Services.Apply(ctx, res.Path, cmd)
+	return m.Host.Apply(ctx, res.Path, cmd)
 }
 
 func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
@@ -223,12 +223,12 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 		case ActionCleanup:
 			switch v.Target.Kind {
 			case components.ResourceTypeNetwork:
-				err := m.Containers.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
+				err := m.Host.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
 				if err != nil {
 					return err
 				}
 			case components.ResourceTypeVolume:
-				err := m.Containers.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+				err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
 				if err != nil {
 					return err
 				}
@@ -239,7 +239,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if v.Target.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to dump non volume resource: %v", v.Target)
 			}
-			err := m.Containers.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
+			err := m.Host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
 			if err != nil {
 				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
 			}
@@ -247,7 +247,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if v.Target.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to import a non-volume resource: %v", v.Target)
 			}
-			err := m.Containers.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+			err := m.Host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
 			if err != nil {
 				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
 			}
@@ -265,7 +265,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
-			if err := m.ScriptRepo.Install(ctx, v.Target.Path, resourceData); err != nil {
+			if err := m.Host.InstallScript(ctx, v.Target.Path, resourceData); err != nil {
 				return err
 			}
 
@@ -273,7 +273,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
 				return err
 			}
-			if err := m.ScriptRepo.Remove(ctx, v.Target.Path); err != nil {
+			if err := m.Host.RemoveScript(ctx, v.Target.Path); err != nil {
 				return err
 			}
 
@@ -313,14 +313,14 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
-			if err := m.ServiceRepo.Install(ctx, v.Target.Path, resourceData); err != nil {
+			if err := m.Host.InstallUnit(ctx, v.Target.Path, resourceData); err != nil {
 				return err
 			}
 		case ActionRemove:
 			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
 				return err
 			}
-			if err := m.ServiceRepo.Remove(ctx, v.Target.Path); err != nil {
+			if err := m.Host.RemoveUnit(ctx, v.Target.Path); err != nil {
 				return err
 			}
 		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
@@ -363,13 +363,13 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if value, ok := secretVar.(string); !ok {
 				return errors.New("can't install/update Podman Secret: materia secret isn't string")
 			} else {
-				if err := m.Containers.WriteSecret(ctx, v.Target.Path, value); err != nil {
+				if err := m.Host.WriteSecret(ctx, v.Target.Path, value); err != nil {
 					return err
 				}
 			}
 
 		case ActionRemove:
-			if err := m.Containers.RemoveSecret(ctx, v.Target.Path); err != nil {
+			if err := m.Host.RemoveSecret(ctx, v.Target.Path); err != nil {
 				return err
 			}
 

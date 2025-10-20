@@ -256,6 +256,7 @@ func (r *HostComponentRepository) ListComponentNames() ([]string, error) {
 			compPaths = append(compPaths, v.Name())
 		}
 	}
+	slices.Sort(compPaths)
 	return compPaths, nil
 }
 

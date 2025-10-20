@@ -17,6 +17,8 @@ import (
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/source"
+	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/sourceman"
 
 	"primamateria.systems/materia/internal/source/git"
 
@@ -126,12 +128,16 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err := syncLocalRepo(ctx, k, c.SourceDir); err != nil {
 		return nil, err
 	}
-	hm, err := NewHostManager(c)
+	hm, err := hostman.NewHostManager(c)
+	if err != nil {
+		return nil, err
+	}
+	sm, err := sourceman.NewSourceManager(c)
 	if err != nil {
 		return nil, err
 	}
 
-	m, err := materia.NewMateriaFromConfig(ctx, c, hm)
+	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
 	if err != nil {
 		log.Fatal(err)
 	}

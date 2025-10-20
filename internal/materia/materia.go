@@ -22,8 +22,6 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
-	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
 )
@@ -33,38 +31,25 @@ type MacroMap func(map[string]any) template.FuncMap
 // TODO ugly hack, remove
 var rootComponent = &components.Component{Name: "root"}
 
-type HostManager interface {
-	Services
-	ContainerManager
-	ComponentRepository
-	FactsProvider
-}
-
 type Materia struct {
-	HostFacts           FactsProvider
-	Manifest            *manifests.MateriaManifest
-	Services            Services
-	Containers          ContainerManager
-	Attributes          AttributesEngine
-	CompRepo            ComponentRepository
-	ScriptRepo          Repository
-	ServiceRepo         Repository
-	SourceRepo          ComponentRepository
-	rootComponent       *components.Component
-	AssignedComponents  []string
-	InstalledComponents []string
-	Roles               []string
-	macros              MacroMap
-	snippets            map[string]*Snippet
-	OutputDir           string
-	onlyResources       bool
-	debug               bool
-	diffs               bool
-	cleanup             bool
-	cleanupVolumes      bool
-	backupVolumes       bool
-	migrateVolumes      bool
-	remoteDir           string
+	Host           HostManager
+	Manifest       *manifests.MateriaManifest
+	Vault          AttributesEngine
+	CompRepo       ComponentRepository
+	SourceRepo     ComponentRepository
+	rootComponent  *components.Component
+	Roles          []string
+	macros         MacroMap
+	snippets       map[string]*Snippet
+	OutputDir      string
+	onlyResources  bool
+	debug          bool
+	diffs          bool
+	cleanup        bool
+	cleanupVolumes bool
+	backupVolumes  bool
+	migrateVolumes bool
+	remoteDir      string
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
@@ -95,28 +80,20 @@ func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 	return mem.NewMemoryEngine(), nil
 }
 
-func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager) (*Materia, error) {
-	scriptRepo, err := repository.NewFileRepository(c.ScriptsDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create script repo: %w", err)
-	}
-	serviceRepo, err := repository.NewFileRepository(c.ServiceDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create service repo: %w", err)
-	}
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create source component repo: %w", err)
-	}
+func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager, sm SourceManager) (*Materia, error) {
+	// sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create source component repo: %w", err)
+	// }
 	vault, err := setupVault(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create attributes engine: %w", err)
 	}
 
-	return NewMateria(ctx, c, hm, vault, hm, hm, scriptRepo, serviceRepo, sourceRepo, hm)
+	return NewMateria(ctx, c, hm, vault, hm, hm, nil, nil, nil, hm, sm)
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attributes AttributesEngine, sm ServiceManager, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository, srcman SourceManager) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -125,10 +102,8 @@ func NewMateria(ctx context.Context, c *MateriaConfig, facts FactsProvider, attr
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v
 	}
-	// load manifest
 
-	manifestLocation := filepath.Join(c.SourceDir, manifests.MateriaManifestFile)
-	man, err := manifests.LoadMateriaManifest(manifestLocation)
+	man, err := srcman.LoadManifest(manifests.MateriaManifestFile)
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
 	}
@@ -142,54 +117,55 @@ func NewMateria(ctx context.Context, c *MateriaConfig, facts FactsProvider, attr
 		}
 		snips[s.Name] = s
 	}
+	var roles []string
 
-	m := &Materia{
-		Services:       sm,
-		Containers:     cm,
-		HostFacts:      facts,
+	roles, err = getRolesFromManifest(man, hm.GetHostname())
+	if err != nil {
+		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
+	}
+
+	return &Materia{
+		Host:           hm,
 		Manifest:       man,
 		debug:          c.Debug,
 		diffs:          c.Diffs,
 		cleanup:        c.Cleanup,
 		onlyResources:  c.OnlyResources,
-		Attributes:     attributes,
+		Vault:          attributes,
 		CompRepo:       hostRepo,
-		ScriptRepo:     scriptRepo,
-		ServiceRepo:    serviceRepo,
-		SourceRepo:     sourceRepo,
+		SourceRepo:     srcman,
 		OutputDir:      c.OutputDir,
 		snippets:       snips,
-		macros:         loadDefaultMacros(c, cm, facts, snips),
+		macros:         loadDefaultMacros(c, cm, hm, snips),
 		rootComponent:  rootComponent,
 		cleanupVolumes: c.CleanupVolumes,
 		backupVolumes:  c.BackupVolumes,
 		migrateVolumes: c.MigrateVolumes,
-	}
-	m.InstalledComponents, err = m.CompRepo.ListComponentNames()
-	if err != nil {
-		return nil, fmt.Errorf("unable to list installed components: %w", err)
-	}
+		Roles:          roles,
+	}, nil
+}
 
-	slices.Sort(m.InstalledComponents)
-	host, ok := man.Hosts["all"]
+func (m *Materia) GetAssignedComponents() ([]string, error) {
+	var assignedComponents []string
+	hostComps, ok := m.Manifest.Hosts["all"]
 	if ok {
-		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
+		assignedComponents = append(assignedComponents, hostComps.Components...)
 	}
-	host, ok = man.Hosts[facts.GetHostname()]
+	hostComps, ok = m.Manifest.Hosts[m.Host.GetHostname()]
 	if ok {
-		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
+		assignedComponents = append(assignedComponents, hostComps.Components...)
 	}
-	m.Roles, err = getRolesFromManifest(man, facts.GetHostname())
+	roles, err := getRolesFromManifest(m.Manifest, m.Host.GetHostname())
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 	}
-	for _, v := range m.Roles {
-		if len(man.Roles[v].Components) != 0 {
-			m.AssignedComponents = append(m.AssignedComponents, man.Roles[v].Components...)
+	for _, v := range roles {
+		if len(m.Manifest.Roles[v].Components) != 0 {
+			assignedComponents = append(assignedComponents, m.Manifest.Roles[v].Components...)
 		}
 	}
-	slices.Sort(m.AssignedComponents)
-	return m, nil
+	slices.Sort(assignedComponents)
+	return assignedComponents, nil
 }
 
 func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]string, error) {
@@ -215,44 +191,42 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 }
 
 func (m *Materia) SyncRemote(ctx context.Context) error {
-	if len(m.Manifest.Remotes) > 0 {
-		for name, r := range m.Manifest.Remotes {
-			parsedPath := strings.Split(r.URL, "://")
-			var remoteSource Source
-			var err error
-			switch parsedPath[0] {
-			case "git":
-				localpath := filepath.Join(m.remoteDir, "components", name)
-				remoteSource, err = git.NewGitSource(&git.Config{
-					Branch:           r.Version,
-					PrivateKey:       "",
-					Username:         "",
-					Password:         "",
-					KnownHosts:       "",
-					Insecure:         false,
-					LocalRepository:  localpath,
-					RemoteRepository: parsedPath[1],
-				})
-				if err != nil {
-					return fmt.Errorf("invalid git source: %w", err)
-				}
-			case "file":
-				localpath := filepath.Join(m.remoteDir, "components", name)
-				remoteSource, err = file.NewFileSource(&file.Config{
-					SourcePath:  parsedPath[1],
-					Destination: localpath,
-				})
-				if err != nil {
-					return fmt.Errorf("invalid file source: %w", err)
-				}
-			default:
-				return fmt.Errorf("invalid source: %v", parsedPath[0])
+	for name, r := range m.Manifest.Remotes {
+		parsedPath := strings.Split(r.URL, "://")
+		var remoteSource Source
+		var err error
+		switch parsedPath[0] {
+		case "git":
+			localpath := filepath.Join(m.remoteDir, "components", name)
+			remoteSource, err = git.NewGitSource(&git.Config{
+				Branch:           r.Version,
+				PrivateKey:       "",
+				Username:         "",
+				Password:         "",
+				KnownHosts:       "",
+				Insecure:         false,
+				LocalRepository:  localpath,
+				RemoteRepository: parsedPath[1],
+			})
+			if err != nil {
+				return fmt.Errorf("invalid git source: %w", err)
 			}
-			if err := remoteSource.Sync(ctx); err != nil {
-				return err
+		case "file":
+			localpath := filepath.Join(m.remoteDir, "components", name)
+			remoteSource, err = file.NewFileSource(&file.Config{
+				SourcePath:  parsedPath[1],
+				Destination: localpath,
+			})
+			if err != nil {
+				return fmt.Errorf("invalid file source: %w", err)
 			}
-
+		default:
+			return fmt.Errorf("invalid source: %v", parsedPath[0])
 		}
+		if err := remoteSource.Sync(ctx); err != nil {
+			return err
+		}
+
 	}
 	// remove old remote components to keep things tidy
 	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
@@ -287,7 +261,11 @@ func (m *Materia) Clean(ctx context.Context) error {
 }
 
 func (m *Materia) CleanComponent(ctx context.Context, name string) error {
-	isInstalled := slices.Contains(m.InstalledComponents, name)
+	installedComps, err := m.Host.ListComponentNames()
+	if err != nil {
+		return err
+	}
+	isInstalled := slices.Contains(installedComps, name)
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
@@ -295,10 +273,8 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	m.InstalledComponents = []string{comp.Name}
-	m.AssignedComponents = []string{}
 
-	removalPlan, err := m.Plan(ctx)
+	removalPlan, err := m.plan(ctx, []string{comp.Name}, []string{})
 	if err != nil {
 		return err
 	}
@@ -310,12 +286,11 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	if roles != nil {
 		m.Roles = roles
 	}
+	assigned := []string{}
 	if name != "" {
-		m.AssignedComponents = []string{name}
+		assigned = []string{name}
 	}
-	m.Services = &services.PlannedServiceManager{}
-	m.InstalledComponents = []string{}
-	return m.Plan(ctx)
+	return m.plan(ctx, []string{}, assigned)
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {

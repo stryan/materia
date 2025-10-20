@@ -1,38 +1,16 @@
-package main
+package materia
 
 import (
 	"context"
+	"testing"
 
-	"primamateria.systems/materia/internal/materia"
+	"github.com/stretchr/testify/assert"
+	"primamateria.systems/materia/internal/manifests"
 )
 
-var (
-	ctx                                                             context.Context
-	cfg                                                             *materia.MateriaConfig
-	prefix, installdir, servicedir, scriptdir, sourcedir, outputdir string
-)
-
-// func testMateria(services []string) *materia.Materia {
-// 	var source materia.Source
+// func testMateria(t *testing.T, services []string) *Materia {
 // 	var err error
 //
-// 	source = &filesource.FileSource{
-// 		RemoteRepository: "./testrepo",
-// 		Destination:      sourcedir,
-// 	}
-//
-// 	mockservices := &FakeServices{}
-// 	mockservices.Services = make(map[string]string)
-// 	mockcontainers := &FakeContainers{make(map[string]string), make(map[string]string)}
-// 	for _, v := range services {
-// 		mockservices.Services[v] = "unknown"
-// 	}
-//
-// 	log.Debug("updating configured source cache")
-// 	err = source.Sync(ctx)
-// 	if err != nil {
-// 		log.Fatalf("error syncing source: %v", err)
-// 	}
 // 	log.Debug("loading manifest")
 // 	sc := age.Config{
 // 		IdentPath: "./test-key.txt",
@@ -59,11 +37,9 @@ var (
 // 	if err != nil {
 // 		log.Fatal(err)
 // 	}
-// 	hm, err := hostman.NewHostManager(cfg)
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	m, err := materia.NewMateria(ctx, cfg, hm, attributesEngine, mockservices, mockcontainers, scripts, servicesrepo, sourceRepo, compRepo)
+// 	hm := NewMockHostManager(t)
+// 	sm := NewMockSourceManager(t)
+// 	m, err := NewMateria(ctx, cfg, hm, attributesEngine, nil, nil, scripts, servicesrepo, sourceRepo, compRepo, sm)
 // 	if err != nil {
 // 		log.Fatal(err)
 // 	}
@@ -80,7 +56,7 @@ var (
 // 	outputdir = filepath.Join(testPrefix, "materia", "output")
 // 	log.Default().SetLevel(log.DebugLevel)
 // 	log.Default().SetReportCaller(true)
-// 	cfg = &materia.MateriaConfig{
+// 	cfg = &MateriaConfig{
 // 		Debug:      true,
 // 		Hostname:   "localhost",
 // 		Timeout:    0,
@@ -125,7 +101,7 @@ var (
 // }
 //
 // func TestFacts(t *testing.T) {
-// 	m := testMateria([]string{})
+// 	m := testMateria(t, []string{})
 // 	assert.NotNil(t, m.Manifest)
 // 	assert.Equal(t, m.Host.GetHostname(), "localhost")
 // 	assert.Equal(t, m.Roles, []string(nil))
@@ -133,30 +109,46 @@ var (
 // 	assert.NoError(t, err)
 // 	assert.Equal(t, assigned, []string{"double", "hello"})
 // }
-//
-// var expectedActions = []materia.Action{
-// 	planHelper(materia.ActionInstall, "double", ""),
-// 	planHelper(materia.ActionInstall, "double", "inner"),
-// 	planHelper(materia.ActionInstall, "double", "goodbye.container"),
-// 	planHelper(materia.ActionInstall, "double", "hello.container"),
-// 	planHelper(materia.ActionInstall, "double", "hello.timer"),
-// 	planHelper(materia.ActionInstall, "double", "inner/test.data"),
-// 	planHelper(materia.ActionInstall, "double", "foo"),
-// 	planHelper(materia.ActionInstall, "double", manifests.ComponentManifestFile),
-// 	planHelper(materia.ActionInstall, "hello", ""),
-// 	planHelper(materia.ActionInstall, "hello", "hello.container"),
-// 	planHelper(materia.ActionInstall, "hello", "hello.env"),
-// 	planHelper(materia.ActionInstall, "hello", "hello.volume"),
-// 	planHelper(materia.ActionInstall, "hello", "test.env"),
-// 	planHelper(materia.ActionInstall, "hello", manifests.ComponentManifestFile),
-// 	planHelper(materia.ActionReload, "", ""),
-// 	planHelper(materia.ActionStart, "double", "goodbye.service"),
-// 	planHelper(materia.ActionEnable, "double", "hello.timer"),
-// 	planHelper(materia.ActionStart, "double", "hello.timer"),
+
+func TestBasic(t *testing.T) {
+	hm := NewMockHostManager(t)
+	sm := NewMockSourceManager(t)
+	sm.EXPECT().LoadManifest(manifests.MateriaManifestFile).Return(&manifests.MateriaManifest{}, nil)
+	hm.EXPECT().GetHostname().Return("localhost")
+	m, err := NewMateriaFromConfig(context.TODO(), &MateriaConfig{
+		QuadletDir: "/tmp/materia/quadlets",
+		MateriaDir: "/tmp/materia",
+		ServiceDir: "/tmp/services",
+		ScriptsDir: "/usr/local/bin",
+		SourceDir:  "/materia/source",
+	}, hm, sm)
+	assert.NoError(t, err)
+	assert.NotNil(t, m)
+}
+
+// var expectedActions = []Action{
+// 	planHelper(ActionInstall, "double", ""),
+// 	planHelper(ActionInstall, "double", "inner"),
+// 	planHelper(ActionInstall, "double", "goodbye.container"),
+// 	planHelper(ActionInstall, "double", "hello.container"),
+// 	planHelper(ActionInstall, "double", "hello.timer"),
+// 	planHelper(ActionInstall, "double", "inner/test.data"),
+// 	planHelper(ActionInstall, "double", "foo"),
+// 	planHelper(ActionInstall, "double", manifests.ComponentManifestFile),
+// 	planHelper(ActionInstall, "hello", ""),
+// 	planHelper(ActionInstall, "hello", "hello.container"),
+// 	planHelper(ActionInstall, "hello", "hello.env"),
+// 	planHelper(ActionInstall, "hello", "hello.volume"),
+// 	planHelper(ActionInstall, "hello", "test.env"),
+// 	planHelper(ActionInstall, "hello", manifests.ComponentManifestFile),
+// 	planHelper(ActionReload, "", ""),
+// 	planHelper(ActionStart, "double", "goodbye.service"),
+// 	planHelper(ActionEnable, "double", "hello.timer"),
+// 	planHelper(ActionStart, "double", "hello.timer"),
 // }
 //
 // func TestPlan(t *testing.T) {
-// 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service"})
+// 	m := testMateria(t, []string{"hello.service", "double.service", "goodbye.service"})
 //
 // 	expectedManifest := &manifests.MateriaManifest{
 // 		Hosts: map[string]manifests.Host{},
@@ -172,7 +164,7 @@ var (
 // 	require.Equal(t, len(plan.Steps()), len(expectedActions), "Length of plan (%v) is not as expected (%v)", len(plan.Steps()), len(expectedActions))
 // 	require.Nil(t, plan.Validate(), "generated invalid plan")
 //
-// 	expectedPlan := materia.NewPlan([]string{}, []string{})
+// 	expectedPlan := NewPlan([]string{}, []string{})
 // 	for _, e := range expectedActions {
 // 		expectedPlan.Add(e)
 // 	}
@@ -194,7 +186,7 @@ var (
 // }
 //
 // func TestExecuteFresh(t *testing.T) {
-// 	m := testMateria([]string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
+// 	m := testMateria(t, []string{"hello.service", "double.service", "goodbye.service", "hello.timer"})
 // 	expectedManifest := &manifests.MateriaManifest{
 // 		Hosts: map[string]manifests.Host{},
 // 	}
@@ -228,7 +220,7 @@ var (
 // 	// verify all the files are in place
 // 	for _, v := range plan.Steps() {
 // 		switch v.Todo {
-// 		case materia.ActionInstall:
+// 		case ActionInstall:
 // 			if v.Target.Kind == components.ResourceTypeFile || v.Target.IsQuadlet() {
 // 				var dest string
 // 				if v.Target.Kind == components.ResourceTypeFile || v.Target.Kind == components.ResourceTypeManifest {
@@ -244,7 +236,7 @@ var (
 // 				_, err = os.Stat(fmt.Sprintf("%v/%v", installdir, v.Parent.Name))
 // 				assert.Nil(t, err, fmt.Sprintf("error component not found: %v", v.Target.Path))
 // 			}
-// 		case materia.ActionStart:
+// 		case ActionStart:
 // 			if v.Target.Kind == components.ResourceTypeService {
 // 				state, err := m.Host.Get(ctx, v.Target.Path)
 // 				assert.Nil(t, err, "error getting service state")
@@ -254,11 +246,11 @@ var (
 // 	}
 // }
 //
-// func planHelper(todo materia.ActionType, name, res string) materia.Action {
+// func planHelper(todo ActionType, name, res string) Action {
 // 	if res == "" {
 // 		if name == "" {
-// 			return materia.Action{
-// 				Todo: materia.ActionReload,
+// 			return Action{
+// 				Todo: ActionReload,
 // 				Parent: &components.Component{
 // 					Name: "root",
 // 				},
@@ -268,7 +260,7 @@ var (
 // 				},
 // 			}
 // 		} else {
-// 			return materia.Action{
+// 			return Action{
 // 				Todo:   todo,
 // 				Parent: &components.Component{Name: name},
 // 				Target: components.Resource{
@@ -279,7 +271,7 @@ var (
 // 			}
 // 		}
 // 	}
-// 	act := materia.Action{
+// 	act := Action{
 // 		Todo: todo,
 // 		Parent: &components.Component{
 // 			Name: name,
