@@ -53,14 +53,14 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 	currentComponents := make(map[string]*components.Component)
 	newComponents := make(map[string]*components.Component)
 	for _, v := range installedComponents {
-		comp, err := m.CompRepo.GetComponent(v)
+		comp, err := m.Host.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading current components: %w", err)
 		}
 		currentComponents[comp.Name] = comp
 	}
 	for _, v := range assignedComponents {
-		comp, err := m.SourceRepo.GetComponent(v)
+		comp, err := m.Source.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading new components: %w", err)
 		}
@@ -280,7 +280,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	for _, r := range newComponent.Resources {
 		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
-			newStringTempl, err := m.SourceRepo.ReadResource(r)
+			newStringTempl, err := m.Source.ReadResource(r)
 			if err != nil {
 				return actions, err
 			}
@@ -525,7 +525,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 			resourceBody := ""
 			var err error
 			if r.IsFile() {
-				resourceBody, err = m.CompRepo.ReadResource(r)
+				resourceBody, err = m.Host.ReadResource(r)
 				if err != nil {
 					return actions, fmt.Errorf("error reading resource for deletion: %w", err)
 				}
@@ -554,7 +554,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 		})
 	}
 	manifest := components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile}
-	manifestBody, err := m.CompRepo.ReadResource(manifest)
+	manifestBody, err := m.Host.ReadResource(manifest)
 	if err != nil {
 		return actions, fmt.Errorf("error reading resource for deletion: %w", err)
 	}
@@ -782,7 +782,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 			// do a test run just to make sure we can actually install this resource
 			content := ""
 			if r.Kind != components.ResourceTypePodmanSecret {
-				newStringTempl, err := m.SourceRepo.ReadResource(r)
+				newStringTempl, err := m.Source.ReadResource(r)
 				if err != nil {
 					return diffActions, err
 				}
@@ -865,11 +865,11 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 	var curString, newString string
 	var err error
 	if cur.Kind != components.ResourceTypePodmanSecret {
-		curString, err = m.CompRepo.ReadResource(*cur)
+		curString, err = m.Host.ReadResource(*cur)
 		if err != nil {
 			return diffs, err
 		}
-		newStringTempl, err := m.SourceRepo.ReadResource(*newRes)
+		newStringTempl, err := m.Source.ReadResource(*newRes)
 		if err != nil {
 			return diffs, err
 		}

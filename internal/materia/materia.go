@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"text/template"
 	"time"
 
@@ -22,8 +21,6 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/manifests"
-	"primamateria.systems/materia/internal/source/file"
-	"primamateria.systems/materia/internal/source/git"
 )
 
 type MacroMap func(map[string]any) template.FuncMap
@@ -33,10 +30,9 @@ var rootComponent = &components.Component{Name: "root"}
 
 type Materia struct {
 	Host           HostManager
+	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
 	Vault          AttributesEngine
-	CompRepo       ComponentRepository
-	SourceRepo     ComponentRepository
 	rootComponent  *components.Component
 	Roles          []string
 	macros         MacroMap
@@ -49,7 +45,6 @@ type Materia struct {
 	cleanupVolumes bool
 	backupVolumes  bool
 	migrateVolumes bool
-	remoteDir      string
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
@@ -81,19 +76,15 @@ func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 }
 
 func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager, sm SourceManager) (*Materia, error) {
-	// sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to create source component repo: %w", err)
-	// }
 	vault, err := setupVault(c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create attributes engine: %w", err)
 	}
 
-	return NewMateria(ctx, c, hm, vault, hm, hm, nil, nil, nil, hm, sm)
+	return NewMateria(ctx, c, hm, vault, sm)
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attributes AttributesEngine, sm ServiceManager, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository, srcman SourceManager) (*Materia, error) {
+func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attributes AttributesEngine, srcman SourceManager) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -126,17 +117,16 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 
 	return &Materia{
 		Host:           hm,
+		Source:         srcman,
 		Manifest:       man,
 		debug:          c.Debug,
 		diffs:          c.Diffs,
 		cleanup:        c.Cleanup,
 		onlyResources:  c.OnlyResources,
 		Vault:          attributes,
-		CompRepo:       hostRepo,
-		SourceRepo:     srcman,
 		OutputDir:      c.OutputDir,
 		snippets:       snips,
-		macros:         loadDefaultMacros(c, cm, hm, snips),
+		macros:         loadDefaultMacros(c, hm, snips),
 		rootComponent:  rootComponent,
 		cleanupVolumes: c.CleanupVolumes,
 		backupVolumes:  c.BackupVolumes,
@@ -190,70 +180,12 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 	return roles, nil
 }
 
-func (m *Materia) SyncRemote(ctx context.Context) error {
-	for name, r := range m.Manifest.Remotes {
-		parsedPath := strings.Split(r.URL, "://")
-		var remoteSource Source
-		var err error
-		switch parsedPath[0] {
-		case "git":
-			localpath := filepath.Join(m.remoteDir, "components", name)
-			remoteSource, err = git.NewGitSource(&git.Config{
-				Branch:           r.Version,
-				PrivateKey:       "",
-				Username:         "",
-				Password:         "",
-				KnownHosts:       "",
-				Insecure:         false,
-				LocalRepository:  localpath,
-				RemoteRepository: parsedPath[1],
-			})
-			if err != nil {
-				return fmt.Errorf("invalid git source: %w", err)
-			}
-		case "file":
-			localpath := filepath.Join(m.remoteDir, "components", name)
-			remoteSource, err = file.NewFileSource(&file.Config{
-				SourcePath:  parsedPath[1],
-				Destination: localpath,
-			})
-			if err != nil {
-				return fmt.Errorf("invalid file source: %w", err)
-			}
-		default:
-			return fmt.Errorf("invalid source: %v", parsedPath[0])
-		}
-		if err := remoteSource.Sync(ctx); err != nil {
-			return err
-		}
-
-	}
-	// remove old remote components to keep things tidy
-	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
-	entries, err := os.ReadDir(filepath.Join(m.remoteDir, "components"))
-	if err != nil {
-		return err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			if _, ok := m.Manifest.Remotes[v.Name()]; !ok {
-				log.Debugf("Removing old remote component %v", v.Name())
-				err := os.RemoveAll(filepath.Join(m.remoteDir, "components", v.Name()))
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
 func (m *Materia) Clean(ctx context.Context) error {
-	err := m.CompRepo.Clean()
+	err := m.Host.Clean()
 	if err != nil {
 		return err
 	}
-	err = m.SourceRepo.Clean()
+	err = m.Source.Clean()
 	if err != nil {
 		return err
 	}
@@ -269,7 +201,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
-	comp, err := m.CompRepo.GetComponent(name)
+	comp, err := m.Host.GetComponent(name)
 	if err != nil {
 		return err
 	}
@@ -295,12 +227,12 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 	var invalidComps []string
-	dcomps, err := m.CompRepo.ListComponentNames()
+	dcomps, err := m.Host.ListComponentNames()
 	if err != nil {
 		return invalidComps, fmt.Errorf("can't get components from prefix: %w", err)
 	}
 	for _, name := range dcomps {
-		_, err = m.CompRepo.GetComponent(name)
+		_, err = m.Host.GetComponent(name)
 		if err != nil {
 			log.Warn("component unable to be loaded", "component", name)
 			invalidComps = append(invalidComps, name)
@@ -311,7 +243,7 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 }
 
 func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
-	return m.CompRepo.PurgeComponentByName(name)
+	return m.Host.PurgeComponentByName(name)
 }
 
 type planOutput struct {

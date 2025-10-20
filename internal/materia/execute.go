@@ -32,7 +32,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 		for _, v := range problems {
 			log.Infof("component %v failed to install, purging", v)
-			err := m.CompRepo.PurgeComponentByName(v)
+			err := m.Host.PurgeComponentByName(v)
 			if err != nil {
 				log.Warnf("error purging component: %v", err)
 			}
@@ -158,23 +158,23 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeComponent:
 		switch v.Todo {
 		case ActionInstall:
-			if err := m.CompRepo.InstallComponent(v.Parent); err != nil {
+			if err := m.Host.InstallComponent(v.Parent); err != nil {
 				return err
 			}
 		case ActionUpdate:
-			if err := m.CompRepo.UpdateComponent(v.Parent); err != nil {
+			if err := m.Host.UpdateComponent(v.Parent); err != nil {
 				return err
 			}
 		case ActionRemove:
-			if err := m.CompRepo.RemoveComponent(v.Parent); err != nil {
+			if err := m.Host.RemoveComponent(v.Parent); err != nil {
 				return err
 			}
 		case ActionCleanup:
-			if err := m.CompRepo.RunCleanup(v.Parent); err != nil {
+			if err := m.Host.RunCleanup(v.Parent); err != nil {
 				return err
 			}
 		case ActionSetup:
-			if err := m.CompRepo.RunSetup(v.Parent); err != nil {
+			if err := m.Host.RunSetup(v.Parent); err != nil {
 				return err
 			}
 		default:
@@ -188,11 +188,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 			resourceData := diffmatchpatch.New().DiffText2(diffs)
-			if err := m.CompRepo.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
+			if err := m.Host.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
 				return err
 			}
 		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
+			if err := m.Host.RemoveResource(v.Target); err != nil {
 				return err
 			}
 		case ActionEnsure:
@@ -262,7 +262,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
-			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
+			if err := m.Host.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
 			if err := m.Host.InstallScript(ctx, v.Target.Path, resourceData); err != nil {
@@ -270,7 +270,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			}
 
 		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
+			if err := m.Host.RemoveResource(v.Target); err != nil {
 				return err
 			}
 			if err := m.Host.RemoveScript(ctx, v.Target.Path); err != nil {
@@ -283,11 +283,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypeDirectory:
 		switch v.Todo {
 		case ActionInstall:
-			if err := m.CompRepo.InstallResource(v.Target, nil); err != nil {
+			if err := m.Host.InstallResource(v.Target, nil); err != nil {
 				return err
 			}
 		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
+			if err := m.Host.RemoveResource(v.Target); err != nil {
 				return err
 			}
 
@@ -310,14 +310,14 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
-			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
+			if err := m.Host.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
 			if err := m.Host.InstallUnit(ctx, v.Target.Path, resourceData); err != nil {
 				return err
 			}
 		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
+			if err := m.Host.RemoveResource(v.Target); err != nil {
 				return err
 			}
 			if err := m.Host.RemoveUnit(ctx, v.Target.Path); err != nil {
@@ -340,12 +340,12 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 			resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
-			if err := m.CompRepo.InstallResource(v.Target, resourceData); err != nil {
+			if err := m.Host.InstallResource(v.Target, resourceData); err != nil {
 				return err
 			}
 
 		case ActionRemove:
-			if err := m.CompRepo.RemoveResource(v.Target); err != nil {
+			if err := m.Host.RemoveResource(v.Target); err != nil {
 				return err
 			}
 

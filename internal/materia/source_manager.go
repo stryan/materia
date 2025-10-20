@@ -1,9 +1,11 @@
 package materia
 
-import "primamateria.systems/materia/internal/manifests"
+import (
+	"primamateria.systems/materia/internal/manifests"
+)
 
 type SourceManager interface {
 	ComponentRepository
 	LoadManifest(string) (*manifests.MateriaManifest, error)
-	AddSource(string) error
+	AddSource(Source) error
 }

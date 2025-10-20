@@ -59,15 +59,14 @@ func setupLogger(c *materia.MateriaConfig) {
 	}
 }
 
-func syncLocalRepo(ctx context.Context, k *koanf.Koanf, sourceDir string) error {
+func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 	rawSourceConfig := k.Cut("source")
 	var sourceConfig source.SourceConfig
 	sourceConfig.URL = rawSourceConfig.String("url")
-	noSync := rawSourceConfig.Bool("no_sync")
 
 	err := sourceConfig.Validate()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	var source materia.Source
 
@@ -76,35 +75,25 @@ func syncLocalRepo(ctx context.Context, k *koanf.Koanf, sourceDir string) error 
 	case "git":
 		config, err := git.NewConfig(k, sourceDir, parsedPath[1])
 		if err != nil {
-			return fmt.Errorf("error creating git config: %w", err)
+			return nil, fmt.Errorf("error creating git config: %w", err)
 		}
 		source, err = git.NewGitSource(config)
 		if err != nil {
-			return fmt.Errorf("invalid git source: %w", err)
+			return nil, fmt.Errorf("invalid git source: %w", err)
 		}
 	case "file":
 		config, err := filesource.NewConfig(k, sourceDir, parsedPath[1])
 		if err != nil {
-			return fmt.Errorf("error creating file config: %w", err)
+			return nil, fmt.Errorf("error creating file config: %w", err)
 		}
 		source, err = filesource.NewFileSource(config)
 		if err != nil {
-			return fmt.Errorf("invalid file source: %w", err)
+			return nil, fmt.Errorf("invalid file source: %w", err)
 		}
 	default:
-		return fmt.Errorf("invalid source: %v", parsedPath[0])
+		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
 	}
-	// Ensure local cache
-	if noSync {
-		log.Debug("skipping cache update on request")
-	} else {
-		log.Debug("updating configured source cache")
-		err = source.Sync(ctx)
-		if err != nil {
-			return fmt.Errorf("error syncing source: %w", err)
-		}
-	}
-	return nil
+	return source, nil
 }
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
@@ -125,14 +114,27 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	setupLogger(c)
 
-	if err := syncLocalRepo(ctx, k, c.SourceDir); err != nil {
-		return nil, err
-	}
-	hm, err := hostman.NewHostManager(c)
+	mainRepo, err := getLocalRepo(k, c.SourceDir)
 	if err != nil {
 		return nil, err
 	}
 	sm, err := sourceman.NewSourceManager(c)
+	if err != nil {
+		return nil, err
+	}
+	err = sm.AddSource(mainRepo)
+	if err != nil {
+		return nil, err
+	}
+	err = sm.Sync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error with initial repo sync: %w", err)
+	}
+	err = sm.SyncRemotes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
+	}
+	hm, err := hostman.NewHostManager(c)
 	if err != nil {
 		return nil, err
 	}
