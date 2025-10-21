@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 func TestExecute(t *testing.T) {

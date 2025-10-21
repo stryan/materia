@@ -11,8 +11,8 @@ import (
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

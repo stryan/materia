@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type SourceManager struct {

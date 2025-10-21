@@ -17,8 +17,8 @@ import (
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {

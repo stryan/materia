@@ -20,7 +20,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type MacroMap func(map[string]any) template.FuncMap

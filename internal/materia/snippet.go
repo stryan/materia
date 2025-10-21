@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type Snippet struct {

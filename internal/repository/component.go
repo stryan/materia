@@ -18,7 +18,7 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type HostComponentRepository struct {
