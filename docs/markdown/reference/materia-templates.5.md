@@ -58,12 +58,6 @@ Access a Materia attribute that is specified as a podman secret in the component
 
 Same as `secretEnv` but accesses the secret as a file mount. Optionally, provide additional arguments as defined in the Podman manual
 
-
-#### **m_deps**
-
-Legacy macro for generating default unit dependencies
-
-
 ## Snippets
 
 Snippets are pre-made blocks of templated text that can be inserted with the `snippet` macro. Some come with materia, while others are defined in a component manifest or Repository manifest.

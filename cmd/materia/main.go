@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/pkg/hostman"
 )
 
 var Version string
@@ -93,7 +94,7 @@ func main() {
 						return err
 					}
 					if arg != "" {
-						fact, err := m.LookupFact(arg)
+						fact, err := m.Host.Lookup(arg)
 						if err != nil {
 							return err
 						}
@@ -314,12 +315,19 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					// use a fake materia since we can't generate valid facts
-					m, err := doctorSetup(ctx, configFile, cliflags)
+					k, err := LoadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
 						return err
 					}
-					corrupted, err := m.ValidateComponents(ctx)
+					c, err := materia.NewConfig(k)
+					if err != nil {
+						return err
+					}
+					hm, err := hostman.NewHostManager(c)
+					if err != nil {
+						return err
+					}
+					corrupted, err := hm.ValidateComponents()
 					if err != nil {
 						return err
 					}
@@ -330,7 +338,7 @@ func main() {
 						return nil
 					}
 					for _, v := range corrupted {
-						err := m.PurgeComponenet(ctx, v)
+						err := hm.PurgeComponentByName(v)
 						if err != nil {
 							return err
 						}

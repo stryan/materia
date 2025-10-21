@@ -15,21 +15,86 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/attributes/age"
-	"primamateria.systems/materia/internal/attributes/mem"
-	"primamateria.systems/materia/internal/attributes/sops"
-	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/facts"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/materia"
-	"primamateria.systems/materia/internal/repository"
+	"primamateria.systems/materia/internal/source"
+	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/sourceman"
 
-	fileattrs "primamateria.systems/materia/internal/attributes/file"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/internal/source/git"
 
 	filesource "primamateria.systems/materia/internal/source/file"
 )
+
+func setupDirectories(c *materia.MateriaConfig) error {
+	err := os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating prefix: %w", err)
+	}
+	err = os.Mkdir(c.OutputDir, 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating output dir: %w", err)
+	}
+	err = os.Mkdir(c.SourceDir, 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating source repo: %w", err)
+	}
+	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating source repo: %w", err)
+	}
+	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
+	if err != nil && !errors.Is(err, fs.ErrExist) {
+		return fmt.Errorf("error creating components in prefix: %w", err)
+	}
+	return nil
+}
+
+func setupLogger(c *materia.MateriaConfig) {
+	if c.UseStdout {
+		log.Default().SetOutput(os.Stdout)
+	}
+	if c.Debug {
+		log.Default().SetLevel(log.DebugLevel)
+		log.Default().SetReportCaller(true)
+	}
+}
+
+func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
+	rawSourceConfig := k.Cut("source")
+	var sourceConfig source.SourceConfig
+	sourceConfig.URL = rawSourceConfig.String("url")
+
+	err := sourceConfig.Validate()
+	if err != nil {
+		return nil, err
+	}
+	var source materia.Source
+
+	parsedPath := strings.Split(sourceConfig.URL, "://")
+	switch parsedPath[0] {
+	case "git":
+		config, err := git.NewConfig(k, sourceDir, parsedPath[1])
+		if err != nil {
+			return nil, fmt.Errorf("error creating git config: %w", err)
+		}
+		source, err = git.NewGitSource(config)
+		if err != nil {
+			return nil, fmt.Errorf("invalid git source: %w", err)
+		}
+	case "file":
+		config, err := filesource.NewConfig(k, sourceDir, parsedPath[1])
+		if err != nil {
+			return nil, fmt.Errorf("error creating file config: %w", err)
+		}
+		source, err = filesource.NewFileSource(config)
+		if err != nil {
+			return nil, fmt.Errorf("invalid file source: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
+	}
+	return source, nil
+}
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
 	k, err := LoadConfigs(ctx, configFile, cliflags)
@@ -44,212 +109,37 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("error validating config: %w", err)
 	}
-	if c.UseStdout {
-		log.Default().SetOutput(os.Stdout)
+	if err := setupDirectories(c); err != nil {
+		return nil, fmt.Errorf("error creating base directories: %w", err)
 	}
-	if c.Debug {
-		log.Default().SetLevel(log.DebugLevel)
-		log.Default().SetReportCaller(true)
-	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating prefix: %w", err)
-	}
-	err = os.Mkdir(c.OutputDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating output dir: %w", err)
-	}
-	err = os.Mkdir(c.SourceDir, 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating source repo: %w", err)
-	}
-	err = os.MkdirAll(filepath.Join(c.RemoteDir, "components"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating source repo: %w", err)
-	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
-	if err != nil && !errors.Is(err, fs.ErrExist) {
-		return nil, fmt.Errorf("error creating components in prefix: %w", err)
-	}
-	sourceConfig, err := materia.NewSourceConfig(k.Cut("source"))
+	setupLogger(c)
+
+	mainRepo, err := getLocalRepo(k, c.SourceDir)
 	if err != nil {
 		return nil, err
 	}
-	err = sourceConfig.Validate()
-	if err != nil {
-		log.Fatal(err)
-	}
-	var source materia.Source
-
-	parsedPath := strings.Split(sourceConfig.URL, "://")
-	switch parsedPath[0] {
-	case "git":
-		config, err := git.NewConfig(k, c.SourceDir, parsedPath[1])
-		if err != nil {
-			return nil, fmt.Errorf("error creating git config: %w", err)
-		}
-		source, err = git.NewGitSource(config)
-		if err != nil {
-			return nil, fmt.Errorf("invalid git source: %w", err)
-		}
-	case "file":
-		config, err := filesource.NewConfig(k, c.SourceDir, parsedPath[1])
-		if err != nil {
-			return nil, fmt.Errorf("error creating file config: %w", err)
-		}
-		source, err = filesource.NewFileSource(config)
-		if err != nil {
-			return nil, fmt.Errorf("invalid file source: %w", err)
-		}
-	default:
-		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
-	}
-	// Ensure local cache
-	if sourceConfig.NoSync {
-		log.Debug("skipping cache update on request")
-	} else {
-		log.Debug("updating configured source cache")
-		err = source.Sync(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error syncing source: %w", err)
-		}
-	}
-	// load manifest
-
-	manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
-	man, err := manifests.LoadMateriaManifest(manifestLocation)
-	if err != nil {
-		return nil, fmt.Errorf("error loading manifest: %w", err)
-	}
-	if err := man.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid materia manifest: %w", err)
-	}
-
-	sm, err := services.NewServices(ctx, &services.ServicesConfig{
-		Timeout: c.Timeout,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	cm, err := containers.NewPodmanManager()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	scriptRepo, err := repository.NewFileRepository(c.ScriptsDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create script repo: %w", err)
-	}
-	serviceRepo, err := repository.NewFileRepository(c.ServiceDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create service repo: %w", err)
-	}
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create source component repo: %w", err)
-	}
-	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.MateriaDir, "materia", "components"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create host component repo: %w", err)
-	}
-	var attributesEngine materia.AttributesEngine
-	// TODO replace this with attributes chaining
-	switch c.Attributes {
-	case "age":
-		ageConfig, err := age.NewConfig(k)
-		if err != nil {
-			return nil, fmt.Errorf("error creating age config: %w", err)
-		}
-		attributesEngine, err = age.NewAgeStore(*ageConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating age store: %w", err)
-		}
-	case "file":
-		fileConfig, err := fileattrs.NewConfig(k)
-		if err != nil {
-			return nil, fmt.Errorf("error creating file config: %w", err)
-		}
-		attributesEngine, err = fileattrs.NewFileStore(*fileConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating file store: %w", err)
-		}
-	case "sops":
-		sopsConfig, err := sops.NewConfig(k)
-		if err != nil {
-			return nil, fmt.Errorf("error creating sops config: %w", err)
-		}
-		attributesEngine, err = sops.NewSopsStore(*sopsConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating sops store: %w", err)
-		}
-	case "mem":
-		attributesEngine = mem.NewMemoryEngine()
-	default:
-		return nil, fmt.Errorf("failed to initialize attributes manager: invalid type")
-	}
-	log.Debug("loading host facts")
-	factsm, err := facts.NewHostFacts(ctx, c.Hostname)
-	if err != nil {
-		return nil, fmt.Errorf("error generating facts: %w", err)
-	}
-	log.Debug("loading remote components")
-	if len(man.Remotes) > 0 {
-		for name, r := range man.Remotes {
-			parsedPath := strings.Split(r.URL, "://")
-			var remoteSource materia.Source
-			switch parsedPath[0] {
-			case "git":
-				localpath := filepath.Join(c.RemoteDir, "components", name)
-				remoteSource, err = git.NewGitSource(&git.Config{
-					Branch:           r.Version,
-					PrivateKey:       "",
-					Username:         "",
-					Password:         "",
-					KnownHosts:       "",
-					Insecure:         false,
-					LocalRepository:  localpath,
-					RemoteRepository: parsedPath[1],
-				})
-				if err != nil {
-					return nil, fmt.Errorf("invalid git source: %w", err)
-				}
-			case "file":
-				localpath := filepath.Join(c.RemoteDir, "components", name)
-				source, err = filesource.NewFileSource(&filesource.Config{
-					SourcePath:  parsedPath[1],
-					Destination: localpath,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("invalid file source: %w", err)
-				}
-			default:
-				return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
-			}
-			if err := remoteSource.Sync(ctx); err != nil {
-				return nil, err
-			}
-
-		}
-	}
-	// remove old remote components to keep things tidy
-	// TODO maybe the ugliness of doing this here means its worth having a seperate engine for remote components
-	entries, err := os.ReadDir(filepath.Join(c.RemoteDir, "components"))
+	sm, err := sourceman.NewSourceManager(c)
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range entries {
-		if v.IsDir() {
-			if _, ok := man.Remotes[v.Name()]; !ok {
-				log.Debugf("Removing old remote component %v", v.Name())
-				err := os.RemoveAll(filepath.Join(c.RemoteDir, "components", v.Name()))
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	err = sm.AddSource(mainRepo)
+	if err != nil {
+		return nil, err
+	}
+	err = sm.Sync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error with initial repo sync: %w", err)
+	}
+	err = sm.SyncRemotes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
+	}
+	hm, err := hostman.NewHostManager(c)
+	if err != nil {
+		return nil, err
 	}
 
-	m, err := materia.NewMateria(ctx, c, source, man, factsm, attributesEngine, sm, cm, scriptRepo, serviceRepo, sourceRepo, hostRepo)
+	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -292,62 +182,4 @@ func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) 
 	}
 
 	return k, err
-}
-
-func doctorSetup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
-	k, err := LoadConfigs(ctx, configFile, cliflags)
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := materia.NewConfig(k)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = c.Validate()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if c.UseStdout {
-		log.Default().SetOutput(os.Stdout)
-	}
-	if c.Debug {
-		log.Default().SetLevel(log.DebugLevel)
-		log.Default().SetReportCaller(true)
-	}
-	sm, err := services.NewServices(ctx, &services.ServicesConfig{
-		Timeout: c.Timeout,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	cm, err := containers.NewPodmanManager()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.MateriaDir, "materia", "components"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create host component repo: %w", err)
-	}
-
-	// log.Debug("loading manifest")
-	// manifestLocation := filepath.Join(c.SourceDir, "MANIFEST.toml")
-	// man, err := manifests.LoadMateriaManifest(manifestLocation)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error loading manifest: %w", err)
-	// }
-	// if err := man.Validate(); err != nil {
-	// 	return nil, fmt.Errorf("invalid materia manifest: %w", err)
-	// }
-	// err = k.Load(file.Provider(manifestLocation), toml.Parser())
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	m, err := materia.NewMateria(ctx, c, nil, nil, nil, nil, sm, cm, nil, nil, nil, hostRepo)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return m, nil
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type HostComponentRepository struct {
@@ -256,6 +256,7 @@ func (r *HostComponentRepository) ListComponentNames() ([]string, error) {
 			compPaths = append(compPaths, v.Name())
 		}
 	}
+	slices.Sort(compPaths)
 	return compPaths, nil
 }
 

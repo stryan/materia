@@ -1,8 +1,0 @@
-components.hello.containerTag = "stable"
-components.double.containerTag = "latest"
-secrets = ["foo"]
-[[services]]
-service = "goodbye.service"
-[[services]]
-service = "hello.timer"
-static = true

@@ -15,3 +15,6 @@ packages:
   primamateria.systems/materia/internal/materia:
     config:
       all: true
+  primamateria.systems/materia/pkg/hostman:
+    config:
+      all: true

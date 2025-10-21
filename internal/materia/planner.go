@@ -17,12 +17,24 @@ import (
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
-	currentVolumes, err := m.Containers.ListVolumes(ctx)
+	installed, err := m.Host.ListInstalledComponents()
+	if err != nil {
+		return nil, err
+	}
+	assigned, err := m.GetAssignedComponents()
+	if err != nil {
+		return nil, err
+	}
+	return m.plan(ctx, installed, assigned)
+}
+
+func (m *Materia) plan(ctx context.Context, installedComponents, assignedComponents []string) (*Plan, error) {
+	currentVolumes, err := m.Host.ListVolumes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -30,9 +42,9 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	for _, v := range currentVolumes {
 		vollist = append(vollist, v.Name)
 	}
-	plan := NewPlan(m.InstalledComponents, vollist)
 
-	if len(m.InstalledComponents) == 0 && len(m.AssignedComponents) == 0 {
+	plan := NewPlan(installedComponents, vollist)
+	if len(installedComponents) == 0 && len(assignedComponents) == 0 {
 		return plan, nil
 	}
 
@@ -40,15 +52,15 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 	log.Debug("calculating component differences")
 	currentComponents := make(map[string]*components.Component)
 	newComponents := make(map[string]*components.Component)
-	for _, v := range m.InstalledComponents {
-		comp, err := m.CompRepo.GetComponent(v)
+	for _, v := range installedComponents {
+		comp, err := m.Host.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading current components: %w", err)
 		}
 		currentComponents[comp.Name] = comp
 	}
-	for _, v := range m.AssignedComponents {
-		comp, err := m.SourceRepo.GetComponent(v)
+	for _, v := range assignedComponents {
+		comp, err := m.Source.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading new components: %w", err)
 		}
@@ -139,7 +151,7 @@ func updateComponents(assignedComponents map[string]*components.Component, insta
 
 func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, error) {
 	keys := sortedKeys(updates)
-	hostname := m.HostFacts.GetHostname()
+	hostname := m.Host.GetHostname()
 	needReload := false
 	var plannedActions []Action
 	for _, compName := range keys {
@@ -148,7 +160,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			return plannedActions, err
 		}
 
-		attrs := m.Attributes.Lookup(ctx, attributes.AttributesFilter{
+		attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: newComponent.Name,
@@ -268,7 +280,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	for _, r := range newComponent.Resources {
 		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
-			newStringTempl, err := m.SourceRepo.ReadResource(r)
+			newStringTempl, err := m.Source.ReadResource(r)
 			if err != nil {
 				return actions, err
 			}
@@ -335,7 +347,7 @@ func (m *Materia) processFreshComponentServices(ctx context.Context, component *
 
 	for _, k := range sortedSrcs {
 		s := component.ServiceResources[k]
-		liveService, err := getLiveService(ctx, m.Services, s.Service)
+		liveService, err := getLiveService(ctx, m.Host, s.Service)
 		if err != nil {
 			return actions, err
 		}
@@ -411,7 +423,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 			continue
 		}
 		s := newComponent.ServiceResources[k]
-		liveService, err := getLiveService(ctx, m.Services, k)
+		liveService, err := getLiveService(ctx, m.Host, k)
 		if err != nil {
 			return nil, err
 		}
@@ -440,7 +452,7 @@ func (m *Materia) processUnchangedComponentServices(ctx context.Context, comp *c
 		return actions, nil
 	}
 	for _, s := range comp.ServiceResources {
-		liveService, err := getLiveService(ctx, m.Services, s.Service)
+		liveService, err := getLiveService(ctx, m.Host, s.Service)
 		if err != nil {
 			return nil, err
 		}
@@ -513,7 +525,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 			resourceBody := ""
 			var err error
 			if r.IsFile() {
-				resourceBody, err = m.CompRepo.ReadResource(r)
+				resourceBody, err = m.Host.ReadResource(r)
 				if err != nil {
 					return actions, fmt.Errorf("error reading resource for deletion: %w", err)
 				}
@@ -542,7 +554,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 		})
 	}
 	manifest := components.Resource{Parent: comp.Name, Kind: components.ResourceTypeManifest, Path: manifests.ComponentManifestFile}
-	manifestBody, err := m.CompRepo.ReadResource(manifest)
+	manifestBody, err := m.Host.ReadResource(manifest)
 	if err != nil {
 		return actions, fmt.Errorf("error reading resource for deletion: %w", err)
 	}
@@ -571,7 +583,7 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 			Path:   s.Service,
 			Kind:   components.ResourceTypeService,
 		}
-		liveService, err := m.Services.Get(ctx, s.Service)
+		liveService, err := m.Host.Get(ctx, s.Service)
 		if err != nil {
 			return actions, err
 		}
@@ -617,7 +629,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 		cur := currentResources[k]
 		if cur.Kind == components.ResourceTypePodmanSecret {
 			// validate the secret exists first
-			secretsList, err := m.Containers.ListSecrets(ctx)
+			secretsList, err := m.Host.ListSecrets(ctx)
 			if err != nil {
 				return diffActions, fmt.Errorf("error listing secrets during resource validation")
 			}
@@ -717,11 +729,11 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 
 			diffActions = append(diffActions, a)
 			if m.cleanup {
-				networks, err := m.Containers.ListNetworks(ctx)
+				networks, err := m.Host.ListNetworks(ctx)
 				if err != nil {
 					return diffActions, err
 				}
-				volumes, err := m.Containers.ListVolumes(ctx)
+				volumes, err := m.Host.ListVolumes(ctx)
 				if err != nil {
 					return diffActions, err
 				}
@@ -770,7 +782,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 			// do a test run just to make sure we can actually install this resource
 			content := ""
 			if r.Kind != components.ResourceTypePodmanSecret {
-				newStringTempl, err := m.SourceRepo.ReadResource(r)
+				newStringTempl, err := m.Source.ReadResource(r)
 				if err != nil {
 					return diffActions, err
 				}
@@ -853,11 +865,11 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 	var curString, newString string
 	var err error
 	if cur.Kind != components.ResourceTypePodmanSecret {
-		curString, err = m.CompRepo.ReadResource(*cur)
+		curString, err = m.Host.ReadResource(*cur)
 		if err != nil {
 			return diffs, err
 		}
-		newStringTempl, err := m.SourceRepo.ReadResource(*newRes)
+		newStringTempl, err := m.Source.ReadResource(*newRes)
 		if err != nil {
 			return diffs, err
 		}
@@ -875,7 +887,7 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 		}
 	} else {
 		var curSecret *containers.PodmanSecret
-		secretsList, err := m.Containers.ListSecrets(context.TODO())
+		secretsList, err := m.Host.ListSecrets(context.TODO())
 		if err != nil {
 			return diffs, err
 		}
@@ -885,7 +897,7 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 				Value: "",
 			}
 		} else {
-			curSecret, err = m.Containers.GetSecret(context.TODO(), cur.Path)
+			curSecret, err = m.Host.GetSecret(context.TODO(), cur.Path)
 			if err != nil {
 				return diffs, err
 			}
@@ -916,22 +928,4 @@ func (m *Materia) executeResource(resourceTemplate string, attrs map[string]any)
 		return nil, err
 	}
 	return result, nil
-}
-
-func getLiveService(ctx context.Context, sm Services, serviceName string) (*services.Service, error) {
-	if sm == nil {
-		return nil, errors.New("need service manager")
-	}
-	if serviceName == "" {
-		return nil, errors.New("need service name")
-	}
-	liveService, err := sm.Get(ctx, serviceName)
-	if errors.Is(err, services.ErrServiceNotFound) {
-		return &services.Service{
-			Name:    serviceName,
-			State:   "non-existent",
-			Enabled: false,
-		}, nil
-	}
-	return liveService, err
 }

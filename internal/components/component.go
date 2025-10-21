@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/knadh/koanf/parsers/toml"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 var ErrCorruptComponent = errors.New("error corrupt component")

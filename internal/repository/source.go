@@ -13,7 +13,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 var ErrNeedHostRepository = errors.New("action can't be done on source repository")
@@ -85,6 +85,7 @@ func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 			}
 		}
 	}
+	slices.Sort(compPaths)
 	return compPaths, nil
 }
 

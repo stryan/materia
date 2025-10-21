@@ -1,11 +1,5 @@
 package attributes
 
-type AttributeManagerConfig interface {
-	SourceType() string
-	Validate() error
-	String() string
-}
-
 type AttributesFilter struct {
 	Hostname  string
 	Roles     []string

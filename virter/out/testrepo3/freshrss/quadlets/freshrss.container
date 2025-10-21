@@ -10,14 +10,14 @@ RestartSec=5s
 
 
 [Container]
-Image=docker.io/freshrss/freshrss:{{.containerTag}}
+Image=docker.io/freshrss/freshrss:latest
 ContainerName=freshrss
-EnvironmentFile={{ m_dataDir "freshrss" }}/freshrss.env
+EnvironmentFile=/var/lib/materia/components/freshrss/freshrss.env
 Volume=freshrss-data.volume:/var/www/FreshRSS/data
 Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
-PublishPort={{ .Port }}:80
-{{ secretEnv "domain" "SERVER_DNS" }}
-{{snippet "autoUpdate" "registry" }}
+PublishPort=80:80
+Secret=materia-domain,type=env,target=SERVER_DNS
+Label=io.containers.autoupdate=registry
 [Install]
 # Start by default on boot
 WantedBy=multi-user.target default.target

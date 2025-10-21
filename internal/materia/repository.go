@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type Repository interface {

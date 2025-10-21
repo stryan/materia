@@ -8,9 +8,11 @@ import (
 	"testing"
 	"text/template"
 
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
+	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -119,30 +121,6 @@ var testSnippets = func() map[string]*Snippet {
 
 var testMacroMap = func(vars map[string]any) template.FuncMap {
 	return template.FuncMap{
-		"m_deps": func(arg string) (string, error) {
-			switch arg {
-			case "after":
-				if res, ok := vars["After"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			case "wants":
-				if res, ok := vars["Wants"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			case "requires":
-				if res, ok := vars["Requires"]; ok {
-					return res.(string), nil
-				} else {
-					return "local-fs.target network.target", nil
-				}
-			default:
-				return "", errors.New("err bad default")
-			}
-		},
 		"m_dataDir": func(arg string) (string, error) {
 			return filepath.Join(filepath.Join("/var/lib/", "materia", "components"), arg), nil
 		},
@@ -275,7 +253,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 	tests := []struct {
 		name string // description of this test case
 		// Named input parameters for receiver constructor.
-		setup func(comp *components.Component, source *MockComponentRepository)
+		setup func(comp *components.Component, source *MockSourceManager)
 		// Named input parameters for target function.
 		newComponent *components.Component
 		vars         map[string]any
@@ -300,7 +278,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 			},
-			setup: func(comp *components.Component, source *MockComponentRepository) {
+			setup: func(comp *components.Component, source *MockSourceManager) {
 				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(testResources[6]).Return("manifest!", nil)
 			},
@@ -332,7 +310,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 					Target: components.Resource{Path: "conf/deep.env"},
 				},
 			},
-			setup: func(comp *components.Component, source *MockComponentRepository) {
+			setup: func(comp *components.Component, source *MockSourceManager) {
 				source.EXPECT().ReadResource(testResources[5]).Return("inner file", nil)
 				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(testResources[1]).Return("Hello env", nil)
@@ -344,15 +322,15 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 			newComponent: testComponents[3],
 			vars:         map[string]any{},
 			wantErr:      true,
-			setup: func(comp *components.Component, source *MockComponentRepository) {
+			setup: func(comp *components.Component, source *MockSourceManager) {
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceRepo := NewMockComponentRepository(t)
+			sourceRepo := NewMockSourceManager(t)
 			tt.setup(tt.newComponent, sourceRepo)
-			m := &Materia{SourceRepo: sourceRepo, macros: testMacroMap}
+			m := &Materia{Source: sourceRepo, macros: testMacroMap}
 			got, gotErr := m.calculateFreshComponentResources(tt.newComponent, tt.vars)
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -377,7 +355,7 @@ func TestMateria_calculateFreshComponentResources(t *testing.T) {
 func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 	tests := []struct {
 		name    string // description of this test case
-		setup   func(comp *components.Component, source *MockComponentRepository)
+		setup   func(comp *components.Component, host *MockHostManager)
 		comp    *components.Component
 		want    []Action
 		wantErr bool
@@ -389,9 +367,9 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 				State:     components.StateNeedRemoval,
 				Resources: []components.Resource{testResources[0], testResources[6]},
 			},
-			setup: func(comp *components.Component, source *MockComponentRepository) {
-				source.EXPECT().ReadResource(testResources[0]).Return("", nil)
-				source.EXPECT().ReadResource(testResources[6]).Return("", nil)
+			setup: func(comp *components.Component, host *MockHostManager) {
+				host.EXPECT().ReadResource(testResources[0]).Return("", nil)
+				host.EXPECT().ReadResource(testResources[6]).Return("", nil)
 			},
 			want: []Action{
 				{
@@ -422,12 +400,12 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, source *MockComponentRepository) {
-				source.EXPECT().ReadResource(testResources[0]).Return("", nil)
-				source.EXPECT().ReadResource(testResources[1]).Return("", nil)
-				source.EXPECT().ReadResource(testResources[2]).Return("", nil)
-				source.EXPECT().ReadResource(testResources[5]).Return("", nil)
-				source.EXPECT().ReadResource(testResources[6]).Return("", nil)
+			setup: func(comp *components.Component, host *MockHostManager) {
+				host.EXPECT().ReadResource(testResources[0]).Return("", nil)
+				host.EXPECT().ReadResource(testResources[1]).Return("", nil)
+				host.EXPECT().ReadResource(testResources[2]).Return("", nil)
+				host.EXPECT().ReadResource(testResources[5]).Return("", nil)
+				host.EXPECT().ReadResource(testResources[6]).Return("", nil)
 			},
 			want: []Action{
 				{
@@ -461,14 +439,14 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 		{
 			name:    "not to be removed",
 			comp:    testComponents[0],
-			setup:   func(comp *components.Component, source *MockComponentRepository) {},
+			setup:   func(comp *components.Component, host *MockHostManager) {},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hostrepo := NewMockComponentRepository(t)
-			m := &Materia{CompRepo: hostrepo}
+			hostrepo := NewMockHostManager(t)
+			m := &Materia{Host: hostrepo}
 			tt.setup(tt.comp, hostrepo)
 			got, gotErr := m.calculateRemovedComponentResources(tt.comp)
 			if gotErr != nil {
@@ -496,7 +474,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 		name string // description of this test case
 		// Named input parameters for receiver constructor.
 		component *components.Component
-		setup     func(comp *components.Component, sm *MockServices)
+		setup     func(comp *components.Component, sm *MockHostManager)
 		want      []Action
 		wantErr   bool
 	}{
@@ -504,7 +482,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			name:      "no services",
 			component: testComponents[0],
 			want:      []Action{},
-			setup:     func(comp *components.Component, services *MockServices) {},
+			setup:     func(comp *components.Component, services *MockHostManager) {},
 		},
 		{
 			name:      "services - none running",
@@ -517,7 +495,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -530,7 +508,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 		{
 			name:      "services - running",
 			component: testComponents[1],
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -567,7 +545,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockServices) {
+			setup: func(comp *components.Component, sm *MockHostManager) {
 				for _, src := range comp.ServiceResources {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -580,9 +558,9 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ms := NewMockServices(t)
-			m := &Materia{Services: ms}
-			tt.setup(tt.component, ms)
+			hm := NewMockHostManager(t)
+			m := &Materia{Host: hm}
+			tt.setup(tt.component, hm)
 			got, gotErr := m.processFreshComponentServices(context.Background(), tt.component)
 			if gotErr != nil {
 				if !tt.wantErr {
@@ -610,7 +588,7 @@ func TestMateria_diffComponent(t *testing.T) {
 		name         string // description of this test case
 		original     *components.Component
 		newComponent *components.Component
-		setup        func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository)
+		setup        func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager)
 		vars         map[string]any
 		want         []Action
 		wantErr      bool
@@ -629,7 +607,7 @@ func TestMateria_diffComponent(t *testing.T) {
 				},
 			},
 			newComponent: testComponents[4],
-			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
+			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container file!", nil)
 				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage=ubi8", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
@@ -668,7 +646,7 @@ func TestMateria_diffComponent(t *testing.T) {
 					},
 				},
 			},
-			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
+			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
 				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container hello", nil)
 				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage={{ .var }}", nil)
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
@@ -699,7 +677,7 @@ func TestMateria_diffComponent(t *testing.T) {
 				State:     components.StateMayNeedUpdate,
 				Resources: []components.Resource{testResources[3]},
 			},
-			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
+			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[0]).Return("manifestation", nil)
 			},
@@ -728,7 +706,7 @@ func TestMateria_diffComponent(t *testing.T) {
 				State:     components.StateMayNeedUpdate,
 				Resources: []components.Resource{testResources[4], testResources[3]},
 			},
-			setup: func(oldc, newc *components.Component, source *MockComponentRepository, host *MockComponentRepository) {
+			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
 				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
 				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]", nil)
 				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
@@ -747,9 +725,9 @@ func TestMateria_diffComponent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceRepo := NewMockComponentRepository(t)
-			hostrepo := NewMockComponentRepository(t)
-			m := &Materia{SourceRepo: sourceRepo, CompRepo: hostrepo, macros: testMacroMap}
+			sourceRepo := NewMockSourceManager(t)
+			hostrepo := NewMockHostManager(t)
+			m := &Materia{Source: sourceRepo, Host: hostrepo, macros: testMacroMap}
 			tt.setup(tt.original, tt.newComponent, sourceRepo, hostrepo)
 			got, gotErr := m.diffComponent(tt.original, tt.newComponent, tt.vars)
 			if gotErr != nil {
@@ -771,4 +749,105 @@ func TestMateria_diffComponent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPlan(t *testing.T) {
+	expected := []Action{
+		planHelper(ActionInstall, "hello", ""),
+		planHelper(ActionInstall, "hello", "hello.container"),
+		planHelper(ActionInstall, "hello", "hello.env"),
+		planHelper(ActionInstall, "hello", manifests.ComponentManifestFile),
+		planHelper(ActionReload, "", ""),
+	}
+	man := &manifests.MateriaManifest{
+		Hosts: map[string]manifests.Host{
+			"localhost": {
+				Components: []string{"hello"},
+			},
+		},
+	}
+	ctx := context.Background()
+	sm := NewMockSourceManager(t)
+	hm := NewMockHostManager(t)
+	v := NewMockAttributesEngine(t)
+	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
+	hm.EXPECT().GetHostname().Return("localhost")
+	hm.EXPECT().ListInstalledComponents().Return([]string{}, nil)
+	hm.EXPECT().ListVolumes(ctx).Return([]*containers.Volume{}, nil)
+	containerResource := components.Resource{
+		Path: "hello.container",
+		Kind: components.ResourceTypeContainer,
+	}
+	dataResource := components.Resource{
+		Path: "hello.env",
+		Kind: components.ResourceTypeFile,
+	}
+	manifestResource := components.Resource{
+		Path: manifests.MateriaManifestFile,
+		Kind: components.ResourceTypeManifest,
+	}
+	helloComp := &components.Component{
+		Name:      "hello",
+		Resources: []components.Resource{containerResource, dataResource, manifestResource},
+		State:     components.StateFresh,
+		Defaults:  map[string]any{},
+		Version:   components.DefaultComponentVersion,
+	}
+	sm.EXPECT().GetComponent("hello").Return(helloComp, nil)
+	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
+		Hostname:  "localhost",
+		Roles:     []string(nil),
+		Component: "hello",
+	}).Return(map[string]any{})
+	sm.EXPECT().ReadResource(containerResource).Return("[Container]", nil)
+	sm.EXPECT().ReadResource(dataResource).Return("FOO=bar", nil)
+	sm.EXPECT().ReadResource(manifestResource).Return("", nil)
+
+	plan, err := m.Plan(ctx)
+	assert.NoError(t, err)
+	for k, v := range plan.Steps() {
+		expected := expected[k]
+		assert.Equal(t, expected.Todo, v.Todo, "%v Todo not equal: %v != %v", v, v.Todo, expected.Todo)
+		assert.Equal(t, expected.Parent.Name, v.Parent.Name, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Parent.Name, expected.Parent.Name)
+		assert.Equal(t, expected.Target.Path, v.Target.Path, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Target.Path, expected.Target.Path)
+	}
+}
+
+func planHelper(todo ActionType, name, res string) Action {
+	if res == "" {
+		if name == "" {
+			return Action{
+				Todo: ActionReload,
+				Parent: &components.Component{
+					Name: "root",
+				},
+				Target: components.Resource{
+					Parent: name,
+					Kind:   components.ResourceTypeHost,
+				},
+			}
+		} else {
+			return Action{
+				Todo:   todo,
+				Parent: &components.Component{Name: name},
+				Target: components.Resource{
+					Parent: name,
+					Kind:   components.ResourceTypeComponent,
+					Path:   name,
+				},
+			}
+		}
+	}
+	act := Action{
+		Todo: todo,
+		Parent: &components.Component{
+			Name: name,
+		},
+		Target: components.Resource{
+			Parent: name,
+			Kind:   components.FindResourceType(res),
+			Path:   res,
+		},
+	}
+	return act
 }

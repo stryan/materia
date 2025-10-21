@@ -2,7 +2,6 @@
 package materia
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,9 +15,12 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"primamateria.systems/materia/internal/attributes/age"
+	fileattrs "primamateria.systems/materia/internal/attributes/file"
+	"primamateria.systems/materia/internal/attributes/mem"
+	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/components"
-	"primamateria.systems/materia/internal/manifests"
-	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
 type MacroMap func(map[string]any) template.FuncMap
@@ -27,180 +29,133 @@ type MacroMap func(map[string]any) template.FuncMap
 var rootComponent = &components.Component{Name: "root"}
 
 type Materia struct {
-	HostFacts           FactsProvider
-	Manifest            *manifests.MateriaManifest
-	Services            Services
-	Containers          ContainerManager
-	Attributes          AttributesEngine
-	source              Source
-	CompRepo            ComponentRepository
-	ScriptRepo          Repository
-	ServiceRepo         Repository
-	SourceRepo          ComponentRepository
-	rootComponent       *components.Component
-	AssignedComponents  []string
-	InstalledComponents []string
-	Roles               []string
-	macros              MacroMap
-	snippets            map[string]*Snippet
-	OutputDir           string
-	onlyResources       bool
-	debug               bool
-	diffs               bool
-	cleanup             bool
-	cleanupVolumes      bool
-	backupVolumes       bool
-	migrateVolumes      bool
+	Host           HostManager
+	Source         SourceManager
+	Manifest       *manifests.MateriaManifest
+	Vault          AttributesEngine
+	rootComponent  *components.Component
+	Roles          []string
+	macros         MacroMap
+	snippets       map[string]*Snippet
+	OutputDir      string
+	onlyResources  bool
+	debug          bool
+	diffs          bool
+	cleanup        bool
+	cleanupVolumes bool
+	backupVolumes  bool
+	migrateVolumes bool
 }
 
-func NewMateria(ctx context.Context, c *MateriaConfig, source Source, man *manifests.MateriaManifest, facts FactsProvider, attributes AttributesEngine, sm Services, cm ContainerManager, scriptRepo, serviceRepo Repository, sourceRepo ComponentRepository, hostRepo ComponentRepository) (*Materia, error) {
+func setupVault(c *MateriaConfig) (AttributesEngine, error) {
+	var attributesEngine AttributesEngine
+	var err error
+	// TODO replace this with attributes chaining
+	if c.AgeConfig != nil {
+		attributesEngine, err = age.NewAgeStore(*c.AgeConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating age store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	if c.FileConfig != nil {
+		attributesEngine, err = fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating file store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	if c.SopsConfig != nil {
+		attributesEngine, err = sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("error creating sops store: %w", err)
+		}
+		return attributesEngine, nil
+	}
+	return mem.NewMemoryEngine(), nil
+}
+
+func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager, sm SourceManager) (*Materia, error) {
+	vault, err := setupVault(c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attributes engine: %w", err)
+	}
+
+	return NewMateria(ctx, c, hm, vault, sm)
+}
+
+func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attributes AttributesEngine, srcman SourceManager) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	var err error
-
 	snips := make(map[string]*Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v
 	}
-	m := &Materia{
-		Services:       sm,
-		Containers:     cm,
-		HostFacts:      facts,
-		Manifest:       man,
-		source:         source,
-		debug:          c.Debug,
-		diffs:          c.Diffs,
-		cleanup:        c.Cleanup,
-		onlyResources:  c.OnlyResources,
-		Attributes:     attributes,
-		CompRepo:       hostRepo,
-		ScriptRepo:     scriptRepo,
-		ServiceRepo:    serviceRepo,
-		SourceRepo:     sourceRepo,
-		OutputDir:      c.OutputDir,
-		snippets:       snips,
-		rootComponent:  rootComponent,
-		cleanupVolumes: c.CleanupVolumes,
-		backupVolumes:  c.BackupVolumes,
-		migrateVolumes: c.MigrateVolumes,
-	}
-	m.macros = func(vars map[string]any) template.FuncMap {
-		return template.FuncMap{
-			"m_deps": func(arg string) (string, error) {
-				switch arg {
-				case "after":
-					if res, ok := vars["After"]; ok {
-						return res.(string), nil
-					} else {
-						return "local-fs.target network.target", nil
-					}
-				case "wants":
-					if res, ok := vars["Wants"]; ok {
-						return res.(string), nil
-					} else {
-						return "local-fs.target network.target", nil
-					}
-				case "requires":
-					if res, ok := vars["Requires"]; ok {
-						return res.(string), nil
-					} else {
-						return "local-fs.target network.target", nil
-					}
-				default:
-					return "", errors.New("err bad default")
-				}
-			},
-			"m_dataDir": func(arg string) (string, error) {
-				return filepath.Join(filepath.Join(c.MateriaDir, "materia", "components"), arg), nil
-			},
-			"m_facts": func(arg string) (any, error) {
-				return m.HostFacts.Lookup(arg)
-			},
-			"m_default": func(arg string, def string) string {
-				val, ok := vars[arg]
-				if ok {
-					return val.(string)
-				}
-				return def
-			},
-			"exists": func(arg string) bool {
-				_, ok := vars[arg]
-				return ok
-			},
-			"secretEnv": func(args ...string) string {
-				if len(args) == 0 {
-					return ""
-				}
-				if len(args) == 1 {
-					return fmt.Sprintf("Secret=%v,type=env,target=%v", m.Containers.SecretName(args[0]), args[0])
-				}
-				return fmt.Sprintf("Secret=%v,type=env,target=%v", m.Containers.SecretName(args[0]), args[1])
-			},
-			"secretMount": func(args ...string) string {
-				if len(args) == 0 {
-					return ""
-				}
-				if len(args) == 1 {
-					return fmt.Sprintf("Secret=%v,type=mount,target=%v", m.Containers.SecretName(args[0]), args[0])
-				}
-				return fmt.Sprintf("Secret=%v,type=env,%s", m.Containers.SecretName(args[0]), args[1])
-			},
-			"snippet": func(name string, args ...string) (string, error) {
-				s, ok := m.snippets[name]
-				if !ok {
-					return "", errors.New("snippet not found")
-				}
-				snipVars := make(map[string]string, len(s.Parameters))
-				for k, v := range s.Parameters {
-					snipVars[v] = args[k]
-				}
 
-				result := bytes.NewBuffer([]byte{})
-				err := s.Body.Execute(result, snipVars)
-				return result.String(), err
-			},
-		}
-	}
-	m.InstalledComponents, err = m.CompRepo.ListComponentNames()
+	man, err := srcman.LoadManifest(manifests.MateriaManifestFile)
 	if err != nil {
-		return nil, fmt.Errorf("unable to list installed components: %w", err)
+		return nil, fmt.Errorf("error loading manifest: %w", err)
 	}
-
-	slices.Sort(m.InstalledComponents)
-	if man == nil {
-		// bail out early since the rest of this needs manifests
-		return m, nil
+	if err := man.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid materia manifest: %w", err)
 	}
-
-	for _, v := range m.Manifest.Snippets {
+	for _, v := range man.Snippets {
 		s, err := configToSnippet(v)
 		if err != nil {
 			return nil, err
 		}
-		m.snippets[s.Name] = s
+		snips[s.Name] = s
 	}
-	host, ok := man.Hosts["all"]
-	if ok {
-		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
-	}
-	host, ok = man.Hosts[facts.GetHostname()]
-	if ok {
-		m.AssignedComponents = append(m.AssignedComponents, host.Components...)
-	}
-	m.Roles, err = getRolesFromManifest(man, facts.GetHostname())
+	var roles []string
+
+	roles, err = getRolesFromManifest(man, hm.GetHostname())
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 	}
-	for _, v := range m.Roles {
-		if len(man.Roles[v].Components) != 0 {
-			m.AssignedComponents = append(m.AssignedComponents, man.Roles[v].Components...)
+
+	return &Materia{
+		Host:           hm,
+		Source:         srcman,
+		Manifest:       man,
+		debug:          c.Debug,
+		diffs:          c.Diffs,
+		cleanup:        c.Cleanup,
+		onlyResources:  c.OnlyResources,
+		Vault:          attributes,
+		OutputDir:      c.OutputDir,
+		snippets:       snips,
+		macros:         loadDefaultMacros(c, hm, snips),
+		rootComponent:  rootComponent,
+		cleanupVolumes: c.CleanupVolumes,
+		backupVolumes:  c.BackupVolumes,
+		migrateVolumes: c.MigrateVolumes,
+		Roles:          roles,
+	}, nil
+}
+
+func (m *Materia) GetAssignedComponents() ([]string, error) {
+	var assignedComponents []string
+	hostComps, ok := m.Manifest.Hosts["all"]
+	if ok {
+		assignedComponents = append(assignedComponents, hostComps.Components...)
+	}
+	hostComps, ok = m.Manifest.Hosts[m.Host.GetHostname()]
+	if ok {
+		assignedComponents = append(assignedComponents, hostComps.Components...)
+	}
+	roles, err := getRolesFromManifest(m.Manifest, m.Host.GetHostname())
+	if err != nil {
+		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
+	}
+	for _, v := range roles {
+		if len(m.Manifest.Roles[v].Components) != 0 {
+			assignedComponents = append(assignedComponents, m.Manifest.Roles[v].Components...)
 		}
 	}
-
-	slices.Sort(m.AssignedComponents)
-	return m, nil
+	slices.Sort(assignedComponents)
+	return assignedComponents, nil
 }
 
 func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]string, error) {
@@ -225,17 +180,12 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 	return roles, nil
 }
 
-func (m *Materia) Close() {
-	m.Services.Close()
-	m.Containers.Close()
-}
-
 func (m *Materia) Clean(ctx context.Context) error {
-	err := m.CompRepo.Clean()
+	err := m.Host.Clean()
 	if err != nil {
 		return err
 	}
-	err = m.SourceRepo.Clean()
+	err = m.Source.Clean()
 	if err != nil {
 		return err
 	}
@@ -243,18 +193,20 @@ func (m *Materia) Clean(ctx context.Context) error {
 }
 
 func (m *Materia) CleanComponent(ctx context.Context, name string) error {
-	isInstalled := slices.Contains(m.InstalledComponents, name)
-	if !isInstalled {
-		return errors.New("component not installed")
-	}
-	comp, err := m.CompRepo.GetComponent(name)
+	installedComps, err := m.Host.ListComponentNames()
 	if err != nil {
 		return err
 	}
-	m.InstalledComponents = []string{comp.Name}
-	m.AssignedComponents = []string{}
+	isInstalled := slices.Contains(installedComps, name)
+	if !isInstalled {
+		return errors.New("component not installed")
+	}
+	comp, err := m.Host.GetComponent(name)
+	if err != nil {
+		return err
+	}
 
-	removalPlan, err := m.Plan(ctx)
+	removalPlan, err := m.plan(ctx, []string{comp.Name}, []string{})
 	if err != nil {
 		return err
 	}
@@ -266,22 +218,21 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	if roles != nil {
 		m.Roles = roles
 	}
+	assigned := []string{}
 	if name != "" {
-		m.AssignedComponents = []string{name}
+		assigned = []string{name}
 	}
-	m.Services = &services.PlannedServiceManager{}
-	m.InstalledComponents = []string{}
-	return m.Plan(ctx)
+	return m.plan(ctx, []string{}, assigned)
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 	var invalidComps []string
-	dcomps, err := m.CompRepo.ListComponentNames()
+	dcomps, err := m.Host.ListComponentNames()
 	if err != nil {
 		return invalidComps, fmt.Errorf("can't get components from prefix: %w", err)
 	}
 	for _, name := range dcomps {
-		_, err = m.CompRepo.GetComponent(name)
+		_, err = m.Host.GetComponent(name)
 		if err != nil {
 			log.Warn("component unable to be loaded", "component", name)
 			invalidComps = append(invalidComps, name)
@@ -292,7 +243,7 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 }
 
 func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
-	return m.CompRepo.PurgeComponentByName(name)
+	return m.Host.PurgeComponentByName(name)
 }
 
 type planOutput struct {

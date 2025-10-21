@@ -13,13 +13,6 @@ import (
 
 var ErrServiceNotFound = errors.New("no service found")
 
-type Services interface {
-	Apply(context.Context, string, ServiceAction) error
-	Get(context.Context, string) (*Service, error)
-	WaitUntilState(context.Context, string, string) error
-	Close()
-}
-
 type ServiceManager struct {
 	Conn    *dbus.Conn
 	Timeout int
@@ -52,9 +45,10 @@ type ServicesConfig struct {
 	Timeout int
 }
 
-func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
+func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
 	var err error
+	ctx := context.Background()
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err
