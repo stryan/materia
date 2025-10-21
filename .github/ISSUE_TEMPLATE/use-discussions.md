@@ -1,6 +1,6 @@
 ---
 name: Use Discussions
-about: Tells users to use discussions instead of Issues
+about: Please open a Discussion instead of Github issues
 title: ''
 labels: ''
 assignees: ''
