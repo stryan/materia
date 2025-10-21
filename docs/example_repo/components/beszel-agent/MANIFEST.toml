@@ -1,4 +1,5 @@
 Defaults.containerTag = "latest"
 Defaults.port = 45876
-[[services]]
+
+[[Services]]
 Service = "beszel-agent.service"

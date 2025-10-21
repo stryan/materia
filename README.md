@@ -184,4 +184,4 @@ $
 
 # Contributing
 
-Feel free to report issues or open a discussion. However, please note that I mostly consider Github a public mirror and as such PR's will not be directly merged but instead pulled in locally and pushed here.
+If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github.

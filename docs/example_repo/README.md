@@ -32,11 +32,11 @@ This repository contains the following components:
 ./components/hello/
 ```
 
-## Secrets
+## Attributes
 
-**Secrets** are variables in a resource. Secrets are templated at run time and can be stored either as a `default` in the Component manifest or in the repository's **secrets engine**. Defaults are stored unecrypted, while the secrets engines are usually encrypted.
+**Attributes** are variables in a resource. Attributes are templated at run time and can be stored either as a `default` in the Component manifest or in the repository's **attibutes engine**. Defaults are stored unencrypted, while the attributes engines are usually encrypted.
 
-For example, a common secret is the `containerTag` secret, representing what container tag the quadlet should use. It is often found in resources like so:
+For example, a common attribute is the `containerTag` attribute, representing what container tag the quadlet should use. It is often found in resources like so:
 
 `Image=docker.io/henrygd/beszel:{{.containerTag}}`
 
@@ -44,12 +44,12 @@ Components usually define a default value like so:
 
 `components/beszel-agent/MANIFEST.toml`:
 ```
-[defaults]
+[Defaults]
 containerTag = "latest"
 
 ```
 
-The `containerTag` variable can also be set in the secrets engine by creating a file `secrets/vault.toml` with the content:
+The `containerTag` variable can also be set in the attributes engine by creating a file `attributes/vault.toml` with the content:
 ```
 [components.beszel-agent]
 containerTag = "latest"
@@ -57,4 +57,4 @@ containerTag = "latest"
 
 This will overwrite the `defaults` value, if one is set.
 
-This repository contains example tooling in the `mise.toml.example` file for encrypting `secrets/*.toml` files as `secrets/*.age` files using `mise` tasks. You do not need to do this and can manage age files (or any other secrets engine) using whatever third party tooling you wish.
+This repository contains example tooling in the `mise.toml.example` file for encrypting `attributes/*.toml` files as `attributes/*.age` files using `mise` tasks. You do not need to do this and can manage age files (or any other attributes engine) using whatever third party tooling you wish.
