@@ -46,6 +46,8 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		if err := v.Validate(); err != nil {
 			return steps, err
 		}
+		// NOTE current this looks up attributes for the "root component" as well
+		// which doesn't make sense but may be useful?
 		vaultAttrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  m.Host.GetHostname(),
 			Roles:     m.Roles,

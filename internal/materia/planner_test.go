@@ -8,7 +8,9 @@ import (
 	"testing"
 	"text/template"
 
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/manifests"
 	"primamateria.systems/materia/internal/services"
 
@@ -747,4 +749,105 @@ func TestMateria_diffComponent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPlan(t *testing.T) {
+	expected := []Action{
+		planHelper(ActionInstall, "hello", ""),
+		planHelper(ActionInstall, "hello", "hello.container"),
+		planHelper(ActionInstall, "hello", "hello.env"),
+		planHelper(ActionInstall, "hello", manifests.ComponentManifestFile),
+		planHelper(ActionReload, "", ""),
+	}
+	man := &manifests.MateriaManifest{
+		Hosts: map[string]manifests.Host{
+			"localhost": {
+				Components: []string{"hello"},
+			},
+		},
+	}
+	ctx := context.Background()
+	sm := NewMockSourceManager(t)
+	hm := NewMockHostManager(t)
+	v := NewMockAttributesEngine(t)
+	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
+	hm.EXPECT().GetHostname().Return("localhost")
+	hm.EXPECT().ListInstalledComponents().Return([]string{}, nil)
+	hm.EXPECT().ListVolumes(ctx).Return([]*containers.Volume{}, nil)
+	containerResource := components.Resource{
+		Path: "hello.container",
+		Kind: components.ResourceTypeContainer,
+	}
+	dataResource := components.Resource{
+		Path: "hello.env",
+		Kind: components.ResourceTypeFile,
+	}
+	manifestResource := components.Resource{
+		Path: manifests.MateriaManifestFile,
+		Kind: components.ResourceTypeManifest,
+	}
+	helloComp := &components.Component{
+		Name:      "hello",
+		Resources: []components.Resource{containerResource, dataResource, manifestResource},
+		State:     components.StateFresh,
+		Defaults:  map[string]any{},
+		Version:   components.DefaultComponentVersion,
+	}
+	sm.EXPECT().GetComponent("hello").Return(helloComp, nil)
+	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
+		Hostname:  "localhost",
+		Roles:     []string(nil),
+		Component: "hello",
+	}).Return(map[string]any{})
+	sm.EXPECT().ReadResource(containerResource).Return("[Container]", nil)
+	sm.EXPECT().ReadResource(dataResource).Return("FOO=bar", nil)
+	sm.EXPECT().ReadResource(manifestResource).Return("", nil)
+
+	plan, err := m.Plan(ctx)
+	assert.NoError(t, err)
+	for k, v := range plan.Steps() {
+		expected := expected[k]
+		assert.Equal(t, expected.Todo, v.Todo, "%v Todo not equal: %v != %v", v, v.Todo, expected.Todo)
+		assert.Equal(t, expected.Parent.Name, v.Parent.Name, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Parent.Name, expected.Parent.Name)
+		assert.Equal(t, expected.Target.Path, v.Target.Path, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Target.Path, expected.Target.Path)
+	}
+}
+
+func planHelper(todo ActionType, name, res string) Action {
+	if res == "" {
+		if name == "" {
+			return Action{
+				Todo: ActionReload,
+				Parent: &components.Component{
+					Name: "root",
+				},
+				Target: components.Resource{
+					Parent: name,
+					Kind:   components.ResourceTypeHost,
+				},
+			}
+		} else {
+			return Action{
+				Todo:   todo,
+				Parent: &components.Component{Name: name},
+				Target: components.Resource{
+					Parent: name,
+					Kind:   components.ResourceTypeComponent,
+					Path:   name,
+				},
+			}
+		}
+	}
+	act := Action{
+		Todo: todo,
+		Parent: &components.Component{
+			Name: name,
+		},
+		Target: components.Resource{
+			Parent: name,
+			Kind:   components.FindResourceType(res),
+			Path:   res,
+		},
+	}
+	return act
 }
