@@ -35,6 +35,7 @@ type Server struct {
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
 	quit                         chan any
+	materia                      *materia.Materia
 }
 
 func (c ServerConfig) Validate() error {
@@ -116,6 +117,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if err != nil {
 		return err
 	}
+
 	log.Info("Materia instance created")
 	serv := &Server{
 		Webhook:        conf.Webhook,
@@ -124,6 +126,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		UpdateInterval: conf.UpdateInterval,
 		hostname:       m.Host.GetHostname(),
 		quit:           make(chan any),
+		materia:        m,
 	}
 	socket, path, err := serv.setupSocket()
 	if err != nil {
@@ -149,7 +152,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	go func() {
 		log.Info("Starting background sync")
 		defer wg.Done()
-		err = serv.backgroundSync(ctx, m)
+		err = serv.backgroundSync(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -159,7 +162,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		go func() {
 			log.Info("Starting background plan validation")
 			defer wg.Done()
-			err = serv.backgroundPlan(ctx, m)
+			err = serv.backgroundPlan(ctx)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -183,7 +186,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	return nil
 }
 
-func (s *Server) backgroundSync(ctx context.Context, m *materia.Materia) error {
+func (s *Server) backgroundSync(ctx context.Context) error {
 	log.Info("executing background sync")
 	ticker := time.NewTicker(time.Duration(s.UpdateInterval) * time.Second)
 	for {
@@ -191,7 +194,7 @@ func (s *Server) backgroundSync(ctx context.Context, m *materia.Materia) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			plan, err := m.Plan(ctx)
+			plan, err := s.materia.Plan(ctx)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
 					return fmt.Errorf("execution failed to generate plan %w; plus the notification failed: %w", err, nerr)
@@ -201,7 +204,7 @@ func (s *Server) backgroundSync(ctx context.Context, m *materia.Materia) error {
 				}
 				break
 			}
-			steps, err := m.Execute(ctx, plan)
+			steps, err := s.materia.Execute(ctx, plan)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, len(plan.Steps()))); nerr != nil {
 					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
@@ -211,7 +214,7 @@ func (s *Server) backgroundSync(ctx context.Context, m *materia.Materia) error {
 				}
 				break
 			}
-			err = m.SavePlan(plan, "lastrun.toml")
+			err = s.materia.SavePlan(plan, "lastrun.toml")
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("failed to save lastrun: %v", err)); nerr != nil {
 					return fmt.Errorf("last run saving failed %w; plus the notification failed: %w", err, nerr)
@@ -230,7 +233,7 @@ func (s *Server) backgroundSync(ctx context.Context, m *materia.Materia) error {
 	}
 }
 
-func (s *Server) backgroundPlan(ctx context.Context, m *materia.Materia) error {
+func (s *Server) backgroundPlan(ctx context.Context) error {
 	log.Info("generating plan for validation")
 	ticker := time.NewTicker(time.Duration(s.PlanInterval) * time.Second)
 	for {
@@ -238,7 +241,7 @@ func (s *Server) backgroundPlan(ctx context.Context, m *materia.Materia) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			plan, err := m.Plan(ctx)
+			plan, err := s.materia.Plan(ctx)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("invalid plan: %v", err)); nerr != nil {
 					return fmt.Errorf("plan generation failed with %w; plus the notification failed: %w", err, nerr)
@@ -358,6 +361,9 @@ func (s *Server) listenForCommands(sock net.Listener) error {
 
 func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
 	switch cmd.Name {
+	case "facts":
+		return SocketMessage{Name: "result", Data: s.materia.GetFacts(false)}, nil
+
 	default:
 		return SocketMessage{Name: "result", Data: "command not found"}, nil
 	}

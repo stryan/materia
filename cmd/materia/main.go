@@ -358,6 +358,35 @@ func main() {
 				},
 			},
 			{
+				Name:  "agent",
+				Usage: "send commands to running materia server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "socket",
+						Usage:    "Manually specify materia socket",
+						Required: false,
+						Aliases:  []string{"s"},
+						Sources:  cli.EnvVars("MATERIA_AGENT__SOCKET"),
+					},
+				},
+				Commands: []*cli.Command{
+					{
+						Name:  "facts",
+						Usage: "request host facts",
+						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							socketPath, err := defaultSocket()
+							if err != nil {
+								return err
+							}
+							if cCtx.String("socket") != "" {
+								socketPath = cCtx.String("socket")
+							}
+							return factsCommand(ctx, socketPath)
+						},
+					},
+				},
+			},
+			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ context.Context, _ *cli.Command) error {
