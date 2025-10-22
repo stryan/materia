@@ -347,6 +347,17 @@ func main() {
 				},
 			},
 			{
+				Name:  "server",
+				Usage: "start materia in server mode",
+				Action: func(_ context.Context, cCtx *cli.Command) error {
+					k, err := LoadConfigs(ctx, configFile, cliflags)
+					if err != nil {
+						return err
+					}
+					return RunServer(ctx, k)
+				},
+			},
+			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ context.Context, _ *cli.Command) error {

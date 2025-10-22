@@ -181,7 +181,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
 	result += fmt.Sprintf("Migrate Volumes: %v\n", c.MigrateVolumes)
 	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
-	result += fmt.Sprintf("Hostname: %v\n", c.Hostname)
+	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
 	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
 	result += fmt.Sprintf("Materia Root: %v\n", c.MateriaDir)

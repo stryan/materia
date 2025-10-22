@@ -108,6 +108,8 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		return fmt.Errorf("error applying service change: %w", err)
 	}
 	select {
+	case <-ctx.Done():
+		return errors.New("context cancelled while waiting for service")
 	case <-callback:
 		return nil
 	case <-time.After(time.Duration(s.Timeout) * time.Second):
