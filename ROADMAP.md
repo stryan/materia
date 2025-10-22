@@ -1,6 +1,6 @@
 # Goals being worked on
 - [x] Component sharing
-- [ ] agent/server mode to simulate traditional GitOPs CI
+- [x] agent/server mode to simulate traditional GitOPs CI
 
 # Potential future goals
 - [ ] Pre and post change steps

@@ -238,6 +238,8 @@ func stopService(ctx context.Context, conn *dbus.Conn, n string) error {
 		return err
 	}
 	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context canceled while waiting to stop unit %v", n)
 	case <-callback:
 	case <-time.After(time.Duration(30) * time.Second):
 		return fmt.Errorf("error stopping unit %v: %w", n, errors.New("timeout stopping unit"))

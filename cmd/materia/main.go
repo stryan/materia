@@ -347,6 +347,88 @@ func main() {
 				},
 			},
 			{
+				Name:  "server",
+				Usage: "start materia in server mode",
+				Action: func(_ context.Context, cCtx *cli.Command) error {
+					k, err := LoadConfigs(ctx, configFile, cliflags)
+					if err != nil {
+						return err
+					}
+					return RunServer(ctx, k)
+				},
+			},
+			{
+				Name:  "agent",
+				Usage: "send commands to running materia server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "socket",
+						Usage:    "Manually specify materia socket",
+						Required: false,
+						Aliases:  []string{"s"},
+						Sources:  cli.EnvVars("MATERIA_AGENT__SOCKET"),
+					},
+				},
+				Commands: []*cli.Command{
+					{
+						Name:  "facts",
+						Usage: "Request facts",
+						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							socketPath, err := defaultSocket()
+							if err != nil {
+								return err
+							}
+							if cCtx.String("socket") != "" {
+								socketPath = cCtx.String("socket")
+							}
+							return factsCommand(ctx, socketPath)
+						},
+					},
+					{
+						Name:  "sync",
+						Usage: "Sync local repo",
+						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							socketPath, err := defaultSocket()
+							if err != nil {
+								return err
+							}
+							if cCtx.String("socket") != "" {
+								socketPath = cCtx.String("socket")
+							}
+							return syncCommand(ctx, socketPath)
+						},
+					},
+					{
+						Name:  "plan",
+						Usage: "Generate a plan",
+						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							socketPath, err := defaultSocket()
+							if err != nil {
+								return err
+							}
+							if cCtx.String("socket") != "" {
+								socketPath = cCtx.String("socket")
+							}
+							return planCommand(ctx, socketPath)
+						},
+					},
+					{
+						Name:  "update",
+						Usage: "Run update",
+						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							socketPath, err := defaultSocket()
+							if err != nil {
+								return err
+							}
+							if cCtx.String("socket") != "" {
+								socketPath = cCtx.String("socket")
+							}
+							return updateCommand(ctx, socketPath)
+						},
+					},
+				},
+			},
+			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
 				Action: func(_ context.Context, _ *cli.Command) error {
