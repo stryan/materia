@@ -282,11 +282,6 @@ func (s *Server) notify(ctx context.Context, msg string) error {
 	return nil
 }
 
-type SocketMessage struct {
-	Name string
-	Data string
-}
-
 func (s *Server) setupSocket() (net.Listener, string, error) {
 	currentUser, err := user.Current()
 	if err != nil {
@@ -369,13 +364,13 @@ func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
 		log.Info("generating a plan on request")
 		plan, err := s.materia.Plan(context.Background())
 		if err != nil {
-			return SocketMessage{Name: "error", Data: err.Error()}, nil
+			return errToMsg(err), nil
 		}
 		resp := "no changes made"
 		if plan.Size() != 0 {
 			data, err := plan.ToJson()
 			if err != nil {
-				return SocketMessage{Name: "error", Data: err.Error()}, nil
+				return errToMsg(err), nil
 			}
 			resp = string(data)
 		}
@@ -384,18 +379,18 @@ func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
 		log.Info("running update on request")
 		plan, err := s.materia.Plan(ctx)
 		if err != nil {
-			return SocketMessage{Name: "error", Data: err.Error()}, nil
+			return errToMsg(err), nil
 		}
 		_, err = s.materia.Execute(ctx, plan)
 		if err != nil {
-			return SocketMessage{Name: "error", Data: err.Error()}, nil
+			return errToMsg(err), nil
 		}
 		return SocketMessage{Name: "result", Data: "success"}, nil
 	case "sync":
 		log.Info("syncing local source on request")
 		err := s.materia.Source.Sync(ctx)
 		if err != nil {
-			return SocketMessage{Name: "error", Data: err.Error()}, nil
+			return errToMsg(err), nil
 		}
 		return SocketMessage{Name: "result", Data: "success"}, nil
 	default:
