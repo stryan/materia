@@ -360,10 +360,44 @@ func (s *Server) listenForCommands(sock net.Listener) error {
 }
 
 func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
+	ctx := context.Background()
 	switch cmd.Name {
 	case "facts":
+		log.Info("generating facts on request")
 		return SocketMessage{Name: "result", Data: s.materia.GetFacts(false)}, nil
-
+	case "plan":
+		log.Info("generating a plan on request")
+		plan, err := s.materia.Plan(context.Background())
+		if err != nil {
+			return SocketMessage{Name: "error", Data: err.Error()}, nil
+		}
+		resp := "no changes made"
+		if plan.Size() != 0 {
+			data, err := plan.ToJson()
+			if err != nil {
+				return SocketMessage{Name: "error", Data: err.Error()}, nil
+			}
+			resp = string(data)
+		}
+		return SocketMessage{Name: "result", Data: resp}, nil
+	case "update":
+		log.Info("running update on request")
+		plan, err := s.materia.Plan(ctx)
+		if err != nil {
+			return SocketMessage{Name: "error", Data: err.Error()}, nil
+		}
+		_, err = s.materia.Execute(ctx, plan)
+		if err != nil {
+			return SocketMessage{Name: "error", Data: err.Error()}, nil
+		}
+		return SocketMessage{Name: "result", Data: "success"}, nil
+	case "sync":
+		log.Info("syncing local source on request")
+		err := s.materia.Source.Sync(ctx)
+		if err != nil {
+			return SocketMessage{Name: "error", Data: err.Error()}, nil
+		}
+		return SocketMessage{Name: "result", Data: "success"}, nil
 	default:
 		return SocketMessage{Name: "result", Data: "command not found"}, nil
 	}

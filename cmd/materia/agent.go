@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/user"
@@ -34,30 +34,73 @@ func defaultSocket() (string, error) {
 	return socketPath, nil
 }
 
-func factsCommand(ctx context.Context, socket string) error {
-	conn, err := net.Dial("unix", socket)
+func factsCommand(_ context.Context, socket string) error {
+	resp, err := sendCommand(context.Background(), socket, SocketMessage{Name: "facts"})
 	if err != nil {
 		return err
+	}
+	if resp.Name == "error" {
+		return fmt.Errorf("server error: %w", errors.New(resp.Data))
+	}
+	fmt.Println(resp.Data)
+	return nil
+}
+
+func sendCommand(_ context.Context, socket string, msg SocketMessage) (*SocketMessage, error) {
+	conn, err := net.Dial("unix", socket)
+	if err != nil {
+		return nil, err
 	}
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			log.Warn("error closing commnad socket", "error", err)
+			log.Warn("error closing command socket", "error", err)
 		}
 	}()
 
-	cmd := SocketMessage{
-		Name: "facts",
+	if err := json.NewEncoder(conn).Encode(msg); err != nil {
+		return nil, err
 	}
 
-	if err := json.NewEncoder(conn).Encode(cmd); err != nil {
-		return err
+	var resp SocketMessage
+	if err := json.NewDecoder(conn).Decode(&resp); err != nil {
+		return nil, err
 	}
+	return &resp, nil
+}
 
-	result, err := io.ReadAll(conn)
+func planCommand(_ context.Context, socket string) error {
+	resp, err := sendCommand(context.Background(), socket, SocketMessage{Name: "plan"})
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(result))
+	if resp.Name == "error" {
+		return fmt.Errorf("server error: %w", errors.New(resp.Data))
+	}
+	fmt.Println(resp.Data)
+	return nil
+}
+
+func updateCommand(_ context.Context, socket string) error {
+	resp, err := sendCommand(context.Background(), socket, SocketMessage{Name: "update"})
+	if err != nil {
+		return err
+	}
+	if resp.Name == "error" {
+		return fmt.Errorf("server error: %w", errors.New(resp.Data))
+	}
+	fmt.Println(resp.Data)
+	return nil
+}
+
+func syncCommand(_ context.Context, socket string) error {
+	resp, err := sendCommand(context.Background(), socket, SocketMessage{Name: "sync"})
+	if err != nil {
+		return err
+	}
+	if resp.Name == "error" {
+		return fmt.Errorf("server error: %w", errors.New(resp.Data))
+	}
+	fmt.Println(resp.Data)
 	return nil
 }
