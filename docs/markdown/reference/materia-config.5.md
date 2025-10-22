@@ -122,3 +122,19 @@ If a volume quadlet is updated, instead of just updating the Quadlet file perfor
     4. Update the quadlet
     5. Restart the updated service to create the new volume
     6. Import the old volume tarball into the new volume
+
+#### MATERIA_SERVER__UPDATE_INTERVAL/server.update_interval
+
+How long (in seconds) for `materia server` to wait before running a `materia update`.
+
+#### MATERIA_SERVER__PLAN_INTERVAL/server.plan_interval
+
+How long (in seconds) for `materia server` to wait before running a `materia plan`.
+
+#### MATERIA_SERVER__WEBHOOK/server.webhook
+
+Where to send webhook notifications on plan/update failure
+
+#### MATERIA_SERVER__SOCKET/server.socket
+
+What Unix socket to listen on. Defaults to `/run/materia/materia.sock` for root and `/run/UID/materia/materia.sock` for rootless.

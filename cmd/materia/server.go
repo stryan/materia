@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -39,9 +38,6 @@ type Server struct {
 }
 
 func (c ServerConfig) Validate() error {
-	if c.UpdateInterval <= 1 {
-		return errors.New("need to at least set an update interval")
-	}
 	return nil
 }
 
@@ -148,15 +144,19 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 			log.Warn("error closing socket", "error", err)
 		}
 	}()
-	wg.Add(1)
-	go func() {
-		log.Info("Starting background sync")
-		defer wg.Done()
-		err = serv.backgroundSync(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
+	if conf.UpdateInterval > 0 {
+		wg.Add(1)
+		go func() {
+			log.Info("Starting background update")
+			defer wg.Done()
+			err = serv.backgroundSync(ctx)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	} else {
+		log.Info("skipping background update since no timer is configured")
+	}
 	if conf.PlanInterval != 0 {
 		wg.Add(1)
 		go func() {
@@ -168,6 +168,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 			}
 		}()
 
+	} else {
+		log.Info("skipping background plan since no timer is configured")
 	}
 	wg.Add(1)
 	go func() {

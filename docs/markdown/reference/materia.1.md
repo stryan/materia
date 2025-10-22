@@ -94,6 +94,29 @@ Remove a specific component. Note this does not remove it from the repository ma
 
 **--verbose, -v**: Show extra detail
 
+#### server
+Run materia in the foreground as a service process.
+
+See the `server` section in materia-config(5) for configuration options
+
+
+#### agent
+Run commands against materia server over a unix socket
+
+##### Arguments
+
+**--socket, -s <path>**: Manually specify a socket path. If not specified, defaults to `/run/materia/materia.sock` for root or `/run/uid/materia/materia.socket` for user.
+
+##### Subcommands
+
+**facts**: Return list of host facts
+
+**sync:** Perform a repository sync
+
+**plan:** Generate a plan
+
+**update:** Run an update
+
 #### doctor [flags]
 Detect and optionally remove corrupted installed components.
 
