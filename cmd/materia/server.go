@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"os/user"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -31,6 +34,7 @@ type Server struct {
 	Socket                       string
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
+	quit                         chan any
 }
 
 func (c ServerConfig) Validate() error {
@@ -119,7 +123,15 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
 		hostname:       m.Host.GetHostname(),
+		quit:           make(chan any),
 	}
+	socket, path, err := serv.setupSocket()
+	if err != nil {
+		return fmt.Errorf("error setting up socket: %w", err)
+	}
+	defer func() {
+		_ = socket.Close()
+	}()
 	var wg sync.WaitGroup
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -127,6 +139,11 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		<-c
 		log.Info("trying to shutdown cleanly")
 		serverClose()
+		close(serv.quit)
+		err = socket.Close()
+		if err != nil {
+			log.Warn("error closing socket", "error", err)
+		}
 	}()
 	wg.Add(1)
 	go func() {
@@ -149,6 +166,15 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		}()
 
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		log.Infof("starting to listen on socket %v", path)
+		err := serv.listenForCommands(socket)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
 	}
@@ -251,4 +277,88 @@ func (s *Server) notify(ctx context.Context, msg string) error {
 		return fmt.Errorf("failed to send HTTP request: %v", err)
 	}
 	return nil
+}
+
+type SocketMessage struct {
+	Name string
+	Data string
+}
+
+func (s *Server) setupSocket() (net.Listener, string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, "", err
+	}
+	socketDir := ""
+	socketPath := ""
+	if s.Socket == "" {
+		if currentUser.Name != "root" {
+			uid := currentUser.Uid
+			socketDir = filepath.Join("/run/user", uid, "materia")
+		} else {
+			socketDir = filepath.Join("/run/materia")
+		}
+		err = os.MkdirAll(socketDir, 0o700)
+		if err != nil {
+			return nil, "", err
+		}
+		socketPath = filepath.Join(socketDir, "materia.sock")
+	}
+	sock, err := net.Listen("unix", socketPath)
+	return sock, socketPath, err
+}
+
+func (s *Server) listenForCommands(sock net.Listener) error {
+	for {
+		conn, err := sock.Accept()
+		if err != nil {
+			select {
+			case <-s.quit:
+				return nil
+			default:
+				log.Fatal(err)
+			}
+		}
+
+		go func() {
+			log.Debug("parsing command")
+			err := func(conn net.Conn) error {
+				defer func() {
+					err := conn.Close()
+					if err != nil {
+						log.Warn("err closing command socket ", "error", err)
+					}
+				}()
+
+				var msg SocketMessage
+				if err := json.NewDecoder(conn).Decode(&msg); err != nil {
+					return err
+				}
+
+				resp, err := s.parseCommand(msg)
+				if err != nil {
+					return err
+				}
+				jsonBytes, err := json.Marshal(resp)
+				if err != nil {
+					return err
+				}
+				_, err = conn.Write(jsonBytes)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(conn)
+			if err != nil {
+				log.Warn(err)
+			}
+		}()
+	}
+}
+
+func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
+	switch cmd.Name {
+	default:
+		return SocketMessage{Name: "result", Data: "command not found"}, nil
+	}
 }
