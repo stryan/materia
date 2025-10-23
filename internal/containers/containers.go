@@ -66,6 +66,7 @@ type SecretInfo struct {
 func NewPodmanManager(remote bool, prefix string) (*PodmanManager, error) {
 	p := &PodmanManager{
 		secretsPrefix: prefix,
+		remote:        remote,
 	}
 	return p, nil
 }
