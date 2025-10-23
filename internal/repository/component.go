@@ -49,7 +49,7 @@ func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponen
 	}, nil
 }
 
-func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {
+func (r *HostComponentRepository) GetComponent(name string, _ *manifests.ComponentManifest) (*components.Component, error) {
 	oldComp := components.NewComponent(name)
 	dataPath := filepath.Join(r.DataPrefix, name)
 	quadletPath := filepath.Join(r.QuadletPrefix, name)

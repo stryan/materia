@@ -2,6 +2,7 @@ package manifests
 
 import (
 	"errors"
+	"maps"
 
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
@@ -53,4 +54,43 @@ func LoadComponentManifest(path string) (*ComponentManifest, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+func MergeComponentManifests(left, right *ComponentManifest) (*ComponentManifest, error) {
+	result := ComponentManifest{}
+
+	if len(left.Defaults) > 0 {
+		result.Defaults = maps.Clone(left.Defaults)
+	} else {
+		result.Defaults = maps.Clone(right.Defaults)
+	}
+	if len(left.Snippets) > 0 {
+		result.Snippets = append(result.Snippets, left.Snippets...)
+	} else {
+		result.Snippets = append(result.Snippets, right.Snippets...)
+	}
+	if len(left.Services) > 0 {
+		result.Services = append(result.Services, left.Services...)
+	} else {
+		copy(result.Services, right.Services)
+		result.Services = append(result.Services, right.Services...)
+	}
+	if left.Backups != nil {
+		result.Backups = left.Backups
+	} else {
+		result.Backups = right.Backups
+	}
+	if len(left.Scripts) > 0 {
+		result.Scripts = append(result.Scripts, left.Scripts...)
+	} else {
+		result.Scripts = append(result.Scripts, right.Scripts...)
+	}
+	if len(left.Secrets) > 0 {
+		result.Secrets = append(result.Secrets, left.Secrets...)
+	} else {
+		result.Secrets = append(result.Secrets, right.Secrets...)
+		copy(result.Secrets, right.Secrets)
+	}
+
+	return &result, nil
 }

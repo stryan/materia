@@ -17,8 +17,9 @@ type Repository interface {
 	Clean(ctx context.Context) error
 }
 
+// TODO split this into host and source repos
 type ComponentRepository interface {
-	GetComponent(string) (*components.Component, error)
+	GetComponent(string, *manifests.ComponentManifest) (*components.Component, error)
 	GetResource(*components.Component, string) (components.Resource, error)
 	GetManifest(*components.Component) (*manifests.ComponentManifest, error)
 	InstallComponent(*components.Component) error

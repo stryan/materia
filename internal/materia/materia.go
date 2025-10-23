@@ -201,7 +201,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
-	comp, err := m.Host.GetComponent(name)
+	comp, err := m.Host.GetComponent(name, nil)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 		return invalidComps, fmt.Errorf("can't get components from prefix: %w", err)
 	}
 	for _, name := range dcomps {
-		_, err = m.Host.GetComponent(name)
+		_, err = m.Host.GetComponent(name, nil)
 		if err != nil {
 			log.Warn("component unable to be loaded", "component", name)
 			invalidComps = append(invalidComps, name)

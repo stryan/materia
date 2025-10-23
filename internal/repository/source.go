@@ -98,7 +98,7 @@ func (s *SourceComponentRepository) Clean() error {
 	return nil
 }
 
-func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
+func (s *SourceComponentRepository) GetComponent(name string, override *manifests.ComponentManifest) (*components.Component, error) {
 	path, err := s.getPrefix(name)
 	if err != nil {
 		return nil, err
@@ -125,6 +125,12 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	man, err = manifests.LoadComponentManifest(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("error loading component manifest: %w", err)
+	}
+	if override != nil {
+		man, err = manifests.MergeComponentManifests(override, man)
+		if err != nil {
+			return nil, fmt.Errorf("error overriding component %v manifest: %w", c.Name, err)
+		}
 	}
 	maps.Copy(c.Defaults, man.Defaults)
 	slices.Sort(man.Secrets)

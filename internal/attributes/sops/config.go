@@ -24,6 +24,9 @@ func (c Config) SourceType() string { return "sops" }
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
 	c.BaseDir = k.String("sops.base_dir")
+	if c.BaseDir == "" {
+		c.BaseDir = "secrets"
+	}
 	c.GeneralVaults = k.Strings("sops.vaults")
 	c.Suffix = k.String("sops.suffix")
 	if len(c.GeneralVaults) == 0 {

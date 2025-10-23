@@ -22,6 +22,9 @@ func (c Config) Validate() error {
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
 	c.BaseDir = k.String("file.base_dir")
+	if c.BaseDir == "" {
+		c.BaseDir = "secrets"
+	}
 	c.GeneralVaults = k.Strings("file.vaults")
 
 	return &c, nil

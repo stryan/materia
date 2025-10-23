@@ -69,7 +69,7 @@ func (h *HostManager) ValidateComponents() ([]string, error) {
 		return invalidComps, fmt.Errorf("can't get components from prefix: %w", err)
 	}
 	for _, name := range dcomps {
-		_, err = h.GetComponent(name)
+		_, err = h.GetComponent(name, nil)
 		if err != nil {
 			log.Warn("component unable to be loaded", "component", name)
 			invalidComps = append(invalidComps, name)

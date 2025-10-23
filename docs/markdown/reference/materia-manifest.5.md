@@ -32,6 +32,17 @@ A TOML table containing hosts entries of the following format:
       Components = ["caddy","openldap"]
       Roles = ["base"]
 
+Can also contain an `Overrides` table that contains keys mapped to component manifests. This can be used to override the MANIFSET.toml included with a component on a per-host basis.
+
+Example:
+
+      [Hosts.localhost]
+      Components = ["caddy","openldap"]
+      [Hosts.localhost.Overrides.caddy.Defaults]
+      port = "80"
+      [Hosts.localhost.Overrides.caddy.Services]
+      Service = "caddy.service"
+
 #### **roles**
 
 A TOML table of containing roles entries of the following format:

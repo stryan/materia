@@ -793,7 +793,7 @@ func TestPlan(t *testing.T) {
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,
 	}
-	sm.EXPECT().GetComponent("hello").Return(helloComp, nil)
+	sm.EXPECT().GetComponent("hello", mock.Anything).Return(helloComp, nil)
 	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
 		Hostname:  "localhost",
 		Roles:     []string(nil),

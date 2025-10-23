@@ -5,6 +5,7 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- Materia manifests now support overriding component manifests for a given host
 - `materia server` and `materia agent` now exist to provide a more classical GitOps experience
 - Repository Manifests now support `Remote` components; components downloaded from a remote git repository or other location
 - `Plan` now supports setting the output format. Adds support for JSON output.

@@ -54,14 +54,15 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 	currentComponents := make(map[string]*components.Component)
 	newComponents := make(map[string]*components.Component)
 	for _, v := range installedComponents {
-		comp, err := m.Host.GetComponent(v)
+		comp, err := m.Host.GetComponent(v, nil)
 		if err != nil {
 			return plan, fmt.Errorf("error loading current components: %w", err)
 		}
 		currentComponents[comp.Name] = comp
 	}
 	for _, v := range assignedComponents {
-		comp, err := m.Source.GetComponent(v)
+		override := m.getOverride(v)
+		comp, err := m.Source.GetComponent(v, override)
 		if err != nil {
 			return plan, fmt.Errorf("error loading new components: %w", err)
 		}
@@ -117,6 +118,14 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 	log.Debug("unchanged components", "unchanged", ok)
 
 	return plan, nil
+}
+
+func (m *Materia) getOverride(c string) *manifests.ComponentManifest {
+	hostname := m.Host.GetHostname()
+	if o, ok := m.Manifest.Hosts[hostname].Overrides[c]; ok {
+		return &o
+	}
+	return nil
 }
 
 func updateComponents(assignedComponents map[string]*components.Component, installedComponents map[string]*components.Component) (map[string]*components.Component, error) {
