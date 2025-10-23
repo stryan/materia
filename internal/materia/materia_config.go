@@ -39,6 +39,7 @@ type MateriaConfig struct {
 	FileConfig     *fileattrs.Config `toml:"file"`
 	SopsConfig     *sops.Config      `toml:"sops"`
 	User           *user.User
+	Remote         bool `toml:"remote"`
 }
 
 // var defaultConfig = map[string]any{
@@ -102,6 +103,11 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		c.CompressionCmd = k.String("compression_cmd")
 	} else {
 		c.CompressionCmd = "zstd"
+	}
+	if k.Exists("remote") {
+		c.Remote = k.Bool("remote")
+	} else {
+		c.Remote = (os.Getenv("container") == "podman")
 	}
 
 	// calculate defaults
@@ -191,6 +197,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Remote cache dir: %v\n", c.RemoteDir)
 	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
+	result += fmt.Sprintf("Remote: %v\n", c.Remote)
 	if c.AgeConfig != nil {
 		result += "Age Config: \n"
 		result += fmt.Sprintf("%v", c.AgeConfig.String())

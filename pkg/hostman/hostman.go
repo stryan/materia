@@ -39,7 +39,7 @@ func NewHostManager(c *materia.MateriaConfig) (*HostManager, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := containers.NewPodmanManager()
+	cm, err := containers.NewPodmanManager(!c.Remote, "materia-")
 	if err != nil {
 		log.Fatal(err)
 	}

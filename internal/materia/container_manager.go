@@ -7,7 +7,7 @@ import (
 )
 
 type ContainerManager interface {
-	InspectVolume(string) (*containers.Volume, error)
+	InspectVolume(context.Context, string) (*containers.Volume, error)
 	ListVolumes(context.Context) ([]*containers.Volume, error)
 	PauseContainer(context.Context, string) error
 	UnpauseContainer(context.Context, string) error

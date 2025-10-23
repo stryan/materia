@@ -19,6 +19,7 @@ var supportedVolumeDumpExts = []string{"tar", "tar.gz", "tgz", "bzip", "tar.xz",
 
 type PodmanManager struct {
 	secretsPrefix string
+	remote        bool
 }
 
 type Container struct {
@@ -62,15 +63,18 @@ type SecretInfo struct {
 	SecretData string `json:"SecretData"`
 }
 
-func NewPodmanManager() (*PodmanManager, error) {
-	return &PodmanManager{secretsPrefix: "materia-"}, nil
+func NewPodmanManager(remote bool, prefix string) (*PodmanManager, error) {
+	p := &PodmanManager{
+		secretsPrefix: prefix,
+	}
+	return p, nil
 }
 
-func (p *PodmanManager) PauseContainer(_ context.Context, name string) error {
-	cmd := exec.Command("podman", "pause", name)
+func (p *PodmanManager) PauseContainer(ctx context.Context, name string) error {
+	cmd := p.genCmd(ctx, "pause", name)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error pausing container: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return err
@@ -78,11 +82,11 @@ func (p *PodmanManager) PauseContainer(_ context.Context, name string) error {
 	return nil
 }
 
-func (p *PodmanManager) UnpauseContainer(_ context.Context, name string) error {
-	cmd := exec.Command("podman", "unpause", name)
+func (p *PodmanManager) UnpauseContainer(ctx context.Context, name string) error {
+	cmd := p.genCmd(ctx, "unpause", name)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error unpausing container: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return err
@@ -90,11 +94,11 @@ func (p *PodmanManager) UnpauseContainer(_ context.Context, name string) error {
 	return nil
 }
 
-func (p *PodmanManager) InspectVolume(name string) (*Volume, error) {
-	cmd := exec.Command("podman", "volume", "inspect", "--format", "json", name)
+func (p *PodmanManager) InspectVolume(ctx context.Context, name string) (*Volume, error) {
+	cmd := p.genCmd(ctx, "volume", "inspect", "--format", "json", name)
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error inspecting volume %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return nil, err
@@ -109,11 +113,11 @@ func (p *PodmanManager) InspectVolume(name string) (*Volume, error) {
 	return &volume[0], nil
 }
 
-func (p *PodmanManager) ListVolumes(_ context.Context) ([]*Volume, error) {
-	cmd := exec.Command("podman", "volume", "ls", "--format", "json")
+func (p *PodmanManager) ListVolumes(ctx context.Context) ([]*Volume, error) {
+	cmd := p.genCmd(ctx, "volume", "ls", "--format", "json")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing volumes: %v", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return nil, err
@@ -125,9 +129,9 @@ func (p *PodmanManager) ListVolumes(_ context.Context) ([]*Volume, error) {
 	return volumes, nil
 }
 
-func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir string, compressed bool) error {
-	exportCmd := exec.Command("podman", "volume", "export", volume.Name)
-	compressCmd := exec.Command("zstd")
+func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDir string, compressed bool) error {
+	exportCmd := p.genCmd(ctx, "volume", "export", volume.Name)
+	compressCmd := exec.CommandContext(ctx, "zstd")
 	outputFilename := filepath.Join(outputDir, volume.Name)
 	outputFilename = fmt.Sprintf("%v.tar", outputFilename)
 	if compressed {
@@ -136,7 +140,7 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir 
 	log.Debugf("dumping volume %v to path %v", volume.Name, outputFilename)
 	outfile, err := os.Create(outputFilename)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating output file name: %w", err)
 	}
 	defer func() { _ = outfile.Close() }()
 	if compressed {
@@ -147,15 +151,15 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir 
 		compressCmd.Stdout = outfile
 		err = compressCmd.Start()
 		if err != nil {
-			return err
+			return fmt.Errorf("error starting volume compression command: %w", err)
 		}
 		err = exportCmd.Run()
 		if err != nil {
-			return err
+			return fmt.Errorf("error running volume export: %w", err)
 		}
 		err = compressCmd.Wait()
 		if err != nil {
-			return err
+			return fmt.Errorf("error with volume compression: %w", err)
 		}
 		return nil
 	}
@@ -168,10 +172,10 @@ func (p *PodmanManager) DumpVolume(_ context.Context, volume *Volume, outputDir 
 }
 
 func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
-	cmd := exec.CommandContext(ctx, "podman", "volume", "mount", volume.Name)
+	cmd := p.genCmd(ctx, "volume", "mount", volume.Name)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error mounting volume: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return err
@@ -187,10 +191,10 @@ func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, source
 	if volume.Driver != "local" && volume.Driver != "" {
 		return errors.New("can only import into local volume")
 	}
-	cmd := exec.CommandContext(ctx, "podman", "volume", "import", volume.Name, sourcePath)
+	cmd := p.genCmd(ctx, "volume", "import", volume.Name, sourcePath)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error importing volume: %v", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return err
@@ -200,10 +204,10 @@ func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, source
 }
 
 func (p *PodmanManager) RemoveVolume(ctx context.Context, volume *Volume) error {
-	cmd := exec.CommandContext(ctx, "podman", "volume", "rm", volume.Name)
+	cmd := p.genCmd(ctx, "volume", "rm", volume.Name)
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error removing volume: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return err
@@ -213,10 +217,10 @@ func (p *PodmanManager) RemoveVolume(ctx context.Context, volume *Volume) error 
 }
 
 func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "podman", "secret", "ls", "--noheading", "--format", "\"{{ range . }}{{.Name}}\\n{{end -}}\"", "--filter", fmt.Sprintf("name=%v*", p.secretsPrefix))
+	cmd := p.genCmd(ctx, "secret", "ls", "--noheading", "--format", "\"{{ range . }}{{.Name}}\\n{{end -}}\"", "--filter", fmt.Sprintf("name=%v*", p.secretsPrefix))
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing secrets: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return nil, err
@@ -233,10 +237,10 @@ func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
 }
 
 func (p *PodmanManager) GetSecret(ctx context.Context, secretName string) (*PodmanSecret, error) {
-	cmd := exec.CommandContext(ctx, "podman", "secret", "inspect", "--showsecret", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
+	cmd := p.genCmd(ctx, "secret", "inspect", "--showsecret", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting podman secret: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return nil, err
@@ -249,31 +253,31 @@ func (p *PodmanManager) GetSecret(ctx context.Context, secretName string) (*Podm
 }
 
 func (p *PodmanManager) WriteSecret(ctx context.Context, secretName, secretValue string) error {
-	cmd := exec.CommandContext(ctx, "podman", "secret", "create", "--replace", fmt.Sprintf("%v%v", p.secretsPrefix, secretName), "-")
+	cmd := p.genCmd(ctx, "secret", "create", "--replace", fmt.Sprintf("%v%v", p.secretsPrefix, secretName), "-")
 	var valBuf bytes.Buffer
 	valBuf.Write([]byte(secretValue))
 	cmd.Stdin = &valBuf
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error writing podman secret: %w", err)
 	}
 	return parsePodmanError(output)
 }
 
 func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) error {
-	cmd := exec.CommandContext(ctx, "podman", "secret", "rm", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
+	cmd := p.genCmd(ctx, "secret", "rm", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
 	output, err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("error removing podman secret: %w", err)
 	}
 	return parsePodmanError(output)
 }
 
 func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
-	cmd := exec.Command("podman", "network", "ls", "--format", "json")
+	cmd := p.genCmd(ctx, "network", "ls", "--format", "json")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing podman networks: %w", err)
 	}
 	if err = parsePodmanError(output); err != nil {
 		return nil, err
@@ -286,7 +290,7 @@ func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
 }
 
 func (p *PodmanManager) RemoveNetwork(ctx context.Context, n *Network) error {
-	cmd := exec.Command("podman", "network", "rm", n.Name)
+	cmd := p.genCmd(ctx, "network", "rm", n.Name)
 	output, err := cmd.Output()
 	if err != nil {
 		return err
@@ -310,4 +314,12 @@ func parsePodmanError(rawerror []byte) error {
 		return fmt.Errorf("error from podman command: %v", realErr)
 	}
 	return nil
+}
+
+func (p *PodmanManager) genCmd(ctx context.Context, args ...string) *exec.Cmd {
+	if p.remote {
+		argsWithRemote := append([]string{"--remote"}, args...)
+		return exec.CommandContext(ctx, "podman", argsWithRemote...)
+	}
+	return exec.CommandContext(ctx, "podman", args...)
 }

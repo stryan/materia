@@ -34,6 +34,7 @@ func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
 }
 
 func (m *Materia) plan(ctx context.Context, installedComponents, assignedComponents []string) (*Plan, error) {
+	log.Debug("starting plan")
 	currentVolumes, err := m.Host.ListVolumes(ctx)
 	if err != nil {
 		return nil, err
