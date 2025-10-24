@@ -35,6 +35,7 @@ type MateriaConfig struct {
 	MigrateVolumes bool              `toml:"migrate_volumes"`
 	Attributes     string            `toml:"attributes"`
 	CompressionCmd string            `toml:"compression_cmd"`
+	SecretsPrefix  string            `toml:"secrets_prefix"`
 	AgeConfig      *age.Config       `toml:"age"`
 	FileConfig     *fileattrs.Config `toml:"file"`
 	SopsConfig     *sops.Config      `toml:"sops"`
@@ -75,6 +76,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.ScriptsDir = k.String("scripts_dir")
 	c.OutputDir = k.String("output_dir")
 	c.RemoteDir = k.String("remote_dir")
+	c.SecretsPrefix = k.String("secrets_prefix")
+	if c.SecretsPrefix == "" {
+		c.SecretsPrefix = "materia-"
+	}
 	// Replace this with attributes chaining
 	if k.Exists("age") && c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)

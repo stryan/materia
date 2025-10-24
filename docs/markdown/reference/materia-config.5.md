@@ -123,6 +123,10 @@ If a volume quadlet is updated, instead of just updating the Quadlet file perfor
     5. Restart the updated service to create the new volume
     6. Import the old volume tarball into the new volume
 
+#### MATERIA_SECRETS_PREFIX/secrets_prefix
+
+Sets the prefix Materia appends to Podman secrets it manages. Defaults to `materia-`
+
 #### MATERIA_SERVER__UPDATE_INTERVAL/server.update_interval
 
 How long (in seconds) for `materia server` to wait before running a `materia update`.
