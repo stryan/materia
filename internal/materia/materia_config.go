@@ -80,20 +80,19 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if c.SecretsPrefix == "" {
 		c.SecretsPrefix = "materia-"
 	}
-	// Replace this with attributes chaining
-	if k.Exists("age") && c.Attributes == "age" {
+	if k.Exists("age") {
 		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if k.Exists("file") && c.Attributes == "file" {
+	if k.Exists("file") {
 		c.FileConfig, err = fileattrs.NewConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if k.Exists("sops") && c.Attributes == "sops" {
+	if k.Exists("sops") {
 		c.SopsConfig, err = sops.NewConfig(k)
 		if err != nil {
 			return nil, err

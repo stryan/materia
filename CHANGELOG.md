@@ -5,6 +5,8 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- Multiple Attributes engines can be configured; Materia will query all of them and merge the results in an unspecified order.
+    - Related, the `attributes` configuration value now only forces the use of a specific engine and is no longer required.
 - Materia manifests now support overriding component manifests for a given host
 - `materia server` and `materia agent` now exist to provide a more classical GitOps experience
 - Repository Manifests now support `Remote` components; components downloaded from a remote git repository or other location

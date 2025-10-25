@@ -20,6 +20,8 @@ materia-config - Materia configuration settings
 
 When both environmental variables and a config file are used, config file settings are overwritten by environmental variables.
 
+Materia will by default use any and all configured attributes engines.
+
 For configuring attributes management with `age`, see `materia-config-age(5)`.
 
 For configuring attributes management with `sops`, see `materia-config-sops(5)`.
@@ -30,11 +32,16 @@ Presented in *environmental variable*/**TOML config line option** format.
 
 #### *MATERIA_SOURCE__URL*/**sourceurl**
 
-  Source location of the *materia-repository(5)* in URL format. Accepted formats:
+Source location of the *materia-repository(5)* in URL format. Accepted formats:
 
-   Git Repo: `git://git_repo_url`. See *materia-config-git(5)* for more details.
+    Git Repo: `git://git_repo_url`. See *materia-config-git(5)* for more details.
 
-   Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
+    Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
+
+
+#### MATERIA_ATTRIBUTES/attributes
+
+Attributes Engine config to use. Optional, will cause materia to ignore any other configured engines.
 
 #### *MATERIA_HOSTNAME*/**hostname**
 

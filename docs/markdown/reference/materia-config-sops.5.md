@@ -12,7 +12,7 @@ materia-config-sops - Materia configuration for SOPS based attribute management
 
 ## Synopsis
 
-**$MATERIA_SOPS_<option-name>**
+**$MATERIA_SOPS__<option-name>**
 
 ## Description
 
@@ -28,7 +28,7 @@ Supports YAML,JSON, and INI files.
 
 #### **MATERIA_SOPS__BASE_DIR**/**sops.base_dir**
 
-Directory that contains attributes
+Directory that contains attributes. Defaults to `secrets`.
 
 #### **MATERIA_SOPS__VAULTS**/**sops.vaults**
 

@@ -12,7 +12,7 @@ materia-config-git - Materia configuration for Git based source management
 
 ## Synopsis
 
-**$MATERIA_GIT_<option-name>**
+**$MATERIA_GIT__<option-name>**
 
 ## Description
 

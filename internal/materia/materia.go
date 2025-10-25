@@ -48,31 +48,44 @@ type Materia struct {
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
-	var attributesEngine AttributesEngine
-	var err error
-	// TODO replace this with attributes chaining
-	if c.AgeConfig != nil {
-		attributesEngine, err = age.NewAgeStore(*c.AgeConfig, c.SourceDir)
+	var vaults []AttributesEngine
+	if c.AgeConfig != nil || c.Attributes == "age" {
+		vault, err := age.NewAgeStore(*c.AgeConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
-		return attributesEngine, nil
+		if c.Attributes == "age" {
+			return vault, nil
+		}
+		vaults = append(vaults, vault)
 	}
 	if c.FileConfig != nil {
-		attributesEngine, err = fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
+		vault, err := fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
-		return attributesEngine, nil
+
+		if c.Attributes == "file" {
+			return vault, nil
+		}
+		vaults = append(vaults, vault)
 	}
 	if c.SopsConfig != nil {
-		attributesEngine, err = sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
+		vault, err := sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating sops store: %w", err)
 		}
-		return attributesEngine, nil
+		if c.Attributes == "sops" {
+			return vault, nil
+		}
+
+		vaults = append(vaults, vault)
 	}
-	return mem.NewMemoryEngine(), nil
+	if len(vaults) == 0 {
+		log.Warn("No attributes engines configured: defaulting to in-memory")
+		return mem.NewMemoryEngine(), nil
+	}
+	return NewMultiVaultEngine(vaults...)
 }
 
 func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager, sm SourceManager) (*Materia, error) {
