@@ -48,12 +48,12 @@ podman run --name materia --rm \
 	-v /usr/local/bin:/usr/local/bin \ # customizable, change to where ever you want scripts to be installed to
 	-v /etc/systemd/system:/etc/systemd/system \ # Needed to manage services, can also use /usr/local/lib/systemd/system/
 	-v /etc/materia/known_hosts:/root/.ssh/known_hosts:ro \ #Optional, used for git+ssh checkouts
-	-v /etc/materia/_key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
+	-v /etc/materia/key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
-	--env MATERIA_AGE_KEYFILE=/etc/materia/key.txt \
-	--env MATERIA_GIT_PRIVATE_KEY=/etc/materia/materia_key \
-	--env MATERIA_SOURCE_URL=git://git@github.com/materia/materia_repo \
-	ghcr.io/stryan/materia:stable
+	--env MATERIA_AGE__KEYFILE=/etc/materia/key.txt \
+	--env MATERIA_GIT__PRIVATE_KEY=/etc/materia/materia_key \
+	--env MATERIA_SOURCE__URL=git://git@github.com/stryan/materia_example_repo \
+	ghcr.io/stryan/materia:stable update
 ```
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.
@@ -78,7 +78,7 @@ For this quickstart we will assume you're using the raw binary on machine "testh
 
 ## Setup your repository
 
-For a more in-depth look at setting up a repository, see the [example repo](docs/example_repo) and the [repository documentation](docs/markdown/reference/materia-repository.5.md).
+For a more in-depth look at setting up a repository, see the [example repo](https://github.com/stryan/materia_example_repository) and the [repository documentation](docs/markdown/reference/materia-repository.5.md).
 
 On your workstation, create a bare Git repository with the following directories:
 

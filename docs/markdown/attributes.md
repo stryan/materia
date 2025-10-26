@@ -20,19 +20,21 @@ Role vaults container attributes available to all hosts with the assigned role.
 
 ## Attributes Engines
 
-### Age (recommended)
-
-[Age](https://github.com/FiloSottile/age) is a modern public-key encryption system for files. It is the current recommended encrypted secrets option because it is simple and easy to use.
-
-Materia expects Age-encrypted files to be TOML files.
-
-### SOPS (in-testing)
+### SOPS (recommended)
 
 [SOPS](https://github.com/getsops/sops) is a editor and system for storing encrypted key value data. It also supports Age based encryption and encrypting only the values, which makes it easier to see what has changed.
 
+Due to its flexibility and existing tools, SOPS is the current recommended attributes engine.
+
 Materia expects SOPS-encrypted files to be either YAML or INI files.
 
-SOPs is still in testing but will most likely become the new recommended attributes engine.
+
+### Age (recommended)
+
+[Age](https://github.com/FiloSottile/age) is a modern public-key encryption system for files. It is a recommended encrypted secrets option because it is simple and easy to use.
+
+Materia expects Age-encrypted files to be TOML files.
+
 
 ### File
 

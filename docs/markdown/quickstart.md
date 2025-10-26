@@ -255,7 +255,7 @@ Push your git repository and logon to `ivy` for the next steps.
 
 Materia uses a plan-execute system for managing nodes. We can generate a plan ahead of time for validation purposes.
 
-These steps will assume your git repository is at `github.com/user/materia-repo` and is **public**. If you need to use a private repository, look at the [git configuration settings](reference/materia-config-git.5.md)
+These steps will assume your git repository is at `github.com/user/materia-repo` and is **public**. If you need to use a private repository, look at the [git configuration settings](reference/materia-source.5.md)
 
 ### Configure materia's source URL
 

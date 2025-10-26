@@ -4,6 +4,9 @@ nav:
   - Home: index.md
   - Quickstart: quickstart.md
   - Cheatsheet: cheatsheet.md
+  - Repository Guide: repository.md
+  - Components: components.md
+  - Resources: resources.md
   - Attributes Guide: attributes.md
   - FAQ: faq.md
   - Reference: reference/index.md
