@@ -5,6 +5,7 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 
 ## Unreleased
+- `autoUpdate` is now a macro as well as a snippet. The snippet will be deprecated Eventually (tm)
 - Multiple Attributes engines can be configured; Materia will query all of them and merge the results in an unspecified order.
     - Related, the `attributes` configuration value now only forces the use of a specific engine and is no longer required.
 - Materia manifests now support overriding component manifests for a given host
