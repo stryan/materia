@@ -78,6 +78,9 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 				}
 				return fmt.Sprintf("Secret=%v,type=env,%s", host.SecretName(args[0]), args[1])
 			},
+			"autoUpdate": func(arg string) string {
+				return fmt.Sprintf("Label=io.containers.autoupdate=%v", arg)
+			},
 			"snippet": func(name string, args ...string) (string, error) {
 				s, ok := snippets[name]
 				if !ok {

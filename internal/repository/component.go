@@ -371,7 +371,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		unitfile := parser.NewUnitFile()
 		err = unitfile.Parse(unitData)
 		if err != nil {
-			return res, fmt.Errorf("error parsing container file: %w", err)
+			return res, fmt.Errorf("error parsing systemd unit file: %w", err)
 		}
 		nameOption := ""
 		group := ""

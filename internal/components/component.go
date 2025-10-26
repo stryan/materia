@@ -95,7 +95,10 @@ func FindResourceType(file string) ResourceType {
 	case ".kube":
 		return ResourceTypeKube
 	case ".toml":
-		return ResourceTypeManifest
+		if filepath.Base(file) == "MANIFEST.toml" {
+			return ResourceTypeManifest
+		}
+		return ResourceTypeFile
 	case ".service", ".timer", ".target":
 		return ResourceTypeService
 	case ".sh":

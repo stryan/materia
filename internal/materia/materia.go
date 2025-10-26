@@ -49,7 +49,7 @@ type Materia struct {
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 	var vaults []AttributesEngine
-	if c.AgeConfig != nil || c.Attributes == "age" {
+	if c.AgeConfig != nil {
 		vault, err := age.NewAgeStore(*c.AgeConfig, c.SourceDir)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
