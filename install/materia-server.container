@@ -1,5 +1,5 @@
 [Unit]
-Description=Materia: quadlet manager
+Description=Materia: quadlet manager (server mode)
 
 [Service]
 Environment="SCRIPT_ARGS=%I"
@@ -11,11 +11,13 @@ ContainerName=materia
 Environment=MATERIA_SOURCE__URL=file:///tmp/test_repo
 Environment=MATERIA_AGE__KEYFILE=/etc/materia/key.txt
 Environment=MATERIA_AGE__BASE_DIR=attributes
+Environment=MATERIA_SERVER__UPDATE_INTERVAL=900 # Update every 15 minutes
 SecurityLabelDisable=true
 HostName=%q
-Exec=$SCRIPT_ARGS
+Exec=server
 Network=host
 Volume=/etc/materia
+Volume=/run/materia # Control materia server from outside the container
 Volume=/etc/materia/known_hosts:/root/.ssh/known_hosts:ro
 Volume=/run/dbus/system_bus_socket
 Volume=/run/podman/podman.sock
