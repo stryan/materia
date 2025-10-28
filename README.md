@@ -7,7 +7,7 @@ Materia handles the full lifecycle of an application (or **component**):
 3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
 4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
-See the [Documentation site](https://primamateria.systems) for more details, or read on for a quick start.
+See the [Documentation site](https://primamateria.systems) for more details, the [example repository](https://github.com/stryan/materia_example_repo), or read on for a quick start.
 
 # Install
 
