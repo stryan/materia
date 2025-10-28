@@ -161,7 +161,7 @@ $
 
 ## Run an update
 
-Assuming the plan was generated succesfully, you can now run the actual update:
+Assuming the plan was generated successfully, you can now run the actual update:
 
 ```
 $ materia update
@@ -184,4 +184,4 @@ $
 
 # Contributing
 
-If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github.
+If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug).
