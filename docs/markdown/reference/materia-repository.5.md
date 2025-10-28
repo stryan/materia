@@ -53,6 +53,10 @@ A single file in a component. Resources are either static files or Golang templa
 
    *kube*: A `.kube` file. Installed to `MATERIA_QUADLETDIR.`
 
+   *build*: A `.build` file. Installed to `MATERIA_QUADLETDIR.`
+
+   *image*: A `.image` file. Installed to `MATERIA_QUADLETDIR.`
+
    *manifest*: A `MANIFEST.TOML` file. Installed to `PREFIX/components/COMPONENT_NAME/MAINFEST.TOML`
 
    *volumefile*: A data file that should be installed in a Podman volume. Experimental, defined in the components `MANIFEST.toml`
