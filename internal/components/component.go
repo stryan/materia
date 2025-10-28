@@ -92,6 +92,10 @@ func FindResourceType(file string) ResourceType {
 		return ResourceTypeNetwork
 	case ".volume":
 		return ResourceTypeVolume
+	case ".build":
+		return ResourceTypeBuild
+	case ".image":
+		return ResourceTypeImage
 	case ".kube":
 		return ResourceTypeKube
 	case ".toml":

@@ -27,6 +27,9 @@ const (
 	ResourceTypePod
 	ResourceTypeNetwork
 	ResourceTypeKube
+	ResourceTypeBuild
+	ResourceTypeImage
+
 	ResourceTypeFile
 	ResourceTypeManifest
 	ResourceTypeScript
