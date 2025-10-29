@@ -1,4 +1,7 @@
 # Materia
+
+[![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#materia:saintnet.tech)
+
 A GitOps style tool for managing services and applications deployed as [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
 
 Materia handles the full lifecycle of an application (or **component**):
