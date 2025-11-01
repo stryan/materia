@@ -154,9 +154,9 @@ Service = "caddy.service"
 
 The `[Defaults]` section is a TOML table describing default attribute values. In this case, the `containerTag` attribute is set to `latest` by default.
 
-The `[[Services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed seperately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped,when the component has updated files it will restart the service, and if the service is detected as not-running when materia runs it will attempt to start it again.
+The `[[Services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed seperately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped, and if the service is detected as not-running when materia runs it will attempt to start it again.
 
-For more details, such as how to set services to only restart when certain files are updated, see the [component section of the manifest reference](reference/materia-manifest.5.md).
+For more details, such as how to set services to restart when certain files are updated, see the [component section of the manifest reference](reference/materia-manifest.5.md).
 
 
 ### Create repository attributes
@@ -261,15 +261,15 @@ These steps will assume your git repository is at `github.com/user/materia-repo`
 
 Materia needs to know where your repository is. This can be done in a config file, but we'll just use an environmental variable
 
-`export MATERIA_SOURCE_URL=git://git@github.com:user/materia-repo`
+`export MATERIA_SOURCE__URL=git://git@github.com:user/materia-repo`
 
 ### Configure materia's attributes engine
 
 Materia needs to know where to find attributes. This can also be done in a config file, but we'll just use environmental varibables again:
 
 `export MATERIA_ATTRIBUTES=age`
-`export MATERIA_AGE_KEYFILE=/etc/materia/key.txt`
-`export MATERIA_AGE_BASE_DIR=attributes`
+`export MATERIA_AGE__KEYFILE=/etc/materia/key.txt`
+`export MATERIA_AGE__BASE_DIR=attributes`
 
 
 ### Update known_hosts (OPTIONAL)
