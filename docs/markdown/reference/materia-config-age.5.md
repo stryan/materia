@@ -24,7 +24,7 @@ Settings for Age based secret management.
 
 File that contains the Age private key to use
 
-#### **MATERIA_AGE__BASEDIR**/**age.base_dir**
+#### **MATERIA_AGE__BASE_DIR**/**age.base_dir**
 
 Directory that contains attributes. Defaults to `secrets`.
 

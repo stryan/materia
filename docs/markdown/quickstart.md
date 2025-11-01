@@ -261,15 +261,15 @@ These steps will assume your git repository is at `github.com/user/materia-repo`
 
 Materia needs to know where your repository is. This can be done in a config file, but we'll just use an environmental variable
 
-`export MATERIA_SOURCE_URL=git://git@github.com:user/materia-repo`
+`export MATERIA_SOURCE__URL=git://git@github.com:user/materia-repo`
 
 ### Configure materia's attributes engine
 
 Materia needs to know where to find attributes. This can also be done in a config file, but we'll just use environmental varibables again:
 
 `export MATERIA_ATTRIBUTES=age`
-`export MATERIA_AGE_KEYFILE=/etc/materia/key.txt`
-`export MATERIA_AGE_BASE_DIR=attributes`
+`export MATERIA_AGE__KEYFILE=/etc/materia/key.txt`
+`export MATERIA_AGE__BASE_DIR=attributes`
 
 
 ### Update known_hosts (OPTIONAL)
