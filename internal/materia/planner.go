@@ -162,7 +162,6 @@ func updateComponents(assignedComponents map[string]*components.Component, insta
 func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[string]*components.Component) ([]Action, error) {
 	keys := sortedKeys(updates)
 	hostname := m.Host.GetHostname()
-	needReload := false
 	var plannedActions []Action
 	for _, compName := range keys {
 		newComponent := updates[compName]
@@ -183,7 +182,11 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 				return plannedActions, fmt.Errorf("can't process fresh component %v: %w", newComponent.Name, err)
 			}
 			if len(actions) > 0 {
-				needReload = true
+				actions = append(actions, Action{
+					Todo:   ActionReload,
+					Parent: newComponent,
+					Target: components.Resource{Kind: components.ResourceTypeHost},
+				})
 			}
 			serviceActions, err := m.processFreshComponentServices(ctx, newComponent)
 			if err != nil {
@@ -204,7 +207,11 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 				return plannedActions, fmt.Errorf("can't process updates for component %v: %w", newComponent.Name, err)
 			}
 			if len(actions) > 0 {
-				needReload = true
+				actions = append(actions, Action{
+					Todo:   ActionReload,
+					Parent: newComponent,
+					Target: components.Resource{Kind: components.ResourceTypeHost},
+				})
 			}
 			restartmap := make(map[string]manifests.ServiceResourceConfig)
 			reloadmap := make(map[string]manifests.ServiceResourceConfig)
@@ -262,14 +269,6 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", newComponent.State))
 		}
 
-	}
-
-	if needReload {
-		plannedActions = append(plannedActions, Action{
-			Todo:   ActionReload,
-			Parent: rootComponent,
-			Target: components.Resource{Kind: components.ResourceTypeHost},
-		})
 	}
 
 	return plannedActions, nil
