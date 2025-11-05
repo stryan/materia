@@ -59,4 +59,5 @@ then
 	mise trust .
 	mise install
 fi
+systemctl enable podman.socket
 """
