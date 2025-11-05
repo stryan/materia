@@ -757,7 +757,7 @@ func TestPlan(t *testing.T) {
 		planHelper(ActionInstall, "hello", "hello.container"),
 		planHelper(ActionInstall, "hello", "hello.env"),
 		planHelper(ActionInstall, "hello", manifests.ComponentManifestFile),
-		planHelper(ActionReload, "hello", ""),
+		planHelper(ActionReload, "", ""),
 	}
 	man := &manifests.MateriaManifest{
 		Hosts: map[string]manifests.Host{
