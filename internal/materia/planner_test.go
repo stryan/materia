@@ -816,26 +816,26 @@ func TestPlan(t *testing.T) {
 func planHelper(todo ActionType, name, res string) Action {
 	if res == "" {
 		if name == "" {
-			return Action{
-				Todo: ActionReload,
-				Parent: &components.Component{
-					Name: "root",
-				},
-				Target: components.Resource{
-					Parent: name,
-					Kind:   components.ResourceTypeHost,
-				},
-			}
-		} else {
+			name = "root"
+		}
+		if todo == ActionReload {
 			return Action{
 				Todo:   todo,
 				Parent: &components.Component{Name: name},
 				Target: components.Resource{
 					Parent: name,
-					Kind:   components.ResourceTypeComponent,
-					Path:   name,
+					Kind:   components.ResourceTypeHost,
 				},
 			}
+		}
+		return Action{
+			Todo:   todo,
+			Parent: &components.Component{Name: name},
+			Target: components.Resource{
+				Parent: name,
+				Kind:   components.ResourceTypeComponent,
+				Path:   name,
+			},
 		}
 	}
 	act := Action{

@@ -105,8 +105,13 @@ func (p *Plan) Add(a Action) {
 		default:
 			panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
 		}
-		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable) {
+		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart) {
 			p.servicesPhase = append(p.servicesPhase, a)
+		} else if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
+			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
+			if len(p.servicesPhase) == 0 || (p.servicesPhase[0].Todo != ActionReload && p.servicesPhase[0].Target.Kind != components.ResourceTypeHost) {
+				p.servicesPhase = append([]Action{a}, p.servicesPhase...)
+			}
 		} else {
 			p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
 		}
