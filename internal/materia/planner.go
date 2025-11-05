@@ -184,7 +184,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			if len(actions) > 0 {
 				actions = append(actions, Action{
 					Todo:   ActionReload,
-					Parent: newComponent,
+					Parent: rootComponent,
 					Target: components.Resource{Kind: components.ResourceTypeHost},
 				})
 			}
@@ -209,7 +209,7 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 			if len(actions) > 0 {
 				actions = append(actions, Action{
 					Todo:   ActionReload,
-					Parent: newComponent,
+					Parent: rootComponent,
 					Target: components.Resource{Kind: components.ResourceTypeHost},
 				})
 			}
