@@ -97,7 +97,6 @@ func (p *Plan) Add(a Action) {
 			}
 		case components.ResourceTypeHost:
 			if a.Todo == ActionReload {
-				// TODO only need one reload by default
 				a.Priority = 4
 			} else {
 				panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Target.Kind, a.Target))
