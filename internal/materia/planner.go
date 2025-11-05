@@ -213,18 +213,33 @@ func (m *Materia) calculateDiffs(ctx context.Context, oldComps, updates map[stri
 					Target: components.Resource{Kind: components.ResourceTypeHost},
 				})
 			}
-			restartmap := make(map[string]manifests.ServiceResourceConfig)
-			reloadmap := make(map[string]manifests.ServiceResourceConfig)
+			triggeredActions := make(map[string][]Action)
 			for _, src := range newComponent.ServiceResources {
 				for _, trigger := range src.RestartedBy {
-					restartmap[trigger] = src
+					triggeredActions[trigger] = append(triggeredActions[trigger], Action{
+						Todo:   ActionRestart,
+						Parent: newComponent,
+						Target: components.Resource{
+							Parent: newComponent.Name,
+							Path:   src.Service,
+							Kind:   components.ResourceTypeService,
+						},
+					})
 				}
 				for _, trigger := range src.ReloadedBy {
-					reloadmap[trigger] = src
+					triggeredActions[trigger] = append(triggeredActions[trigger], Action{
+						Todo:   ActionReload,
+						Parent: newComponent,
+						Target: components.Resource{
+							Parent: newComponent.Name,
+							Path:   src.Service,
+							Kind:   components.ResourceTypeService,
+						},
+					})
 				}
 			}
 			if len(actions) > 0 {
-				sactions, err := m.processUpdatedComponentServices(ctx, original, newComponent, actions, restartmap, reloadmap)
+				sactions, err := m.processUpdatedComponentServices(ctx, original, newComponent, actions, triggeredActions)
 				if err != nil {
 					return plannedActions, fmt.Errorf("can't process updated services for component %v: %w", compName, err)
 				}
@@ -384,11 +399,12 @@ func (m *Materia) calculatePotentialComponentResources(original, newComponent *c
 	return actions, nil
 }
 
-func (m *Materia) processUpdatedComponentServices(ctx context.Context, original, newComponent *components.Component, resourceActions []Action, restartmap, reloadmap map[string]manifests.ServiceResourceConfig) ([]Action, error) {
+func (m *Materia) processUpdatedComponentServices(ctx context.Context, original, newComponent *components.Component, resourceActions []Action, triggeredActions map[string][]Action) ([]Action, error) {
 	var actions []Action
 	if m.onlyResources {
 		return actions, nil
 	}
+	var triggeredServices []string
 	for _, d := range resourceActions {
 		if m.diffs && d.Todo == ActionUpdate {
 			diffs, err := d.GetContentAsDiffs()
@@ -397,38 +413,18 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 			}
 			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
 		}
-		if updatedService, ok := restartmap[d.Target.Path]; ok {
-			actions = append(actions, Action{
-				Todo:   ActionRestart,
-				Parent: newComponent,
-				Target: components.Resource{
-					Parent: newComponent.Name,
-					Path:   updatedService.Service,
-					Kind:   components.ResourceTypeService,
-				},
-			})
-			continue // No need to reload if we restart
-		}
-		if updatedService, ok := reloadmap[d.Target.Path]; ok {
-			actions = append(actions, Action{
-				Todo:   ActionReload,
-				Parent: newComponent,
-				Target: components.Resource{
-					Parent: newComponent.Name,
-					Path:   updatedService.Service,
-					Kind:   components.ResourceTypeService,
-				},
-			})
+		if updatedServiceActions, ok := triggeredActions[d.Target.Path]; ok {
+			actions = append(actions, updatedServiceActions...)
+			for _, a := range updatedServiceActions {
+				triggeredServices = append(triggeredServices, a.Target.Path)
+			}
 		}
 
 	}
 	sortedSrcs := sortedKeys(newComponent.ServiceResources)
 	for _, k := range sortedSrcs {
 		// skip services that are triggered
-		if _, ok := reloadmap[k]; ok {
-			continue
-		}
-		if _, ok := restartmap[k]; ok {
+		if slices.Contains(triggeredServices, k) {
 			continue
 		}
 		s := newComponent.ServiceResources[k]
