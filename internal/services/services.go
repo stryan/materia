@@ -140,7 +140,6 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 }
 
 func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string) error {
-	ticker := time.NewTicker(1 * time.Second)
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
@@ -152,12 +151,16 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	if serv.ActiveState == state {
 		return nil
 	}
-	log.Debugf("waiting on %v to reach %v", name, state)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	timeout := time.NewTimer(time.Duration(s.Timeout) * time.Second)
+	defer timeout.Stop()
+	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", s.Timeout)
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
-		case <-time.After(time.Duration(s.Timeout) * time.Second):
+		case <-timeout.C:
 			return fmt.Errorf("service %v did not reach state %v", name, state)
 		case <-ticker.C:
 			us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
@@ -168,10 +171,6 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 				return ErrServiceNotFound
 			}
 			serv := us[0]
-			if serv.ActiveState == state {
-				return nil
-			}
-
 			if serv.ActiveState == state {
 				return nil
 			}
