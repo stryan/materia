@@ -34,7 +34,8 @@ func NewHostManager(c *materia.MateriaConfig) (*HostManager, error) {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
 	sm, err := services.NewServices(&services.ServicesConfig{
-		Timeout: c.Timeout,
+		Timeout:        c.Timeout,
+		DryrunQuadlets: true,
 	})
 	if err != nil {
 		log.Fatal(err)
