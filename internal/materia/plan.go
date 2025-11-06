@@ -58,7 +58,8 @@ func (p *Plan) Add(a Action) {
 			default:
 				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 			}
-		case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
+		case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeBuild, components.ResourceTypeImage,
+			components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
 			switch a.Todo {
 			case ActionInstall, ActionUpdate, ActionRemove:
 				a.Priority = 3
