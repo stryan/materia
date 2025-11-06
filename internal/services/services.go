@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"os/user"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 var ErrServiceNotFound = errors.New("no service found")
 
 type ServiceManager struct {
-	Conn    *dbus.Conn
-	Timeout int
+	Conn           *dbus.Conn
+	isRoot         bool
+	DryrunQuadlets bool
+	Timeout        int
 }
 
 type Service struct {
@@ -42,7 +45,8 @@ const (
 )
 
 type ServicesConfig struct {
-	Timeout int
+	Timeout        int
+	DryrunQuadlets bool
 }
 
 func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
@@ -65,6 +69,7 @@ func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
 			return nil, err
 		}
 	} else {
+		sm.isRoot = true
 		sm.Conn, err = dbus.NewSystemConnectionContext(ctx)
 		if err != nil {
 			return nil, err
@@ -76,6 +81,12 @@ func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
 
 func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction) error {
 	if action == ServiceReloadUnits {
+		if s.DryrunQuadlets {
+			err := s.dryrunQuadlets(ctx)
+			if err != nil {
+				return fmt.Errorf("failed quadlet generation while reloading units: %w", err)
+			}
+		}
 		return s.Conn.ReloadContext(ctx)
 	}
 	callback := make(chan string)
@@ -183,6 +194,20 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 
 func (s *ServiceManager) Close() {
 	s.Conn.Close()
+}
+
+func (s *ServiceManager) dryrunQuadlets(ctx context.Context) error {
+	var cmd *exec.Cmd
+	if s.isRoot {
+		cmd = exec.CommandContext(ctx, "/usr/lib/systemd/system-generators/podman-system-generator", "--dryrun")
+	} else {
+		cmd = exec.CommandContext(ctx, "/usr/lib/systemd/system-generators/podman-system-generator", "--user", "--dryrun")
+	}
+	_, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type PlannedServiceManager struct {
