@@ -187,4 +187,4 @@ $
 
 # Contributing
 
-If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug).
+If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech)
