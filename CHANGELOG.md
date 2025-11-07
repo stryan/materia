@@ -6,6 +6,12 @@ Best effort list of major changes and bugfixes
 
 ## Unreleased
 
+## 0.4.1
+- `materia` now does a dry-run of Quadlets update when running `systemctl daemon-reload` to prevent installing bad Quadlet files over working ones
+- Support `.build` and `.image` quadlets
+- bugfix: use triggered actions versus reload/restart map
+- bugfix: correct when host reloads
+
 ## 0.4.0
 - `autoUpdate` is now a macro as well as a snippet. The snippet will be deprecated Eventually (tm)
 - Multiple Attributes engines can be configured; Materia will query all of them and merge the results in an unspecified order.
