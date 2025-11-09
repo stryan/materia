@@ -6,7 +6,7 @@ Environment="SCRIPT_ARGS=%I"
 Type=oneshot
 
 [Container]
-Image=github.com/stryan/materia:stable
+Image=ghcr.io/stryan/materia:stable
 ContainerName=materia
 Environment=MATERIA_SOURCE__URL=file:///tmp/test_repo
 Environment=MATERIA_AGE__KEYFILE=/etc/materia/key.txt
