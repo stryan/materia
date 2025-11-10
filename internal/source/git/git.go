@@ -22,6 +22,7 @@ type GitSource struct {
 	auth             transport.AuthMethod
 	insecure         bool
 	defaultBranch    string
+	proto            string
 }
 
 func NewGitSource(c *Config) (*GitSource, error) {
@@ -32,6 +33,7 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		remoteRepository: c.RemoteRepository,
 		localRepository:  c.LocalRepository,
 	}
+	// TODO this is all awful code, redo
 	g.branch = c.Branch
 	if c.PrivateKey != "" {
 		home, err := os.UserHomeDir()
@@ -57,14 +59,18 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		if g.insecure {
 			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
 		}
+
 		g.auth = publicKeys
-	} else {
-		if c.Username != "" {
-			g.auth = &http.BasicAuth{
-				Username: c.Username,
-				Password: c.Password,
-			}
+		g.proto = "ssh"
+	} else if c.Username != "" {
+		g.auth = &http.BasicAuth{
+			Username: c.Username,
+			Password: c.Password,
 		}
+		g.proto = "http"
+
+	}
+	if g.proto == "http" {
 		if g.insecure {
 			g.remoteRepository = fmt.Sprintf("http://%v", g.remoteRepository)
 		} else {
@@ -176,6 +182,7 @@ func (g *GitSource) Sync(ctx context.Context) error {
 		err = w.PullContext(ctx, &git.PullOptions{
 			Auth: g.auth,
 		})
+		// TODO if err is ErrFastForwardMergeNotPossible need to reset
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return err
 		}
