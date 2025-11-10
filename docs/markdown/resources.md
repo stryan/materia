@@ -30,7 +30,7 @@ Scripts are resources that end in `.sh` OR are manually specified as a script in
 They are installed to the Scripts directory as well the Data directory. By default this is `/usr/local/bin`.
 
 #### Services
-Services are resources that are Systemd unit files. The following types are recognized: `.timer`,`.service`, and `.target`.
+Services are resources that are Systemd unit files. The following types are recognized: `.timer`,`.service`,`.socket`,`.mount`,`.device`,`.automount`,`.device`,`.slice`,`.scope`,`.swap`,`path`, and `.target`.
 
 They are installed the Systemd directory as well as the Data directory. By default this is `/etc/systemd/system`.
 

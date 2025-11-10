@@ -103,7 +103,7 @@ func FindResourceType(file string) ResourceType {
 			return ResourceTypeManifest
 		}
 		return ResourceTypeFile
-	case ".service", ".timer", ".target":
+	case ".service", ".timer", ".target", ".socket", ".path", ".mount", ".automount", ".swap", ".slice", ".scope", ".device": // IDEA parse from man page?
 		return ResourceTypeService
 	case ".sh":
 		return ResourceTypeScript
