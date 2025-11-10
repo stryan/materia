@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/go-git/go-git/v5"
@@ -30,9 +31,22 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		return nil, errors.New("need git config")
 	}
 	g := &GitSource{
-		remoteRepository: c.RemoteRepository,
-		localRepository:  c.LocalRepository,
+		localRepository: c.LocalRepository,
 	}
+	splitURL := strings.Split(c.URL, "://")
+	if splitURL[0] == "git" {
+		// We didn't specify the source type and guessed off the URL
+		// rewrite to HTTP(S)
+		prefix := "https"
+		if c.Insecure {
+			prefix = "http"
+		}
+		g.remoteRepository = fmt.Sprintf("%v://%v", prefix, splitURL[1])
+	} else {
+		// we specified the type directly, use the URL as is
+		g.remoteRepository = c.URL
+	}
+
 	// TODO this is all awful code, redo
 	g.branch = c.Branch
 	if c.PrivateKey != "" {
@@ -69,13 +83,6 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		}
 		g.proto = "http"
 
-	}
-	if g.proto == "http" {
-		if g.insecure {
-			g.remoteRepository = fmt.Sprintf("http://%v", g.remoteRepository)
-		} else {
-			g.remoteRepository = fmt.Sprintf("https://%v", g.remoteRepository)
-		}
 	}
 	return g, nil
 }

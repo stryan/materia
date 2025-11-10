@@ -7,18 +7,19 @@ import (
 )
 
 type Config struct {
-	Branch           string `toml:"branch" json:"branch" yaml:"branch"`
-	PrivateKey       string `koanf:"private_key" toml:"private_key" json:"private_key" yaml:"private_key"`
-	Username         string `toml:"username" json:"username" yaml:"username"`
-	Password         string `toml:"password" json:"password" yaml:"password"`
-	KnownHosts       string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts"`
-	Insecure         bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
-	LocalRepository  string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
-	RemoteRepository string `toml:"remote_repository" json:"remote_repository" yaml:"remote_repository"`
+	URL             string `toml:"URL" json:"URL" yaml:"URL"`
+	Branch          string `toml:"branch" json:"branch" yaml:"branch"`
+	PrivateKey      string `koanf:"private_key" toml:"private_key" json:"private_key" yaml:"private_key"`
+	Username        string `toml:"username" json:"username" yaml:"username"`
+	Password        string `toml:"password" json:"password" yaml:"password"`
+	KnownHosts      string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts"`
+	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
+	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
 }
 
-func NewConfig(k *koanf.Koanf, localDir, remote string) (*Config, error) {
+func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	var c Config
+
 	c.Branch = k.String("git.branch")
 	c.PrivateKey = k.String("git.private_key")
 	c.Insecure = k.Bool("git.insecure")
@@ -26,7 +27,7 @@ func NewConfig(k *koanf.Koanf, localDir, remote string) (*Config, error) {
 	c.Password = k.String("git.password")
 	c.KnownHosts = k.String("git.knownhosts")
 	c.LocalRepository = localDir
-	c.RemoteRepository = remote
+	c.URL = remoteURL
 	return &c, nil
 }
 

@@ -70,10 +70,9 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 	}
 	var source materia.Source
 
-	parsedPath := strings.Split(sourceConfig.URL, "://")
-	switch parsedPath[0] {
+	switch sourceConfig.Kind {
 	case "git":
-		config, err := git.NewConfig(k, sourceDir, parsedPath[1])
+		config, err := git.NewConfig(k, sourceDir, sourceConfig.URL)
 		if err != nil {
 			return nil, fmt.Errorf("error creating git config: %w", err)
 		}
@@ -82,7 +81,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 			return nil, fmt.Errorf("invalid git source: %w", err)
 		}
 	case "file":
-		config, err := filesource.NewConfig(k, sourceDir, parsedPath[1])
+		config, err := filesource.NewConfig(k, sourceDir, sourceConfig.URL)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file config: %w", err)
 		}
@@ -91,7 +90,31 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 			return nil, fmt.Errorf("invalid file source: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
+		// try to guess from URL
+		parsedPath := strings.Split(sourceConfig.URL, "://")
+		switch parsedPath[0] {
+		case "git":
+			config, err := git.NewConfig(k, sourceDir, sourceConfig.URL)
+			if err != nil {
+				return nil, fmt.Errorf("error creating git config: %w", err)
+			}
+			source, err = git.NewGitSource(config)
+			if err != nil {
+				return nil, fmt.Errorf("invalid git source: %w", err)
+			}
+		case "file":
+			config, err := filesource.NewConfig(k, sourceDir, sourceConfig.URL)
+			if err != nil {
+				return nil, fmt.Errorf("error creating file config: %w", err)
+			}
+			source, err = filesource.NewFileSource(config)
+			if err != nil {
+				return nil, fmt.Errorf("invalid file source: %w", err)
+			}
+		default:
+			return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
+		}
+
 	}
 	return source, nil
 }

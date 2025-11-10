@@ -24,11 +24,21 @@ Presented in *environmental variable*/**TOML config line option** format.
 
 ### Source Config
 
+#### MATERIA_SOURCE_KIND / source.kind
+
+Remote source repository kind. Supported values: `git`,`file`.
+
+If left empty materia will guess based off the provided URL. Otherwise the specified `source.url` will be provided directly to the source provider.
+
 #### MATERIA_SOURCE__URL / source.url
 
-Source location of the *materia-repository(5)* in URL format. Accepted formats:
+Source location of the *materia-repository(5)* in URL format. Will be provided directly to the source provider.
 
-    Git Repo: `git://git_repo_url`.
+If `source.kind` is not specified it will attempt to guess what source to use based off the following formats:
+
+Accepted formats:
+
+    Git Repo: `git://git_repo_url`. Will be treated as an HTTP(s) remote
 
     Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
 

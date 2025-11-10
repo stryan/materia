@@ -5,7 +5,8 @@ import (
 )
 
 type SourceConfig struct {
-	URL string `toml:"url" json:"url" yaml:"url"`
+	URL  string `toml:"url" json:"url" yaml:"url"`
+	Kind string `toml:"kind" json:"kind" yaml:"kind"`
 }
 
 func (c SourceConfig) String() string {
