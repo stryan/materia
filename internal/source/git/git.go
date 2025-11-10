@@ -21,6 +21,7 @@ type GitSource struct {
 	localRepository  string
 	auth             transport.AuthMethod
 	insecure         bool
+	defaultBranch    string
 }
 
 func NewGitSource(c *Config) (*GitSource, error) {
@@ -101,13 +102,13 @@ func (g *GitSource) Sync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}
-
+	head, err := r.Head()
+	if err != nil {
+		return fmt.Errorf("failed to get HEAD: %w", err)
+	}
+	currentBranch := head.Name().String()
 	if g.branch != "" {
-		head, err := r.Head()
-		if err != nil {
-			return fmt.Errorf("failed to get HEAD: %w", err)
-		}
-		currentBranch := head.Name().String()
+		// make sure we're on the specified branch
 		expectedBranchRef := fmt.Sprintf("refs/heads/%s", localBranch)
 
 		// If we're already on the target branch, skip checkout
@@ -153,6 +154,22 @@ func (g *GitSource) Sync(ctx context.Context) error {
 		} else {
 			stale = true
 		}
+	} else {
+		// make sure we're on the default branch
+		defaultBranch, err := g.GetDefaultBranchFromRepository(r)
+		if err != nil {
+			return fmt.Errorf("error fetching default branch: %w", err)
+		}
+		currentBranch, err := GetCurrentBranchFromRepository(r)
+		if err != nil {
+			return fmt.Errorf("error getting current branch: %w", err)
+		}
+		if currentBranch != defaultBranch {
+			err = g.CheckoutBranch(r, defaultBranch)
+			if err != nil {
+				return fmt.Errorf("error reverting to default branch: %w", err)
+			}
+		}
 	}
 
 	if stale {
@@ -172,6 +189,74 @@ func (g *GitSource) Close(ctx context.Context) error {
 
 func (g *GitSource) Clean() (_ error) {
 	return os.RemoveAll(g.localRepository)
+}
+
+func (g *GitSource) CheckoutBranch(r *git.Repository, branchName string) error {
+	w, err := r.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	localBranch := branchName
+	remoteBranch := fmt.Sprintf("origin/%v", branchName)
+	// For tracking remote branch, first make sure we have latest remotes
+	err = r.Fetch(&git.FetchOptions{
+		Auth: g.auth,
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return fmt.Errorf("failed to fetch: %w", err)
+	}
+
+	// Check if the local branch already exists
+	localBranchRef := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", localBranch))
+	_, err = r.Reference(localBranchRef, true)
+	branchExists := err == nil
+
+	// Create checkout options with appropriate Create flag
+	checkoutOpts := &git.CheckoutOptions{
+		Branch: localBranchRef,
+		Create: !branchExists, // Only create if branch doesn't exist
+		Force:  true,
+	}
+
+	// If we need to create the branch, get the remote reference
+	if !branchExists {
+		// Get the remote branch reference
+		remoteBranchRef := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s", remoteBranch))
+		remoteRef, err := r.Reference(remoteBranchRef, true)
+		if err != nil {
+			return fmt.Errorf("failed to find remote branch: %w", err)
+		}
+
+		// Set the hash for the new branch
+		checkoutOpts.Hash = remoteRef.Hash()
+	}
+
+	// Perform the checkout
+	err = w.Checkout(checkoutOpts)
+	if err != nil {
+		return fmt.Errorf("failed to checkout: %w", err)
+	}
+	return nil
+}
+
+func (g *GitSource) GetDefaultBranchFromRepository(repo *git.Repository) (string, error) {
+	if g.defaultBranch != "" {
+		return g.defaultBranch, nil
+	}
+	remote, err := repo.Remote("origin")
+	if err != nil {
+		return "", err
+	}
+	references, _ := remote.List(&git.ListOptions{})
+	defaultName := "master"
+	for _, reference := range references {
+		if reference.Name() == "HEAD" && reference.Type() == plumbing.SymbolicReference {
+			defaultName = reference.Target().Short()
+			break
+		}
+	}
+	return defaultName, nil
 }
 
 func GetCurrentBranchFromRepository(repository *git.Repository) (string, error) {
