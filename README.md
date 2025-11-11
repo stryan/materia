@@ -54,7 +54,6 @@ podman run --name materia --rm \
 	-v /etc/materia/key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE__KEYFILE=/etc/materia/key.txt \
-	--env MATERIA_GIT__PRIVATE_KEY=/etc/materia/materia_key \
 	--env MATERIA_SOURCE__URL=git://github.com/stryan/materia_example_repo \
 	ghcr.io/stryan/materia:stable update
 ```
@@ -146,7 +145,7 @@ Materia is designed to be configured with environment variables; if you would li
 
 Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
 
-`export MATERIA_SOURCE_URL="git://git@github.com:user/materia_repo"`
+`export MATERIA_SOURCE__URL="git://git@github.com:user/materia_repo"`
 
 ### Generate the test plan
 
@@ -187,4 +186,8 @@ $
 
 # Contributing
 
-If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech)
+If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
+
+Submissions using LLMs for the submitted code must indicate as such, preferably using the `Assisted-by` header as documented in the [Fedora AI-Assisted Contributions Policy](https://docs.fedoraproject.org/en-US/council/policy/ai-contribution-policy/). They will be evaluated on a case-by-case basis.
+
+PR/MR's and bug reports must be created by humans.
