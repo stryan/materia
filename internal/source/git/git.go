@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -39,6 +40,7 @@ func NewGitSource(c *Config) (*GitSource, error) {
 	if c.DefaultBranch != "" {
 		g.defaultBranch = c.DefaultBranch
 	}
+	proto := ""
 	splitURL := strings.Split(c.URL, "://")
 	if splitURL[0] == "git" {
 		// We didn't specify the source type and guessed off the URL
@@ -48,12 +50,19 @@ func NewGitSource(c *Config) (*GitSource, error) {
 			prefix = "http"
 		}
 		g.remoteRepository = fmt.Sprintf("%v://%v", prefix, splitURL[1])
+		proto = "http"
 	} else {
 		// we specified the type directly, use the URL as is
 		g.remoteRepository = c.URL
+		ep, err := transport.NewEndpoint(c.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse endpoint: %v", err)
+		}
+		proto = ep.Protocol
 	}
 
 	g.activeBranch = c.Branch
+
 	if c.PrivateKey != "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -84,6 +93,27 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		g.auth = &http.BasicAuth{
 			Username: c.Username,
 			Password: c.Password,
+		}
+	} else if proto == "ssh" {
+		// we want to try to find any private keys in $HOME/.ssh to use here
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		privkey := filepath.Join(home, ".ssh", "id_rsa")
+		_, err = os.Stat(privkey)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			publicKeys, err := ssh.NewPublicKeysFromFile("git", privkey, "")
+			if err != nil {
+				return nil, err
+			}
+			if c.Insecure {
+				publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+			}
+			g.auth = publicKeys
 		}
 	}
 	return g, nil
