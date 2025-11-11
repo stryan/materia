@@ -15,17 +15,21 @@ type Config struct {
 	KnownHosts      string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts"`
 	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
 	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
+	Careful         bool   `toml:"careful" json:"careful" yaml:"careful"`
+	DefaultBranch   string `yaml:"default_branch" toml:"default_branch" json:"default_branch"`
 }
 
 func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	var c Config
 
 	c.Branch = k.String("git.branch")
+	c.DefaultBranch = k.String("git.default")
 	c.PrivateKey = k.String("git.private_key")
 	c.Insecure = k.Bool("git.insecure")
 	c.Username = k.String("git.username")
 	c.Password = k.String("git.password")
 	c.KnownHosts = k.String("git.knownhosts")
+	c.Careful = k.Bool("git.careful")
 	c.LocalRepository = localDir
 	c.URL = remoteURL
 	return &c, nil
@@ -33,9 +37,11 @@ func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 
 func (c *Config) String() string {
 	var result string
+	result += fmt.Sprintf("URL: %v\n", c.URL)
 	result += fmt.Sprintf("Branch: %v\n", c.Branch)
-	result += fmt.Sprintf("KnownHosts: %v\n", c.KnownHosts)
+	result += fmt.Sprintf("Known Hosts: %v\n", c.KnownHosts)
 	result += fmt.Sprintf("Allow Insecure: %v\n", c.Insecure)
+	result += fmt.Sprintf("Carreful mode: %v\n", c.Careful)
 	if c.PrivateKey != "" {
 		result += fmt.Sprintf("PrivateKey file: %v\n", c.PrivateKey)
 	}

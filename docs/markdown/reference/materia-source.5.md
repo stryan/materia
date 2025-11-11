@@ -48,6 +48,10 @@ Accepted formats:
 
 Git branch to checkout.
 
+#### MATERIA_GIT__DEFAULT/ git.default
+
+The Git branch to checkout if `git.branch` isn't specified. Defaults to `master`.
+
 #### **MATERIA_GIT__PRIVATE_KEY**/ **git.private_key**
 
 Private key used for SSH-based git operations
@@ -63,3 +67,7 @@ Username and password used for HTTP-based git operations
 #### **MATERIA_GIT__INSECURE**/ **git.insecure**
 
 Disable SSH knownhosts checking for git SSH operations and use `http://` instead of `https://` for HTTP operations.
+
+#### MATERIA_GIT__CAREFUL/ git.careful
+
+Prevents materia from running git operations that would overwrite git history (i.e. anything requiring `--force`). Defaults to `false`.
