@@ -55,7 +55,7 @@ podman run --name materia --rm \
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE__KEYFILE=/etc/materia/key.txt \
 	--env MATERIA_GIT__PRIVATE_KEY=/etc/materia/materia_key \
-	--env MATERIA_SOURCE__URL=git://git@github.com/stryan/materia_example_repo \
+	--env MATERIA_SOURCE__URL=git://github.com/stryan/materia_example_repo \
 	ghcr.io/stryan/materia:stable update
 ```
 

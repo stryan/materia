@@ -63,6 +63,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 	rawSourceConfig := k.Cut("source")
 	var sourceConfig source.SourceConfig
 	sourceConfig.URL = rawSourceConfig.String("url")
+	sourceConfig.Kind = rawSourceConfig.String("kind")
 
 	err := sourceConfig.Validate()
 	if err != nil {
