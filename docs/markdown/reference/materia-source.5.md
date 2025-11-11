@@ -24,11 +24,21 @@ Presented in *environmental variable*/**TOML config line option** format.
 
 ### Source Config
 
+#### MATERIA_SOURCE_KIND / source.kind
+
+Remote source repository kind. Supported values: `git`,`file`.
+
+If left empty materia will guess based off the provided URL. Otherwise the specified `source.url` will be provided directly to the source provider.
+
 #### MATERIA_SOURCE__URL / source.url
 
-Source location of the *materia-repository(5)* in URL format. Accepted formats:
+Source location of the *materia-repository(5)* in URL format. Will be provided directly to the source provider.
 
-    Git Repo: `git://git_repo_url`.
+If `source.kind` is not specified it will attempt to guess what source to use based off the following formats:
+
+Accepted formats:
+
+    Git Repo: `git://git_repo_url`. Will be treated as an HTTP(s) remote
 
     Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
 
@@ -37,6 +47,10 @@ Source location of the *materia-repository(5)* in URL format. Accepted formats:
 #### **MATERIA_GIT__BRANCH**/ **git.branch**
 
 Git branch to checkout.
+
+#### MATERIA_GIT__DEFAULT/ git.default
+
+The Git branch to checkout if `git.branch` isn't specified. Defaults to `master`.
 
 #### **MATERIA_GIT__PRIVATE_KEY**/ **git.private_key**
 
@@ -53,3 +67,7 @@ Username and password used for HTTP-based git operations
 #### **MATERIA_GIT__INSECURE**/ **git.insecure**
 
 Disable SSH knownhosts checking for git SSH operations and use `http://` instead of `https://` for HTTP operations.
+
+#### MATERIA_GIT__CAREFUL/ git.careful
+
+Prevents materia from running git operations that would overwrite git history (i.e. anything requiring `--force`). Defaults to `false`.

@@ -6,6 +6,8 @@ Best effort list of major changes and bugfixes
 
 ## Unreleased
 
+- Source types can now be specified with the `source.kind` option. The current `git://` or `file://` methods should work as before, see the `materia-source` reference page for details.
+
 ## 0.4.1
 - `materia` now does a dry-run of Quadlets update when running `systemctl daemon-reload` to prevent installing bad Quadlet files over working ones
 - Support `.build` and `.image` quadlets

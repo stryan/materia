@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type FileSource struct {
@@ -21,11 +22,12 @@ func (f *FileSource) Clean() (_ error) {
 }
 
 func NewFileSource(c *Config) (*FileSource, error) {
-	if _, err := os.Stat(c.SourcePath); err != nil {
+	source := strings.TrimPrefix(c.SourcePath, "file://")
+	if _, err := os.Stat(source); err != nil {
 		return nil, err
 	}
 	return &FileSource{
-		RemoteRepository: c.SourcePath,
+		RemoteRepository: source,
 		Destination:      c.Destination,
 	}, nil
 }

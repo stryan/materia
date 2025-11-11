@@ -65,6 +65,7 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO update to new source format?
 	for name, r := range man.Remotes {
 		parsedPath := strings.Split(r.URL, "://")
 		var remoteSource materia.Source
@@ -73,14 +74,14 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		case "git":
 			localpath := filepath.Join(s.remoteDir, "components", name)
 			remoteSource, err = git.NewGitSource(&git.Config{
-				Branch:           r.Version,
-				PrivateKey:       "",
-				Username:         "",
-				Password:         "",
-				KnownHosts:       "",
-				Insecure:         false,
-				LocalRepository:  localpath,
-				RemoteRepository: parsedPath[1],
+				Branch:          r.Version,
+				PrivateKey:      "",
+				Username:        "",
+				Password:        "",
+				KnownHosts:      "",
+				Insecure:        false,
+				LocalRepository: localpath,
+				URL:             r.URL,
 			})
 			if err != nil {
 				return fmt.Errorf("invalid git source: %w", err)
@@ -88,7 +89,7 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		case "file":
 			localpath := filepath.Join(s.remoteDir, "components", name)
 			remoteSource, err = file.NewFileSource(&file.Config{
-				SourcePath:  parsedPath[1],
+				SourcePath:  r.URL,
 				Destination: localpath,
 			})
 			if err != nil {
