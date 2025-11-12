@@ -4,7 +4,7 @@ A GitOps style tool for managing services and applications deployed as [Quadlets
 
 ## Features
 
-- Easy deployment: Grab the binary or pull the image, set the `MATERIA_SOURCE__URL` environment variable, and you're good to go
+- Easy deployment: Grab the binary or pull the image, set the `MATERIA_SOURCE__URL` environment variable, and you're good to go.
 - Handles the full lifecycle of a service: no need to write tedious install and uninstall runbooks for each service you're running, just add or remove them from the manifest and Materia handles the rest.
 - Share the work: Re-use other peoples Materia components with just a single line.
 - Container-native and systemd-native management: works with the existing tools on your hosts instead of requiring you to install something else

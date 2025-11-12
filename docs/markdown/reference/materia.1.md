@@ -22,7 +22,7 @@ materia - a tool for deploying Quadlets and associated files
 
 Materia can be configured via either environmental variables or a TOML config file. The most common environmental variables are documented below:
 
-- `MATERIA_SOURCE__URL`: URL with location of the materia-repository. Example: `export MATERIA_SOURCE__URL="git://git@github.com/materia/materia_repo`
+- `MATERIA_SOURCE__URL`: URL with location of the materia-repository. Example: `export MATERIA_SOURCE__URL="git://github.com/materia/materia_repo`
 
 See materia-config(5) and materia-repository(5) for more details.
 

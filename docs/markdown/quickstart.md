@@ -261,7 +261,9 @@ These steps will assume your git repository is at `github.com/user/materia-repo`
 
 Materia needs to know where your repository is. This can be done in a config file, but we'll just use an environmental variable
 
-`export MATERIA_SOURCE__URL=git://git@github.com:user/materia-repo`
+`export MATERIA_SOURCE__URL=git://github.com:user/materia-repo`
+
+Note that this causes Materia to perform a git clone over https by default. If you want to use SSH or other Git options you would explicitly set `MATERIA_SOURCE__KIND=git`.
 
 ### Configure materia's attributes engine
 

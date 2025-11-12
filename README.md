@@ -134,7 +134,7 @@ EOL
 ### Push the repository to your forge of choice
 
 ```
-git remote add origin git@github.com:user/materia_repo
+git remote add origin github.com:user/materia_repo
 git push
 ```
 
@@ -145,7 +145,7 @@ Materia is designed to be configured with environment variables; if you would li
 
 Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
 
-`export MATERIA_SOURCE__URL="git://git@github.com:user/materia_repo"`
+`export MATERIA_SOURCE__URL="git://github.com:user/materia_repo"`
 
 ### Generate the test plan
 
