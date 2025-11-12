@@ -9,5 +9,4 @@ test_repo/
 **/*.age
 **/*.enc.yml
 scripts/vm/auth/*
-docs/man
-docs/site
+docs/output

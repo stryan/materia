@@ -11,6 +11,7 @@ sops = "latest"
 experimental = true
 
 [vars]
+CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
 LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
 AGEKEY = "age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606"
@@ -115,8 +116,8 @@ description = "generate manpages"
 dir = "docs"
 tools.pandoc = "latest"
 run = [
-  "mkdir -p man",
-  "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o man/\"$(basename ${0%.md})\"' {} \\; ",
+  "mkdir -p output/{{vars.CURRENTBRANCH}}/man",
+  "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o output/{{vars.CURRENTBRANCH}}/man/\"$(basename ${0%.md})\"' {} \\; ",
 ]
 
 [tasks.docs-html]
@@ -125,7 +126,7 @@ tools."pipx:mkdocs" = "latest"
 tools.pipx = "latest"
 tools.python = "latest"
 dir = "docs"
-run = "mkdocs build"
+run = 'mkdocs build --site-dir="output/{{vars.CURRENTBRANCH}}/html"'
 
 [tasks.release]
 description = "Generate github release"
