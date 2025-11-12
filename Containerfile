@@ -8,7 +8,11 @@ RUN /root/.local/bin/mise build
 
 
 FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
-LABEL org.opencontainers.image.description Materia: a GitOps tool for managing Quadlets
+
+LABEL org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets"
+LABEL org.opencontainers.image.licenses=GPLv3
+
+
 ARG TARGETARCH
 WORKDIR /app
 RUN mkdir -p /lib64
