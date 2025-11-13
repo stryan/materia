@@ -129,10 +129,8 @@ run = 'mkdocs build --site-dir="output/{{vars.CURRENTBRANCH}}/html"'
 
 [tasks.release]
 description = "Generate github release"
-depends = ["build"]
+depends = ["build", "lint", "test", "docs"]
 tools.gh = "latest"
 run = [
-  "git remote add mirror git@github.com:stryan/materia",
   'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
-  "git remote rm mirror",
 ]
