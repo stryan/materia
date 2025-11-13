@@ -4,9 +4,13 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
-## Unreleased
+## 0.4.2
 
 - Source types can now be specified with the `source.kind` option. The current `git://` or `file://` methods should work as before, see the `materia-source` reference page for details.
+- bugfix: fix nosync function
+- bugfix: use private key in .ssh when one isn't specified
+- feat: support all unit types
+
 
 ## 0.4.1
 - `materia` now does a dry-run of Quadlets update when running `systemctl daemon-reload` to prevent installing bad Quadlet files over working ones
