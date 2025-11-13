@@ -50,7 +50,7 @@ func main() {
 				Required: false,
 				Sources:  cli.EnvVars("MATERIA_NOSYNC"),
 				Action: func(ctx context.Context, cm *cli.Command, b bool) error {
-					cliflags["source.nosync"] = true
+					cliflags["nosync"] = true
 					return nil
 				},
 			},
