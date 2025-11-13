@@ -15,11 +15,11 @@ var ErrCorruptComponent = errors.New("error corrupt component")
 
 type Component struct {
 	Name             string
+	Settings         manifests.Settings
 	Resources        []Resource
 	Scripted         bool
 	State            ComponentLifecycle
 	Defaults         map[string]any
-	Secrets          []string
 	ServiceResources map[string]manifests.ServiceResourceConfig
 	Version          int
 }
@@ -99,7 +99,7 @@ func FindResourceType(file string) ResourceType {
 	case ".kube":
 		return ResourceTypeKube
 	case ".toml":
-		if filepath.Base(file) == "MANIFEST.toml" {
+		if filepath.Base(file) == manifests.ComponentManifestFile {
 			return ResourceTypeManifest
 		}
 		return ResourceTypeFile

@@ -3,6 +3,8 @@ package components
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 type Resource struct {
@@ -65,14 +67,43 @@ func (r *Resource) String() string {
 
 func (r *Resource) Name() string {
 	if r.Template {
+		return filepath.Base(fmt.Sprintf("%v.gotmpl", r.Path))
+	}
+	return filepath.Base(r.Path)
+}
+
+func (r *Resource) Filepath() string {
+	if r.Template {
 		return fmt.Sprintf("%v.gotmpl", r.Path)
 	}
 	return r.Path
 }
 
+func (r *Resource) Service() string {
+	name := filepath.Base(r.Path)
+	switch r.Kind {
+	case ResourceTypeContainer:
+		return strings.ReplaceAll(name, ".container", ".service")
+	case ResourceTypeKube:
+		return strings.ReplaceAll(name, ".kube", ".service")
+	case ResourceTypePod:
+		return strings.ReplaceAll(name, ".pod", "-pod.service")
+	case ResourceTypeNetwork:
+		return strings.ReplaceAll(name, ".network", "-network.service")
+	case ResourceTypeVolume:
+		return strings.ReplaceAll(name, ".volume", "-volume.service")
+	case ResourceTypeBuild:
+		return strings.ReplaceAll(name, ".build", "-build.service")
+	case ResourceTypeImage:
+		return strings.ReplaceAll(name, ".image", "-image.service")
+	default:
+		return ""
+	}
+}
+
 func (r Resource) IsQuadlet() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod:
+	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage:
 		return true
 	default:
 		return false
@@ -81,7 +112,7 @@ func (r Resource) IsQuadlet() bool {
 
 func (r Resource) IsFile() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService, ResourceTypeComponentScript:
+	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeImage, ResourceTypeBuild, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService, ResourceTypeComponentScript:
 		return true
 	default:
 		return false

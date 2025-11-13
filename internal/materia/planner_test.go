@@ -808,8 +808,8 @@ func TestPlan(t *testing.T) {
 	for k, v := range plan.Steps() {
 		expected := expected[k]
 		assert.Equal(t, expected.Todo, v.Todo, "%v Todo not equal: %v != %v", v, v.Todo, expected.Todo)
-		assert.Equal(t, expected.Parent.Name, v.Parent.Name, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Parent.Name, expected.Parent.Name)
-		assert.Equal(t, expected.Target.Path, v.Target.Path, "Res %v Path not equal: %v != %v", v.Target.Name(), v.Target.Path, expected.Target.Path)
+		assert.Equal(t, expected.Parent.Name, v.Parent.Name, "Res %v Parent not equal: %v != %v", v.Target.Path, v.Parent.Name, expected.Parent.Name)
+		assert.Equal(t, expected.Target.Path, v.Target.Path, "Res %v Path not equal: %v != %v", v.Target.Path, v.Target.Path, expected.Target.Path)
 	}
 }
 

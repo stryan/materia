@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/charmbracelet/log"
@@ -201,7 +200,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if v.Target.Kind != components.ResourceTypeVolume {
 				return fmt.Errorf("tried to ensure non volume resource: %v", v.Target)
 			}
-			service := strings.TrimSuffix(v.Target.Path, ".volume")
 			err := m.modifyService(ctx, Action{
 				Todo:   ActionReload,
 				Parent: rootComponent,
@@ -215,7 +213,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				Parent: v.Parent,
 				Target: components.Resource{
 					Parent: v.Parent.Name,
-					Path:   fmt.Sprintf("%v-volume.service", service),
+					Path:   v.Target.Service(),
 					Kind:   components.ResourceTypeService,
 				},
 			})

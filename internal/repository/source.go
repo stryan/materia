@@ -63,7 +63,7 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 	if err != nil {
 		return "", err
 	}
-	resPath := filepath.Join(prefix, res.Name())
+	resPath := filepath.Join(prefix, res.Filepath())
 
 	curFile, err := os.ReadFile(resPath)
 	if err != nil {
@@ -133,6 +133,7 @@ func (s *SourceComponentRepository) GetComponent(name string, override *manifest
 		}
 	}
 	maps.Copy(c.Defaults, man.Defaults)
+	c.Settings = man.Settings
 	slices.Sort(man.Secrets)
 	for _, s := range man.Secrets {
 		secretResources = append(secretResources, components.Resource{

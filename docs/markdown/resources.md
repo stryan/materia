@@ -14,6 +14,8 @@ Resource kind is determined by file type (with the exception of scripts, which c
 
 These resources are installed into the Quadlet directory. Removing them does not remove the created Quadlet (container,volume,etc) on the host unless `cleanup` is enabled.
 
+Container and Pod units will be restarted automatically when their associated files are updated. This behaviour can be controlled with the `NoRestart` component setting.
+
 The following file types are quadlets: `.container`,`.volume`,`.pod`,`.network`,`.build`,`.image` and `.kube`.
 
 ### Data Resources
