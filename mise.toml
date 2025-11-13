@@ -55,12 +55,16 @@ run = """
 """
 
 [tasks.virter-test]
+usage = '''
+flag "-k --keep" help="Keep VM after running tests"
+'''
 depends = ["build", "test", "virter-age", "virter-sops"]
-run = [
-  "if ! virter vm exists materia-test-alma-9; then virter vm run --name materia-test-alma-9 --id 102 --wait-ssh alma-9; fi",
-  "virter vm exec materia-test-alma-9 --provision ./virter/virter_test.toml",
-  "virter vm rm materia-test-alma-9",
-]
+run = '''
+  #!/usr/bin/env bash
+  if ! virter vm exists materia-test-alma-9; then virter vm run --name materia-test-alma-9 --id 102 --wait-ssh alma-9; fi
+  virter vm exec materia-test-alma-9 --provision ./virter/virter_test.toml
+  [[ "${usage_keep:+false}" == "true" ]] && virter vm rm materia-test-alma-9 || true
+'''
 
 [tasks.virter-testsuite]
 run = "gotestsum ./virter"

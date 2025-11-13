@@ -58,5 +58,6 @@ then
 	mise trust .
 fi
 rm -f mise.local.toml
+systemctl enable --now podman.socket
 mise task run virter-testsuite
 """

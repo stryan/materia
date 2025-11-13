@@ -23,6 +23,8 @@ var (
 	quadPrefix = "/etc/containers/systemd/"
 )
 
+var envVars = []string{}
+
 func clearMateria() error {
 	err := os.RemoveAll("/var/lib/materia")
 	if err != nil {
@@ -38,7 +40,19 @@ func clearMateria() error {
 			return err
 		}
 	}
+	for _, v := range envVars {
+		err = os.Unsetenv(v)
+		if err != nil {
+			return err
+		}
+	}
+	envVars = []string{}
 	return nil
+}
+
+func setEnv(key, value string) error {
+	envVars = append(envVars, key)
+	return os.Setenv(key, value)
 }
 
 func fileExists(filePath string) bool {
@@ -67,6 +81,14 @@ func fileEqual(src, dest string) ([]diffmatchpatch.Diff, error) {
 	}
 	destContent := string(destBytes)
 	return dmp.DiffMain(srcContent, destContent, false), nil
+}
+
+func componentExists(name string) bool {
+	_, err := os.Stat(filepath.Join("/var/lib/materia/components", name))
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func componentInstalled(name, goldenPath string) bool {
@@ -147,6 +169,24 @@ func connectSystemd(ctx context.Context, user bool) (*dbus.Conn, error) {
 
 	}
 	return conn, nil
+}
+
+func checkService(ctx context.Context, conn *dbus.Conn, name string, state string) bool {
+	states, err := conn.ListUnitsByNamesContext(ctx, []string{name})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(states) == 0 {
+		return false
+	}
+	result := true
+	for _, s := range states {
+		if s.ActiveState != state {
+			log.Warnf("service %v isn't running", s.Name)
+			result = false
+		}
+	}
+	return result
 }
 
 func servicesRunning(ctx context.Context, conn *dbus.Conn, goldenPath string) bool {
@@ -257,10 +297,10 @@ func TestCNF(t *testing.T) {
 
 func TestRepo1_Simple(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo1"))
-	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
-	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo1"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -272,7 +312,7 @@ func TestRepo1_Simple(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo1/hello"))
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "noname"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
 	runCmd = exec.Command("materia", "update")
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
@@ -288,10 +328,10 @@ func TestRepo2_Complex(t *testing.T) {
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
 	require.NoError(t, clearMateria(), "unable to clean up before test")
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -310,7 +350,7 @@ func TestRepo2_Complex(t *testing.T) {
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "double")))
 	require.True(t, componentInstalled("freshrss", filepath.Join(goldenPath, "freshrss")))
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "freshrss")))
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "noname"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
 	runCmd = exec.Command("materia", "update")
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
@@ -330,11 +370,11 @@ func TestRepo3_SOPS(t *testing.T) {
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
 	require.NoError(t, clearMateria(), "unable to clean up before test")
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
-	require.Nil(t, os.Setenv("MATERIA_SOPS__SUFFIX", "enc"))
-	require.Nil(t, os.Setenv("MATERIA_SOPS__BASE_DIR", "secrets"))
-	require.Nil(t, os.Setenv("SOPS_AGE_KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, setEnv("MATERIA_SOPS__BASE_DIR", "secrets"))
+	require.Nil(t, setEnv("SOPS_AGE_KEY_FILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -353,7 +393,7 @@ func TestRepo3_SOPS(t *testing.T) {
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "double")))
 	require.True(t, componentInstalled("freshrss", filepath.Join(goldenPath, "freshrss")))
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "freshrss")))
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "noname"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
 	runCmd = exec.Command("materia", "update")
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
@@ -368,11 +408,11 @@ func TestRepo3_SOPS(t *testing.T) {
 
 func TestRepo4_VolumeMigration(t *testing.T) {
 	require.NoError(t, clearMateria(), "unable to clean up before test")
-	require.Nil(t, os.Setenv("MATERIA_HOSTNAME", "localhost"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4"))
-	require.Nil(t, os.Setenv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo4/test-key.txt"))
-	require.Nil(t, os.Setenv("MATERIA_AGE__BASE_DIR", "secrets"))
-	require.Nil(t, os.Setenv("MATERIA_MIGRATE_VOLUMES", "true"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo4/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	require.Nil(t, setEnv("MATERIA_MIGRATE_VOLUMES", "true"))
 	planCmd := exec.Command("materia", "plan")
 	planCmd.Stdout = os.Stdout
 	planCmd.Stderr = os.Stderr
@@ -384,10 +424,74 @@ func TestRepo4_VolumeMigration(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo4/hello"))
-	require.Nil(t, os.Setenv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4_pt2"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4_pt2"))
 	runCmd = exec.Command("materia", "update")
 	runCmd.Stdout = os.Stdout
 	runCmd.Stderr = os.Stderr
 	err = runCmd.Run()
 	require.NoError(t, err)
+}
+
+func Test_ExampleRepo(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err, "could't connect to systemd over dbus")
+	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__KIND", "git"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "https://github.com/stryan/materia_example_repo"))
+	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, setEnv("MATERIA_SOPS__BASE_DIR", "attributes"))
+	require.Nil(t, setEnv("SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err = planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentExists("freshrss"))
+	require.True(t, componentExists("podman_exporter"))
+	require.True(t, checkService(ctx, conn, "freshrss.service", "active"))
+	require.True(t, checkService(ctx, conn, "podman_exporter.service", "active"))
+	require.NoError(t, stopService(ctx, conn, "freshrss.service"))
+	require.NoError(t, stopService(ctx, conn, "podman_exporter.service"))
+}
+
+func Test_ExampleRepoBranch(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err, "could't connect to systemd over dbus")
+	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__KIND", "git"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "https://github.com/stryan/materia_example_repo"))
+	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, setEnv("MATERIA_SOPS__BASE_DIR", "attributes"))
+	require.Nil(t, setEnv("SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err = planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentExists("freshrss"))
+	require.True(t, componentExists("podman_exporter"))
+	require.True(t, checkService(ctx, conn, "freshrss.service", "active"))
+	require.True(t, checkService(ctx, conn, "podman_exporter.service", "active"))
+	require.Nil(t, setEnv("MATERIA_GIT__BRANCH", "example-branch"))
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	runCmd = exec.Command("materia", "update")
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.False(t, componentExists("freshrss"))
+	require.False(t, checkService(ctx, conn, "freshrss.service", "active"))
 }
