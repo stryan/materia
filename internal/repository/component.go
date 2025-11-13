@@ -108,6 +108,7 @@ func (r *HostComponentRepository) GetComponent(name string, _ *manifests.Compone
 			oldComp.ServiceResources[s.Service] = s
 		}
 		slices.Sort(man.Secrets)
+		oldComp.Settings = man.Settings
 		for _, s := range man.Secrets {
 			secretRes := components.Resource{
 				Path:     s,
@@ -415,9 +416,9 @@ func (r *HostComponentRepository) ReadResource(res components.Resource) (string,
 		return "", errors.New("secrets don't live in repositories")
 	}
 	if res.IsQuadlet() {
-		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Name())
+		resPath = filepath.Join(r.QuadletPrefix, res.Parent, res.Filepath())
 	} else {
-		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Name())
+		resPath = filepath.Join(r.DataPrefix, res.Parent, res.Filepath())
 	}
 
 	curFile, err := os.ReadFile(resPath)

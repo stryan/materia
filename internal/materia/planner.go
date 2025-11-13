@@ -418,6 +418,19 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 			for _, a := range updatedServiceActions {
 				triggeredServices = append(triggeredServices, a.Target.Path)
 			}
+		} else {
+			// For updated containers and pods, add a restart option
+			if (d.Target.Kind == components.ResourceTypeContainer || d.Target.Kind == components.ResourceTypePod) && d.Todo == ActionUpdate && !newComponent.Settings.NoRestart {
+				actions = append(actions, Action{
+					Todo:   ActionRestart,
+					Parent: newComponent,
+					Target: components.Resource{
+						Path:   d.Target.Service(),
+						Parent: newComponent.Name,
+						Kind:   components.ResourceTypeService,
+					},
+				})
+			}
 		}
 
 	}

@@ -26,6 +26,10 @@ type BackupsConfig struct {
 	NoCompress bool     `toml:"NoCompress"`
 }
 
+type Settings struct {
+	NoRestart bool
+}
+
 func (src ServiceResourceConfig) Validate() error {
 	if src.Service == "" {
 		return errors.New("service config without a name")
@@ -35,6 +39,7 @@ func (src ServiceResourceConfig) Validate() error {
 
 type ComponentManifest struct {
 	Defaults map[string]any          `toml:"Defaults"`
+	Settings Settings                `toml:"Settings"`
 	Snippets []SnippetConfig         `toml:"Snippets"`
 	Services []ServiceResourceConfig `toml:"Services"`
 	Backups  *BackupsConfig          `toml:"Backups"`

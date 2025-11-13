@@ -86,6 +86,14 @@ components = ["authelia"]
 
 ### Options
 
+#### Settings
+
+Key-value pairs for component settings. Contains the following options:
+
+##### NoRestart
+
+By default, materia will restart services belonging to `.container` and `.pod` resources when they are updated. Set to `true` to disable this behaviour.
+
 #### *Defaults*
 
 Key-value pairs describing default variable/attribute values for a component.

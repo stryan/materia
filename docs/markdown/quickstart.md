@@ -154,9 +154,9 @@ Service = "caddy.service"
 
 The `[Defaults]` section is a TOML table describing default attribute values. In this case, the `containerTag` attribute is set to `latest` by default.
 
-The `[[Services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed seperately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped, and if the service is detected as not-running when materia runs it will attempt to start it again.
+The `[[Services]]` section is a TOML array describing what services the component cares about. They can be either a part of the component or installed separately. In this case, the only service that is defined is the `caddy.service`. This means that when the component is installed materia will start the `caddy.service` unit, when the component is removed it will make sure the service is stopped, and if the service is detected as not-running when materia runs it will attempt to start it again.
 
-For more details, such as how to set services to restart when certain files are updated, see the [component section of the manifest reference](reference/materia-manifest.5.md).
+For more details, such as how to set services to restart or reload when certain files are updated, see the [component section of the manifest reference](reference/materia-manifest.5.md). Materia will restart services for containers and pods by default when their resources change, but for the sake of this quickstart we will be specific.
 
 
 ### Create repository attributes
