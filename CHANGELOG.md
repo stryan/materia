@@ -6,6 +6,7 @@ Best effort list of major changes and bugfixes
 
 ## 0.4.2
 
+- feat: restart containers and pods when resource updated by default
 - Source types can now be specified with the `source.kind` option. The current `git://` or `file://` methods should work as before, see the `materia-source` reference page for details.
 - bugfix: fix nosync function
 - bugfix: use private key in .ssh when one isn't specified
