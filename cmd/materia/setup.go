@@ -150,13 +150,15 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, err
 	}
-	err = sm.Sync(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error with initial repo sync: %w", err)
-	}
-	err = sm.SyncRemotes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
+	if !c.NoSync {
+		err = sm.Sync(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error with initial repo sync: %w", err)
+		}
+		err = sm.SyncRemotes(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error with repo remotes sync: %w", err)
+		}
 	}
 	hm, err := hostman.NewHostManager(c)
 	if err != nil {
