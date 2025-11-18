@@ -23,10 +23,18 @@ var (
 	quadPrefix = "/etc/containers/systemd/"
 )
 
-var envVars = []string{}
+var (
+	envVars         = []string{}
+	runningServices = []string{}
+)
 
-func clearMateria() error {
-	err := os.RemoveAll("/var/lib/materia")
+func clearMateria(ctx context.Context) error {
+	conn, err := connectSystemd(ctx, false)
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll("/var/lib/materia")
 	if err != nil {
 		return err
 	}
@@ -47,6 +55,13 @@ func clearMateria() error {
 		}
 	}
 	envVars = []string{}
+	for _, s := range runningServices {
+		err := stopService(ctx, conn, s)
+		if err != nil {
+			return err
+		}
+	}
+	runningServices = []string{}
 	return nil
 }
 
@@ -85,10 +100,7 @@ func fileEqual(src, dest string) ([]diffmatchpatch.Diff, error) {
 
 func componentExists(name string) bool {
 	_, err := os.Stat(filepath.Join("/var/lib/materia/components", name))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func componentInstalled(name, goldenPath string) bool {
@@ -229,46 +241,12 @@ func servicesRunning(ctx context.Context, conn *dbus.Conn, goldenPath string) bo
 		if s.ActiveState != "active" {
 			log.Warnf("service %v isn't running", s.Name)
 			result = false
+		} else {
+			runningServices = append(runningServices, s.Name)
 		}
 	}
 
 	return result
-}
-
-func clearServices(ctx context.Context, conn *dbus.Conn, goldenPath string) error {
-	_, err := os.Stat(goldenPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	servicesList := filepath.Join(goldenPath, "services")
-	if !fileExists(servicesList) {
-		return fmt.Errorf("checking services for %v but no services list", goldenPath)
-	}
-
-	file, err := os.Open(servicesList)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
-	}
-	defer func() { _ = file.Close() }()
-
-	// Create a new Scanner for the file.
-	scanner := bufio.NewScanner(file)
-
-	// Iterate over each line in the file.
-	var names []string
-	for scanner.Scan() {
-		names = append(names, scanner.Text())
-	}
-	for _, n := range names {
-		err = stopService(ctx, conn, n)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func stopService(ctx context.Context, conn *dbus.Conn, n string) error {
@@ -296,7 +274,8 @@ func TestCNF(t *testing.T) {
 }
 
 func TestRepo1_Simple(t *testing.T) {
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	ctx := context.Background()
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo1"))
 	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
@@ -327,7 +306,7 @@ func TestRepo2_Complex(t *testing.T) {
 	goldenPath := "/root/materia/virter/out/testrepo2"
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
 	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
@@ -360,7 +339,6 @@ func TestRepo2_Complex(t *testing.T) {
 	require.True(t, componentRemoved("double"))
 	require.True(t, componentRemoved("carpal"))
 	require.True(t, componentRemoved("freshrss"))
-	require.NoError(t, stopService(ctx, conn, "hello.service"))
 }
 
 func TestRepo3_SOPS(t *testing.T) {
@@ -369,7 +347,7 @@ func TestRepo3_SOPS(t *testing.T) {
 	goldenPath := "/root/materia/virter/out/testrepo3"
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
 	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
@@ -403,11 +381,11 @@ func TestRepo3_SOPS(t *testing.T) {
 	require.True(t, componentRemoved("double"))
 	require.True(t, componentRemoved("carpal"))
 	require.True(t, componentRemoved("freshrss"))
-	require.NoError(t, stopService(ctx, conn, "hello.service"))
 }
 
 func TestRepo4_VolumeMigration(t *testing.T) {
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	ctx := context.Background()
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4"))
 	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo4/test-key.txt"))
@@ -436,7 +414,7 @@ func Test_ExampleRepo(t *testing.T) {
 	ctx := context.Background()
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__KIND", "git"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "https://github.com/stryan/materia_example_repo"))
@@ -457,15 +435,13 @@ func Test_ExampleRepo(t *testing.T) {
 	require.True(t, componentExists("podman_exporter"))
 	require.True(t, checkService(ctx, conn, "freshrss.service", "active"))
 	require.True(t, checkService(ctx, conn, "podman_exporter.service", "active"))
-	require.NoError(t, stopService(ctx, conn, "freshrss.service"))
-	require.NoError(t, stopService(ctx, conn, "podman_exporter.service"))
 }
 
 func Test_ExampleRepoBranch(t *testing.T) {
 	ctx := context.Background()
 	conn, err := connectSystemd(ctx, false)
 	require.NoError(t, err, "could't connect to systemd over dbus")
-	require.NoError(t, clearMateria(), "unable to clean up before test")
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
 	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__KIND", "git"))
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "https://github.com/stryan/materia_example_repo"))

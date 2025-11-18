@@ -19,7 +19,7 @@ type Repository interface {
 
 // TODO split this into host and source repos
 type ComponentRepository interface {
-	GetComponent(string, *manifests.ComponentManifest) (*components.Component, error)
+	GetComponent(string) (*components.Component, error)
 	GetResource(*components.Component, string) (components.Resource, error)
 	GetManifest(*components.Component) (*manifests.ComponentManifest, error)
 	InstallComponent(*components.Component) error

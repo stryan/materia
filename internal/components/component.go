@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/toml"
 	"primamateria.systems/materia/pkg/manifests"
 )
+
+const DefaultComponentVersion = 1
 
 var ErrCorruptComponent = errors.New("error corrupt component")
 
@@ -42,8 +46,6 @@ type ComponentVersion struct {
 	Version int
 }
 
-const DefaultComponentVersion = 1
-
 func NewComponent(name string) *Component {
 	return &Component{
 		Name:             name,
@@ -52,6 +54,47 @@ func NewComponent(name string) *Component {
 		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
 		Resources:        []Resource{},
 	}
+}
+
+func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
+	maps.Copy(c.Defaults, man.Defaults)
+	c.Settings = (man.Settings)
+	slices.Sort(man.Secrets)
+	var secretResources []Resource
+	for _, s := range man.Secrets {
+		secretResources = append(secretResources, Resource{
+			Path:     s,
+			Kind:     ResourceTypePodmanSecret,
+			Parent:   c.Name,
+			Template: false,
+		})
+	}
+	for _, s := range man.Services {
+		if err := s.Validate(); err != nil {
+			return fmt.Errorf("invalid service for component: %w", err)
+		}
+		c.ServiceResources[s.Service] = s
+	}
+	for k, r := range c.Resources {
+		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
+			r.Kind = ResourceTypeScript
+			c.Resources[k] = r
+		}
+	}
+	// TODO replace this with something better
+	for _, s := range secretResources {
+		found := false
+		for _, r := range c.Resources {
+			if r.Path == s.Path && r.Kind == ResourceTypePodmanSecret {
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.Resources = append(c.Resources, s)
+		}
+	}
+	return nil
 }
 
 func (c *Component) String() string {

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,12 +48,11 @@ func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponen
 	}, nil
 }
 
-func (r *HostComponentRepository) GetComponent(name string, _ *manifests.ComponentManifest) (*components.Component, error) {
+func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {
 	oldComp := components.NewComponent(name)
 	dataPath := filepath.Join(r.DataPrefix, name)
 	quadletPath := filepath.Join(r.QuadletPrefix, name)
 	// load resources
-	var man *manifests.ComponentManifest
 	versionFileExists := true
 	_, err := os.Stat(filepath.Join(dataPath, ".component_version"))
 	if err != nil {
@@ -94,31 +92,31 @@ func (r *HostComponentRepository) GetComponent(name string, _ *manifests.Compone
 		return nil, err
 	}
 	oldComp.Resources = append(oldComp.Resources, manifestResource)
-	if oldComp.Version == components.DefaultComponentVersion {
-		log.Debugf("loading installed component manifest %v", oldComp.Name)
-		man, err = manifests.LoadComponentManifest(manifestPath)
-		if err != nil {
-			return nil, fmt.Errorf("error loading component manifest: %w", err)
-		}
-		maps.Copy(oldComp.Defaults, man.Defaults)
-		for _, s := range man.Services {
-			if err := s.Validate(); err != nil {
-				return nil, fmt.Errorf("invalid service for component: %w", err)
-			}
-			oldComp.ServiceResources[s.Service] = s
-		}
-		slices.Sort(man.Secrets)
-		oldComp.Settings = man.Settings
-		for _, s := range man.Secrets {
-			secretRes := components.Resource{
-				Path:     s,
-				Kind:     components.ResourceTypePodmanSecret,
-				Parent:   name,
-				Template: false,
-			}
-			secretResource = append(secretResource, secretRes)
-		}
-	}
+	// if oldComp.Version == components.DefaultComponentVersion {
+	// 	log.Debugf("loading installed component manifest %v", oldComp.Name)
+	// 	man, err = manifests.LoadComponentManifest(manifestPath)
+	// 	if err != nil {
+	// 		return nil, fmt.Errorf("error loading component manifest: %w", err)
+	// 	}
+	// 	maps.Copy(oldComp.Defaults, man.Defaults)
+	// 	for _, s := range man.Services {
+	// 		if err := s.Validate(); err != nil {
+	// 			return nil, fmt.Errorf("invalid service for component: %w", err)
+	// 		}
+	// 		oldComp.ServiceResources[s.Service] = s
+	// 	}
+	// 	slices.Sort(man.Secrets)
+	// 	oldComp.Settings = man.Settings
+	// 	for _, s := range man.Secrets {
+	// 		secretRes := components.Resource{
+	// 			Path:     s,
+	// 			Kind:     components.ResourceTypePodmanSecret,
+	// 			Parent:   name,
+	// 			Template: false,
+	// 		}
+	// 		secretResource = append(secretResource, secretRes)
+	// 	}
+	// }
 
 	err = filepath.WalkDir(dataPath, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -166,13 +164,6 @@ func (r *HostComponentRepository) GetComponent(name string, _ *manifests.Compone
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
 	oldComp.Resources = append(oldComp.Resources, secretResource...)
-	for k, r := range oldComp.Resources {
-		if man != nil && r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
-			r.Kind = components.ResourceTypeScript
-			oldComp.Resources[k] = r
-		}
-	}
-
 	return oldComp, nil
 }
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -98,7 +97,7 @@ func (s *SourceComponentRepository) Clean() error {
 	return nil
 }
 
-func (s *SourceComponentRepository) GetComponent(name string, override *manifests.ComponentManifest) (*components.Component, error) {
+func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
 	path, err := s.getPrefix(name)
 	if err != nil {
 		return nil, err
@@ -110,7 +109,6 @@ func (s *SourceComponentRepository) GetComponent(name string, override *manifest
 	c.Version = components.DefaultComponentVersion
 	c.ServiceResources = make(map[string]manifests.ServiceResourceConfig)
 	log.Debugf("loading source component %v from path %v", c.Name, path)
-	var man *manifests.ComponentManifest
 	scripts := 0
 
 	secretResources := []components.Resource{}
@@ -121,29 +119,6 @@ func (s *SourceComponentRepository) GetComponent(name string, override *manifest
 		}
 		return nil, err
 	}
-	log.Debugf("loading source component manifest %v", c.Name)
-	man, err = manifests.LoadComponentManifest(manifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("error loading component manifest: %w", err)
-	}
-	if override != nil {
-		man, err = manifests.MergeComponentManifests(override, man)
-		if err != nil {
-			return nil, fmt.Errorf("error overriding component %v manifest: %w", c.Name, err)
-		}
-	}
-	maps.Copy(c.Defaults, man.Defaults)
-	c.Settings = man.Settings
-	slices.Sort(man.Secrets)
-	for _, s := range man.Secrets {
-		secretResources = append(secretResources, components.Resource{
-			Path:     s,
-			Kind:     components.ResourceTypePodmanSecret,
-			Parent:   name,
-			Template: false,
-		})
-	}
-
 	err = filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -168,17 +143,8 @@ func (s *SourceComponentRepository) GetComponent(name string, override *manifest
 	if err != nil {
 		return nil, err
 	}
-	if man == nil {
-		return nil, components.ErrCorruptComponent
-	}
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
-	}
-	for _, s := range man.Services {
-		if err := s.Validate(); err != nil {
-			return nil, fmt.Errorf("invalid service for component: %w", err)
-		}
-		c.ServiceResources[s.Service] = s
 	}
 	c.Resources = append(c.Resources, secretResources...)
 	manifestResource, err := s.NewResource(c, manifestPath)
@@ -186,12 +152,6 @@ func (s *SourceComponentRepository) GetComponent(name string, override *manifest
 		return nil, err
 	}
 	c.Resources = append(c.Resources, manifestResource)
-	for k, r := range c.Resources {
-		if r.Kind != components.ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
-			r.Kind = components.ResourceTypeScript
-			c.Resources[k] = r
-		}
-	}
 
 	return c, nil
 }

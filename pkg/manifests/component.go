@@ -62,6 +62,12 @@ func LoadComponentManifest(path string) (*ComponentManifest, error) {
 }
 
 func MergeComponentManifests(left, right *ComponentManifest) (*ComponentManifest, error) {
+	if left == nil {
+		return nil, errors.New("need non nil left manifest for merge")
+	}
+	if right == nil {
+		return nil, errors.New("need non nil right manifest for merge")
+	}
 	result := ComponentManifest{}
 
 	if len(left.Defaults) > 0 {

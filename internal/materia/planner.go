@@ -54,17 +54,40 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 	currentComponents := make(map[string]*components.Component)
 	newComponents := make(map[string]*components.Component)
 	for _, v := range installedComponents {
-		comp, err := m.Host.GetComponent(v, nil)
+		comp, err := m.Host.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading current components: %w", err)
+		}
+		if comp.Version == components.DefaultComponentVersion {
+			log.Debugf("loading installed component manifest %v", comp.Name)
+			manifest, err := m.Host.GetManifest(comp)
+			if err != nil {
+				return plan, fmt.Errorf("error loading current component %v manifest: %w", comp.Name, err)
+			}
+			if err := comp.ApplyManifest(manifest); err != nil {
+				return plan, fmt.Errorf("error applying current component %v manifest: %w", comp.Name, err)
+			}
 		}
 		currentComponents[comp.Name] = comp
 	}
 	for _, v := range assignedComponents {
 		override := m.getOverride(v)
-		comp, err := m.Source.GetComponent(v, override)
+		comp, err := m.Source.GetComponent(v)
 		if err != nil {
 			return plan, fmt.Errorf("error loading new components: %w", err)
+		}
+		manifest, err := m.Source.GetManifest(comp)
+		if err != nil {
+			return plan, fmt.Errorf("error loading new component %v manifest: %w", comp.Name, err)
+		}
+		if override != nil {
+			manifest, err = manifests.MergeComponentManifests(manifest, override)
+			if err != nil {
+				return plan, fmt.Errorf("error loading component %v's overridden manifest: %w", comp.Name, err)
+			}
+		}
+		if err := comp.ApplyManifest(manifest); err != nil {
+			return plan, fmt.Errorf("error applying new component %v manifest: %w", comp.Name, err)
 		}
 		newComponents[comp.Name] = comp
 	}
