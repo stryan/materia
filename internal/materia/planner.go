@@ -324,7 +324,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 		Content: []diffmatchpatch.Diff{},
 	})
 	maps.Copy(attrs, newComponent.Defaults)
-	for _, r := range newComponent.Resources {
+	for _, r := range newComponent.Resources.List() {
 		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
 			newStringTempl, err := m.Source.ReadResource(r)
@@ -558,7 +558,7 @@ func (m *Materia) calculateRemovedComponentResources(comp *components.Component)
 	if comp.State != components.StateNeedRemoval {
 		return actions, errors.New("expected to be removed component")
 	}
-	resourceList := comp.Resources
+	resourceList := comp.Resources.List()
 	slices.Reverse(resourceList)
 	dirs := []components.Resource{}
 	for _, r := range resourceList {
@@ -642,9 +642,9 @@ func (m *Materia) processRemovedComponentServices(ctx context.Context, comp *com
 func (m *Materia) diffComponent(base, other *components.Component, attrs map[string]any) ([]Action, error) {
 	ctx := context.TODO()
 	var diffActions []Action
-	if len(other.Resources) == 0 {
+	if other.Resources.Size() == 0 {
 		log.Debug("components", "left", base, "right", other)
-		return diffActions, fmt.Errorf("candidate component is missing resources: L:%v R:%v", len(base.Resources), len(other.Resources))
+		return diffActions, fmt.Errorf("candidate component is missing resources: L:%v R:%v", base.Resources.Size(), other.Resources.Size())
 	}
 	if err := base.Validate(); err != nil {
 		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)
@@ -658,10 +658,10 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 	maps.Copy(diffAttrs, base.Defaults)
 	maps.Copy(diffAttrs, other.Defaults)
 	maps.Copy(diffAttrs, attrs)
-	for _, v := range base.Resources {
+	for _, v := range base.Resources.List() {
 		currentResources[v.Path] = v
 	}
-	for _, v := range other.Resources {
+	for _, v := range other.Resources.List() {
 		newResources[v.Path] = v
 	}
 

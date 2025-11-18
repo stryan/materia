@@ -42,7 +42,7 @@ func TestExecute(t *testing.T) {
 	}
 	helloComp := &components.Component{
 		Name:      "hello",
-		Resources: []components.Resource{containerResource, dataResource, manifestResource},
+		Resources: newResSet(containerResource, dataResource, manifestResource),
 		State:     components.StateFresh,
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,

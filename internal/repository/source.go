@@ -102,12 +102,9 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	if err != nil {
 		return nil, err
 	}
-	c := &components.Component{}
-	c.Name = name
+	c := components.NewComponent(name)
 	c.State = components.StateFresh
-	c.Defaults = make(map[string]any)
 	c.Version = components.DefaultComponentVersion
-	c.ServiceResources = make(map[string]manifests.ServiceResourceConfig)
 	log.Debugf("loading source component %v from path %v", c.Name, path)
 	scripts := 0
 
@@ -137,8 +134,7 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 			scripts++
 			c.Scripted = true
 		}
-		c.Resources = append(c.Resources, newRes)
-		return nil
+		return c.Resources.Add(newRes)
 	})
 	if err != nil {
 		return nil, err
@@ -146,14 +142,18 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
-	c.Resources = append(c.Resources, secretResources...)
+	for _, s := range secretResources {
+		err := c.Resources.Add(s)
+		if err != nil {
+			return nil, err
+		}
+	}
 	manifestResource, err := s.NewResource(c, manifestPath)
 	if err != nil {
 		return nil, err
 	}
-	c.Resources = append(c.Resources, manifestResource)
 
-	return c, nil
+	return c, c.Resources.Add(manifestResource)
 }
 
 func (s *SourceComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {

@@ -19,16 +19,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newResSet(resources ...components.Resource) *components.ResourceSet {
+	rs := components.NewResourceSet()
+	for _, v := range resources {
+		_ = rs.Add(v)
+	}
+	return rs
+}
+
 var testComponents = []*components.Component{
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[6]},
+		Resources: newResSet(testResources[6]),
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0], testResources[6]},
+		Resources: newResSet(testResources[0], testResources[6]),
 		ServiceResources: map[string]manifests.ServiceResourceConfig{
 			"hello.service": {
 				Service: "hello.service",
@@ -39,7 +47,7 @@ var testComponents = []*components.Component{
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
-		Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5]},
+		Resources: newResSet(testResources[0], testResources[1], testResources[2], testResources[5]),
 		ServiceResources: map[string]manifests.ServiceResourceConfig{
 			"hello.service": {
 				Service: "hello.service",
@@ -50,12 +58,12 @@ var testComponents = []*components.Component{
 	{
 		Name:      "oldhello",
 		State:     components.StateStale,
-		Resources: []components.Resource{testResources[0]},
+		Resources: newResSet(testResources[0]),
 	},
 	{
 		Name:      "updated",
 		State:     components.StateMayNeedUpdate,
-		Resources: []components.Resource{testResources[0], testResources[3]},
+		Resources: newResSet(testResources[0], testResources[3]),
 		ServiceResources: map[string]manifests.ServiceResourceConfig{
 			"hello.service": {
 				Service: "hello.service",
@@ -365,7 +373,7 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0], testResources[6]},
+				Resources: newResSet(testResources[0], testResources[6]),
 			},
 			setup: func(comp *components.Component, host *MockHostManager) {
 				host.EXPECT().ReadResource(testResources[0]).Return("", nil)
@@ -392,7 +400,7 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 			comp: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
-				Resources: []components.Resource{testResources[0], testResources[1], testResources[2], testResources[5], testResources[6]},
+				Resources: newResSet(testResources[0], testResources[1], testResources[2], testResources[5], testResources[6]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -523,7 +531,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			component: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
-				Resources: []components.Resource{testResources[0]},
+				Resources: newResSet(testResources[0]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -585,7 +593,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 
 func TestMateria_diffComponent(t *testing.T) {
 	tests := []struct {
-		name         string // description of this test case
+		name         string
 		original     *components.Component
 		newComponent *components.Component
 		setup        func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager)
@@ -598,7 +606,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			original: &components.Component{
 				Name:      "updated",
 				State:     components.StateStale,
-				Resources: []components.Resource{testResources[0], testResources[3]},
+				Resources: newResSet(testResources[0], testResources[3]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -608,10 +616,10 @@ func TestMateria_diffComponent(t *testing.T) {
 			},
 			newComponent: testComponents[4],
 			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container file!", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage=ubi8", nil)
-				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
+				host.EXPECT().ReadResource(testResources[0]).Return("container file!", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]\nImage=ubi8", nil)
+				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
@@ -626,7 +634,7 @@ func TestMateria_diffComponent(t *testing.T) {
 				Name:      "updated",
 				State:     components.StateStale,
 				Defaults:  map[string]any{"var": "hello"},
-				Resources: []components.Resource{testResources[0], testResources[3]},
+				Resources: newResSet(testResources[0], testResources[3]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -637,7 +645,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			newComponent: &components.Component{
 				Name:      "updated",
 				State:     components.StateMayNeedUpdate,
-				Resources: []components.Resource{testResources[0], testResources[3]},
+				Resources: newResSet(testResources[0], testResources[3]),
 				Defaults:  map[string]any{"var": "goodbye"},
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
@@ -647,10 +655,10 @@ func TestMateria_diffComponent(t *testing.T) {
 				},
 			},
 			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(oldc.Resources[0]).Return("container hello", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]\nImage={{ .var }}", nil)
-				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
+				host.EXPECT().ReadResource(testResources[0]).Return("container hello", nil)
+				source.EXPECT().ReadResource(testResources[0]).Return("[Container]\nImage={{ .var }}", nil)
+				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
@@ -664,7 +672,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			original: &components.Component{
 				Name:      "updated",
 				State:     components.StateStale,
-				Resources: []components.Resource{testResources[0], testResources[3]},
+				Resources: newResSet(testResources[0], testResources[3]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -675,11 +683,11 @@ func TestMateria_diffComponent(t *testing.T) {
 			newComponent: &components.Component{
 				Name:      "updated",
 				State:     components.StateMayNeedUpdate,
-				Resources: []components.Resource{testResources[3]},
+				Resources: newResSet(testResources[3]),
 			},
 			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("manifestation", nil)
+				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
@@ -693,7 +701,7 @@ func TestMateria_diffComponent(t *testing.T) {
 			original: &components.Component{
 				Name:      "updated",
 				State:     components.StateStale,
-				Resources: []components.Resource{testResources[0], testResources[3]},
+				Resources: newResSet(testResources[0], testResources[3]),
 				ServiceResources: map[string]manifests.ServiceResourceConfig{
 					"hello.service": {
 						Service: "hello.service",
@@ -704,12 +712,12 @@ func TestMateria_diffComponent(t *testing.T) {
 			newComponent: &components.Component{
 				Name:      "updated",
 				State:     components.StateMayNeedUpdate,
-				Resources: []components.Resource{testResources[4], testResources[3]},
+				Resources: newResSet(testResources[4], testResources[3]),
 			},
 			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(oldc.Resources[1]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(newc.Resources[0]).Return("[Container]", nil)
-				source.EXPECT().ReadResource(newc.Resources[1]).Return("manifestation", nil)
+				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+				source.EXPECT().ReadResource(testResources[4]).Return("[Container]", nil)
+				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
 			},
 			want: []Action{
 				{
@@ -788,7 +796,7 @@ func TestPlan(t *testing.T) {
 	}
 	helloComp := &components.Component{
 		Name:      "hello",
-		Resources: []components.Resource{containerResource, dataResource, manifestResource},
+		Resources: newResSet(containerResource, dataResource, manifestResource),
 		State:     components.StateFresh,
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,

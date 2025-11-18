@@ -91,32 +91,10 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	if err != nil {
 		return nil, err
 	}
-	oldComp.Resources = append(oldComp.Resources, manifestResource)
-	// if oldComp.Version == components.DefaultComponentVersion {
-	// 	log.Debugf("loading installed component manifest %v", oldComp.Name)
-	// 	man, err = manifests.LoadComponentManifest(manifestPath)
-	// 	if err != nil {
-	// 		return nil, fmt.Errorf("error loading component manifest: %w", err)
-	// 	}
-	// 	maps.Copy(oldComp.Defaults, man.Defaults)
-	// 	for _, s := range man.Services {
-	// 		if err := s.Validate(); err != nil {
-	// 			return nil, fmt.Errorf("invalid service for component: %w", err)
-	// 		}
-	// 		oldComp.ServiceResources[s.Service] = s
-	// 	}
-	// 	slices.Sort(man.Secrets)
-	// 	oldComp.Settings = man.Settings
-	// 	for _, s := range man.Secrets {
-	// 		secretRes := components.Resource{
-	// 			Path:     s,
-	// 			Kind:     components.ResourceTypePodmanSecret,
-	// 			Parent:   name,
-	// 			Template: false,
-	// 		}
-	// 		secretResource = append(secretResource, secretRes)
-	// 	}
-	// }
+	err = oldComp.Resources.Add(manifestResource)
+	if err != nil {
+		return nil, err
+	}
 
 	err = filepath.WalkDir(dataPath, func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -129,7 +107,11 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		oldComp.Resources = append(oldComp.Resources, newRes)
+		err = oldComp.Resources.Add(newRes)
+		if err != nil {
+			return err
+		}
+
 		if newRes.Kind == components.ResourceTypeComponentScript {
 			scripts++
 			oldComp.Scripted = true
@@ -153,8 +135,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			return err
 		}
 
-		oldComp.Resources = append(oldComp.Resources, newRes)
-		return nil
+		return oldComp.Resources.Add(newRes)
 	})
 	if err != nil {
 		return nil, err
@@ -163,7 +144,12 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	if scripts != 0 && scripts != 2 {
 		return nil, errors.New("scripted component is missing install or cleanup")
 	}
-	oldComp.Resources = append(oldComp.Resources, secretResource...)
+	for _, s := range secretResource {
+		err := oldComp.Resources.Add(s)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return oldComp, nil
 }
 
