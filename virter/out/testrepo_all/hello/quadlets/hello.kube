@@ -1,0 +1,2 @@
+[Kube]
+Yaml=/var/lib/materia/components/hello/hello.yaml

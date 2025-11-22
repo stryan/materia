@@ -336,35 +336,11 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 				return actions, err
 			}
 			if r.IsQuadlet() {
-				unitfile := parser.NewUnitFile()
-				err = unitfile.Parse(resourceBody.String())
+				hostObject, err := r.GetHostObject(resourceBody.String())
 				if err != nil {
-					return actions, fmt.Errorf("error parsing container file: %w", err)
+					return actions, err
 				}
-				nameOption := ""
-				group := ""
-				switch r.Kind {
-				case components.ResourceTypeContainer:
-					group = "Container"
-					nameOption = "ContainerName"
-				case components.ResourceTypeVolume:
-					group = "Volume"
-					nameOption = "VolumeName"
-				case components.ResourceTypeNetwork:
-					group = "Network"
-					nameOption = "NetworkName"
-				case components.ResourceTypePod:
-					group = "Pod"
-					nameOption = "PodName"
-				}
-				if nameOption != "" {
-					name, foundName := unitfile.Lookup(group, nameOption)
-					if foundName {
-						r.HostObject = name
-					} else {
-						r.HostObject = fmt.Sprintf("systemd-%v", filepath.Base(r.Path))
-					}
-				}
+				r.HostObject = hostObject
 			}
 			content = resourceBody.String()
 		}
@@ -778,11 +754,25 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				if err != nil {
 					return diffActions, err
 				}
+				images, err := m.Host.ListImages(ctx)
+				if err != nil {
+					return diffActions, err
+				}
 				switch cur.Kind {
 				case components.ResourceTypeNetwork:
 					for _, n := range networks {
 						if n.Name == cur.HostObject {
 							// TODO also check that containers aren't using it
+							diffActions = append(diffActions, Action{
+								Todo:   ActionCleanup,
+								Parent: base,
+								Target: cur,
+							})
+						}
+					}
+				case components.ResourceTypeBuild, components.ResourceTypeImage:
+					for _, i := range images {
+						if slices.Contains(i.Names, cur.HostObject) {
 							diffActions = append(diffActions, Action{
 								Todo:   ActionCleanup,
 								Parent: base,

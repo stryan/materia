@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/containers/podman/v5/pkg/systemd/parser"
 )
 
 type Resource struct {
@@ -117,4 +119,54 @@ func (r Resource) IsFile() bool {
 	default:
 		return false
 	}
+}
+
+func (r Resource) GetHostObject(unitData string) (string, error) {
+	if !r.IsQuadlet() {
+		return "", errors.New("can't get host object for non-quadlet")
+	}
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(unitData)
+	if err != nil {
+		return "", fmt.Errorf("error parsing systemd unit file: %w", err)
+	}
+	nameOption := ""
+	group := ""
+	switch r.Kind {
+	case ResourceTypeContainer:
+		group = "Container"
+		nameOption = "ContainerName"
+	case ResourceTypeVolume:
+		group = "Volume"
+		nameOption = "VolumeName"
+	case ResourceTypeNetwork:
+		group = "Network"
+		nameOption = "NetworkName"
+	case ResourceTypePod:
+		group = "Pod"
+		nameOption = "PodName"
+	case ResourceTypeBuild:
+		group = "Build"
+		nameOption = "ImageTag"
+	case ResourceTypeImage:
+		group = "Image"
+		nameOption = "ImageTag"
+	case ResourceTypeKube:
+		group = "Kube"
+		nameOption = "Yaml"
+	}
+	name, foundName := unitfile.Lookup(group, nameOption)
+	if foundName {
+		return name, nil
+	}
+	if r.Kind == ResourceTypeImage {
+		name, ok := unitfile.Lookup(group, "Image")
+		if !ok {
+			return "", errors.New("something when horribly wrong with an image compo")
+		}
+		return name, nil
+	}
+	// Technically build and kube resources also don't have systemd- prefixed host objects
+	// but we'll always have unique identifers for those quadlets so we won't worry about them yet.
+	return fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path))), nil
 }

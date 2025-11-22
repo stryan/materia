@@ -1,0 +1,3 @@
+[Build]
+ImageTag=localhost/custombusybox:latest
+File=/var/lib/materia/components/hello/Containerfile

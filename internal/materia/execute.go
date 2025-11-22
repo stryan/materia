@@ -181,7 +181,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest:
+	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest, components.ResourceTypeBuild, components.ResourceTypeImage:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
 			diffs, err := v.GetContentAsDiffs()
@@ -229,6 +229,11 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				}
 			case components.ResourceTypeVolume:
 				err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+				if err != nil {
+					return err
+				}
+			case components.ResourceTypeBuild, components.ResourceTypeImage:
+				err := m.Host.RemoveImage(ctx, v.Target.HostObject)
 				if err != nil {
 					return err
 				}

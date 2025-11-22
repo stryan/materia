@@ -1,0 +1,3 @@
+[Image]
+ImageTag=docker.io/busybox:latest
+Image=docker.io/busybox:latest

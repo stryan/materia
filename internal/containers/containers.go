@@ -33,6 +33,11 @@ type Volume struct {
 	Driver     string `json:"Driver"`
 }
 
+type Image struct {
+	Names []string `json:"Names"`
+	ID    string   `json:"ID"`
+}
+
 type NetworkContainer struct {
 	Name string
 }
@@ -292,6 +297,34 @@ func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
 
 func (p *PodmanManager) RemoveNetwork(ctx context.Context, n *Network) error {
 	cmd := p.genCmd(ctx, "network", "rm", n.Name)
+	output, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	if err = parsePodmanError(output); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PodmanManager) ListImages(ctx context.Context) ([]*Image, error) {
+	cmd := p.genCmd(ctx, "image", "ls", "--format", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("error listing podman images: %w", err)
+	}
+	if err = parsePodmanError(output); err != nil {
+		return nil, err
+	}
+	var images []*Image
+	if err := json.Unmarshal(output, &images); err != nil {
+		return nil, err
+	}
+	return images, nil
+}
+
+func (p *PodmanManager) RemoveImage(ctx context.Context, name string) error {
+	cmd := p.genCmd(ctx, "image", "rm", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return err

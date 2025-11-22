@@ -1,0 +1,50 @@
+# Save the output of this file and use kubectl create -f to import
+# it into Kubernetes.
+#
+# Created with podman-4.0.0-dev
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2021-09-20T17:40:19Z"
+  labels:
+	app: php
+  name: php
+spec:
+  containers:
+  - args:
+	- apache2-foreground
+	command:
+	- docker-php-entrypoint
+	env:
+	- name: PATH
+  	value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+	- name: TERM
+  	value: xterm
+	- name: container
+  	...
+	- name: PHP_EXTRA_BUILD_DEPS
+  	value: apache2-dev
+	- name: APACHE_ENVVARS
+  	value: /etc/apache2/envvars
+	image: php-7.2-apache-mysqli:latest
+	name: apache
+	ports:
+	- containerPort: 80
+  	hostPort: 8080
+  	protocol: TCP
+	resources: {}
+	securityContext:
+  	allowPrivilegeEscalation: true
+  	capabilities:
+    	drop:
+    	- CAP_MKNOD
+    	- CAP_NET_RAW
+    	- CAP_AUDIT_WRITE
+  	privileged: false
+  	readOnlyRootFilesystem: false
+  	seLinuxOptions: {}
+	tty: true
+	workingDir: /var/www/html
+  dnsConfig: {}
+  restartPolicy: Never
+status: {}

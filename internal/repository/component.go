@@ -9,10 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/charmbracelet/log"
-	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
@@ -346,35 +344,11 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		if err != nil {
 			return res, err
 		}
-		unitfile := parser.NewUnitFile()
-		err = unitfile.Parse(unitData)
+		hostObject, err := res.GetHostObject(unitData)
 		if err != nil {
-			return res, fmt.Errorf("error parsing systemd unit file: %w", err)
+			return res, err
 		}
-		nameOption := ""
-		group := ""
-		switch res.Kind {
-		case components.ResourceTypeContainer:
-			group = "Container"
-			nameOption = "ContainerName"
-		case components.ResourceTypeVolume:
-			group = "Volume"
-			nameOption = "VolumeName"
-		case components.ResourceTypeNetwork:
-			group = "Network"
-			nameOption = "NetworkName"
-		case components.ResourceTypePod:
-			group = "Pod"
-			nameOption = "PodName"
-		}
-		if nameOption != "" {
-			name, foundName := unitfile.Lookup(group, nameOption)
-			if foundName {
-				res.HostObject = name
-			} else {
-				res.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
-			}
-		}
+		res.HostObject = hostObject
 	} else {
 		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), path)
 		if err != nil {

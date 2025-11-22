@@ -22,4 +22,6 @@ type ContainerManager interface {
 	WriteSecret(context.Context, string, string) error
 	RemoveSecret(context.Context, string) error
 	SecretName(string) string
+	ListImages(context.Context) ([]*containers.Image, error)
+	RemoveImage(context.Context, string) error
 }
