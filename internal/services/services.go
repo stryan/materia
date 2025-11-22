@@ -107,7 +107,7 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		}
 		return nil
 	case ServiceReloadService:
-		_, err = s.Conn.ReloadUnitContext(ctx, name, "", callback)
+		_, err = s.Conn.ReloadUnitContext(ctx, name, "fail", callback)
 	case ServiceStart:
 		_, err = s.Conn.StartUnitContext(ctx, name, "fail", callback)
 	case ServiceStop:
