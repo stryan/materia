@@ -74,11 +74,11 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, err
 		}
 		switch v.Todo {
-		case ActionRestart, ActionStart:
+		case ActionRestart, ActionStart, ActionReload:
 			if serv.State == "activating" {
 				servicesMap[serv.Name] = "active"
 			} else if serv.State != "active" {
-				log.Warn("service failed to start/restart", "service", serv.Name, "state", serv.State)
+				log.Warn("service failed to start/restart/reload", "service", serv.Name, "state", serv.State)
 			}
 		case ActionStop:
 			if serv.State == "deactivating" {
