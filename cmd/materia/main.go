@@ -323,7 +323,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(c)
+					hm, err := hostman.NewHostManager(ctx, c)
 					if err != nil {
 						return err
 					}

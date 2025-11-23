@@ -23,12 +23,26 @@ type ServiceManager struct {
 
 type Service struct {
 	Name    string
-	State   string
+	State   string // active, reloading, inactive, failed, activating, deactivating
+	Type    string
 	Enabled bool
 }
 
 func (s Service) Started() bool {
 	return s.State == "active"
+}
+
+func (s *Service) fillFromProperties(props map[string]interface{}) error {
+	jobState := props["ActiveState"].(string)
+	fileState := props["UnitFileState"].(string)
+	jobType, ok := props["Type"].(string)
+	if !ok {
+		jobType = "non-existant"
+	}
+	s.State = jobState
+	s.Type = jobType
+	s.Enabled = (fileState == "enabled" || fileState == "static")
+	return nil
 }
 
 //go:generate stringer -type ServiceAction -trimprefix Service
@@ -49,10 +63,9 @@ type ServicesConfig struct {
 	DryrunQuadlets bool
 }
 
-func NewServices(cfg *ServicesConfig) (*ServiceManager, error) {
+func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
 	var err error
-	ctx := context.Background()
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err
@@ -129,25 +142,17 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 }
 
 func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error) {
-	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
+	props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	if len(us) == 0 {
-		return nil, fmt.Errorf("error getting service %v: %w", name, ErrServiceNotFound)
-	}
-	if len(us) != 1 {
-		return nil, errors.New("too many units returned")
-	}
-	file, err := s.Conn.ListUnitFilesByPatternsContext(ctx, []string{"enabled"}, []string{name})
+	result := &Service{Name: name}
+	err = result.fillFromProperties(props)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		Name:    us[0].Name,
-		State:   us[0].ActiveState,
-		Enabled: len(file) > 0,
-	}, nil
+
+	return result, nil
 }
 
 func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string) error {
@@ -158,8 +163,13 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	if len(us) == 0 {
 		return ErrServiceNotFound
 	}
-	serv := us[0]
-	if serv.ActiveState == state {
+	props, err := s.Conn.GetAllPropertiesContext(ctx, name)
+	if err != nil {
+		return err
+	}
+
+	activeState := props["ActiveState"]
+	if activeState == state {
 		return nil
 	}
 	ticker := time.NewTicker(1 * time.Second)
@@ -174,18 +184,16 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 		case <-timeout.C:
 			return fmt.Errorf("service %v did not reach state %v", name, state)
 		case <-ticker.C:
-			us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
+			props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 			if err != nil {
 				return err
 			}
-			if len(us) == 0 {
-				return ErrServiceNotFound
-			}
-			serv := us[0]
-			if serv.ActiveState == state {
+
+			activeState := props["ActiveState"]
+			if activeState == state {
 				return nil
 			}
-			if serv.ActiveState == "failed" {
+			if activeState == "failed" {
 				return fmt.Errorf("service %v in failed state", name)
 			}
 		}

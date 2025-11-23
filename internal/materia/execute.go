@@ -67,7 +67,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}
 
 	// verify services
-	servicesMap := make(map[string]string)
+	servicesResultMap := make(map[string]string)
 	for _, v := range serviceActions {
 		serv, err := m.Host.Get(ctx, v.Target.Path)
 		if err != nil {
@@ -75,14 +75,16 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 		switch v.Todo {
 		case ActionRestart, ActionStart, ActionReload:
-			if serv.State == "activating" {
-				servicesMap[serv.Name] = "active"
-			} else if serv.State != "active" {
+			switch serv.State {
+			case "activating", "reloading":
+				servicesResultMap[serv.Name] = "active"
+			case "failed":
 				log.Warn("service failed to start/restart/reload", "service", serv.Name, "state", serv.State)
+			default:
 			}
 		case ActionStop:
 			if serv.State == "deactivating" {
-				servicesMap[serv.Name] = "inactive"
+				servicesResultMap[serv.Name] = "inactive"
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
@@ -92,7 +94,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		}
 	}
 	var servWG sync.WaitGroup
-	for serv, state := range servicesMap {
+	for serv, state := range servicesResultMap {
 		servWG.Add(1)
 		go func() {
 			defer servWG.Done()

@@ -370,7 +370,7 @@ func (m *Materia) processFreshComponentServices(ctx context.Context, component *
 
 	for _, k := range sortedSrcs {
 		s := component.ServiceResources[k]
-		liveService, err := getLiveService(ctx, m.Host, s.Service)
+		liveService, err := m.Host.Get(ctx, s.Service)
 		if err != nil {
 			return actions, err
 		}
@@ -440,7 +440,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 			continue
 		}
 		s := newComponent.ServiceResources[k]
-		liveService, err := getLiveService(ctx, m.Host, k)
+		liveService, err := m.Host.Get(ctx, s.Service)
 		if err != nil {
 			return nil, err
 		}
@@ -469,7 +469,7 @@ func (m *Materia) processUnchangedComponentServices(ctx context.Context, comp *c
 		return actions, nil
 	}
 	for _, s := range comp.ServiceResources {
-		liveService, err := getLiveService(ctx, m.Host, s.Service)
+		liveService, err := m.Host.Get(ctx, s.Service)
 		if err != nil {
 			return nil, err
 		}

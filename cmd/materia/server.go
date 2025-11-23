@@ -83,7 +83,7 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
 	}
-	hm, err := hostman.NewHostManager(c)
+	hm, err := hostman.NewHostManager(ctx, c)
 	if err != nil {
 		return nil, err
 	}

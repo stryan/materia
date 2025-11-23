@@ -160,7 +160,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 			return nil, fmt.Errorf("error with repo remotes sync: %w", err)
 		}
 	}
-	hm, err := hostman.NewHostManager(c)
+	hm, err := hostman.NewHostManager(ctx, c)
 	if err != nil {
 		return nil, err
 	}

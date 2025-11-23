@@ -24,7 +24,7 @@ type HostManager struct {
 	Units   repository.FileRepository
 }
 
-func NewHostManager(c *materia.MateriaConfig) (*HostManager, error) {
+func NewHostManager(ctx context.Context, c *materia.MateriaConfig) (*HostManager, error) {
 	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.MateriaDir, "materia", "components"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
@@ -33,7 +33,7 @@ func NewHostManager(c *materia.MateriaConfig) (*HostManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
-	sm, err := services.NewServices(&services.ServicesConfig{
+	sm, err := services.NewServices(ctx, &services.ServicesConfig{
 		Timeout:        c.Timeout,
 		DryrunQuadlets: true,
 	})
