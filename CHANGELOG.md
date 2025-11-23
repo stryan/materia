@@ -4,6 +4,11 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## Unreleased
+- bugfix: setting `attributes` config will force a default engine configuration
+- bugfix: Materia will now only consider services in the `failed` state to be, well, failed.
+- bugfix: Install build and image quadlets to the correct locations
+
 ## 0.4.2
 
 - feat: restart containers and pods when resource updated by default
