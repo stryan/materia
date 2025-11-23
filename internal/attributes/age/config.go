@@ -27,6 +27,9 @@ func (c Config) SourceType() string { return "age" }
 func NewConfig(k *koanf.Koanf) (*Config, error) {
 	var c Config
 	c.IdentPath = k.String("age.keyfile")
+	if c.IdentPath == "" {
+		c.IdentPath = "/etc/materia/key.txt"
+	}
 	c.BaseDir = k.String("age.base_dir")
 	if c.BaseDir == "" {
 		c.BaseDir = "secrets"

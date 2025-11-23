@@ -26,6 +26,9 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 		c.BaseDir = "secrets"
 	}
 	c.GeneralVaults = k.Strings("file.vaults")
+	if len(c.GeneralVaults) == 0 {
+		c.GeneralVaults = []string{"vault.toml"}
+	}
 
 	return &c, nil
 }

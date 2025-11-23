@@ -32,7 +32,11 @@ Presented in *environmental variable*/**TOML config line option** format.
 
 #### MATERIA_ATTRIBUTES/attributes
 
-Attributes Engine config to use. Optional, will cause materia to ignore any other configured engines.
+Attributes Engine config to use. Optional, if not configured Materia will use all attributes engines configured.
+
+If set, Materia will ignore all configured attributes engines besides the one specified.
+
+Ensures there is a default configuration for the engine.
 
 #### *MATERIA_HOSTNAME*/**hostname**
 
