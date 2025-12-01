@@ -4,7 +4,7 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
-## Unreleased
+## 0.4.3
 - bugfix: setting `attributes` config will force a default engine configuration
 - bugfix: Materia will now only consider services in the `failed` state to be, well, failed.
 - bugfix: Install build and image quadlets to the correct locations
@@ -16,7 +16,6 @@ Best effort list of major changes and bugfixes
 - bugfix: fix nosync function
 - bugfix: use private key in .ssh when one isn't specified
 - feat: support all unit types
-
 
 ## 0.4.1
 - `materia` now does a dry-run of Quadlets update when running `systemctl daemon-reload` to prevent installing bad Quadlet files over working ones
