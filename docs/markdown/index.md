@@ -1,33 +1,28 @@
-# Welcome to Materia
+# Reference
 
-A GitOps style tool for managing services and applications deployed as [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
+Work in progress online docs for the Materia Project.
 
-## Features
+## Commands
 
-- Easy deployment: Grab the binary or pull the image, set the `MATERIA_SOURCE__URL` environment variable, and you're good to go.
-- Handles the full lifecycle of a service: no need to write tedious install and uninstall runbooks for each service you're running, just add or remove them from the manifest and Materia handles the rest.
-- Share the work: Re-use other peoples Materia components with just a single line.
-- Container-native and systemd-native management: works with the existing tools on your hosts instead of requiring you to install something else
-- Minimal learning required: if you know how to write systemd unit files you're 90% of the way there
-- Pull-based orchestration: Each node manages itself so no need for a controller or master node.
+[materia](materia.1.md)
 
-## Installation
+## Repository, Manifest, Components, Resources
 
-Install a [release off Github](https://github.com/stryan/materia/releases/latest) or pull the container `podman pull ghcr.io/stryan/materia` onto the target node and you're set.
+[Materia repository layout](materia-repository.5.md)
 
-See the [Quickstart](quickstart.md) to get started.
+[Manifest files](materia-manifest.5.md)
 
-## Requirements
+[Templating options](materia-templates.5.md)
 
-The following are run time requirements and reflect what systems Materia is tested on. It may work without the specified versions (especially the systemd requirement).
 
-Materia will not work with Podman versions lower than 4.4, as that is the version Quadlets were introduced in.
+## Configuration
 
-- Podman 5.4 or higher
-- Systemd v254 or higher
+[Materia config options](materia-config.5.md)
 
-Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
+[Source config](materia-source.5.md)
 
-## Resources
+## Attributes Engines
 
-[Reference Pages](./reference/index.md) For the most up-to-date and traditional man-style documentation
+[Age engine config](materia-config-age.5.md)
+
+[SOPS engine config](materia-config-sops.5.md)

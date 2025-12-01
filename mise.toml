@@ -15,6 +15,7 @@ CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
 LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
 AGEKEY = "age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606"
+releasedir = "./release"
 
 [tasks.container]
 depends = ["build", "lint", "test"]
@@ -118,10 +119,6 @@ env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
 run = 'go build -ldflags="{{vars.LDFLAGS}}" -o bin/materia-amd64 ./cmd/materia/'
 
 [tasks.docs]
-description = "generate manpage and html docs"
-depends = ["docs-man", "docs-html"]
-
-[tasks.docs-man]
 description = "generate manpages"
 dir = "docs"
 tools.pandoc = "latest"
@@ -130,18 +127,32 @@ run = [
   "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o output/{{vars.CURRENTBRANCH}}/man/\"$(basename ${0%.md})\"' {} \\; ",
 ]
 
-[tasks.docs-html]
-description = "generate HTML documentation"
-tools."pipx:mkdocs" = "latest"
-tools.pipx = "latest"
-tools.python = "latest"
-dir = "docs"
-run = 'mkdocs build --site-dir="output/{{vars.CURRENTBRANCH}}/html"'
+[tasks.release-tar]
+description = "generate release tarballs"
+depends = ["lint", "test", "build", "docs"]
+usage = '''
+  arg "<version>" help="Version to release" default="latest"
+'''
+run = [
+  "mkdir -p {{vars.releasedir}}/bin {{vars.releasedir}}/man/man1 {{vars.releasedir}}/man/man5",
+  "cp ./README.md {{vars.releasedir}}/ ",
+  "cp ./LICENSE {{vars.releasedir}}/",
+  "cp docs/output/{{vars.CURRENTBRANCH}}/man/*.1 {{vars.releasedir}}/man/man1/",
+  "cp docs/output/{{vars.CURRENTBRANCH}}/man/*.5 {{vars.releasedir}}/man/man5/",
+  "cp bin/materia-amd64 {{vars.releasedir}}/bin/materia",
+  "tar -czvf ./materia-${usage_version?}-amd64.tar.gz -C {{vars.releasedir}} .",
+  "rm {{vars.releasedir}}/bin/materia",
+  "cp bin/materia-arm64 {{vars.releasedir}}/bin/materia",
+  "tar -czvf ./materia-${usage_version?}-arm64.tar.gz -C {{vars.releasedir}} .",
+]
 
-[tasks.release]
+[tasks.github-release]
 description = "Generate github release"
-depends = ["build", "lint", "test", "docs"]
+depends = ["lint", "test", "build", "release-tar"]
+usage = '''
+  arg "<version>" help="Version to release" default="latest"
+'''
 tools.gh = "latest"
 run = [
-  'gh release create {{arg(name="version")}} --generate-notes ./bin/materia*',
+  "gh release create ${usage_version?} --generate-notes ./materia-${usage_version?}-amd64.tar.gz ./materia-${usage_version?}-arm64.tar.gz ./bin/materia*",
 ]

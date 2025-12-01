@@ -10,3 +10,5 @@ test_repo/
 **/*.enc.yml
 scripts/vm/auth/*
 docs/output
+release/
+*.tar.gz
