@@ -323,7 +323,10 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 		Target:  components.Resource{Parent: newComponent.Name, Kind: components.ResourceTypeComponent, Path: newComponent.Name},
 		Content: []diffmatchpatch.Diff{},
 	})
-	maps.Copy(attrs, newComponent.Defaults)
+	freshAttrs := make(map[string]any)
+	maps.Copy(freshAttrs, newComponent.Defaults)
+	maps.Copy(freshAttrs, attrs)
+
 	for _, r := range newComponent.Resources.List() {
 		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
@@ -331,7 +334,7 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 			if err != nil {
 				return actions, err
 			}
-			resourceBody, err := m.executeResource(newStringTempl, attrs)
+			resourceBody, err := m.executeResource(newStringTempl, freshAttrs)
 			if err != nil {
 				return actions, err
 			}
