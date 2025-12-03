@@ -16,6 +16,7 @@ type Plan struct {
 	servicesPhase []Action
 
 	componentChanges map[string][]Action
+	serviceChanges   map[string][]Action
 }
 
 func NewPlan(installedComps, volList []string) *Plan {
@@ -23,6 +24,7 @@ func NewPlan(installedComps, volList []string) *Plan {
 		volumes:          volList,
 		components:       installedComps,
 		componentChanges: make(map[string][]Action),
+		serviceChanges:   make(map[string][]Action),
 	}
 }
 
@@ -106,10 +108,11 @@ func (p *Plan) Add(a Action) {
 			panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
 		}
 		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart) {
-			p.servicesPhase = append(p.servicesPhase, a)
+			p.serviceChanges[a.Parent.Name] = append(p.serviceChanges[a.Parent.Name], a)
 		} else if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
 			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
 			if len(p.servicesPhase) == 0 || (p.servicesPhase[0].Todo != ActionReload && p.servicesPhase[0].Target.Kind != components.ResourceTypeHost) {
+				// TODO replace this with a host servicesChange entry
 				p.servicesPhase = append([]Action{a}, p.servicesPhase...)
 			}
 		} else {
@@ -190,13 +193,55 @@ func (p *Plan) Steps() []Action {
 		})
 		steps = append(steps, p.componentChanges[k]...)
 	}
-
-	// slices.SortStableFunc(steps, func(a, b Action) int {
-	// 	return cmp.Compare(a.Priority, b.Priority)
-	// })
+	sortedServComps := sortedKeys(p.serviceChanges)
 	steps = append(steps, p.servicesPhase...)
+	for _, k := range sortedServComps {
+		servActions := p.serviceChanges[k]
+		combinedServiceActions := coalesceServices(servActions)
+		steps = append(steps, combinedServiceActions...)
+	}
 
 	return steps
+}
+
+func coalesceServices(changes []Action) []Action {
+	var results []Action
+	serviceResults := make(map[string]int)
+	serviceActions := make(map[string]Action)
+	for _, a := range changes {
+		if _, ok := serviceResults[a.Target.Path]; !ok {
+			serviceResults[a.Target.Path] = 0
+		}
+		endState := serviceResults[a.Target.Path]
+		if a.Todo == ActionEnable || a.Todo == ActionDisable {
+			// don't need to coalesce enabling/disabling services
+			// if someone wants to enable and disable a service in the same plan, who are we to judge
+			results = append(results, a)
+			continue
+		}
+		if a.Todo == ActionReload && endState < 1 {
+			endState = 1
+			serviceActions[a.Target.Path] = a
+		}
+		if a.Todo == ActionStart && endState < 2 {
+			endState = 2
+			serviceActions[a.Target.Path] = a
+		}
+		if a.Todo == ActionRestart && endState < 3 {
+			endState = 3
+			serviceActions[a.Target.Path] = a
+		}
+		if a.Todo == ActionStop && endState < 4 {
+			endState = 4
+			serviceActions[a.Target.Path] = a
+		}
+		serviceResults[a.Target.Path] = endState
+	}
+	sortedResults := sortedKeys(serviceResults)
+	for _, k := range sortedResults {
+		results = append(results, serviceActions[k])
+	}
+	return results
 }
 
 func (p *Plan) Pretty() string {
