@@ -26,6 +26,8 @@ Role vaults container attributes available to all hosts with the assigned role.
 
 Due to its flexibility and existing tools, SOPS is the current recommended attributes engine.
 
+Note: since SOPS is configured externally, you may not need to supply any custom configuration to Materia. To make sure Materia attempts to use SOPS vaults you can force usage with the `MATERIA_ATTRIBUTES` setting, or by providing a blank configuration with `[sops]` in the config file or with `export MATERIA_SOPS=""`
+
 Materia expects SOPS-encrypted files to be either YAML or INI files.
 
 

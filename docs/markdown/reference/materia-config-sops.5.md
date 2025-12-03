@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SOPS
 section: 5
 header: User Manual
-footer: materia 0.3.0
-date: October 2025
+footer: materia 0.4.4
+date: December 2025
 author: stryan
 ---
 
@@ -16,11 +16,11 @@ materia-config-sops - Materia configuration for SOPS based attribute management
 
 ## Description
 
-**EXPERIMENTAL**
-
 Settings for SOPS based attribute management.
 
 These are in addition to the normal SOPs configuration settings.
+
+If you don't need any settings (i.e. you're using the default vaults and base dir), you can enable the engine by setting `MATERIA_SOPS=""` or adding an empty `[sops]` table to your config.
 
 Supports YAML,JSON, and INI files.
 

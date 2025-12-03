@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-AGE
 section: 5
 header: User Manual
-footer: materia 0.3.0
-date: October 2025
+footer: materia 0.4.4
+date: December 2025
 author: stryan
 ---
 
@@ -18,11 +18,13 @@ materia-config-age - Materia configuration for Age based attribute management
 
 Settings for Age based secret management.
 
+If you don't need any settings, you can enable the engine by setting `MATERIA_AGE=""` or adding an empty `[age]` table to your config.
+
 ## Options
 
 #### **MATERIA_AGE__KEYFILE**/**age.keyfile**
 
-File that contains the Age private key to use
+File that contains the Age private key to use. Defaults to `/etc/materia/key.txt`.
 
 #### **MATERIA_AGE__BASE_DIR**/**age.base_dir**
 
