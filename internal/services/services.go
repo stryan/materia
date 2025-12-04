@@ -12,7 +12,10 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
-var ErrServiceNotFound = errors.New("no service found")
+var (
+	ErrServiceNotFound    = errors.New("no service found")
+	DefaultServicesTimout = 90
+)
 
 type ServiceManager struct {
 	Conn           *dbus.Conn
@@ -71,7 +74,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 		return nil, err
 	}
 	if cfg.Timeout == 0 {
-		sm.Timeout = 60
+		sm.Timeout = DefaultServicesTimout
 	} else {
 		sm.Timeout = cfg.Timeout
 	}
