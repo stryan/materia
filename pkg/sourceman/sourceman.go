@@ -2,6 +2,7 @@ package sourceman
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,9 +71,9 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		parsedPath := strings.Split(r.URL, "://")
 		var remoteSource materia.Source
 		var err error
+		localpath := filepath.Join(s.remoteDir, "components", name)
 		switch parsedPath[0] {
 		case "git":
-			localpath := filepath.Join(s.remoteDir, "components", name)
 			remoteSource, err = git.NewGitSource(&git.Config{
 				Branch:          r.Version,
 				PrivateKey:      "",
@@ -87,7 +88,6 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 				return fmt.Errorf("invalid git source: %w", err)
 			}
 		case "file":
-			localpath := filepath.Join(s.remoteDir, "components", name)
 			remoteSource, err = file.NewFileSource(&file.Config{
 				SourcePath:  r.URL,
 				Destination: localpath,
@@ -100,6 +100,12 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		}
 		if err := remoteSource.Sync(ctx); err != nil {
 			return err
+		}
+		if _, err := os.Stat(filepath.Join(localpath, manifests.ComponentManifestFile)); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("invalid remote component %v", err)
+			}
+			return fmt.Errorf("cannot determine remote component validity: %w", err)
 		}
 
 	}
