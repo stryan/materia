@@ -6,13 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
-	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
@@ -826,7 +823,7 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 				}
 				// update the attached object since we parsed the resource
 				if r.IsQuadlet() && r.HostObject == "" {
-					newName, err := parseQuadletName(r, resourceBody.String())
+					newName, err := r.GetHostObject(resourceBody.String())
 					if err != nil {
 						return diffActions, err
 					}
@@ -847,40 +844,6 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 	}
 
 	return diffActions, nil
-}
-
-func parseQuadletName(r components.Resource, resourceBody string) (string, error) {
-	var name string
-	unitfile := parser.NewUnitFile()
-	err := unitfile.Parse(resourceBody)
-	if err != nil {
-		return name, fmt.Errorf("error parsing container file: %w", err)
-	}
-	nameOption := ""
-	group := ""
-	switch r.Kind {
-	case components.ResourceTypeContainer:
-		group = "Container"
-		nameOption = "ContainerName"
-	case components.ResourceTypeVolume:
-		group = "Volume"
-		nameOption = "VolumeName"
-	case components.ResourceTypeNetwork:
-		group = "Network"
-		nameOption = "NetworkName"
-	case components.ResourceTypePod:
-		group = "Pod"
-		nameOption = "PodName"
-	}
-	if nameOption != "" {
-		unitName, foundName := unitfile.Lookup(group, nameOption)
-		if foundName {
-			name = unitName
-		} else {
-			name = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path)))
-		}
-	}
-	return name, nil
 }
 
 func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
@@ -913,7 +876,7 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 		}
 		newString = result.String()
 		if newRes.IsQuadlet() && newRes.HostObject == "" {
-			newResourceName, err := parseQuadletName(*newRes, newString)
+			newResourceName, err := newRes.GetHostObject(newString)
 			if err != nil {
 				return diffs, err
 			}
