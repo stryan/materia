@@ -115,13 +115,17 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	}
 	res := command.Target
 	isUnits := command.Target.Kind == components.ResourceTypeHost
+	serviceName := res.Path
 	if !isUnits {
 		if err := res.Validate(); err != nil {
 			return fmt.Errorf("invalid resource when modifying service: %w", err)
 		}
 
 		if res.Kind != components.ResourceTypeService {
-			return errors.New("attempted to modify a non service resource")
+			serviceName = res.Service()
+			if serviceName == "" {
+				return fmt.Errorf("cannot modify a resource that doesn't have a systemd service: %v", res)
+			}
 		}
 	}
 	var cmd services.ServiceAction
@@ -153,7 +157,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Host.Apply(ctx, res.Path, cmd)
+	return m.Host.Apply(ctx, serviceName, cmd)
 }
 
 func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
@@ -183,7 +187,64 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest, components.ResourceTypeBuild, components.ResourceTypeImage:
+	case components.ResourceTypeVolume:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			diffs, err := v.GetContentAsDiffs()
+			if err != nil {
+				return err
+			}
+			resourceData := diffmatchpatch.New().DiffText2(diffs)
+			if err := m.Host.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.Host.RemoveResource(v.Target); err != nil {
+				return err
+			}
+		case ActionEnsure:
+			err := m.modifyService(ctx, Action{
+				Todo:   ActionReload,
+				Parent: rootComponent,
+				Target: components.Resource{Kind: components.ResourceTypeHost},
+			})
+			if err != nil {
+				return err
+			}
+			err = m.modifyService(ctx, Action{
+				Todo:   ActionRestart,
+				Parent: v.Parent,
+				Target: v.Target,
+			})
+			if err != nil {
+				return err
+			}
+		case ActionCleanup:
+			err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+			if err != nil {
+				return err
+			}
+		case ActionDump:
+			err := m.Host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
+			if err != nil {
+				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+			}
+		case ActionImport:
+
+			err := m.Host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+			if err != nil {
+				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
+			}
+		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
+			err := m.modifyService(ctx, v)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
+		}
+
+	case components.ResourceTypeContainer, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeImage, components.ResourceTypePod:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
 			diffs, err := v.GetContentAsDiffs()
@@ -213,11 +274,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			err = m.modifyService(ctx, Action{
 				Todo:   ActionRestart,
 				Parent: v.Parent,
-				Target: components.Resource{
-					Parent: v.Parent.Name,
-					Path:   v.Target.Service(),
-					Kind:   components.ResourceTypeService,
-				},
+				Target: v.Target,
 			})
 			if err != nil {
 				return err
@@ -229,11 +286,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				if err != nil {
 					return err
 				}
-			case components.ResourceTypeVolume:
-				err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
-				if err != nil {
-					return err
-				}
 			case components.ResourceTypeBuild, components.ResourceTypeImage:
 				err := m.Host.RemoveImage(ctx, v.Target.HostObject)
 				if err != nil {
@@ -242,21 +294,29 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)
 			}
-		case ActionDump:
-			if v.Target.Kind != components.ResourceTypeVolume {
-				return fmt.Errorf("tried to dump non volume resource: %v", v.Target)
-			}
-			err := m.Host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
+		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
+			err := m.modifyService(ctx, v)
 			if err != nil {
-				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+				return err
 			}
-		case ActionImport:
-			if v.Target.Kind != components.ResourceTypeVolume {
-				return fmt.Errorf("tried to import a non-volume resource: %v", v.Target)
-			}
-			err := m.Host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
+		}
+
+	case components.ResourceTypeFile, components.ResourceTypeManifest, components.ResourceTypeBuild:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
-				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
+				return err
+			}
+			resourceData := diffmatchpatch.New().DiffText2(diffs)
+			if err := m.Host.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.Host.RemoveResource(v.Target); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)

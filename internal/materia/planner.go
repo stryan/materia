@@ -423,11 +423,7 @@ func (m *Materia) processUpdatedComponentServices(ctx context.Context, original,
 				actions = append(actions, Action{
 					Todo:   ActionRestart,
 					Parent: newComponent,
-					Target: components.Resource{
-						Path:   d.Target.Service(),
-						Parent: newComponent.Name,
-						Kind:   components.ResourceTypeService,
-					},
+					Target: d.Target,
 				})
 			}
 		}
