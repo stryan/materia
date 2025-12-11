@@ -340,15 +340,6 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		if err != nil {
 			return res, err
 		}
-		unitData, err := r.ReadResource(res)
-		if err != nil {
-			return res, err
-		}
-		hostObject, err := res.GetHostObject(unitData)
-		if err != nil {
-			return res, err
-		}
-		res.HostObject = hostObject
 	} else {
 		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), path)
 		if err != nil {

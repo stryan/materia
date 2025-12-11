@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
+	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
@@ -327,20 +330,9 @@ func (m *Materia) calculateFreshComponentResources(newComponent *components.Comp
 	for _, r := range newComponent.Resources.List() {
 		content := ""
 		if r.Kind != components.ResourceTypePodmanSecret {
-			newStringTempl, err := m.Source.ReadResource(r)
+			resourceBody, err := m.executeResource(m.Source, newComponent, r, freshAttrs)
 			if err != nil {
 				return actions, err
-			}
-			resourceBody, err := m.executeResource(newStringTempl, freshAttrs)
-			if err != nil {
-				return actions, err
-			}
-			if r.IsQuadlet() {
-				hostObject, err := r.GetHostObject(resourceBody.String())
-				if err != nil {
-					return actions, err
-				}
-				r.HostObject = hostObject
 			}
 			content = resourceBody.String()
 		}
@@ -631,6 +623,16 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 	maps.Copy(diffAttrs, other.Defaults)
 	maps.Copy(diffAttrs, attrs)
 	for _, v := range base.Resources.List() {
+		if v.IsQuadlet() {
+			body, err := m.Host.ReadResource(v)
+			if err != nil {
+				return diffActions, fmt.Errorf("error reading resource for diff: %w", err)
+			}
+			err = parseQuadlet(base, &v, body)
+			if err != nil {
+				return diffActions, err
+			}
+		}
 		currentResources[v.Path] = v
 	}
 	for _, v := range other.Resources.List() {
@@ -809,21 +811,9 @@ func (m *Materia) diffComponent(base, other *components.Component, attrs map[str
 			// do a test run just to make sure we can actually install this resource
 			content := ""
 			if r.Kind != components.ResourceTypePodmanSecret {
-				newStringTempl, err := m.Source.ReadResource(r)
+				resourceBody, err := m.executeResource(m.Source, base, r, diffAttrs)
 				if err != nil {
 					return diffActions, err
-				}
-				resourceBody, err := m.executeResource(newStringTempl, diffAttrs)
-				if err != nil {
-					return diffActions, err
-				}
-				// update the attached object since we parsed the resource
-				if r.IsQuadlet() && r.HostObject == "" {
-					newName, err := r.GetHostObject(resourceBody.String())
-					if err != nil {
-						return diffActions, err
-					}
-					r.HostObject = newName
 				}
 				content = resourceBody.String()
 
@@ -862,22 +852,11 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 		if err != nil {
 			return diffs, err
 		}
-		newStringTempl, err := m.Source.ReadResource(*newRes)
-		if err != nil {
-			return diffs, err
-		}
-		result, err := m.executeResource(newStringTempl, attrs)
+		result, err := m.executeResource(m.Source, nil, *newRes, attrs)
 		if err != nil {
 			return diffs, err
 		}
 		newString = result.String()
-		if newRes.IsQuadlet() && newRes.HostObject == "" {
-			newResourceName, err := newRes.GetHostObject(newString)
-			if err != nil {
-				return diffs, err
-			}
-			newRes.HostObject = newResourceName
-		}
 	} else {
 		var curSecret *containers.PodmanSecret
 		secretsList, err := m.Host.ListSecrets(context.TODO())
@@ -910,8 +889,12 @@ func (m *Materia) diffResource(cur, newRes *components.Resource, attrs map[strin
 	return dmp.DiffMain(curString, newString, false), nil
 }
 
-func (m *Materia) executeResource(resourceTemplate string, attrs map[string]any) (*bytes.Buffer, error) {
+func (m *Materia) executeResource(repo ComponentRepository, parent *components.Component, resource components.Resource, attrs map[string]any) (*bytes.Buffer, error) {
 	result := bytes.NewBuffer([]byte{})
+	resourceTemplate, err := repo.ReadResource(resource)
+	if err != nil {
+		return result, err
+	}
 	tmpl, err := template.New("resource").Option("missingkey=error").Funcs(m.macros(attrs)).Parse(resourceTemplate)
 	if err != nil {
 		return nil, err
@@ -920,5 +903,140 @@ func (m *Materia) executeResource(resourceTemplate string, attrs map[string]any)
 	if err != nil {
 		return nil, err
 	}
+	if resource.IsQuadlet() {
+		unitfile := parser.NewUnitFile()
+		err := unitfile.Parse(result.String())
+		if err != nil {
+			return result, fmt.Errorf("error parsing systemd unit file: %w", err)
+		}
+		err = parseQuadlet(parent, &resource, result.String())
+		if err != nil {
+			return result, fmt.Errorf("error parsing quadlet info: %w", err)
+		}
+	}
 	return result, nil
+}
+
+func parseQuadlet(parent *components.Component, r *components.Resource, body string) error {
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(body)
+	if err != nil {
+		return fmt.Errorf("error parsing systemd unit file: %w", err)
+	}
+
+	nameOption := ""
+	group := ""
+	switch r.Kind {
+	case components.ResourceTypeContainer:
+		group = "Container"
+		nameOption = "ContainerName"
+	case components.ResourceTypeVolume:
+		group = "Volume"
+		nameOption = "VolumeName"
+	case components.ResourceTypeNetwork:
+		group = "Network"
+		nameOption = "NetworkName"
+	case components.ResourceTypePod:
+		group = "Pod"
+		nameOption = "PodName"
+	case components.ResourceTypeBuild:
+		group = "Build"
+		nameOption = "ImageTag"
+	case components.ResourceTypeImage:
+		group = "Image"
+		nameOption = "ImageTag"
+	case components.ResourceTypeKube:
+		group = "Kube"
+		nameOption = "Yaml"
+	}
+	name, foundName := unitfile.Lookup(group, nameOption)
+	if foundName {
+		r.HostObject = name
+	}
+	// FIXME this is ugly
+	if r.Kind == components.ResourceTypeImage {
+		name, ok := unitfile.Lookup(group, "Image")
+		if !ok {
+			return fmt.Errorf("invalid image resource: %v", r.Path)
+		}
+		r.HostObject = name
+	} else {
+		// Technically build and kube resources also don't have systemd- prefixed host objects
+		// but we'll always have unique identifers for those quadlets so we won't worry about them.
+		r.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path)))
+	}
+	timeout := 0
+	if imageName, ok := unitfile.Lookup(group, "Image"); ok {
+		if strings.HasSuffix(imageName, ".image") || strings.HasSuffix(imageName, ".build") {
+			depSrc, ok := parent.ServiceResources[imageName]
+			if ok {
+				timeout += depSrc.Timeout
+			}
+		}
+	}
+	if src, ok := parent.ServiceResources[r.Service()]; !ok {
+		parent.ServiceResources[r.Service()] = manifests.ServiceResourceConfig{
+			Service: r.Service(),
+			Timeout: timeout,
+		}
+	} else if timeout != 0 {
+		src.Timeout += timeout
+		parent.ServiceResources[r.Service()] = src
+	}
+
+	return nil
+}
+
+func ParseQuadletInfo(r *components.Resource, unitData string) error {
+	if !r.IsQuadlet() {
+		return errors.New("can't parse info for non-quadlet")
+	}
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(unitData)
+	if err != nil {
+		return fmt.Errorf("error parsing systemd unit file: %w", err)
+	}
+	nameOption := ""
+	group := ""
+	switch r.Kind {
+	case components.ResourceTypeContainer:
+		group = "Container"
+		nameOption = "ContainerName"
+	case components.ResourceTypeVolume:
+		group = "Volume"
+		nameOption = "VolumeName"
+	case components.ResourceTypeNetwork:
+		group = "Network"
+		nameOption = "NetworkName"
+	case components.ResourceTypePod:
+		group = "Pod"
+		nameOption = "PodName"
+	case components.ResourceTypeBuild:
+		group = "Build"
+		nameOption = "ImageTag"
+	case components.ResourceTypeImage:
+		group = "Image"
+		nameOption = "ImageTag"
+	case components.ResourceTypeKube:
+		group = "Kube"
+		nameOption = "Yaml"
+	}
+	name, foundName := unitfile.Lookup(group, nameOption)
+	if foundName {
+		r.HostObject = name
+	}
+	// TODO this is ugly
+	if r.Kind == components.ResourceTypeImage {
+		name, ok := unitfile.Lookup(group, "Image")
+		if !ok {
+			return fmt.Errorf("invalid image resource: %v", r.Path)
+		}
+		r.HostObject = name
+	} else {
+		// Technically build and kube resources also don't have systemd- prefixed host objects
+		// but we'll always have unique identifers for those quadlets so we won't worry about them.
+		r.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path)))
+	}
+
+	return nil
 }

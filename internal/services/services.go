@@ -95,7 +95,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	return &sm, nil
 }
 
-func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction) error {
+func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction, timeout int) error {
 	if action == ServiceReloadUnits {
 		if s.DryrunQuadlets {
 			err := s.dryrunQuadlets(ctx)
@@ -104,6 +104,9 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 			}
 		}
 		return s.Conn.ReloadContext(ctx)
+	}
+	if timeout == 0 {
+		timeout = s.Timeout
 	}
 	callback := make(chan string)
 	var err error
@@ -139,7 +142,7 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		return errors.New("context cancelled while waiting for service")
 	case <-callback:
 		return nil
-	case <-time.After(time.Duration(s.Timeout) * time.Second):
+	case <-time.After(time.Duration(timeout) * time.Second):
 		return fmt.Errorf("error applying service change for %v: %w", name, errors.New("timeout modifying unit"))
 	}
 }
@@ -158,7 +161,7 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 	return result, nil
 }
 
-func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string) error {
+func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string, timeout int) error {
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
@@ -175,16 +178,19 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	if activeState == state {
 		return nil
 	}
+	if timeout != 0 {
+		timeout = s.Timeout
+	}
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	timeout := time.NewTimer(time.Duration(s.Timeout) * time.Second)
-	defer timeout.Stop()
+	waitTimer := time.NewTimer(time.Duration(timeout) * time.Second)
+	defer waitTimer.Stop()
 	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", s.Timeout)
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
-		case <-timeout.C:
+		case <-waitTimer.C:
 			return fmt.Errorf("service %v did not reach state %v", name, state)
 		case <-ticker.C:
 			props, err := s.Conn.GetAllPropertiesContext(ctx, name)

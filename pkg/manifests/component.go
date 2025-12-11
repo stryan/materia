@@ -15,8 +15,10 @@ type ServiceResourceConfig struct {
 	Service     string   `toml:"Service"`
 	RestartedBy []string `toml:"RestartedBy"`
 	ReloadedBy  []string `toml:"ReloadedBy"`
+	Stopped     bool     `toml:"Stopped"`
 	Disabled    bool     `toml:"Disabled"`
 	Static      bool     `toml:"Static"`
+	Timeout     int      `toml:"Timeout"`
 }
 
 type BackupsConfig struct {

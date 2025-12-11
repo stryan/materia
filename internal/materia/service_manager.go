@@ -7,7 +7,7 @@ import (
 )
 
 type ServiceManager interface {
-	Apply(context.Context, string, services.ServiceAction) error
+	Apply(context.Context, string, services.ServiceAction, int) error
 	Get(context.Context, string) (*services.Service, error)
-	WaitUntilState(context.Context, string, string) error
+	WaitUntilState(context.Context, string, string, int) error
 }

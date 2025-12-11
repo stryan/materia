@@ -59,7 +59,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 			return steps, err
 		}
 
-		if (v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload) && v.Target.Kind == components.ResourceTypeService {
+		if v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload {
 			serviceActions = append(serviceActions, v)
 		}
 
@@ -69,6 +69,9 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	// verify services
 	servicesResultMap := make(map[string]string)
 	for _, v := range serviceActions {
+		if v.Target.Kind == components.ResourceTypeHost {
+			continue
+		}
 		serv, err := m.Host.Get(ctx, v.Target.Path)
 		if err != nil {
 			return steps, err
@@ -98,7 +101,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		servWG.Add(1)
 		go func() {
 			defer servWG.Done()
-			err := m.Host.WaitUntilState(ctx, serv, state)
+			err := m.Host.WaitUntilState(ctx, serv, state, 0)
 			if err != nil {
 				log.Warn(err)
 			}
@@ -116,16 +119,19 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	res := command.Target
 	isUnits := command.Target.Kind == components.ResourceTypeHost
 	serviceName := res.Path
+	timeout := 0
 	if !isUnits {
 		if err := res.Validate(); err != nil {
 			return fmt.Errorf("invalid resource when modifying service: %w", err)
 		}
 
 		if res.Kind != components.ResourceTypeService {
-			serviceName = res.Service()
-			if serviceName == "" {
+			srvCfg, ok := command.Parent.ServiceResources[res.Name()]
+			if !ok {
 				return fmt.Errorf("cannot modify a resource that doesn't have a systemd service: %v", res)
 			}
+			serviceName = srvCfg.Service
+			timeout = srvCfg.Timeout
 		}
 	}
 	var cmd services.ServiceAction
@@ -157,7 +163,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Host.Apply(ctx, serviceName, cmd)
+	return m.Host.Apply(ctx, serviceName, cmd, timeout)
 }
 
 func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
