@@ -64,11 +64,19 @@ func (a Action) Validate() error {
 }
 
 func (a *Action) String() string {
-	return fmt.Sprintf("{a %v %v %v }", a.Todo, a.Parent.Name, a.Target.Path)
+	name := "<parent>"
+	if a.Parent != nil {
+		name = a.Parent.Name
+	}
+	return fmt.Sprintf("{a %v %v %v }", a.Todo, name, a.Target.Path)
 }
 
 func (a *Action) Pretty() string {
-	return fmt.Sprintf("(%v) %v %v %v", a.Parent.Name, a.Todo, a.Target.Kind, a.Target.Path)
+	name := "<parent>"
+	if a.Parent != nil {
+		name = a.Parent.Name
+	}
+	return fmt.Sprintf("(%v) %v %v %v", name, a.Todo, a.Target.Kind, a.Target.Path)
 }
 
 func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -226,13 +227,14 @@ func servicesRunning(ctx context.Context, conn *dbus.Conn, goldenPath string) bo
 	}
 	defer func() { _ = file.Close() }()
 
-	// Create a new Scanner for the file.
 	scanner := bufio.NewScanner(file)
 
-	// Iterate over each line in the file.
 	var names []string
 	for scanner.Scan() {
 		names = append(names, scanner.Text())
+	}
+	if len(names) == 0 {
+		return true
 	}
 	states, err := conn.ListUnitsByNamesContext(ctx, names)
 	if err != nil {
@@ -251,6 +253,59 @@ func servicesRunning(ctx context.Context, conn *dbus.Conn, goldenPath string) bo
 		}
 	}
 
+	return result
+}
+
+func servicesStopped(ctx context.Context, conn *dbus.Conn, goldenPath string) bool {
+	_, err := os.Stat(goldenPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		log.Fatalf("component not found in golden path: %v", goldenPath)
+	}
+	servicesList := filepath.Join(goldenPath, "services")
+	if !fileExists(servicesList) {
+		log.Warnf("checking services for %v but no services list", goldenPath)
+		return false
+	}
+
+	file, err := os.Open(servicesList)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer func() { _ = file.Close() }()
+
+	scanner := bufio.NewScanner(file)
+
+	var names []string
+	for scanner.Scan() {
+		names = append(names, scanner.Text())
+	}
+	if len(names) == 0 {
+		return true
+	}
+	states, err := conn.ListUnitsByNamesContext(ctx, names)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(states) == 0 {
+		return false
+	}
+	result := true
+	for _, s := range states {
+		if s.ActiveState != "inactive" {
+			log.Warnf("service %v is running", s.Name)
+			result = false
+		} else {
+			for k, v := range runningServices {
+				if v == s.Name {
+					runningServices = slices.Delete(runningServices, k, k+1)
+					break
+				}
+			}
+		}
+	}
 	return result
 }
 

@@ -10,10 +10,9 @@ import (
 )
 
 type Plan struct {
-	size          int
-	volumes       []string
-	components    []string
-	servicesPhase []Action
+	size       int
+	volumes    []string
+	components []string
 
 	componentChanges map[string][]Action
 	serviceChanges   map[string][]Action
@@ -68,7 +67,7 @@ func (p *Plan) Add(a Action) {
 			case ActionCleanup:
 				a.Priority = 6
 			case ActionDump:
-				a.Priority = 6
+				a.Priority = 2
 			default:
 				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
 			}
@@ -107,13 +106,17 @@ func (p *Plan) Add(a Action) {
 		default:
 			panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
 		}
-		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart) {
-			p.serviceChanges[a.Parent.Name] = append(p.serviceChanges[a.Parent.Name], a)
-		} else if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
+		if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
 			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
-			if len(p.servicesPhase) == 0 || (p.servicesPhase[0].Todo != ActionReload && p.servicesPhase[0].Target.Kind != components.ResourceTypeHost) {
-				// TODO replace this with a host servicesChange entry
-				p.servicesPhase = append([]Action{a}, p.servicesPhase...)
+			if _, ok := p.serviceChanges[rootComponent.Name]; !ok {
+				p.serviceChanges[rootComponent.Name] = []Action{a}
+			}
+		} else if a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart {
+			p.serviceChanges[a.Parent.Name] = append(p.serviceChanges[a.Parent.Name], a)
+			if _, ok := p.componentChanges[a.Parent.Name]; !ok {
+				// TODO for now we just create a dummy component change
+				// Need to just unify component changes and service changes into one structure
+				p.componentChanges[a.Parent.Name] = []Action{}
 			}
 		} else {
 			p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
@@ -188,18 +191,23 @@ func (p *Plan) Steps() []Action {
 	var steps []Action
 	sortedComps := sortedKeys(p.componentChanges)
 	for _, k := range sortedComps {
-		slices.SortStableFunc(p.componentChanges[k], func(a, b Action) int {
+		resourceSteps := p.componentChanges[k]
+		slices.SortStableFunc(resourceSteps, func(a, b Action) int {
 			return cmp.Compare(a.Priority, b.Priority)
 		})
-		steps = append(steps, p.componentChanges[k]...)
+		steps = append(steps, resourceSteps...)
 	}
 	sortedServComps := sortedKeys(p.serviceChanges)
-	steps = append(steps, p.servicesPhase...)
+	var serviceSteps []Action
 	for _, k := range sortedServComps {
 		servActions := p.serviceChanges[k]
 		combinedServiceActions := coalesceServices(servActions)
-		steps = append(steps, combinedServiceActions...)
+		serviceSteps = append(serviceSteps, combinedServiceActions...)
 	}
+	slices.SortStableFunc(serviceSteps, func(a, b Action) int {
+		return cmp.Compare(a.Priority, b.Priority)
+	})
+	steps = append(steps, serviceSteps...)
 
 	return steps
 }

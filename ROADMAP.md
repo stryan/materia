@@ -4,6 +4,7 @@
 - [ ] General refinement
 
 # Potential future goals
+- [ ] Migrate containers in and out of pods
 - [ ] Automatic rollback on failure
 - [ ] "manifest-only" mode as a compose style tool
 - [ ] Pre and post change steps

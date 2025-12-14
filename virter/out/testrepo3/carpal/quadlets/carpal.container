@@ -4,6 +4,9 @@ After=local-fs.target network.target
 StartLimitIntervalSec=300
 StartLimitBurst=5
 
+[Service]
+SuccessExitStatus=2
+
 
 [Container]
 Image=docker.io/peeley/carpal:latest

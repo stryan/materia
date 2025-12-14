@@ -8,6 +8,7 @@ require (
 	github.com/charmbracelet/log v0.4.0
 	github.com/containers/podman/v5 v5.4.2
 	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
+	github.com/emirpasic/gods v1.18.1
 	github.com/getsops/sops/v3 v3.10.2
 	github.com/go-git/go-git/v5 v5.14.0
 	github.com/knadh/koanf/parsers/toml v0.1.0
@@ -77,7 +78,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect

@@ -15,6 +15,7 @@ type Resource struct {
 	Parent     string       `json:"parent" toml:"parent"`
 	Kind       ResourceType `json:"kind" toml:"kind"`
 	Template   bool         `json:"template" toml:"template"`
+	Content    string
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType

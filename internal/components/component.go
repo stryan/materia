@@ -18,14 +18,14 @@ const DefaultComponentVersion = 1
 var ErrCorruptComponent = errors.New("error corrupt component")
 
 type Component struct {
-	Name             string
-	Settings         manifests.Settings
-	Resources        *ResourceSet
-	Scripted         bool
-	State            ComponentLifecycle
-	Defaults         map[string]any
-	ServiceResources map[string]manifests.ServiceResourceConfig
-	Version          int
+	Name      string
+	Settings  manifests.Settings
+	Resources *ResourceSet
+	Scripted  bool
+	State     ComponentLifecycle
+	Defaults  map[string]any
+	NewSrcs   *ServiceSet
+	Version   int
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -48,11 +48,11 @@ type ComponentVersion struct {
 
 func NewComponent(name string) *Component {
 	return &Component{
-		Name:             name,
-		State:            StateStale,
-		Defaults:         make(map[string]any),
-		ServiceResources: make(map[string]manifests.ServiceResourceConfig),
-		Resources:        NewResourceSet(),
+		Name:      name,
+		State:     StateStale,
+		Defaults:  make(map[string]any),
+		NewSrcs:   NewServiceSet(),
+		Resources: NewResourceSet(),
 	}
 }
 
@@ -73,7 +73,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 		if err := s.Validate(); err != nil {
 			return fmt.Errorf("invalid service for component: %w", err)
 		}
-		c.ServiceResources[s.Service] = s
+		c.NewSrcs.Add(s)
 	}
 	for _, r := range c.Resources.List() {
 		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
@@ -90,7 +90,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 }
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, c.Resources.Size(), len(c.ServiceResources), c.Defaults)
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, c.Resources.Size(), c.NewSrcs.Size(), c.Defaults)
 }
 
 func (c Component) Validate() error {
@@ -99,6 +99,12 @@ func (c Component) Validate() error {
 	}
 	if c.State == StateUnknown {
 		return errors.New("component with unknown state")
+	}
+	if c.Resources == nil {
+		return errors.New("component without resource set")
+	}
+	if c.NewSrcs == nil {
+		return errors.New("component without services set")
 	}
 	return nil
 }

@@ -33,8 +33,11 @@ run = "golangci-lint run ./cmd/... ./internal/... ./pkg/..."
 
 [tasks.test]
 depends = ["lint"]
+usage = '''
+flag "-v --verbose" help="Verbose gotestum output" default=#false
+'''
 run = [
-  "gotestsum ./internal/... ",
+  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./internal/... ",
 ]
 
 [tasks.virter-age]
@@ -58,6 +61,7 @@ run = """
 [tasks.virter-test]
 usage = '''
 flag "-k --keep" help="Keep VM after running tests" default=#false
+flag "-v --verbose" help="Run tests with verbose enabled" default=#false
 '''
 depends = ["build", "test", "virter-age", "virter-sops"]
 run = '''
@@ -67,15 +71,11 @@ run = '''
   [[ "${usage_keep?}" == "false" ]] && virter vm rm materia-test-alma-9 || echo "keeping vm"
 '''
 
-[tasks.virter-bool]
-usage = '''
-'''
-run = '''
-  [[ "${usage_keep?}" == "false" ]] && echo "deleting vm" || echo "keeping vm"
-'''
-
 [tasks.virter-testsuite]
-run = "gotestsum ./virter"
+usage = '''
+flag "-v --verbose" help="Verbose gotestum output" default=#false
+'''
+run = "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./virter"
 
 [tasks.virter-explore]
 depends = ["build-amd64", "lint", "test", "virter-age"]
