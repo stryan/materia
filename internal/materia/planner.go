@@ -538,7 +538,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts p
 
 func generateComponentServiceTriggers(newComponent *components.Component) map[string][]Action {
 	triggeredActions := make(map[string][]Action)
-	for _, src := range newComponent.NewSrcs.List() {
+	for _, src := range newComponent.Services.List() {
 		for _, trigger := range src.RestartedBy {
 			triggeredActions[trigger] = append(triggeredActions[trigger], Action{
 				Todo:   ActionRestart,
@@ -583,7 +583,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 	}
 	// volume resource has been updated and volume migration has been enabled, add extra actions
 	runningServices := []string{}
-	for _, s := range parent.NewSrcs.List() {
+	for _, s := range parent.Services.List() {
 		// stop all services so that we're safe to dump
 		// TODO only stop those actually running
 		diffActions = append(diffActions, Action{
@@ -804,11 +804,11 @@ func loadHostComponent(ctx context.Context, mgr HostManager, name string) (*comp
 
 func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManager, component *components.Component) ([]Action, error) {
 	var actions []Action
-	if component.NewSrcs == nil {
+	if component.Services == nil {
 		return actions, nil
 	}
 
-	for _, s := range component.NewSrcs.List() {
+	for _, s := range component.Services.List() {
 		liveService, err := mgr.Get(ctx, s.Service)
 		if err != nil {
 			return actions, err
@@ -826,10 +826,10 @@ func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManag
 
 func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp *components.Component) ([]Action, error) {
 	var actions []Action
-	if comp.NewSrcs == nil {
+	if comp.Services == nil {
 		return actions, nil
 	}
-	for _, s := range comp.NewSrcs.List() {
+	for _, s := range comp.Services.List() {
 		res := components.Resource{
 			Parent: comp.Name,
 			Path:   s.Service,
@@ -881,7 +881,7 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 		}
 	}
 
-	for _, k := range newComponent.NewSrcs.List() {
+	for _, k := range newComponent.Services.List() {
 		if slices.Contains(triggeredServices, k.Service) {
 			continue
 		}
@@ -898,8 +898,8 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 		actions = append(actions, installActions...)
 	}
 
-	for _, osrc := range original.NewSrcs.List() {
-		if !slices.Contains(newComponent.NewSrcs.ListServiceNames(), osrc.Service) {
+	for _, osrc := range original.Services.List() {
+		if !slices.Contains(newComponent.Services.ListServiceNames(), osrc.Service) {
 			actions = append(actions, generateServiceRemovalActions(original, osrc)...)
 		}
 	}

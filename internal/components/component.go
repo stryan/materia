@@ -24,7 +24,7 @@ type Component struct {
 	Scripted  bool
 	State     ComponentLifecycle
 	Defaults  map[string]any
-	NewSrcs   *ServiceSet
+	Services  *ServiceSet
 	Version   int
 }
 
@@ -51,7 +51,7 @@ func NewComponent(name string) *Component {
 		Name:      name,
 		State:     StateStale,
 		Defaults:  make(map[string]any),
-		NewSrcs:   NewServiceSet(),
+		Services:  NewServiceSet(),
 		Resources: NewResourceSet(),
 	}
 }
@@ -73,7 +73,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 		if err := s.Validate(); err != nil {
 			return fmt.Errorf("invalid service for component: %w", err)
 		}
-		c.NewSrcs.Add(s)
+		c.Services.Add(s)
 	}
 	for _, r := range c.Resources.List() {
 		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
@@ -90,7 +90,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 }
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, c.Resources.Size(), c.NewSrcs.Size(), c.Defaults)
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, c.Resources.Size(), c.Services.Size(), c.Defaults)
 }
 
 func (c Component) Validate() error {
@@ -103,7 +103,7 @@ func (c Component) Validate() error {
 	if c.Resources == nil {
 		return errors.New("component without resource set")
 	}
-	if c.NewSrcs == nil {
+	if c.Services == nil {
 		return errors.New("component without services set")
 	}
 	return nil
