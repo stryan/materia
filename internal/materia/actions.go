@@ -36,11 +36,11 @@ const (
 )
 
 type Action struct {
-	Todo     ActionType            `json:"todo" toml:"todo"`
-	Parent   *components.Component `json:"parent" toml:"parent"`
-	Target   components.Resource   `json:"target" toml:"target"`
-	Content  any                   `json:"content" toml:"content"`
-	Priority int                   `json:"priority" toml:"priority"`
+	Todo        ActionType            `json:"todo" toml:"todo"`
+	Parent      *components.Component `json:"parent" toml:"parent"`
+	Target      components.Resource   `json:"target" toml:"target"`
+	DiffContent []diffmatchpatch.Diff `json:"content" toml:"content"`
+	Priority    int                   `json:"priority" toml:"priority"`
 }
 
 func (a Action) Validate() error {
@@ -53,10 +53,10 @@ func (a Action) Validate() error {
 	if err := a.Target.Validate(); err != nil {
 		return fmt.Errorf("invalid payload %v for action: %w", a.Target, err)
 	}
-	if a.Todo == ActionInstall || a.Todo == ActionRemove || a.Todo == ActionUpdate {
+	if a.Todo == ActionUpdate {
 		if a.Target.IsFile() {
-			if a.Content == nil {
-				return errors.New("file related action has no content")
+			if a.DiffContent == nil {
+				return fmt.Errorf("file related action has no diff: %v", a)
 			}
 		}
 	}
@@ -84,11 +84,7 @@ func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {
 	if a.Todo != ActionInstall && a.Todo != ActionRemove && a.Todo != ActionUpdate {
 		return diffs, errors.New("action does not have diffs")
 	}
-	diffs, ok := a.Content.([]diffmatchpatch.Diff)
-	if !ok {
-		return diffs, errors.New("should have diffs but don't")
-	}
-	return diffs, nil
+	return a.DiffContent, nil
 }
 
 func (a *Action) MarshalJSON() ([]byte, error) {

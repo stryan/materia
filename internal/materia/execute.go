@@ -96,13 +96,13 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	var servWG sync.WaitGroup
 	for serv, state := range servicesResultMap {
 		servWG.Add(1)
-		go func() {
+		go func(serv, state string) {
 			defer servWG.Done()
 			err := m.Host.WaitUntilState(ctx, serv, state)
 			if err != nil {
 				log.Warn(err)
 			}
-		}()
+		}(serv, state)
 
 	}
 	servWG.Wait()

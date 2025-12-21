@@ -49,28 +49,28 @@ func TestExecute(t *testing.T) {
 	}
 	planSteps := []Action{
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
-			Content: getDiffs("", ""),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
+			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  containerResource,
-			Content: getDiffs("", "[Container]"),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      containerResource,
+			DiffContent: getDiffs("", "[Container]"),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  dataResource,
-			Content: getDiffs("", "FOO=BAR"),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      dataResource,
+			DiffContent: getDiffs("", "FOO=BAR"),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  manifestResource,
-			Content: getDiffs("", ""),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      manifestResource,
+			DiffContent: getDiffs("", ""),
 		},
 		{
 			Todo:   ActionReload,
@@ -80,7 +80,7 @@ func TestExecute(t *testing.T) {
 	}
 	plan := NewPlan([]string{}, []string{})
 	for _, p := range planSteps {
-		plan.Add(p)
+		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
 	hm.EXPECT().GetHostname().Return("localhost")
 	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{

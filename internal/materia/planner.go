@@ -74,14 +74,20 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 			if err != nil {
 				return nil, err
 			}
-			plan.Append(actions)
+			err = plan.Append(actions)
+			if err != nil {
+				return nil, fmt.Errorf("error calculating component %v differences:%w", currentTree.Name, err)
+			}
 		} else if currentTree.source == nil {
 			currentTree.host.State = components.StateNeedRemoval
 			actions, err := m.PlanRemovedComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
 			}
-			plan.Append(actions)
+			err = plan.Append(actions)
+			if err != nil {
+				return nil, fmt.Errorf("error calculating component %v differences:%w", currentTree.Name, err)
+			}
 		} else {
 			currentTree.host.State = components.StateMayNeedUpdate
 		}
@@ -301,10 +307,9 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 	}
 
 	actions = append(actions, Action{
-		Todo:    ActionInstall,
-		Parent:  comp,
-		Target:  components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
-		Content: []diffmatchpatch.Diff{},
+		Todo:   ActionInstall,
+		Parent: comp,
+		Target: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
 	})
 
 	for _, r := range comp.Resources.List() {
@@ -313,10 +318,10 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 			content = r.Content
 		}
 		actions = append(actions, Action{
-			Todo:    ActionInstall,
-			Parent:  comp,
-			Target:  r,
-			Content: diffmatchpatch.New().DiffMain("", content, false),
+			Todo:        ActionInstall,
+			Parent:      comp,
+			Target:      r,
+			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
 		})
 	}
 	if comp.Scripted {
@@ -343,10 +348,10 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 
 	for _, v := range toRemove.List() {
 		diffActions = append(diffActions, Action{
-			Todo:    ActionRemove,
-			Parent:  host,
-			Target:  v,
-			Content: []diffmatchpatch.Diff{},
+			Todo:        ActionRemove,
+			Parent:      host,
+			Target:      v,
+			DiffContent: []diffmatchpatch.Diff{},
 		})
 		if opts.cleanupResources {
 			cleanupActions, err := generateCleanupResourceActions(ctx, mgr, opts, host, v)
@@ -363,10 +368,10 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 			content = v.Content
 		}
 		diffActions = append(diffActions, Action{
-			Todo:    ActionInstall,
-			Parent:  source,
-			Target:  v,
-			Content: diffmatchpatch.New().DiffMain("", content, false),
+			Todo:        ActionInstall,
+			Parent:      source,
+			Target:      v,
+			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
 		})
 	}
 
@@ -381,15 +386,15 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 		}
 		dmp := diffmatchpatch.New()
 		diffs := dmp.DiffMain(hostResource.Content, sourceRes.Content, false)
-		if len(diffs) < 1 {
+		if diffs == nil {
 			continue
 		}
 		if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
 			diffActions = append(diffActions, Action{
-				Todo:    ActionUpdate,
-				Parent:  source,
-				Target:  conflictedResource, // TODO should we use source resource here?
-				Content: diffs,
+				Todo:        ActionUpdate,
+				Parent:      source,
+				Target:      conflictedResource, // TODO should we use source resource here?
+				DiffContent: diffs,
 			})
 			if conflictedResource.Kind == components.ResourceTypeVolume && opts.migrateVolumes {
 				volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
@@ -425,10 +430,10 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 		if r.Path != manifests.ComponentManifestFile {
 			if r.IsFile() {
 				actions = append(actions, Action{
-					Todo:    ActionRemove,
-					Parent:  comp,
-					Target:  r,
-					Content: diffmatchpatch.New().DiffMain(r.Content, "", false),
+					Todo:        ActionRemove,
+					Parent:      comp,
+					Target:      r,
+					DiffContent: diffmatchpatch.New().DiffMain(r.Content, "", false),
 				})
 			} else {
 				dirs = append(dirs, r)
@@ -457,10 +462,10 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 		})
 	}
 	actions = append(actions, Action{
-		Todo:    ActionRemove,
-		Parent:  comp,
-		Target:  manifestResource,
-		Content: diffmatchpatch.New().DiffMain(manifestResource.Content, "", false),
+		Todo:        ActionRemove,
+		Parent:      comp,
+		Target:      manifestResource,
+		DiffContent: diffmatchpatch.New().DiffMain(manifestResource.Content, "", false),
 	})
 	actions = append(actions, Action{
 		Todo:   ActionRemove,

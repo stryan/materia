@@ -284,10 +284,9 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	}
 	for _, a := range p.Steps() {
 		if a.Todo == ActionUpdate {
-			diffs := a.Content.([]diffmatchpatch.Diff)
 			dmp := diffmatchpatch.New()
-			before := dmp.DiffText1(diffs)
-			after := dmp.DiffText2(diffs)
+			before := dmp.DiffText1(a.DiffContent)
+			after := dmp.DiffText2(a.DiffContent)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
 				ResourceName: a.Target.Path,
 				Before:       before,
@@ -300,7 +299,12 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create file %s: %w", path, err)
 	}
-	defer func() { _ = file.Close() }()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Warn("error closing plan file: %v", err)
+		}
+	}()
 
 	err = toml.NewEncoder(file).Encode(planOutput)
 	if err != nil {
