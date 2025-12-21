@@ -86,7 +86,7 @@ func TestExecute(t *testing.T) {
 	hm.EXPECT().InstallResource(containerResource, bytes.NewBufferString("[Container]")).Return(nil)
 	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, bytes.NewBufferString("")).Return(nil)
-	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits).Return(nil)
+	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
 	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
 
 	steps, err := m.Execute(ctx, plan)

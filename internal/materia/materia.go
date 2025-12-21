@@ -42,6 +42,7 @@ type Materia struct {
 	macros         MacroMap
 	snippets       map[string]*Snippet
 	OutputDir      string
+	defaultTimeout int
 	onlyResources  bool
 	debug          bool
 	diffs          bool
@@ -137,9 +138,9 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Source:         srcman,
 		Manifest:       man,
 		debug:          c.Debug,
-		diffs:          c.Diffs,
 		cleanup:        c.Cleanup,
 		onlyResources:  c.OnlyResources,
+		defaultTimeout: c.Timeout,
 		Vault:          attributes,
 		OutputDir:      c.OutputDir,
 		snippets:       snips,

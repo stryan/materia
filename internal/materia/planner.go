@@ -28,7 +28,6 @@ type planOptions struct {
 	cleanupVolumes   bool
 	backupVolumes    bool
 	migrateVolumes   bool
-	showDiffs        bool
 }
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
@@ -222,7 +221,6 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 		cleanupVolumes:   m.cleanupVolumes,
 		backupVolumes:    m.backupVolumes,
 		migrateVolumes:   m.migrateVolumes,
-		showDiffs:        m.diffs,
 	}
 	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, opts, currentTree.host)
 	if err != nil {
@@ -250,7 +248,6 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 		cleanupVolumes:   m.cleanupVolumes,
 		backupVolumes:    m.backupVolumes,
 		migrateVolumes:   m.migrateVolumes,
-		showDiffs:        m.diffs,
 	}
 	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, opts, currentTree.host, currentTree.source)
 	if err != nil {
@@ -515,7 +512,6 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts p
 		}
 		if opts.cleanupVolumes {
 			for _, v := range volumes {
-				// TODO custom volume names
 				if v.Name == res.HostObject {
 					if opts.backupVolumes {
 						result = append(result, Action{
@@ -540,26 +536,12 @@ func generateComponentServiceTriggers(newComponent *components.Component) map[st
 	triggeredActions := make(map[string][]Action)
 	for _, src := range newComponent.Services.List() {
 		for _, trigger := range src.RestartedBy {
-			triggeredActions[trigger] = append(triggeredActions[trigger], Action{
-				Todo:   ActionRestart,
-				Parent: newComponent,
-				Target: components.Resource{
-					Parent: newComponent.Name,
-					Path:   src.Service,
-					Kind:   components.ResourceTypeService,
-				},
-			})
+			triggerAction := serviceActionWithMetadata(ActionRestart, newComponent, src)
+			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 		for _, trigger := range src.ReloadedBy {
-			triggeredActions[trigger] = append(triggeredActions[trigger], Action{
-				Todo:   ActionReload,
-				Parent: newComponent,
-				Target: components.Resource{
-					Parent: newComponent.Name,
-					Path:   src.Service,
-					Kind:   components.ResourceTypeService,
-				},
-			})
+			triggerAction := serviceActionWithMetadata(ActionReload, newComponent, src)
+			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 	}
 
@@ -582,21 +564,20 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 		return []Action{}, nil
 	}
 	// volume resource has been updated and volume migration has been enabled, add extra actions
-	runningServices := []string{}
+	stoppedServiceActions := []Action{}
 	for _, s := range parent.Services.List() {
 		// stop all services so that we're safe to dump
-		// TODO only stop those actually running
-		diffActions = append(diffActions, Action{
-			Todo:   ActionStop,
-			Parent: parent,
-			Target: components.Resource{
-				Kind:   components.ResourceTypeService,
-				Path:   s.Service,
-				Parent: parent.Name,
-			},
-			Priority: 1,
-		})
-		runningServices = append(runningServices, s.Service)
+		currentServ, err := mgr.Get(ctx, s.Service)
+		if err != nil {
+			return diffActions, fmt.Errorf("can't get service %v when generating volume migration: %w", s.Service, err)
+		}
+		if currentServ.State != "active" {
+			continue
+		}
+		stopAction := serviceActionWithMetadata(ActionStop, parent, s)
+		stopAction.Priority = 1
+		diffActions = append(diffActions, stopAction)
+		stoppedServiceActions = append(stoppedServiceActions, stopAction)
 	}
 	diffActions = append(diffActions, Action{
 		Todo:     ActionDump,
@@ -622,19 +603,33 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 		Target:   volumeRes,
 		Priority: 4,
 	})
-	for _, s := range runningServices {
-		diffActions = append(diffActions, Action{
-			Todo:   ActionStart,
-			Parent: parent,
-			Target: components.Resource{
-				Kind:   components.ResourceTypeService,
-				Path:   s,
-				Parent: parent.Name,
-			},
-			Priority: 5,
-		})
+	for _, s := range stoppedServiceActions {
+		startAction := s
+		startAction.Todo = ActionStart
+		startAction.Priority = 5
+		diffActions = append(diffActions, startAction)
 	}
 	return diffActions, nil
+}
+
+func serviceActionWithMetadata(a ActionType, parent *components.Component, s manifests.ServiceResourceConfig) Action {
+	targetSrc := components.Resource{
+		Parent: parent.Name,
+		Path:   s.Service,
+		Kind:   components.ResourceTypeService,
+	}
+	var metadata *ActionMetadata
+	if s.Timeout != 0 {
+		metadata = &ActionMetadata{
+			ServiceTimeout: &s.Timeout,
+		}
+	}
+	return Action{
+		Todo:     a,
+		Parent:   parent,
+		Target:   targetSrc,
+		Metadata: metadata,
+	}
 }
 
 func generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) []Action {
@@ -645,17 +640,14 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 		Kind:   components.ResourceTypeService,
 	}
 	if osrc.Static {
+		// For now we don't need metadata on Enable/Disable actions since they should be effectively instant
 		result = append(result, Action{
 			Todo:   ActionDisable,
 			Parent: comp,
 			Target: res,
 		})
 	}
-	result = append(result, Action{
-		Todo:   ActionStop,
-		Parent: comp,
-		Target: res,
-	})
+	result = append(result, serviceActionWithMetadata(ActionStop, comp, osrc))
 	return result
 }
 
@@ -667,6 +659,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		Kind:   components.ResourceTypeService,
 	}
 	if shouldEnableService(osrc, liveService) {
+		// For now we don't need metadata on Enable/Disable actions since they should be effectively instant
 		actions = append(actions, Action{
 			Todo:   ActionEnable,
 			Parent: comp,
@@ -674,11 +667,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		})
 	}
 	if !liveService.Started() {
-		actions = append(actions, Action{
-			Todo:   ActionStart,
-			Parent: comp,
-			Target: res,
-		})
+		actions = append(actions, serviceActionWithMetadata(ActionStart, comp, osrc))
 	}
 	return actions, nil
 }
@@ -830,21 +819,12 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 		return actions, nil
 	}
 	for _, s := range comp.Services.List() {
-		res := components.Resource{
-			Parent: comp.Name,
-			Path:   s.Service,
-			Kind:   components.ResourceTypeService,
-		}
 		liveService, err := mgr.Get(ctx, s.Service)
 		if err != nil {
 			return actions, err
 		}
 		if liveService.Started() {
-			actions = append(actions, Action{
-				Todo:   ActionStop,
-				Parent: comp,
-				Target: res,
-			})
+			actions = append(actions, serviceActionWithMetadata(ActionStop, comp, s))
 		}
 	}
 	return actions, nil
@@ -855,29 +835,16 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 	var triggeredServices []string
 
 	for _, d := range resourceActions {
-		if showDiffs && d.Todo == ActionUpdate {
-			diffs, err := d.GetContentAsDiffs()
-			if err != nil {
-				return actions, err
-			}
-			fmt.Printf("Diffs:\n%v", diffmatchpatch.New().DiffPrettyText(diffs))
-		}
-
 		if updatedServiceActions, ok := triggeredActions[d.Target.Path]; ok {
 			actions = append(actions, updatedServiceActions...)
 			for _, a := range updatedServiceActions {
 				triggeredServices = append(triggeredServices, a.Target.Path)
 			}
 		} else if (d.Target.Kind == components.ResourceTypeContainer || d.Target.Kind == components.ResourceTypePod) && d.Todo == ActionUpdate && !newComponent.Settings.NoRestart {
-			actions = append(actions, Action{
-				Todo:   ActionRestart,
-				Parent: newComponent,
-				Target: components.Resource{
-					Path:   d.Target.Service(),
-					Parent: newComponent.Name,
-					Kind:   components.ResourceTypeService,
-				},
-			})
+			src := manifests.ServiceResourceConfig{
+				Service: d.Target.Service(),
+			}
+			actions = append(actions, serviceActionWithMetadata(ActionRestart, newComponent, src))
 		}
 	}
 

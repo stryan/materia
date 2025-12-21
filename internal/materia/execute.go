@@ -83,7 +83,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 		servWG.Add(1)
 		go func(serv, state string) {
 			defer servWG.Done()
-			err := m.Host.WaitUntilState(ctx, serv, state)
+			err := m.Host.WaitUntilState(ctx, serv, state, m.defaultTimeout)
 			if err != nil {
 				log.Warn(err)
 			}
@@ -144,7 +144,7 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Host.Apply(ctx, service, cmd)
+	return m.Host.Apply(ctx, service, cmd, m.defaultTimeout)
 }
 
 func (m *Materia) executeAction(ctx context.Context, v Action) error {

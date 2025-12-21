@@ -41,6 +41,11 @@ type Action struct {
 	Target      components.Resource   `json:"target" toml:"target"`
 	DiffContent []diffmatchpatch.Diff `json:"content" toml:"content"`
 	Priority    int                   `json:"priority" toml:"priority"`
+	Metadata    *ActionMetadata       `json:"metadata,omitempty" toml:"metadata,omitempty"`
+}
+
+type ActionMetadata struct {
+	ServiceTimeout *int `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
 }
 
 func (a Action) Validate() error {

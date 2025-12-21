@@ -12,16 +12,12 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
-var (
-	ErrServiceNotFound    = errors.New("no service found")
-	DefaultServicesTimout = 90
-)
+var ErrServiceNotFound = errors.New("no service found")
 
 type ServiceManager struct {
 	Conn           *dbus.Conn
 	isRoot         bool
 	DryrunQuadlets bool
-	Timeout        int
 }
 
 type Service struct {
@@ -73,11 +69,6 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Timeout == 0 {
-		sm.Timeout = DefaultServicesTimout
-	} else {
-		sm.Timeout = cfg.Timeout
-	}
 
 	if currentUser.Username != "root" {
 		sm.Conn, err = dbus.NewUserConnectionContext(ctx)
@@ -95,7 +86,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	return &sm, nil
 }
 
-func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction) error {
+func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction, timeout int) error {
 	if action == ServiceReloadUnits {
 		if s.DryrunQuadlets {
 			err := s.dryrunQuadlets(ctx)
@@ -139,7 +130,7 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		return errors.New("context cancelled while waiting for service")
 	case <-callback:
 		return nil
-	case <-time.After(time.Duration(s.Timeout) * time.Second):
+	case <-time.After(time.Duration(timeout) * time.Second):
 		return fmt.Errorf("error applying service change for %v: %w", name, errors.New("timeout modifying unit"))
 	}
 }
@@ -158,7 +149,7 @@ func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error)
 	return result, nil
 }
 
-func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string) error {
+func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string, timeout int) error {
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
@@ -177,14 +168,14 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	}
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
-	timeout := time.NewTimer(time.Duration(s.Timeout) * time.Second)
-	defer timeout.Stop()
-	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", s.Timeout)
+	timeoutTimer := time.NewTimer(time.Duration(timeout) * time.Second)
+	defer timeoutTimer.Stop()
+	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", timeout)
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
-		case <-timeout.C:
+		case <-timeoutTimer.C:
 			return fmt.Errorf("service %v did not reach state %v", name, state)
 		case <-ticker.C:
 			props, err := s.Conn.GetAllPropertiesContext(ctx, name)
