@@ -90,7 +90,15 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 }
 
 func (c *Component) String() string {
-	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, c.Resources.Size(), c.Services.Size(), c.Defaults)
+	numRes := -1
+	if c.Resources != nil {
+		numRes = c.Resources.Size()
+	}
+	numServes := -1
+	if c.Services != nil {
+		numServes = c.Services.Size()
+	}
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, numRes, numServes, c.Defaults)
 }
 
 func (c Component) Validate() error {

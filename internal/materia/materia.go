@@ -26,7 +26,11 @@ import (
 type MacroMap func(map[string]any) template.FuncMap
 
 // TODO ugly hack, remove
-var rootComponent = &components.Component{Name: "root"}
+var rootComponent = &components.Component{
+	Name:      "root",
+	Resources: components.NewResourceSet(),
+	Services:  components.NewServiceSet(),
+}
 
 type Materia struct {
 	Host           HostManager

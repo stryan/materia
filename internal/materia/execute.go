@@ -5,13 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"path/filepath"
 	"sync"
 
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
@@ -39,27 +37,14 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}()
 	serviceActions := []Action{}
 	steps := 0
-	// Template and install resources
+	// Execute resources
 	for _, v := range plan.Steps() {
-		attrs := make(map[string]any)
-		if err := v.Validate(); err != nil {
-			return steps, err
-		}
-		// NOTE current this looks up attributes for the "root component" as well
-		// which doesn't make sense but may be useful?
-		vaultAttrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-			Hostname:  m.Host.GetHostname(),
-			Roles:     m.Roles,
-			Component: v.Parent.Name,
-		})
-		maps.Copy(attrs, v.Parent.Defaults)
-		maps.Copy(attrs, vaultAttrs)
-		err := m.executeAction(ctx, v, attrs)
+		err := m.executeAction(ctx, v)
 		if err != nil {
 			return steps, err
 		}
 
-		if (v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload) && v.Target.Kind == components.ResourceTypeService {
+		if v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload && v.Target.Kind != components.ResourceTypeHost {
 			serviceActions = append(serviceActions, v)
 		}
 
@@ -115,13 +100,19 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	}
 	res := command.Target
 	isUnits := command.Target.Kind == components.ResourceTypeHost
+	service := res.Path
 	if !isUnits {
 		if err := res.Validate(); err != nil {
 			return fmt.Errorf("invalid resource when modifying service: %w", err)
 		}
 
 		if res.Kind != components.ResourceTypeService {
-			return errors.New("attempted to modify a non service resource")
+			srvCfg, err := command.Parent.Services.Get(res.Path)
+			if err != nil {
+				return fmt.Errorf("cannot modify a resource that doesn't have a systemd service: %v", res)
+			}
+			service = srvCfg.Service
+			// timeout = srvCfg.Timeout
 		}
 	}
 	var cmd services.ServiceAction
@@ -153,10 +144,10 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Host.Apply(ctx, res.Path, cmd)
+	return m.Host.Apply(ctx, service, cmd)
 }
 
-func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
+func (m *Materia) executeAction(ctx context.Context, v Action) error {
 	switch v.Target.Kind {
 	case components.ResourceTypeComponent:
 		switch v.Todo {
@@ -362,19 +353,9 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypePodmanSecret:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			var secretVar any
-			var ok bool
-			if secretVar, ok = attrs[v.Target.Path]; !ok {
-				return errors.New("can't install/update Podman Secret: no matching Materia secret")
+			if err := m.Host.WriteSecret(ctx, v.Target.Path, v.Target.Content); err != nil {
+				return err
 			}
-			if value, ok := secretVar.(string); !ok {
-				return errors.New("can't install/update Podman Secret: materia secret isn't string")
-			} else {
-				if err := m.Host.WriteSecret(ctx, v.Target.Path, value); err != nil {
-					return err
-				}
-			}
-
 		case ActionRemove:
 			if err := m.Host.RemoveSecret(ctx, v.Target.Path); err != nil {
 				return err

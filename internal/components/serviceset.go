@@ -2,11 +2,14 @@ package components
 
 import (
 	"cmp"
+	"errors"
 
 	"github.com/emirpasic/gods/sets"
 	"github.com/emirpasic/gods/sets/treeset"
 	"primamateria.systems/materia/pkg/manifests"
 )
+
+var ErrServiceNotFound = errors.New("service not found")
 
 type ServiceSet struct {
 	sets.Set
@@ -38,4 +41,14 @@ func (s *ServiceSet) ListServiceNames() []string {
 		result[k] = v.(manifests.ServiceResourceConfig).Service
 	}
 	return result
+}
+
+func (s *ServiceSet) Get(name string) (manifests.ServiceResourceConfig, error) {
+	for _, v := range s.Values() {
+		src := v.(manifests.ServiceResourceConfig)
+		if src.Service == name {
+			return src, nil
+		}
+	}
+	return manifests.ServiceResourceConfig{}, ErrServiceNotFound
 }

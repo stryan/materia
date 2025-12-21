@@ -7,7 +7,6 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/manifests"
@@ -43,6 +42,7 @@ func TestExecute(t *testing.T) {
 	helloComp := &components.Component{
 		Name:      "hello",
 		Resources: newResSet(containerResource, dataResource, manifestResource),
+		Services:  newServSet(),
 		State:     components.StateFresh,
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,
@@ -82,18 +82,6 @@ func TestExecute(t *testing.T) {
 	for _, p := range planSteps {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
-	hm.EXPECT().GetHostname().Return("localhost")
-	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  "localhost",
-		Roles:     []string(nil),
-		Component: "root",
-	}).Return(map[string]any{})
-	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  "localhost",
-		Roles:     []string(nil),
-		Component: "hello",
-	}).Return(map[string]any{})
-
 	hm.EXPECT().InstallComponent(helloComp).Return(nil)
 	hm.EXPECT().InstallResource(containerResource, bytes.NewBufferString("[Container]")).Return(nil)
 	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
