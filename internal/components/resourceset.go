@@ -2,81 +2,64 @@ package components
 
 import (
 	"errors"
+
+	"github.com/emirpasic/gods/maps"
+	"github.com/emirpasic/gods/maps/linkedhashmap"
 )
 
 var ErrElementNotFound error = errors.New("ErrElementNotFound")
 
 type ResourceSet struct {
-	set   map[string]Resource
-	order []string
-	size  int
+	newSet maps.Map
 }
 
 func NewResourceSet() *ResourceSet {
 	return &ResourceSet{
-		set:  make(map[string]Resource),
-		size: 0,
+		newSet: linkedhashmap.New(),
 	}
 }
 
 func (r *ResourceSet) Add(res Resource) error {
-	if _, ok := r.set[res.Path]; ok {
+	if _, ok := r.newSet.Get(res.Path); ok {
 		return errors.New("resource already in set")
 	}
-	r.set[res.Path] = res
-	r.size++
-	r.order = append(r.order, res.Path)
+	r.newSet.Put(res.Path, res)
 	return nil
 }
 
 func (r *ResourceSet) Delete(name string) {
-	if _, ok := r.set[name]; !ok {
-		return
-	}
-	r.size--
-	for k, v := range r.order {
-		if v == name {
-			r.order[k] = ""
-		}
-	}
-	delete(r.set, name)
+	r.newSet.Remove(name)
 }
 
 func (r *ResourceSet) Size() int {
-	return r.size
+	return r.newSet.Size()
 }
 
 func (r *ResourceSet) List() []Resource {
-	result := make([]Resource, r.size)
-	for i, k := range r.order {
-		if k != "" {
-			result[i] = r.set[k]
-		}
+	result := make([]Resource, r.newSet.Size())
+	for i, v := range r.newSet.Values() {
+		result[i] = v.(Resource)
 	}
 	return result
 }
 
 func (r *ResourceSet) Contains(name string) bool {
-	if _, ok := r.set[name]; ok {
+	if _, ok := r.newSet.Get(name); ok {
 		return true
 	}
 	return false
 }
 
 func (r *ResourceSet) Get(name string) (Resource, error) {
-	if res, ok := r.set[name]; !ok {
+	if res, ok := r.newSet.Get(name); !ok {
 		return Resource{}, ErrElementNotFound
 	} else {
-		return res, nil
+		return res.(Resource), nil
 	}
 }
 
 func (r *ResourceSet) Set(res Resource) {
-	if _, ok := r.set[res.Path]; !ok {
-		r.order = append(r.order, res.Path)
-		r.size++
-	}
-	r.set[res.Path] = res
+	r.newSet.Put(res.Path, res)
 }
 
 func (r *ResourceSet) Union(other *ResourceSet) *ResourceSet {
