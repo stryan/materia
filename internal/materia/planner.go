@@ -275,7 +275,10 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 		currentTree.host.State = components.StateNeedUpdate
-		triggeredActions := generateComponentServiceTriggers(currentTree.source)
+		triggeredActions, err := generateComponentServiceTriggers(currentTree.source)
+		if err != nil {
+			return nil, fmt.Errorf("can't generate component service triggers: %w", err)
+		}
 		serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.host, currentTree.source, resourceActions, triggeredActions)
 		if err != nil {
 			return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.source, err)
@@ -534,20 +537,26 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts p
 	return result, nil
 }
 
-func generateComponentServiceTriggers(newComponent *components.Component) map[string][]Action {
+func generateComponentServiceTriggers(newComponent *components.Component) (map[string][]Action, error) {
 	triggeredActions := make(map[string][]Action)
 	for _, src := range newComponent.Services.List() {
 		for _, trigger := range src.RestartedBy {
-			triggerAction := getServiceAction(src, newComponent, ActionRestart)
+			triggerAction, err := getServiceAction(src, newComponent, ActionRestart)
+			if err != nil {
+				return triggeredActions, err
+			}
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 		for _, trigger := range src.ReloadedBy {
-			triggerAction := getServiceAction(src, newComponent, ActionReload)
+			triggerAction, err := getServiceAction(src, newComponent, ActionReload)
+			if err != nil {
+				return triggeredActions, err
+			}
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 	}
 
-	return triggeredActions
+	return triggeredActions, nil
 }
 
 func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent *components.Component, volumeRes components.Resource) ([]Action, error) {
@@ -569,14 +578,17 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 	stoppedServiceActions := []Action{}
 	for _, s := range parent.Services.List() {
 		// stop all services so that we're safe to dump
-		currentServ, err := mgr.Get(ctx, s.Service)
+		currentServ, err := getLiveService(ctx, mgr, parent, s)
 		if err != nil {
 			return diffActions, fmt.Errorf("can't get service %v when generating volume migration: %w", s.Service, err)
 		}
 		if currentServ.State != "active" {
 			continue
 		}
-		stopAction := getServiceAction(s, parent, ActionStop)
+		stopAction, err := getServiceAction(s, parent, ActionStop)
+		if err != nil {
+			return diffActions, err
+		}
 		stopAction.Priority = 1
 		diffActions = append(diffActions, stopAction)
 		stoppedServiceActions = append(stoppedServiceActions, stopAction)
@@ -629,7 +641,7 @@ func serviceActionWithMetadata(parent *components.Component, targetSrc component
 	}
 }
 
-func generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) []Action {
+func generateServiceRemovalActions(comp *components.Component, osrc manifests.ServiceResourceConfig) ([]Action, error) {
 	var result []Action
 	res := components.Resource{
 		Parent: comp.Name,
@@ -644,8 +656,12 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 			Target: res,
 		})
 	}
-	result = append(result, getServiceAction(osrc, comp, ActionStop))
-	return result
+	stopAction, err := getServiceAction(osrc, comp, ActionStop)
+	if err != nil {
+		return result, err
+	}
+	result = append(result, stopAction)
+	return result, nil
 }
 
 func generateServiceInstallActions(comp *components.Component, osrc manifests.ServiceResourceConfig, liveService *services.Service) ([]Action, error) {
@@ -664,7 +680,11 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		})
 	}
 	if !liveService.Started() {
-		actions = append(actions, getServiceAction(osrc, comp, ActionStart))
+		startAction, err := getServiceAction(osrc, comp, ActionStart)
+		if err != nil {
+			return actions, err
+		}
+		actions = append(actions, startAction)
 	}
 	return actions, nil
 }
@@ -788,6 +808,24 @@ func loadHostComponent(ctx context.Context, mgr HostManager, name string) (*comp
 	return hostComponent, nil
 }
 
+func getLiveService(ctx context.Context, mgr HostManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {
+	if src.Service == "" {
+		return nil, errors.New("tried to get empty live service")
+	}
+	name := ""
+	res, err := parent.Resources.Get(src.Service)
+	if err != nil {
+		name = src.Service
+	} else {
+		name = res.Service()
+	}
+	liveService, err := mgr.Get(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return liveService, nil
+}
+
 func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManager, component *components.Component) ([]Action, error) {
 	var actions []Action
 	if component.Services == nil {
@@ -795,7 +833,10 @@ func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManag
 	}
 
 	for _, s := range component.Services.List() {
-		liveService, err := mgr.Get(ctx, s.Service)
+		if s.Stopped {
+			continue
+		}
+		liveService, err := getLiveService(ctx, mgr, component, s)
 		if err != nil {
 			return actions, err
 		}
@@ -816,12 +857,16 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 		return actions, nil
 	}
 	for _, s := range comp.Services.List() {
-		liveService, err := mgr.Get(ctx, s.Service)
+		liveService, err := getLiveService(ctx, mgr, comp, s)
 		if err != nil {
 			return actions, err
 		}
 		if liveService.Started() {
-			actions = append(actions, getServiceAction(s, comp, ActionStop))
+			stopAction, err := getServiceAction(s, comp, ActionStop)
+			if err != nil {
+				return actions, err
+			}
+			actions = append(actions, stopAction)
 		}
 	}
 	return actions, nil
@@ -847,11 +892,14 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 	}
 
 	for _, k := range newComponent.Services.List() {
+		if k.Stopped {
+			continue
+		}
 		if slices.Contains(triggeredServices, k.Service) {
 			continue
 		}
 
-		liveService, err := host.Get(ctx, k.Service)
+		liveService, err := getLiveService(ctx, host, newComponent, k)
 		if err != nil {
 			return nil, err
 		}
@@ -865,7 +913,11 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 
 	for _, osrc := range original.Services.List() {
 		if !slices.Contains(newComponent.Services.ListServiceNames(), osrc.Service) {
-			actions = append(actions, generateServiceRemovalActions(original, osrc)...)
+			removalActions, err := generateServiceRemovalActions(original, osrc)
+			if err != nil {
+				return nil, err
+			}
+			actions = append(actions, removalActions...)
 		}
 	}
 
@@ -876,7 +928,7 @@ func shouldEnableService(s manifests.ServiceResourceConfig, liveService *service
 	return !s.Disabled && s.Static && !liveService.Enabled
 }
 
-func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a ActionType) Action {
+func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a ActionType) (Action, error) {
 	res, err := parent.Resources.Get(src.Service)
 	if err != nil {
 		// No resource for component, treat it like an arbitary systemd unit
@@ -885,12 +937,12 @@ func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Co
 			Path:   src.Service,
 			Kind:   components.ResourceTypeService,
 		}
+		return serviceActionWithMetadata(parent, res, src, a), nil
 	}
-	return serviceActionWithMetadata(parent, res, src, a)
+	return resourceActionWithMetadata(res, parent, a)
 }
 
 func resourceActionWithMetadata(res components.Resource, parent *components.Component, a ActionType) (Action, error) {
-	// Temporary; remove once/if we have more metadata
 	if res.Kind == components.ResourceTypeService {
 		return Action{}, fmt.Errorf("can't create resource service action from service resource: %v", res)
 	}
