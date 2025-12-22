@@ -3,6 +3,11 @@
 Best effort list of major changes and bugfixes
 
 ## Upcoming
+- refactor: planner has been heavily refactored
+- feat: Quadlet resources (.container,.pod,etc) can be used as services in Component services configurations
+- feat: Containers that rely on Build or Image quadlets will use dynamic timeouts:
+    - If the Build or Image quadlet has a services definition in the component manifest, materia will add that configured timeout to the default service timeout
+    - Otherwise materia will use an extended timeout
 
 ## 0.4.3
 - bugfix: setting `attributes` config will force a default engine configuration
