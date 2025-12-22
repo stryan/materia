@@ -25,15 +25,26 @@ const (
 	ActionReload
 	ActionEnable
 	ActionDisable
-
 	ActionEnsure
+
 	ActionSetup
 	ActionCleanup
-
 	ActionMount
 	ActionImport
 	ActionDump
 )
+
+func (t ActionType) IsServiceAction() bool {
+	return t == ActionStart || t == ActionRestart || t == ActionStop || t == ActionReload || t == ActionEnable || t == ActionDisable || t == ActionEnsure
+}
+
+func (t ActionType) IsResourceAction() bool {
+	return t == ActionInstall || t == ActionRemove || t == ActionUpdate
+}
+
+func (t ActionType) IsHostAction() bool {
+	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump
+}
 
 type Action struct {
 	Todo        ActionType            `json:"todo" toml:"todo"`

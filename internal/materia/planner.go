@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"text/template"
 
 	"github.com/charmbracelet/log"
+	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
@@ -536,11 +538,11 @@ func generateComponentServiceTriggers(newComponent *components.Component) map[st
 	triggeredActions := make(map[string][]Action)
 	for _, src := range newComponent.Services.List() {
 		for _, trigger := range src.RestartedBy {
-			triggerAction := serviceActionWithMetadata(ActionRestart, newComponent, src)
+			triggerAction := getServiceAction(src, newComponent, ActionRestart)
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 		for _, trigger := range src.ReloadedBy {
-			triggerAction := serviceActionWithMetadata(ActionReload, newComponent, src)
+			triggerAction := getServiceAction(src, newComponent, ActionReload)
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 	}
@@ -574,7 +576,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 		if currentServ.State != "active" {
 			continue
 		}
-		stopAction := serviceActionWithMetadata(ActionStop, parent, s)
+		stopAction := getServiceAction(s, parent, ActionStop)
 		stopAction.Priority = 1
 		diffActions = append(diffActions, stopAction)
 		stoppedServiceActions = append(stoppedServiceActions, stopAction)
@@ -612,12 +614,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent
 	return diffActions, nil
 }
 
-func serviceActionWithMetadata(a ActionType, parent *components.Component, s manifests.ServiceResourceConfig) Action {
-	targetSrc := components.Resource{
-		Parent: parent.Name,
-		Path:   s.Service,
-		Kind:   components.ResourceTypeService,
-	}
+func serviceActionWithMetadata(parent *components.Component, targetSrc components.Resource, s manifests.ServiceResourceConfig, a ActionType) Action {
 	var metadata *ActionMetadata
 	if s.Timeout != 0 {
 		metadata = &ActionMetadata{
@@ -647,19 +644,19 @@ func generateServiceRemovalActions(comp *components.Component, osrc manifests.Se
 			Target: res,
 		})
 	}
-	result = append(result, serviceActionWithMetadata(ActionStop, comp, osrc))
+	result = append(result, getServiceAction(osrc, comp, ActionStop))
 	return result
 }
 
 func generateServiceInstallActions(comp *components.Component, osrc manifests.ServiceResourceConfig, liveService *services.Service) ([]Action, error) {
 	var actions []Action
-	res := components.Resource{
-		Parent: comp.Name,
-		Path:   osrc.Service,
-		Kind:   components.ResourceTypeService,
-	}
 	if shouldEnableService(osrc, liveService) {
 		// For now we don't need metadata on Enable/Disable actions since they should be effectively instant
+		res := components.Resource{
+			Parent: comp.Name,
+			Path:   osrc.Service,
+			Kind:   components.ResourceTypeService,
+		}
 		actions = append(actions, Action{
 			Todo:   ActionEnable,
 			Parent: comp,
@@ -667,7 +664,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		})
 	}
 	if !liveService.Started() {
-		actions = append(actions, serviceActionWithMetadata(ActionStart, comp, osrc))
+		actions = append(actions, getServiceAction(osrc, comp, ActionStart))
 	}
 	return actions, nil
 }
@@ -824,7 +821,7 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 			return actions, err
 		}
 		if liveService.Started() {
-			actions = append(actions, serviceActionWithMetadata(ActionStop, comp, s))
+			actions = append(actions, getServiceAction(s, comp, ActionStop))
 		}
 	}
 	return actions, nil
@@ -841,10 +838,11 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 				triggeredServices = append(triggeredServices, a.Target.Path)
 			}
 		} else if (d.Target.Kind == components.ResourceTypeContainer || d.Target.Kind == components.ResourceTypePod) && d.Todo == ActionUpdate && !newComponent.Settings.NoRestart {
-			src := manifests.ServiceResourceConfig{
-				Service: d.Target.Service(),
+			restartAction, err := resourceActionWithMetadata(d.Target, newComponent, ActionRestart)
+			if err != nil {
+				return actions, fmt.Errorf("error generating auto-restart option for resource %v: %w", d.Target.Path, err)
 			}
-			actions = append(actions, serviceActionWithMetadata(ActionRestart, newComponent, src))
+			actions = append(actions, restartAction)
 		}
 	}
 
@@ -876,4 +874,93 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 
 func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
 	return !s.Disabled && s.Static && !liveService.Enabled
+}
+
+func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a ActionType) Action {
+	res, err := parent.Resources.Get(src.Service)
+	if err != nil {
+		// No resource for component, treat it like an arbitary systemd unit
+		res = components.Resource{
+			Parent: parent.Name,
+			Path:   src.Service,
+			Kind:   components.ResourceTypeService,
+		}
+	}
+	return serviceActionWithMetadata(parent, res, src, a)
+}
+
+func resourceActionWithMetadata(res components.Resource, parent *components.Component, a ActionType) (Action, error) {
+	// Temporary; remove once/if we have more metadata
+	if res.Kind == components.ResourceTypeService {
+		return Action{}, fmt.Errorf("can't create resource service action from service resource: %v", res)
+	}
+	if !a.IsServiceAction() {
+		return Action{}, fmt.Errorf("can't create resource action with metadata from type %v", a)
+	}
+
+	if !res.IsQuadlet() {
+		return Action{}, fmt.Errorf("can't create resource service action from non-quadlet %v", res)
+	}
+
+	if res.Kind != components.ResourceTypeContainer && res.Kind != components.ResourceTypePod {
+		// TODO volumes can be based off images too and need their timeouts adjusted accordingly
+		return Action{
+			Todo:   a,
+			Parent: parent,
+			Target: res,
+		}, nil
+	}
+
+	if res.Kind == components.ResourceTypePod {
+		// TODO figure out how to calculate timeout for pod
+		timeout := 60000 // 10 minutes
+		return Action{
+			Todo:   a,
+			Parent: parent,
+			Target: res,
+			Metadata: &ActionMetadata{
+				ServiceTimeout: &timeout,
+			},
+		}, nil
+	}
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(res.Content)
+	if err != nil {
+		return Action{}, fmt.Errorf("error parsing systemd unit file: %w", err)
+	}
+	imageName, ok := unitfile.Lookup("Container", "Image")
+	if !ok {
+		return Action{}, fmt.Errorf("invalid container quadlet: %v", res)
+	}
+	if strings.HasSuffix(imageName, ".image") || strings.HasSuffix(imageName, ".build") {
+		timeout := 60
+		src, err := parent.Services.Get(imageName)
+		if errors.Is(err, components.ErrServiceNotFound) {
+			// no custom timeout defined
+			return Action{
+				Todo:   a,
+				Parent: parent,
+				Target: res,
+				Metadata: &ActionMetadata{
+					ServiceTimeout: &timeout,
+				},
+			}, nil
+		} else if err != nil {
+			return Action{}, fmt.Errorf("can't get service config for resource %v: %w", imageName, err)
+		}
+		timeout = src.Timeout + timeout
+		return Action{
+			Todo:   a,
+			Parent: parent,
+			Target: res,
+			Metadata: &ActionMetadata{
+				ServiceTimeout: &timeout,
+			},
+		}, nil
+	}
+	return Action{
+		Todo:   a,
+		Parent: parent,
+		Target: res,
+	}, nil
 }

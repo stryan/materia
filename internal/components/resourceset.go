@@ -7,7 +7,7 @@ import (
 	"github.com/emirpasic/gods/maps/linkedhashmap"
 )
 
-var ErrElementNotFound error = errors.New("ErrElementNotFound")
+var ErrResourceNotFound error = errors.New("ErrElementNotFound")
 
 type ResourceSet struct {
 	newSet maps.Map
@@ -52,7 +52,7 @@ func (r *ResourceSet) Contains(name string) bool {
 
 func (r *ResourceSet) Get(name string) (Resource, error) {
 	if res, ok := r.newSet.Get(name); !ok {
-		return Resource{}, ErrElementNotFound
+		return Resource{}, ErrResourceNotFound
 	} else {
 		return res.(Resource), nil
 	}

@@ -163,7 +163,7 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 	if r.Kind == ResourceTypeImage {
 		name, ok := unitfile.Lookup(group, "Image")
 		if !ok {
-			return "", errors.New("something when horribly wrong with an image compo")
+			return "", errors.New("something when horribly wrong with an image comp")
 		}
 		return name, nil
 	}
