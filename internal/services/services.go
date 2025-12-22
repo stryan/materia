@@ -104,13 +104,13 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	case ServiceEnable:
 		_, _, err = s.Conn.EnableUnitFilesContext(ctx, []string{name}, false, false)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot enable unit %v: %w", name, err)
 		}
 		return nil
 	case ServiceDisable:
 		_, err = s.Conn.DisableUnitFilesContext(ctx, []string{name}, false)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot disable unit %v: %w", name, err)
 		}
 		return nil
 	case ServiceReloadService:

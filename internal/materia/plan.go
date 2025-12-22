@@ -251,26 +251,32 @@ func getDefaultPriority(a Action) (int, error) {
 		components.ResourceTypeContainer: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypePod: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeKube: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeNetwork: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeBuild: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeImage: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeComponentScript: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
@@ -287,6 +293,7 @@ func getDefaultPriority(a Action) (int, error) {
 		components.ResourceTypeVolume: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 6, ActionDump: 2, ActionEnsure: 4, ActionImport: 4,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
 		},
 		components.ResourceTypeService: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,

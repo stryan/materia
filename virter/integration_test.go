@@ -252,3 +252,28 @@ func Test_AllResources(t *testing.T) {
 	require.True(t, scriptExists("hello.sh"), "script not found")
 	require.True(t, unitExists("hello.service"))
 }
+
+func Test_ContainerWithBuild(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err)
+	repoPath := "/root/materia/virter/in/testrepo_build"
+	goldenPath := "/root/materia/virter/out/testrepo_build"
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err = planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
+}

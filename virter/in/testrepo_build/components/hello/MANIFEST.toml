@@ -1,0 +1,7 @@
+[[Services]]
+Service = "hello.container"
+
+[[Services]]
+Service = "hello.build"
+Stopped = true
+Timeout = 100

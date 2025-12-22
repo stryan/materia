@@ -99,6 +99,8 @@ func (r *Resource) Service() string {
 		return strings.ReplaceAll(name, ".build", "-build.service")
 	case ResourceTypeImage:
 		return strings.ReplaceAll(name, ".image", "-image.service")
+	case ResourceTypeService:
+		return r.Path
 	default:
 		return ""
 	}

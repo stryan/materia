@@ -197,7 +197,7 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
 	resourceActions, err := generateFreshComponentResources(currentTree.source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
 	}
 	if m.onlyResources {
 		return resourceActions, nil
@@ -211,7 +211,7 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 	}
 	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
 	currentTree.FinalState = components.StateFresh
 	return append(resourceActions, serviceActions...), nil
@@ -226,14 +226,14 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 	}
 	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, opts, currentTree.host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
 	if m.onlyResources {
 		return resourceActions, nil
 	}
 	serviceActions, err := processRemovedComponentServices(ctx, m.Host, currentTree.host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't plan removed services for %v: %w", currentTree.Name, err)
 	}
 	resourceActions = append(resourceActions, Action{
 		Todo:   ActionReload,
@@ -253,7 +253,7 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 	}
 	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, opts, currentTree.host, currentTree.source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
 	if currentTree.host.Version != components.DefaultComponentVersion {
 		currentTree.host.Version = components.DefaultComponentVersion
@@ -277,16 +277,16 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 		currentTree.host.State = components.StateNeedUpdate
 		triggeredActions, err := generateComponentServiceTriggers(currentTree.source)
 		if err != nil {
-			return nil, fmt.Errorf("can't generate component service triggers: %w", err)
+			return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 		}
 		serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.host, currentTree.source, resourceActions, triggeredActions)
 		if err != nil {
-			return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.source, err)
+			return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
 		}
 	} else {
 		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.host)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
 		}
 		if len(serviceActions) > 0 {
 			currentTree.host.State = components.StateNeedUpdate
@@ -838,12 +838,12 @@ func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManag
 		}
 		liveService, err := getLiveService(ctx, mgr, component, s)
 		if err != nil {
-			return actions, err
+			return actions, fmt.Errorf("can't get live service for %v: %w", s.Service, err)
 		}
 
 		installActions, err := generateServiceInstallActions(component, s, liveService)
 		if err != nil {
-			return actions, err
+			return actions, fmt.Errorf("can't generate install actions for %v: %w", s.Service, err)
 		}
 		actions = append(actions, installActions...)
 	}
@@ -859,12 +859,12 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 	for _, s := range comp.Services.List() {
 		liveService, err := getLiveService(ctx, mgr, comp, s)
 		if err != nil {
-			return actions, err
+			return actions, fmt.Errorf("can't get live service for %v: %w", s.Service, err)
 		}
 		if liveService.Started() {
 			stopAction, err := getServiceAction(s, comp, ActionStop)
 			if err != nil {
-				return actions, err
+				return actions, fmt.Errorf("can't generate removal actions for %v: %w", s.Service, err)
 			}
 			actions = append(actions, stopAction)
 		}
@@ -901,12 +901,12 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 
 		liveService, err := getLiveService(ctx, host, newComponent, k)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't get live service for %v:%w", k.Service, err)
 		}
 
 		installActions, err := generateServiceInstallActions(newComponent, k, liveService)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't generate install actions for %v: %w", k.Service, err)
 		}
 		actions = append(actions, installActions...)
 	}
@@ -915,7 +915,7 @@ func processUpdatedComponentServices(ctx context.Context, host HostManager, show
 		if !slices.Contains(newComponent.Services.ListServiceNames(), osrc.Service) {
 			removalActions, err := generateServiceRemovalActions(original, osrc)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("can't generate removal actions for %v:%w", osrc.Service, err)
 			}
 			actions = append(actions, removalActions...)
 		}
@@ -943,14 +943,11 @@ func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Co
 }
 
 func resourceActionWithMetadata(res components.Resource, parent *components.Component, a ActionType) (Action, error) {
-	if res.Kind == components.ResourceTypeService {
-		return Action{}, fmt.Errorf("can't create resource service action from service resource: %v", res)
-	}
 	if !a.IsServiceAction() {
 		return Action{}, fmt.Errorf("can't create resource action with metadata from type %v", a)
 	}
 
-	if !res.IsQuadlet() {
+	if !res.IsQuadlet() && res.Kind != components.ResourceTypeService {
 		return Action{}, fmt.Errorf("can't create resource service action from non-quadlet %v", res)
 	}
 
