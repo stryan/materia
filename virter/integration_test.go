@@ -68,7 +68,7 @@ func TestRepo2_Complex(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
-	require.False(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
 	require.True(t, componentInstalled("carpal", filepath.Join(goldenPath, "carpal")))
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "carpal")))
 	require.True(t, componentInstalled("double", filepath.Join(goldenPath, "double")))
@@ -82,9 +82,13 @@ func TestRepo2_Complex(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentRemoved("hello"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "hello")))
 	require.True(t, componentRemoved("double"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "double")))
 	require.True(t, componentRemoved("carpal"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "carpal")))
 	require.True(t, componentRemoved("freshrss"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "freshrss")))
 }
 
 func TestRepo3_SOPS(t *testing.T) {
@@ -110,7 +114,7 @@ func TestRepo3_SOPS(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
-	require.False(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
 	require.True(t, componentInstalled("carpal", filepath.Join(goldenPath, "carpal")))
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "carpal")))
 	require.True(t, componentInstalled("double", filepath.Join(goldenPath, "double")))
@@ -124,9 +128,13 @@ func TestRepo3_SOPS(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentRemoved("hello"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "hello")))
 	require.True(t, componentRemoved("double"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "double")))
 	require.True(t, componentRemoved("carpal"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "carpal")))
 	require.True(t, componentRemoved("freshrss"))
+	require.True(t, servicesStopped(ctx, conn, filepath.Join(goldenPath, "freshrss")))
 }
 
 func TestRepo4_VolumeMigration(t *testing.T) {
@@ -148,6 +156,9 @@ func TestRepo4_VolumeMigration(t *testing.T) {
 	err = runCmd.Run()
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo4/hello"))
+	ensureVolumeCmd := exec.Command("systemctl", "start", "hello-volume.service")
+	err = ensureVolumeCmd.Run()
+	require.NoError(t, err)
 	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo4_pt2"))
 	runCmd = exec.Command("materia", "update")
 	runCmd.Stdout = os.Stdout
@@ -240,4 +251,29 @@ func Test_AllResources(t *testing.T) {
 	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
 	require.True(t, scriptExists("hello.sh"), "script not found")
 	require.True(t, unitExists("hello.service"))
+}
+
+func Test_ContainerWithBuild(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err)
+	repoPath := "/root/materia/virter/in/testrepo_build"
+	goldenPath := "/root/materia/virter/out/testrepo_build"
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err = planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
 }

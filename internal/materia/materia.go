@@ -26,7 +26,11 @@ import (
 type MacroMap func(map[string]any) template.FuncMap
 
 // TODO ugly hack, remove
-var rootComponent = &components.Component{Name: "root"}
+var rootComponent = &components.Component{
+	Name:      "root",
+	Resources: components.NewResourceSet(),
+	Services:  components.NewServiceSet(),
+}
 
 type Materia struct {
 	Host           HostManager
@@ -38,6 +42,7 @@ type Materia struct {
 	macros         MacroMap
 	snippets       map[string]*Snippet
 	OutputDir      string
+	defaultTimeout int
 	onlyResources  bool
 	debug          bool
 	diffs          bool
@@ -133,9 +138,9 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Source:         srcman,
 		Manifest:       man,
 		debug:          c.Debug,
-		diffs:          c.Diffs,
 		cleanup:        c.Cleanup,
 		onlyResources:  c.OnlyResources,
+		defaultTimeout: c.Timeout,
 		Vault:          attributes,
 		OutputDir:      c.OutputDir,
 		snippets:       snips,
@@ -284,10 +289,9 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	}
 	for _, a := range p.Steps() {
 		if a.Todo == ActionUpdate {
-			diffs := a.Content.([]diffmatchpatch.Diff)
 			dmp := diffmatchpatch.New()
-			before := dmp.DiffText1(diffs)
-			after := dmp.DiffText2(diffs)
+			before := dmp.DiffText1(a.DiffContent)
+			after := dmp.DiffText2(a.DiffContent)
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
 				ResourceName: a.Target.Path,
 				Before:       before,
@@ -300,7 +304,12 @@ func (m *Materia) SavePlan(p *Plan, outputfile string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create file %s: %w", path, err)
 	}
-	defer func() { _ = file.Close() }()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			log.Warn("error closing plan file: %v", err)
+		}
+	}()
 
 	err = toml.NewEncoder(file).Encode(planOutput)
 	if err != nil {

@@ -5,13 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"path/filepath"
 	"sync"
 
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
@@ -39,27 +37,14 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	}()
 	serviceActions := []Action{}
 	steps := 0
-	// Template and install resources
+	// Execute resources
 	for _, v := range plan.Steps() {
-		attrs := make(map[string]any)
-		if err := v.Validate(); err != nil {
-			return steps, err
-		}
-		// NOTE current this looks up attributes for the "root component" as well
-		// which doesn't make sense but may be useful?
-		vaultAttrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-			Hostname:  m.Host.GetHostname(),
-			Roles:     m.Roles,
-			Component: v.Parent.Name,
-		})
-		maps.Copy(attrs, v.Parent.Defaults)
-		maps.Copy(attrs, vaultAttrs)
-		err := m.executeAction(ctx, v, attrs)
+		err := m.executeAction(ctx, v)
 		if err != nil {
 			return steps, err
 		}
 
-		if (v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload) && v.Target.Kind == components.ResourceTypeService {
+		if v.Todo == ActionStart || v.Todo == ActionStop || v.Todo == ActionRestart || v.Todo == ActionEnable || v.Todo == ActionDisable || v.Todo == ActionReload && v.Target.Kind != components.ResourceTypeHost {
 			serviceActions = append(serviceActions, v)
 		}
 
@@ -69,7 +54,7 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	// verify services
 	servicesResultMap := make(map[string]string)
 	for _, v := range serviceActions {
-		serv, err := m.Host.Get(ctx, v.Target.Path)
+		serv, err := m.Host.Get(ctx, v.Target.Service())
 		if err != nil {
 			return steps, err
 		}
@@ -96,13 +81,13 @@ func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	var servWG sync.WaitGroup
 	for serv, state := range servicesResultMap {
 		servWG.Add(1)
-		go func() {
+		go func(serv, state string) {
 			defer servWG.Done()
-			err := m.Host.WaitUntilState(ctx, serv, state)
+			err := m.Host.WaitUntilState(ctx, serv, state, m.defaultTimeout)
 			if err != nil {
 				log.Warn(err)
 			}
-		}()
+		}(serv, state)
 
 	}
 	servWG.Wait()
@@ -114,49 +99,50 @@ func (m *Materia) modifyService(ctx context.Context, command Action) error {
 		return err
 	}
 	res := command.Target
+	if !res.IsQuadlet() && (res.Kind != components.ResourceTypeService && res.Kind != components.ResourceTypeHost) {
+		return fmt.Errorf("tried to modify resource %v as a service", res)
+	}
 	isUnits := command.Target.Kind == components.ResourceTypeHost
-	if !isUnits {
-		if err := res.Validate(); err != nil {
-			return fmt.Errorf("invalid resource when modifying service: %w", err)
-		}
-
-		if res.Kind != components.ResourceTypeService {
-			return errors.New("attempted to modify a non service resource")
-		}
+	timeout := m.defaultTimeout
+	if command.Metadata != nil && command.Metadata.ServiceTimeout != nil {
+		timeout = *command.Metadata.ServiceTimeout
+	}
+	if err := res.Validate(); err != nil {
+		return fmt.Errorf("invalid resource when modifying service: %w", err)
 	}
 	var cmd services.ServiceAction
 	switch command.Todo {
 	case ActionStart:
 		cmd = services.ServiceStart
-		log.Debug("starting service", "unit", res)
+		log.Debug("starting service", "unit", res.Service())
 	case ActionStop:
-		log.Debug("stopping service", "unit", res)
+		log.Debug("stopping service", "unit", res.Service())
 		cmd = services.ServiceStop
 	case ActionRestart:
-		log.Debug("restarting service", "unit", res)
+		log.Debug("restarting service", "unit", res.Service())
 		cmd = services.ServiceRestart
 	case ActionReload:
 		if isUnits {
 			log.Debug("reloading units")
 			cmd = services.ServiceReloadUnits
 		} else {
-			log.Debug("reloading service", "unit", res)
+			log.Debug("reloading service", "unit", res.Service())
 			cmd = services.ServiceReloadService
 		}
 	case ActionEnable:
-		log.Debug("enabling service", "unit", res)
+		log.Debug("enabling service", "unit", res.Service())
 		cmd = services.ServiceEnable
 	case ActionDisable:
-		log.Debug("disabling service", "unit", res)
+		log.Debug("disabling service", "unit", res.Service())
 		cmd = services.ServiceDisable
 
 	default:
 		return errors.New("invalid service command")
 	}
-	return m.Host.Apply(ctx, res.Path, cmd)
+	return m.Host.Apply(ctx, res.Service(), cmd, timeout)
 }
 
-func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]any) error {
+func (m *Materia) executeAction(ctx context.Context, v Action) error {
 	switch v.Target.Kind {
 	case components.ResourceTypeComponent:
 		switch v.Todo {
@@ -183,7 +169,7 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}
-	case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypeVolume, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeManifest, components.ResourceTypeBuild, components.ResourceTypeImage:
+	case components.ResourceTypeVolume:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
 			diffs, err := v.GetContentAsDiffs()
@@ -199,9 +185,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 		case ActionEnsure:
-			if v.Target.Kind != components.ResourceTypeVolume {
-				return fmt.Errorf("tried to ensure non volume resource: %v", v.Target)
-			}
 			err := m.modifyService(ctx, Action{
 				Todo:   ActionReload,
 				Parent: rootComponent,
@@ -223,14 +206,44 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 				return err
 			}
 		case ActionCleanup:
+			err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+			if err != nil {
+				return err
+			}
+
+		case ActionDump:
+			err := m.Host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
+			if err != nil {
+				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+			}
+		case ActionImport:
+			err := m.Host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+			if err != nil {
+				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
+			}
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
+
+		}
+	case components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeNetwork, components.ResourceTypeKube, components.ResourceTypeBuild, components.ResourceTypeImage:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			diffs, err := v.GetContentAsDiffs()
+			if err != nil {
+				return err
+			}
+			resourceData := diffmatchpatch.New().DiffText2(diffs)
+			if err := m.Host.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.Host.RemoveResource(v.Target); err != nil {
+				return err
+			}
+		case ActionCleanup:
 			switch v.Target.Kind {
 			case components.ResourceTypeNetwork:
 				err := m.Host.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
-				if err != nil {
-					return err
-				}
-			case components.ResourceTypeVolume:
-				err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
 				if err != nil {
 					return err
 				}
@@ -242,21 +255,28 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)
 			}
-		case ActionDump:
-			if v.Target.Kind != components.ResourceTypeVolume {
-				return fmt.Errorf("tried to dump non volume resource: %v", v.Target)
-			}
-			err := m.Host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, m.OutputDir, false)
+		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
+			err := m.modifyService(ctx, v)
 			if err != nil {
-				return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
+				return err
 			}
-		case ActionImport:
-			if v.Target.Kind != components.ResourceTypeVolume {
-				return fmt.Errorf("tried to import a non-volume resource: %v", v.Target)
-			}
-			err := m.Host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(m.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+		default:
+			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
+		}
+	case components.ResourceTypeFile, components.ResourceTypeManifest:
+		switch v.Todo {
+		case ActionInstall, ActionUpdate:
+			diffs, err := v.GetContentAsDiffs()
 			if err != nil {
-				return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
+				return err
+			}
+			resourceData := diffmatchpatch.New().DiffText2(diffs)
+			if err := m.Host.InstallResource(v.Target, bytes.NewBufferString(resourceData)); err != nil {
+				return err
+			}
+		case ActionRemove:
+			if err := m.Host.RemoveResource(v.Target); err != nil {
+				return err
 			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
@@ -335,7 +355,6 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 			if err != nil {
 				return err
 			}
-
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}
@@ -362,19 +381,9 @@ func (m *Materia) executeAction(ctx context.Context, v Action, attrs map[string]
 	case components.ResourceTypePodmanSecret:
 		switch v.Todo {
 		case ActionInstall, ActionUpdate:
-			var secretVar any
-			var ok bool
-			if secretVar, ok = attrs[v.Target.Path]; !ok {
-				return errors.New("can't install/update Podman Secret: no matching Materia secret")
+			if err := m.Host.WriteSecret(ctx, v.Target.Path, v.Target.Content); err != nil {
+				return err
 			}
-			if value, ok := secretVar.(string); !ok {
-				return errors.New("can't install/update Podman Secret: materia secret isn't string")
-			} else {
-				if err := m.Host.WriteSecret(ctx, v.Target.Path, value); err != nil {
-					return err
-				}
-			}
-
 		case ActionRemove:
 			if err := m.Host.RemoveSecret(ctx, v.Target.Path); err != nil {
 				return err

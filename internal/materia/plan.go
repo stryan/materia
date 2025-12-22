@@ -9,126 +9,85 @@ import (
 	"primamateria.systems/materia/internal/components"
 )
 
-type Plan struct {
-	size          int
-	volumes       []string
-	components    []string
-	servicesPhase []Action
+type componentChanges struct {
+	resourceChanges []Action
+	serviceChanges  []Action
+}
 
-	componentChanges map[string][]Action
-	serviceChanges   map[string][]Action
+func prioritizeActions(a, b Action) int {
+	return cmp.Compare(a.Priority, b.Priority)
+}
+
+func (c *componentChanges) addResourceChange(a Action) {
+	c.resourceChanges = append(c.resourceChanges, a)
+	slices.SortStableFunc(c.resourceChanges, prioritizeActions)
+}
+
+func (c *componentChanges) addServiceChange(a Action) {
+	c.serviceChanges = append(c.serviceChanges, a)
+	slices.SortStableFunc(c.serviceChanges, prioritizeActions)
+}
+
+type Plan struct {
+	size       int
+	volumes    []string
+	components []string
+
+	changes map[string]*componentChanges
 }
 
 func NewPlan(installedComps, volList []string) *Plan {
 	return &Plan{
-		volumes:          volList,
-		components:       installedComps,
-		componentChanges: make(map[string][]Action),
-		serviceChanges:   make(map[string][]Action),
+		volumes:    volList,
+		components: installedComps,
+		changes:    make(map[string]*componentChanges),
 	}
 }
 
-func (p *Plan) Add(a Action) {
+func (p *Plan) Add(a Action) error {
 	if a.Priority == 0 {
-		switch a.Target.Kind {
-		case components.ResourceTypeComponent:
-			switch a.Todo {
-			case ActionInstall:
-				a.Priority = 2
-			case ActionUpdate, ActionCleanup:
-				a.Priority = 3
-			case ActionSetup, ActionRemove:
-				a.Priority = 4
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeDirectory:
-			switch a.Todo {
-			case ActionInstall:
-				a.Priority = 2
-			case ActionRemove:
-				a.Priority = 4
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeManifest:
-			switch a.Todo {
-			case ActionInstall, ActionRemove:
-				a.Priority = 3
-			case ActionUpdate:
-				a.Priority = 3
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeFile, components.ResourceTypeContainer, components.ResourceTypePod, components.ResourceTypeKube, components.ResourceTypeNetwork, components.ResourceTypeBuild, components.ResourceTypeImage,
-			components.ResourceTypeComponentScript, components.ResourceTypeScript, components.ResourceTypePodmanSecret:
-			switch a.Todo {
-			case ActionInstall, ActionUpdate, ActionRemove:
-				a.Priority = 3
-			case ActionCleanup:
-				a.Priority = 6
-			case ActionDump:
-				a.Priority = 6
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeVolume:
-			switch a.Todo {
-			case ActionInstall, ActionUpdate, ActionRemove:
-				a.Priority = 3
-			case ActionCleanup:
-				a.Priority = 6
-			case ActionDump:
-				a.Priority = 2
-			case ActionEnsure, ActionImport:
-				a.Priority = 4
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeService:
-			switch a.Todo {
-			case ActionInstall, ActionUpdate, ActionRemove:
-				a.Priority = 3
-			case ActionRestart, ActionStart, ActionEnable, ActionDisable:
-				a.Priority = 5
-			case ActionStop:
-				a.Priority = 1
-			case ActionReload:
-				a.Priority = 5
-			default:
-				panic(fmt.Sprintf("unexpected Action %v for Resource %v", a.Todo, a.Target.Path))
-			}
-		case components.ResourceTypeHost:
-			if a.Todo == ActionReload {
-				a.Priority = 4
-			} else {
-				panic(fmt.Sprintf("unexpected ResourceType %v for resource %v", a.Target.Kind, a.Target))
-			}
-		default:
-			panic(fmt.Sprintf("unexpected ResourceType %v in Action %v", a.Target.Kind, a))
+		priority, err := getDefaultPriority(a)
+		if err != nil {
+			return err
 		}
-		if a.Target.Kind == components.ResourceTypeService && (a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart) {
-			p.serviceChanges[a.Parent.Name] = append(p.serviceChanges[a.Parent.Name], a)
-		} else if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
+		a.Priority = priority
+
+		changes, ok := p.changes[a.Parent.Name]
+		if !ok {
+			changes = &componentChanges{}
+		}
+		if a.Target.Kind == components.ResourceTypeHost && a.Todo == ActionReload {
 			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
-			if len(p.servicesPhase) == 0 || (p.servicesPhase[0].Todo != ActionReload && p.servicesPhase[0].Target.Kind != components.ResourceTypeHost) {
-				// TODO replace this with a host servicesChange entry
-				p.servicesPhase = append([]Action{a}, p.servicesPhase...)
+			if _, ok := p.changes[rootComponent.Name]; !ok {
+				changes.addServiceChange(a)
 			}
+		} else if a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart {
+			changes.addServiceChange(a)
 		} else {
-			p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
+			changes.addResourceChange(a)
 		}
+		p.changes[a.Parent.Name] = changes
 	} else {
 		// we have a manually set priority, don't seperate out services
-		p.componentChanges[a.Parent.Name] = append(p.componentChanges[a.Parent.Name], a)
+		changes, ok := p.changes[a.Parent.Name]
+		if !ok {
+			changes = &componentChanges{}
+		}
+		changes.addResourceChange(a)
+		p.changes[a.Parent.Name] = changes
 	}
 	p.size++
+	return nil
 }
 
-func (p *Plan) Append(a []Action) {
+func (p *Plan) Append(a []Action) error {
 	for _, todo := range a {
-		p.Add(todo)
+		err := p.Add(todo)
+		if err != nil {
+			return fmt.Errorf("unable to append actions to plan: %w", err)
+		}
 	}
+	return nil
 }
 
 func (p *Plan) Empty() bool {
@@ -186,20 +145,19 @@ func (p *Plan) Validate() error {
 
 func (p *Plan) Steps() []Action {
 	var steps []Action
-	sortedComps := sortedKeys(p.componentChanges)
+	sortedComps := sortedKeys(p.changes)
 	for _, k := range sortedComps {
-		slices.SortStableFunc(p.componentChanges[k], func(a, b Action) int {
-			return cmp.Compare(a.Priority, b.Priority)
-		})
-		steps = append(steps, p.componentChanges[k]...)
+		resourceSteps := p.changes[k].resourceChanges
+		steps = append(steps, resourceSteps...)
 	}
-	sortedServComps := sortedKeys(p.serviceChanges)
-	steps = append(steps, p.servicesPhase...)
-	for _, k := range sortedServComps {
-		servActions := p.serviceChanges[k]
+	var serviceSteps []Action
+	for _, k := range sortedComps {
+		servActions := p.changes[k].serviceChanges
 		combinedServiceActions := coalesceServices(servActions)
-		steps = append(steps, combinedServiceActions...)
+		serviceSteps = append(serviceSteps, combinedServiceActions...)
 	}
+	slices.SortStableFunc(serviceSteps, prioritizeActions)
+	steps = append(steps, serviceSteps...)
 
 	return steps
 }
@@ -272,4 +230,85 @@ func (p *Plan) PrettyLines() []string {
 		result = append(result, fmt.Sprintf("%v. %v", i+1, a.Pretty()))
 	}
 	return result
+}
+
+func getDefaultPriority(a Action) (int, error) {
+	priorityMap := map[components.ResourceType]map[ActionType]int{
+		components.ResourceTypeComponent: {
+			ActionInstall: 2, ActionUpdate: 3, ActionCleanup: 3,
+			ActionSetup: 4, ActionRemove: 4,
+		},
+		components.ResourceTypeDirectory: {
+			ActionInstall: 2, ActionRemove: 4,
+		},
+		components.ResourceTypeManifest: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+		},
+		components.ResourceTypeFile: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+		},
+		components.ResourceTypeContainer: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypePod: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeKube: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeNetwork: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeBuild: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeImage: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeComponentScript: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+		},
+		components.ResourceTypeScript: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+		},
+		components.ResourceTypePodmanSecret: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2,
+		},
+		components.ResourceTypeVolume: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionCleanup: 6, ActionDump: 2, ActionEnsure: 4, ActionImport: 4,
+			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+		},
+		components.ResourceTypeService: {
+			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
+			ActionRestart: 5, ActionStart: 5, ActionEnable: 5,
+			ActionDisable: 5, ActionStop: 1, ActionReload: 5,
+		},
+		components.ResourceTypeHost: {
+			ActionReload: 4,
+		},
+	}
+
+	if priorities, ok := priorityMap[a.Target.Kind]; ok {
+		if priority, ok := priorities[a.Todo]; ok {
+			return priority, nil
+		}
+	}
+	return -1, fmt.Errorf("invalid action type %v for resource type %v", a.Todo, a.Target.Kind)
 }

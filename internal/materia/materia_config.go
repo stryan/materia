@@ -16,7 +16,6 @@ import (
 type MateriaConfig struct {
 	Debug          bool              `toml:"debug"`
 	UseStdout      bool              `toml:"use_stdout"`
-	Diffs          bool              `toml:"diffs"`
 	Hostname       string            `toml:"hostname"`
 	Roles          []string          `toml:"roles"`
 	Timeout        int               `toml:"timeout"`
@@ -60,8 +59,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.Cleanup = k.Bool("cleanup")
 	c.Hostname = k.String("hostname")
 	c.Timeout = k.Int("timeout")
+	if c.Timeout == 0 {
+		c.Timeout = 90
+	}
 	c.Roles = k.Strings("roles")
-	c.Diffs = k.Bool("diffs")
 	c.CleanupVolumes = k.Bool("cleanup_volumes")
 	if k.Exists("backup_volumes") {
 		c.BackupVolumes = k.Bool("backup_volumes")
@@ -188,7 +189,6 @@ func (c *MateriaConfig) String() string {
 	var result string
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Show Diffs: %v\n", c.Diffs)
 	result += fmt.Sprintf("Clean-up Volumes: %v\n", c.CleanupVolumes)
 	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
 	result += fmt.Sprintf("Migrate Volumes: %v\n", c.MigrateVolumes)

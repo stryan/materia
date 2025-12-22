@@ -1,0 +1,12 @@
+[Unit]
+Description=Hello Service
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=hellobuild
+Image=hello.build
+Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do cat /hello; sleep 1; done"
+
+[Install]
+WantedBy=multi-user.target

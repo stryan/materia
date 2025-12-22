@@ -15,6 +15,7 @@ type Resource struct {
 	Parent     string       `json:"parent" toml:"parent"`
 	Kind       ResourceType `json:"kind" toml:"kind"`
 	Template   bool         `json:"template" toml:"template"`
+	Content    string
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType
@@ -98,6 +99,8 @@ func (r *Resource) Service() string {
 		return strings.ReplaceAll(name, ".build", "-build.service")
 	case ResourceTypeImage:
 		return strings.ReplaceAll(name, ".image", "-image.service")
+	case ResourceTypeService:
+		return r.Path
 	default:
 		return ""
 	}
@@ -162,7 +165,7 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 	if r.Kind == ResourceTypeImage {
 		name, ok := unitfile.Lookup(group, "Image")
 		if !ok {
-			return "", errors.New("something when horribly wrong with an image compo")
+			return "", errors.New("something when horribly wrong with an image comp")
 		}
 		return name, nil
 	}

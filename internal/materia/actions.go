@@ -25,22 +25,38 @@ const (
 	ActionReload
 	ActionEnable
 	ActionDisable
-
 	ActionEnsure
+
 	ActionSetup
 	ActionCleanup
-
 	ActionMount
 	ActionImport
 	ActionDump
 )
 
+func (t ActionType) IsServiceAction() bool {
+	return t == ActionStart || t == ActionRestart || t == ActionStop || t == ActionReload || t == ActionEnable || t == ActionDisable || t == ActionEnsure
+}
+
+func (t ActionType) IsResourceAction() bool {
+	return t == ActionInstall || t == ActionRemove || t == ActionUpdate
+}
+
+func (t ActionType) IsHostAction() bool {
+	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump
+}
+
 type Action struct {
-	Todo     ActionType            `json:"todo" toml:"todo"`
-	Parent   *components.Component `json:"parent" toml:"parent"`
-	Target   components.Resource   `json:"target" toml:"target"`
-	Content  any                   `json:"content" toml:"content"`
-	Priority int                   `json:"priority" toml:"priority"`
+	Todo        ActionType            `json:"todo" toml:"todo"`
+	Parent      *components.Component `json:"parent" toml:"parent"`
+	Target      components.Resource   `json:"target" toml:"target"`
+	DiffContent []diffmatchpatch.Diff `json:"content" toml:"content"`
+	Priority    int                   `json:"priority" toml:"priority"`
+	Metadata    *ActionMetadata       `json:"metadata,omitempty" toml:"metadata,omitempty"`
+}
+
+type ActionMetadata struct {
+	ServiceTimeout *int `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
 }
 
 func (a Action) Validate() error {
@@ -53,10 +69,10 @@ func (a Action) Validate() error {
 	if err := a.Target.Validate(); err != nil {
 		return fmt.Errorf("invalid payload %v for action: %w", a.Target, err)
 	}
-	if a.Todo == ActionInstall || a.Todo == ActionRemove || a.Todo == ActionUpdate {
+	if a.Todo == ActionUpdate {
 		if a.Target.IsFile() {
-			if a.Content == nil {
-				return errors.New("file related action has no content")
+			if a.DiffContent == nil {
+				return fmt.Errorf("file related action has no diff: %v", a)
 			}
 		}
 	}
@@ -64,11 +80,19 @@ func (a Action) Validate() error {
 }
 
 func (a *Action) String() string {
-	return fmt.Sprintf("{a %v %v %v }", a.Todo, a.Parent.Name, a.Target.Path)
+	name := "<parent>"
+	if a.Parent != nil {
+		name = a.Parent.Name
+	}
+	return fmt.Sprintf("{a %v %v %v }", a.Todo, name, a.Target.Path)
 }
 
 func (a *Action) Pretty() string {
-	return fmt.Sprintf("(%v) %v %v %v", a.Parent.Name, a.Todo, a.Target.Kind, a.Target.Path)
+	name := "<parent>"
+	if a.Parent != nil {
+		name = a.Parent.Name
+	}
+	return fmt.Sprintf("(%v) %v %v %v", name, a.Todo, a.Target.Kind, a.Target.Path)
 }
 
 func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {
@@ -76,11 +100,7 @@ func (a *Action) GetContentAsDiffs() ([]diffmatchpatch.Diff, error) {
 	if a.Todo != ActionInstall && a.Todo != ActionRemove && a.Todo != ActionUpdate {
 		return diffs, errors.New("action does not have diffs")
 	}
-	diffs, ok := a.Content.([]diffmatchpatch.Diff)
-	if !ok {
-		return diffs, errors.New("should have diffs but don't")
-	}
-	return diffs, nil
+	return a.DiffContent, nil
 }
 
 func (a *Action) MarshalJSON() ([]byte, error) {

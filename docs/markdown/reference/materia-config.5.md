@@ -54,13 +54,9 @@ Log to `STDOUT` instead of `STDERR`
 
 Use these assigned roles instead of what's in the `materia-manifest(5)`
 
-#### *MATERIA_DIFFS*/**diffs**
-
-When calculating resource differences, show diffs. Default false.
-
 #### *MATERIA_TIMEOUT*/**timeout**
 
-How long to wait when starting/stopping systemd services. Default 30 seconds.
+How long to wait when starting/stopping systemd services when no service resource timeout is configured. Default 90 seconds.
 
 #### *MATERIA_NO_SYNC*/**no_sync**
 

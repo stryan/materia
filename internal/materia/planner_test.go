@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"text/template"
 
+	"github.com/stretchr/testify/assert"
+	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/manifests"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func newResSet(resources ...components.Resource) *components.ResourceSet {
@@ -27,49 +28,59 @@ func newResSet(resources ...components.Resource) *components.ResourceSet {
 	return rs
 }
 
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
+	ss := components.NewServiceSet()
+	for _, v := range services {
+		ss.Add(v)
+	}
+	return ss
+}
+
 var testComponents = []*components.Component{
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
 		Resources: newResSet(testResources[6]),
+		Services:  newServSet(),
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
 		Resources: newResSet(testResources[0], testResources[6]),
-		ServiceResources: map[string]manifests.ServiceResourceConfig{
-			"hello.service": {
-				Service: "hello.service",
-				Static:  false,
-			},
-		},
+		Services: newServSet(manifests.ServiceResourceConfig{
+			Service: "hello.service",
+			Static:  false,
+		}),
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
 		Resources: newResSet(testResources[0], testResources[1], testResources[2], testResources[5]),
-		ServiceResources: map[string]manifests.ServiceResourceConfig{
-			"hello.service": {
-				Service: "hello.service",
-				Static:  false,
-			},
-		},
+		Services: newServSet(manifests.ServiceResourceConfig{
+			Service: "hello.service",
+			Static:  false,
+		}),
 	},
 	{
 		Name:      "oldhello",
 		State:     components.StateStale,
 		Resources: newResSet(testResources[0]),
+		Services:  newServSet(),
 	},
 	{
 		Name:      "updated",
 		State:     components.StateMayNeedUpdate,
 		Resources: newResSet(testResources[0], testResources[3]),
-		ServiceResources: map[string]manifests.ServiceResourceConfig{
-			"hello.service": {
-				Service: "hello.service",
-				Static:  false,
-			},
-		},
+		Services: newServSet(manifests.ServiceResourceConfig{
+			Service: "hello.service",
+			Static:  false,
+		}),
+	},
+	{
+		Name:      "hello-secret",
+		State:     components.StateFresh,
+		Resources: newResSet(testResources[0], testResources[6], testResources[7]),
+		Services:  newServSet(),
 	},
 }
 
@@ -79,6 +90,7 @@ var testResources = []components.Resource{
 		Parent:   "hello",
 		Kind:     components.ResourceTypeContainer,
 		Template: true,
+		Content:  "[Container]\nImage=docker.io/materia/hello:latest",
 	},
 	{
 		Path:     "hello.env",
@@ -115,6 +127,19 @@ var testResources = []components.Resource{
 		Parent:   "hello",
 		Kind:     components.ResourceTypeManifest,
 		Template: false,
+	},
+	{
+		Path:     "secret",
+		Parent:   "hello",
+		Kind:     components.ResourceTypePodmanSecret,
+		Template: false,
+	},
+	{
+		Path:     "hello.container",
+		Parent:   "hello",
+		Kind:     components.ResourceTypeContainer,
+		Template: false,
+		Content:  "[Container]\nImage=hello.image",
 	},
 }
 
@@ -163,311 +188,529 @@ var testMacroMap = func(vars map[string]any) template.FuncMap {
 	}
 }
 
-// TODO add newComponent,removeComponent tests
-
-func TestMateria_updateComponents(t *testing.T) {
+func TestMateria_BuildComponentGraph(t *testing.T) {
 	tests := []struct {
-		name                string
-		assignedComponents  map[string]*components.Component
-		installedComponents map[string]*components.Component
-		expectedDiffs       map[string]*components.Component
-		expectedError       string
+		name           string
+		installedComps []string
+		assignedComps  []string
+		setup          func(*MockHostManager, *MockSourceManager, *MockAttributesEngine)
+		expectedError  bool
+		validateGraph  func(*testing.T, *ComponentGraph)
 	}{
 		{
-			name: "new component - not installed",
-			assignedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateFresh},
-			},
-			installedComponents: map[string]*components.Component{},
-			expectedDiffs: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateFresh},
+			name:          "happy-path/empty-components",
+			setup:         func(_ *MockHostManager, _ *MockSourceManager, _ *MockAttributesEngine) {},
+			expectedError: false,
+			validateGraph: func(t *testing.T, graph *ComponentGraph) {
+				assert.Empty(t, graph.List())
 			},
 		},
 		{
-			name: "existing component - needs update",
-			assignedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateFresh},
+			name:           "sad-path/host-component-error",
+			installedComps: []string{"comp1"},
+			setup: func(mhm *MockHostManager, _ *MockSourceManager, vault *MockAttributesEngine) {
+				mhm.EXPECT().GetComponent("comp1").Return(nil, errors.New("bwah?"))
 			},
-			installedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateStale},
+			expectedError: true,
+		},
+		{
+			name:           "happy-path/load-host-component",
+			installedComps: []string{"comp1"},
+			setup: func(mhm *MockHostManager, _ *MockSourceManager, vault *MockAttributesEngine) {
+				comp := &components.Component{
+					Name:      "comp1",
+					Version:   components.DefaultComponentVersion,
+					Resources: newResSet(),
+					Services:  newServSet(),
+				}
+				mhm.EXPECT().GetComponent("comp1").Return(comp, nil)
+				manifest := &manifests.ComponentManifest{}
+				mhm.EXPECT().GetManifest(comp).Return(manifest, nil)
 			},
-			expectedDiffs: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateMayNeedUpdate},
+			expectedError: false,
+			validateGraph: func(t *testing.T, graph *ComponentGraph) {
+				assert.Len(t, graph.List(), 1)
+				tree, err := graph.Get("comp1")
+				require.NoError(t, err)
+				assert.NotNil(t, tree.host)
+				assert.Nil(t, tree.source)
 			},
 		},
 		{
-			name:               "stale component - needs removal",
-			assignedComponents: map[string]*components.Component{},
-			installedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateStale},
+			name:          "sad-path/source-component-error",
+			assignedComps: []string{"comp2"},
+			setup: func(mhm *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
+					Hostname:  "localhost",
+					Component: "comp2",
+				}).Return(map[string]any{})
+				msm.EXPECT().GetComponent("comp2").Return(nil, errors.New("bwah?"))
 			},
-			expectedDiffs: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateNeedRemoval},
+			expectedError: true,
+		},
+		{
+			name:          "happy-path/load-source-component",
+			assignedComps: []string{"comp2"},
+			setup: func(_ *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+				comp := &components.Component{
+					Name:      "comp2",
+					Resources: newResSet(),
+					Services:  newServSet(),
+				}
+				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
+					Hostname:  "localhost",
+					Component: "comp2",
+				}).Return(map[string]any{})
+				msm.EXPECT().GetComponent("comp2").Return(comp, nil)
+				manifest := &manifests.ComponentManifest{}
+				msm.EXPECT().GetManifest(comp).Return(manifest, nil)
+			},
+			expectedError: false,
+			validateGraph: func(t *testing.T, graph *ComponentGraph) {
+				assert.Len(t, graph.List(), 1)
+				tree, err := graph.Get("comp2")
+				require.NoError(t, err)
+				assert.Nil(t, tree.host)
+				assert.NotNil(t, tree.source)
 			},
 		},
 		{
-			name: "mixed scenario - new, existing, and stale components",
-			assignedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateFresh}, // new
-				"comp2": {Name: "comp2", State: components.StateFresh}, // existing
+			name:           "happy-path/full-tree",
+			installedComps: []string{"comp1"},
+			assignedComps:  []string{"comp1"},
+			setup: func(mhm *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+				hostComp := &components.Component{
+					Name:      "comp1",
+					Version:   components.DefaultComponentVersion,
+					Resources: newResSet(),
+					Services:  newServSet(),
+				}
+				sourceComp := &components.Component{
+					Name:      "comp1",
+					Resources: newResSet(),
+					Services:  newServSet(),
+				}
+				mhm.EXPECT().GetComponent("comp1").Return(hostComp, nil)
+				hostManifest := &manifests.ComponentManifest{}
+				mhm.EXPECT().GetManifest(hostComp).Return(hostManifest, nil)
+
+				msm.EXPECT().GetComponent("comp1").Return(sourceComp, nil)
+				sourceManifest := &manifests.ComponentManifest{}
+				msm.EXPECT().GetManifest(sourceComp).Return(sourceManifest, nil)
+				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
+					Hostname:  "localhost",
+					Component: "comp1",
+				}).Return(map[string]any{})
 			},
-			installedComponents: map[string]*components.Component{
-				"comp2": {Name: "comp2", State: components.StateStale}, // existing
-				"comp3": {Name: "comp3", State: components.StateStale}, // stale
+			expectedError: false,
+			validateGraph: func(t *testing.T, graph *ComponentGraph) {
+				assert.Len(t, graph.List(), 1)
+				tree, err := graph.Get("comp1")
+				require.NoError(t, err)
+				assert.NotNil(t, tree.host)
+				assert.NotNil(t, tree.source)
 			},
-			expectedDiffs: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateFresh},         // new
-				"comp2": {Name: "comp2", State: components.StateMayNeedUpdate}, // existing
-				"comp3": {Name: "comp3", State: components.StateNeedRemoval},   // stale
-			},
-		},
-		{
-			name:               "installed component not stale - should error",
-			assignedComponents: map[string]*components.Component{},
-			installedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateUnknown}, // not stale
-			},
-			expectedDiffs: map[string]*components.Component{},
-			expectedError: "installed component isn't stale",
-		},
-		{
-			name: "assigned component not fresh - should error",
-			assignedComponents: map[string]*components.Component{
-				"comp1": {Name: "comp1", State: components.StateUnknown},
-			},
-			installedComponents: map[string]*components.Component{},
-			expectedDiffs:       map[string]*components.Component{},
-			expectedError:       "assigned component isn't fresh",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotDiffs, gotErr := updateComponents(tt.assignedComponents, tt.installedComponents)
+			mhm := NewMockHostManager(t)
+			msm := NewMockSourceManager(t)
+			mv := NewMockAttributesEngine(t)
 
-			// Check error
-			if tt.expectedError != "" {
-				require.NotNil(t, gotErr)
-				require.Contains(t, gotErr.Error(), tt.expectedError)
-			} else {
-				// Check diffs
-				require.Equal(t, gotDiffs, tt.expectedDiffs, "updateComponents() gotDiffs = %v, expectedDiffs %v", gotDiffs, tt.expectedDiffs)
+			m := &Materia{
+				Host:   mhm,
+				Source: msm,
+				Vault:  mv,
+				Manifest: &manifests.MateriaManifest{
+					Hosts: map[string]manifests.Host{
+						"localhost": {},
+					},
+				},
+			}
+
+			mhm.EXPECT().GetHostname().Return("localhost")
+			tt.setup(mhm, msm, mv)
+
+			graph, err := m.BuildComponentGraph(context.Background(), tt.installedComps, tt.assignedComps)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			if tt.validateGraph != nil {
+				tt.validateGraph(t, graph)
 			}
 		})
 	}
 }
 
-func TestMateria_calculateFreshComponentResources(t *testing.T) {
+func TestGenerateFreshComponentResources(t *testing.T) {
 	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for receiver constructor.
-		setup func(comp *components.Component, source *MockSourceManager)
-		// Named input parameters for target function.
-		newComponent *components.Component
-		vars         map[string]any
+		name          string
+		component     *components.Component
+		expectedError bool
+		expectedPlan  []Action
+		validatePlan  func(*testing.T, []Action)
+	}{
+		{
+			name: "sad-path/not-fresh",
+			component: &components.Component{
+				State: components.StateStale,
+			},
+			expectedError: true,
+		},
+		{
+			name:          "happy-path/resources",
+			component:     testComponents[1],
+			expectedError: false,
+			expectedPlan: []Action{
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: "hello"},
+				},
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+			},
+		},
+		{
+			name:          "happy-path/secrets",
+			component:     testComponents[5],
+			expectedError: false,
+			expectedPlan: []Action{
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: "hello-secret"},
+				},
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: "hello.container"},
+				},
+
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+				{
+					Todo:   ActionInstall,
+					Target: components.Resource{Path: "secret"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actions, err := generateFreshComponentResources(tt.component)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			for k, step := range tt.expectedPlan {
+				assert.Equal(t, step.Todo, actions[k].Todo)
+				assert.Equal(t, step.Target.Path, actions[k].Target.Path)
+			}
+			assert.Equal(t, len(tt.expectedPlan), len(actions))
+			if tt.validatePlan != nil {
+				tt.validatePlan(t, actions)
+			}
+		})
+	}
+}
+
+func TestGenerateRemovedComponentResources(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     *components.Component
+		expectedError bool
+		opts          planOptions
+		expectedPlan  []Action
+		setup         func(comp *components.Component, mhm *MockHostManager)
+		validatePlan  func(*testing.T, []Action)
+	}{
+		{
+			name: "sad-path/not-needed-removal",
+			component: &components.Component{
+				State: components.StateFresh,
+			},
+			expectedError: true,
+		},
+		{
+			name: "happy-path/resources",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[0], testResources[6]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.service",
+					Static:  false,
+				}),
+			},
+			expectedError: false,
+			expectedPlan: []Action{
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
+				},
+			},
+		},
+		{
+			name: "happy-path/secrets",
+			component: &components.Component{
+				Name:      "hello-secret",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[0], testResources[6], testResources[7]),
+				Services:  newServSet(),
+			},
+			expectedError: false,
+			expectedPlan: []Action{
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "secret"},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello-secret", Kind: components.ResourceTypeComponent},
+				},
+			},
+		},
+		{
+			name: "happy-path/cleanup",
+			component: &components.Component{
+				Name:  "hello",
+				State: components.StateNeedRemoval,
+				Resources: newResSet(testResources[0],
+					components.Resource{
+						Path:       "hello.volume",
+						HostObject: "systemd-hello",
+						Kind:       components.ResourceTypeVolume,
+						Parent:     "hello",
+					}, testResources[6]),
+				Services: newServSet(),
+			},
+			setup: func(comp *components.Component, mhm *MockHostManager) {
+				mhm.EXPECT().ListVolumes(mock.Anything).Return([]*containers.Volume{
+					{
+						Name: "systemd-hello",
+					},
+				}, nil)
+			},
+			expectedError: false,
+			opts:          planOptions{cleanupResources: true, cleanupVolumes: true},
+			expectedPlan: []Action{
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello.volume"},
+				},
+				{
+					Todo:   ActionCleanup,
+					Target: components.Resource{Path: "hello.volume"},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello.container"},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: manifests.ComponentManifestFile},
+				},
+				{
+					Todo:   ActionRemove,
+					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hm := NewMockHostManager(t)
+			if tt.setup != nil {
+				tt.setup(tt.component, hm)
+			}
+			actions, err := generateRemovedComponentResources(context.TODO(), hm, tt.opts, tt.component)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			for k, step := range tt.expectedPlan {
+				assert.Equal(t, step.Todo, actions[k].Todo)
+				assert.Equal(t, step.Target.Path, actions[k].Target.Path)
+			}
+			assert.Equal(t, len(tt.expectedPlan), len(actions))
+			if tt.validatePlan != nil {
+				tt.validatePlan(t, actions)
+			}
+		})
+	}
+}
+
+func TestGenerateUpdatedComponentResources(t *testing.T) {
+	tests := []struct {
+		name         string
+		stale, fresh *components.Component
+		opts         planOptions
+		setup        func(host *MockHostManager, stale, fresh *components.Component)
 		want         []Action
 		wantErr      bool
 	}{
 		{
-			name:         "basic component",
-			newComponent: testComponents[1],
-			vars:         map[string]any{},
-			want: []Action{
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello.container"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: manifests.ComponentManifestFile},
-				},
+			name: "happy-path/no-diffs",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
 			},
-			setup: func(comp *components.Component, source *MockSourceManager) {
-				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
-				source.EXPECT().ReadResource(testResources[6]).Return("manifest!", nil)
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
+			},
+			opts: planOptions{},
+			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want:    []Action{},
+			wantErr: false,
+		},
+		{
+			name: "happy-path/one-diffs",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+				),
+				Services: newServSet(),
+			},
+			opts: planOptions{},
+			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want: []Action{
+				planHelper(ActionUpdate, "hello", "hello.container"),
 			},
 			wantErr: false,
 		},
 		{
-			name:         "multi file component",
-			newComponent: testComponents[2],
-			vars:         map[string]any{},
+			name: "happy-path/removal",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+				),
+				Services: newServSet(),
+			},
+			opts: planOptions{},
+			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
 			want: []Action{
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello.container"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello.env"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "hello.sh"},
-				},
-				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "conf/deep.env"},
-				},
+				planHelper(ActionRemove, "hello", "hello.container"),
 			},
-			setup: func(comp *components.Component, source *MockSourceManager) {
-				source.EXPECT().ReadResource(testResources[5]).Return("inner file", nil)
-				source.EXPECT().ReadResource(testResources[0]).Return("[Container]", nil)
-				source.EXPECT().ReadResource(testResources[1]).Return("Hello env", nil)
-				source.EXPECT().ReadResource(testResources[2]).Return("Hello service", nil)
-			},
+			wantErr: false,
 		},
 		{
-			name:         "not fresh",
-			newComponent: testComponents[3],
-			vars:         map[string]any{},
-			wantErr:      true,
-			setup: func(comp *components.Component, source *MockSourceManager) {
+			name: "happy-path/add",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+				),
+				Services: newServSet(),
 			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+				),
+				Services: newServSet(),
+			},
+			opts: planOptions{},
+			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want: []Action{
+				planHelper(ActionInstall, "hello", "hello.container"),
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceRepo := NewMockSourceManager(t)
-			tt.setup(tt.newComponent, sourceRepo)
-			m := &Materia{Source: sourceRepo, macros: testMacroMap}
-			got, gotErr := m.calculateFreshComponentResources(tt.newComponent, tt.vars)
+			hm := NewMockHostManager(t)
+			tt.setup(hm, tt.stale, tt.fresh)
+			got, gotErr := generateUpdatedComponentResources(context.Background(), hm, tt.opts, tt.stale, tt.fresh)
 			if gotErr != nil {
 				if !tt.wantErr {
-					t.Errorf("calculateFreshComponent() failed: %v", gotErr)
+					t.Errorf("generateUpdatedComponentResources() failed: %v", gotErr)
 				}
 				return
 			}
 			if tt.wantErr {
-				t.Fatal("calculateFreshComponent() succeeded unexpectedly")
+				t.Fatal("generateUpdatedComponentResources() succeeded unexpectedly")
 			}
 			for k, v := range tt.want {
 				if k >= len(got) {
-					t.Errorf("Missing step #%v: %v", k, v)
-				}
-				assert.Equal(t, v.Todo, got[k].Todo, "wanted %v got %v", v.Todo, got[k].Todo)
-				assert.Equal(t, v.Target.Path, got[k].Target.Path, "wanted %v got %v", v.Target.Path, got[k].Target.Path)
-			}
-		})
-	}
-}
-
-func TestMateria_calculateRemovedComponentResources(t *testing.T) {
-	tests := []struct {
-		name    string // description of this test case
-		setup   func(comp *components.Component, host *MockHostManager)
-		comp    *components.Component
-		want    []Action
-		wantErr bool
-	}{
-		{
-			name: "basic removal",
-			comp: &components.Component{
-				Name:      "hello",
-				State:     components.StateNeedRemoval,
-				Resources: newResSet(testResources[0], testResources[6]),
-			},
-			setup: func(comp *components.Component, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[0]).Return("", nil)
-				host.EXPECT().ReadResource(testResources[6]).Return("", nil)
-			},
-			want: []Action{
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.container"},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: manifests.ComponentManifestFile},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "multi-file removal",
-			comp: &components.Component{
-				Name:      "hello",
-				State:     components.StateNeedRemoval,
-				Resources: newResSet(testResources[0], testResources[1], testResources[2], testResources[5], testResources[6]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
-			},
-			setup: func(comp *components.Component, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[0]).Return("", nil)
-				host.EXPECT().ReadResource(testResources[1]).Return("", nil)
-				host.EXPECT().ReadResource(testResources[2]).Return("", nil)
-				host.EXPECT().ReadResource(testResources[5]).Return("", nil)
-				host.EXPECT().ReadResource(testResources[6]).Return("", nil)
-			},
-			want: []Action{
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "conf/deep.env"},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.sh"},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.env"},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.container"},
-				},
-
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: manifests.ComponentManifestFile},
-				},
-				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:    "not to be removed",
-			comp:    testComponents[0],
-			setup:   func(comp *components.Component, host *MockHostManager) {},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hostrepo := NewMockHostManager(t)
-			m := &Materia{Host: hostrepo}
-			tt.setup(tt.comp, hostrepo)
-			got, gotErr := m.calculateRemovedComponentResources(tt.comp)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("calculateRemovedComponentResources() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("calculateRemovedComponentResources() succeeded unexpectedly")
-			}
-			for k, v := range tt.want {
-				if k >= len(got) {
+					t.Log(got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
 				assert.Equal(t, v.Todo, got[k].Todo)
@@ -477,14 +720,14 @@ func TestMateria_calculateRemovedComponentResources(t *testing.T) {
 	}
 }
 
-func TestMateria_processFreshComponentServices(t *testing.T) {
+func TestProcessFreshComponentServices(t *testing.T) {
 	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for receiver constructor.
-		component *components.Component
-		setup     func(comp *components.Component, sm *MockHostManager)
-		want      []Action
-		wantErr   bool
+		name         string
+		component    *components.Component
+		setup        func(comp *components.Component, sm *MockHostManager)
+		want         []Action
+		wantErr      bool
+		validatePlan func(*testing.T, []Action)
 	}{
 		{
 			name:      "no services",
@@ -504,7 +747,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(comp *components.Component, sm *MockHostManager) {
-				for _, src := range comp.ServiceResources {
+				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -517,7 +760,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			name:      "services - running",
 			component: testComponents[1],
 			setup: func(comp *components.Component, sm *MockHostManager) {
-				for _, src := range comp.ServiceResources {
+				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
@@ -532,12 +775,10 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  true,
-					},
-				},
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.service",
+					Static:  true,
+				}),
 			},
 			want: []Action{
 				{
@@ -554,7 +795,7 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(comp *components.Component, sm *MockHostManager) {
-				for _, src := range comp.ServiceResources {
+				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -563,13 +804,119 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "services - stopped",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateFresh,
+				Resources: newResSet(testResources[0]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.service",
+					Stopped: true,
+				}),
+			},
+			want: []Action{},
+			setup: func(comp *components.Component, sm *MockHostManager) {
+			},
+		},
+		{
+			name: "services - container",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateFresh,
+				Resources: newResSet(testResources[0]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.container",
+				}),
+			},
+			want: []Action{
+				{
+					Todo: ActionStart,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
+				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "inactive",
+				}, nil)
+			},
+		},
+		{
+			name: "services - container with image",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateFresh,
+				Resources: newResSet(testResources[8]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.container",
+				}),
+			},
+			want: []Action{
+				{
+					Todo: ActionStart,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
+				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "inactive",
+				}, nil)
+			},
+			validatePlan: func(t *testing.T, a []Action) {
+				assert.Equal(t, 1, len(a))
+				assert.NotNil(t, a[0].Metadata)
+				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 60)
+			},
+		},
+		{
+			name: "services - container with defined image",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateFresh,
+				Resources: newResSet(testResources[8]),
+				Services: newServSet(
+					manifests.ServiceResourceConfig{
+						Service: "hello.container",
+					},
+					manifests.ServiceResourceConfig{
+						Service: "hello.image",
+						Stopped: true,
+						Timeout: 100,
+					},
+				),
+			},
+			want: []Action{
+				{
+					Todo: ActionStart,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
+				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "inactive",
+				}, nil)
+			},
+			validatePlan: func(t *testing.T, a []Action) {
+				assert.Equal(t, 1, len(a))
+				assert.NotNil(t, a[0].Metadata)
+				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 160)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hm := NewMockHostManager(t)
-			m := &Materia{Host: hm}
 			tt.setup(tt.component, hm)
-			got, gotErr := m.processFreshComponentServices(context.Background(), tt.component)
+			got, gotErr := processFreshOrUnchangedComponentServices(context.Background(), hm, tt.component)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("processFreshComponentServices() failed: %v", gotErr)
@@ -581,182 +928,256 @@ func TestMateria_processFreshComponentServices(t *testing.T) {
 			}
 			for k, v := range tt.want {
 				if k >= len(got) {
-					t.Log(got)
+					t.Logf("Steps got: %v", got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
 				assert.Equal(t, v.Todo, got[k].Todo)
 				assert.Equal(t, v.Target.Path, got[k].Target.Path)
+			}
+			if tt.validatePlan != nil {
+				tt.validatePlan(t, got)
 			}
 		})
 	}
 }
 
-func TestMateria_diffComponent(t *testing.T) {
+func TestProcessRemovedComponentServices(t *testing.T) {
 	tests := []struct {
 		name         string
-		original     *components.Component
-		newComponent *components.Component
-		setup        func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager)
-		vars         map[string]any
+		component    *components.Component
+		setup        func(comp *components.Component, sm *MockHostManager)
 		want         []Action
 		wantErr      bool
+		validatePlan func(*testing.T, []Action)
 	}{
 		{
-			name: "simple update",
-			original: &components.Component{
-				Name:      "updated",
-				State:     components.StateStale,
-				Resources: newResSet(testResources[0], testResources[3]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
-			},
-			newComponent: testComponents[4],
-			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[0]).Return("container file!", nil)
-				source.EXPECT().ReadResource(testResources[0]).Return("[Container]\nImage=ubi8", nil)
-				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-			},
-			want: []Action{
-				{
-					Todo:   ActionUpdate,
-					Target: components.Resource{Path: "hello.container"},
-				},
+			name:      "no services",
+			component: testComponents[0],
+			want:      []Action{},
+			setup:     func(comp *components.Component, services *MockHostManager) {},
+		},
+		{
+			name:      "services - none running",
+			component: testComponents[1],
+			setup: func(comp *components.Component, sm *MockHostManager) {
+				for _, src := range comp.Services.List() {
+					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+						Name:    src.Service,
+						State:   "inactive",
+						Enabled: false,
+					}, nil)
+				}
 			},
 		},
 		{
-			name: "defaults update",
-			original: &components.Component{
-				Name:      "updated",
-				State:     components.StateStale,
-				Defaults:  map[string]any{"var": "hello"},
-				Resources: newResSet(testResources[0], testResources[3]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
-			},
-			newComponent: &components.Component{
-				Name:      "updated",
-				State:     components.StateMayNeedUpdate,
-				Resources: newResSet(testResources[0], testResources[3]),
-				Defaults:  map[string]any{"var": "goodbye"},
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
-			},
-			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[0]).Return("container hello", nil)
-				source.EXPECT().ReadResource(testResources[0]).Return("[Container]\nImage={{ .var }}", nil)
-				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-			},
+			name:      "services - running",
+			component: testComponents[1],
 			want: []Action{
 				{
-					Todo:   ActionUpdate,
-					Target: components.Resource{Path: "hello.container"},
+					Todo: ActionStop,
+					Target: components.Resource{
+						Path: "hello.service",
+					},
 				},
+			},
+			setup: func(comp *components.Component, sm *MockHostManager) {
+				for _, src := range comp.Services.List() {
+					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+						Name:    src.Service,
+						State:   "active",
+						Enabled: false,
+					}, nil)
+				}
 			},
 		},
 		{
-			name: "file removed",
-			original: &components.Component{
-				Name:      "updated",
-				State:     components.StateStale,
-				Resources: newResSet(testResources[0], testResources[3]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
-			},
-			newComponent: &components.Component{
-				Name:      "updated",
-				State:     components.StateMayNeedUpdate,
-				Resources: newResSet(testResources[3]),
-			},
-			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+			name: "services - static",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[0]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.service",
+					Static:  true,
+				}),
 			},
 			want: []Action{
 				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.container"},
+					Todo: ActionStop,
+					Target: components.Resource{
+						Path: "hello.service",
+					},
 				},
+			},
+			setup: func(comp *components.Component, sm *MockHostManager) {
+				for _, src := range comp.Services.List() {
+					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+						Name:    src.Service,
+						State:   "active",
+						Enabled: false,
+					}, nil)
+				}
 			},
 		},
 		{
-			name: "file renamed",
-			original: &components.Component{
-				Name:      "updated",
-				State:     components.StateStale,
-				Resources: newResSet(testResources[0], testResources[3]),
-				ServiceResources: map[string]manifests.ServiceResourceConfig{
-					"hello.service": {
-						Service: "hello.service",
-						Static:  false,
-					},
-				},
+			name: "services - stopped",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[0]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.service",
+					Stopped: true,
+				}),
 			},
-			newComponent: &components.Component{
-				Name:      "updated",
-				State:     components.StateMayNeedUpdate,
-				Resources: newResSet(testResources[4], testResources[3]),
+			want: []Action{},
+			setup: func(comp *components.Component, sm *MockHostManager) {
+				for _, src := range comp.Services.List() {
+					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+						Name:    src.Service,
+						State:   "inactive",
+						Enabled: false,
+					}, nil)
+				}
 			},
-			setup: func(oldc, newc *components.Component, source *MockSourceManager, host *MockHostManager) {
-				host.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
-				source.EXPECT().ReadResource(testResources[4]).Return("[Container]", nil)
-				source.EXPECT().ReadResource(testResources[3]).Return("manifestation", nil)
+		},
+		{
+			name: "services - container",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[0]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.container",
+				}),
 			},
 			want: []Action{
 				{
-					Todo:   ActionRemove,
-					Target: components.Resource{Path: "hello.container"},
+					Todo: ActionStop,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
 				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+		},
+		{
+			name: "services - container with image",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[8]),
+				Services: newServSet(manifests.ServiceResourceConfig{
+					Service: "hello.container",
+				}),
+			},
+			want: []Action{
 				{
-					Todo:   ActionInstall,
-					Target: components.Resource{Path: "goodbye.container"},
+					Todo: ActionStop,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
 				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+			validatePlan: func(t *testing.T, a []Action) {
+				assert.Equal(t, 1, len(a))
+				assert.NotNil(t, a[0].Metadata)
+				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 60)
+			},
+		},
+		{
+			name: "services - container with defined image",
+			component: &components.Component{
+				Name:      "hello",
+				State:     components.StateNeedRemoval,
+				Resources: newResSet(testResources[8]),
+				Services: newServSet(
+					manifests.ServiceResourceConfig{
+						Service: "hello.container",
+					},
+					manifests.ServiceResourceConfig{
+						Service: "hello.image",
+						Stopped: true,
+						Timeout: 100,
+					},
+				),
+			},
+			want: []Action{
+				{
+					Todo: ActionStop,
+					Target: components.Resource{
+						Path: "hello.container",
+					},
+				},
+			},
+			setup: func(parent *components.Component, sm *MockHostManager) {
+				sm.EXPECT().Get(mock.Anything, "hello.image").Return(&services.Service{
+					Name:  "hello-image.service",
+					State: "inactive",
+				}, nil)
+				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+			validatePlan: func(t *testing.T, a []Action) {
+				assert.Equal(t, 1, len(a))
+				assert.NotNil(t, a[0].Metadata)
+				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 160)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sourceRepo := NewMockSourceManager(t)
-			hostrepo := NewMockHostManager(t)
-			m := &Materia{Source: sourceRepo, Host: hostrepo, macros: testMacroMap}
-			tt.setup(tt.original, tt.newComponent, sourceRepo, hostrepo)
-			got, gotErr := m.diffComponent(tt.original, tt.newComponent, tt.vars)
+			hm := NewMockHostManager(t)
+			tt.setup(tt.component, hm)
+			got, gotErr := processRemovedComponentServices(context.Background(), hm, tt.component)
 			if gotErr != nil {
 				if !tt.wantErr {
-					t.Errorf("diffComponent() failed: %v", gotErr)
+					t.Errorf("processRemovedComponentServices() failed: %v", gotErr)
 				}
 				return
 			}
 			if tt.wantErr {
-				t.Fatal("diffComponent() succeeded unexpectedly")
+				t.Fatal("processRemovedComponentServices() succeeded unexpectedly")
 			}
 			for k, v := range tt.want {
 				if k >= len(got) {
-					t.Log(got)
+					t.Logf("Steps got: %v", got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
 				assert.Equal(t, v.Todo, got[k].Todo)
 				assert.Equal(t, v.Target.Path, got[k].Target.Path)
 			}
+			if tt.validatePlan != nil {
+				tt.validatePlan(t, got)
+			}
 		})
 	}
+}
+
+func resourceHelper(name, parent, content string) components.Resource {
+	var result components.Resource
+	result.Path = strings.TrimSuffix(name, ".gotmpl")
+	result.Template = components.IsTemplate(name)
+	result.Parent = parent
+	result.Kind = components.FindResourceType(result.Path)
+	result.Content = content
+	if result.Kind != components.ResourceTypeImage && result.Kind != components.ResourceTypeBuild {
+		result.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(result.Path), filepath.Ext(result.Path)))
+	}
+	return result
 }
 
 func TestPlan(t *testing.T) {
@@ -799,6 +1220,7 @@ func TestPlan(t *testing.T) {
 		Resources: newResSet(containerResource, dataResource, manifestResource),
 		State:     components.StateFresh,
 		Defaults:  map[string]any{},
+		Services:  newServSet(),
 		Version:   components.DefaultComponentVersion,
 	}
 	sm.EXPECT().GetComponent("hello").Return(helloComp, nil)

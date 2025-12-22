@@ -7,7 +7,6 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/manifests"
@@ -43,34 +42,35 @@ func TestExecute(t *testing.T) {
 	helloComp := &components.Component{
 		Name:      "hello",
 		Resources: newResSet(containerResource, dataResource, manifestResource),
+		Services:  newServSet(),
 		State:     components.StateFresh,
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,
 	}
 	planSteps := []Action{
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
-			Content: getDiffs("", ""),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
+			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  containerResource,
-			Content: getDiffs("", "[Container]"),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      containerResource,
+			DiffContent: getDiffs("", "[Container]"),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  dataResource,
-			Content: getDiffs("", "FOO=BAR"),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      dataResource,
+			DiffContent: getDiffs("", "FOO=BAR"),
 		},
 		{
-			Todo:    ActionInstall,
-			Parent:  helloComp,
-			Target:  manifestResource,
-			Content: getDiffs("", ""),
+			Todo:        ActionInstall,
+			Parent:      helloComp,
+			Target:      manifestResource,
+			DiffContent: getDiffs("", ""),
 		},
 		{
 			Todo:   ActionReload,
@@ -80,25 +80,13 @@ func TestExecute(t *testing.T) {
 	}
 	plan := NewPlan([]string{}, []string{})
 	for _, p := range planSteps {
-		plan.Add(p)
+		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
-	hm.EXPECT().GetHostname().Return("localhost")
-	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  "localhost",
-		Roles:     []string(nil),
-		Component: "root",
-	}).Return(map[string]any{})
-	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  "localhost",
-		Roles:     []string(nil),
-		Component: "hello",
-	}).Return(map[string]any{})
-
 	hm.EXPECT().InstallComponent(helloComp).Return(nil)
 	hm.EXPECT().InstallResource(containerResource, bytes.NewBufferString("[Container]")).Return(nil)
 	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, bytes.NewBufferString("")).Return(nil)
-	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits).Return(nil)
+	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
 	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
 
 	steps, err := m.Execute(ctx, plan)

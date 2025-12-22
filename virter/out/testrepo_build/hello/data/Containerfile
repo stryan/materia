@@ -1,0 +1,2 @@
+FROM busybox
+RUN echo "We Built This Container on Rock and Roll" >> /hello

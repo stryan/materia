@@ -133,10 +133,11 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, fmt.Errorf("error validating config: %w", err)
 	}
+	setupLogger(c)
+	log.Debug("config loaded")
 	if err := setupDirectories(c); err != nil {
 		return nil, fmt.Errorf("error creating base directories: %w", err)
 	}
-	setupLogger(c)
 
 	mainRepo, err := getLocalRepo(k, c.SourceDir)
 	if err != nil {
@@ -146,15 +147,18 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, err
 	}
+	log.Debug("adding source", "source", mainRepo)
 	err = sm.AddSource(mainRepo)
 	if err != nil {
 		return nil, err
 	}
 	if !c.NoSync {
+		log.Debug("syncing source")
 		err = sm.Sync(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error with initial repo sync: %w", err)
 		}
+		log.Debug("syncing remotes")
 		err = sm.SyncRemotes(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error with repo remotes sync: %w", err)
