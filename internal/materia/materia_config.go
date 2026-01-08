@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
@@ -39,6 +40,8 @@ type MateriaConfig struct {
 	AgeConfig      *age.Config       `toml:"age"`
 	FileConfig     *fileattrs.Config `toml:"file"`
 	SopsConfig     *sops.Config      `toml:"sops"`
+	PlannerConfig  *PlannerConfig    `toml:"planner"`
+	ExecutorConfig *ExecutorConfig   `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
 }
@@ -56,20 +59,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var err error
 	c.SourceDir = k.String("source_dir")
 	c.Debug = k.Bool("debug")
-	c.Cleanup = k.Bool("cleanup")
 	c.Hostname = k.String("hostname")
 	c.Timeout = k.Int("timeout")
 	if c.Timeout == 0 {
 		c.Timeout = 90
 	}
 	c.Roles = k.Strings("roles")
-	c.CleanupVolumes = k.Bool("cleanup_volumes")
-	if k.Exists("backup_volumes") {
-		c.BackupVolumes = k.Bool("backup_volumes")
-	} else {
-		c.BackupVolumes = true
-	}
-	c.MigrateVolumes = k.Bool("migrate_volumes")
+
 	c.Attributes = k.String("attributes")
 	c.UseStdout = k.Bool("use_stdout")
 	c.MateriaDir = k.String("materia_dir")
@@ -100,6 +96,31 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if k.Exists("planner") {
+		c.PlannerConfig, err = NewPlannerConfig(k)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// TODO remove in 0.6
+		pc := &PlannerConfig{}
+		if k.Exists("cleanup") || k.Exists("cleanup_volumes") || k.Exists("backup_volumes") || k.Exists("migrate_volumes") {
+			log.Warn("configuring planner settings directly is deprecated and will be removed in 0.6")
+		}
+		pc.CleanupQuadlets = k.Bool("cleanup")
+		pc.CleanupVolumes = k.Bool("cleanup_volumes")
+		if k.Exists("backup_volumes") {
+			pc.BackupVolumes = k.Bool("backup_volumes")
+		} else {
+			pc.BackupVolumes = true
+		}
+		pc.MigrateVolumes = k.Bool("migrate_volumes")
+		c.PlannerConfig = pc
+	}
+	c.ExecutorConfig, err = NewExecutorConfig(k)
+	if err != nil {
+		return nil, err
 	}
 	currentUser, err := user.Current()
 	if err != nil {

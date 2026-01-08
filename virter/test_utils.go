@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"time"
@@ -107,6 +108,18 @@ func scriptExists(name string) bool {
 
 func unitExists(name string) bool {
 	return fileExists(filepath.Join("/etc/systemd/system", name))
+}
+
+func volumeExists(ctx context.Context, name string) bool {
+	cmd := exec.CommandContext(ctx, "podman", "volume", "exists", name)
+	err := cmd.Run()
+	return err == nil
+}
+
+func networkExists(ctx context.Context, name string) bool {
+	cmd := exec.CommandContext(ctx, "podman", "network", "exists", name)
+	err := cmd.Run()
+	return err == nil
 }
 
 func componentInstalled(name, goldenPath string) bool {

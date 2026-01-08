@@ -9,18 +9,31 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/log"
+	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
 )
 
+type ExecutorConfig struct {
+	CleanupComponents bool `toml:"cleanup_components"`
+}
+
+func NewExecutorConfig(k *koanf.Koanf) (*ExecutorConfig, error) {
+	ec := &ExecutorConfig{
+		CleanupComponents: k.Bool("executor.cleanup_components"),
+	}
+
+	return ec, nil
+}
+
 func (m *Materia) Execute(ctx context.Context, plan *Plan) (int, error) {
 	if plan.Empty() {
 		return -1, nil
 	}
 	defer func() {
-		if !m.cleanup {
+		if !m.executorConfig.CleanupComponents {
 			return
 		}
 		problems, err := m.ValidateComponents(ctx)

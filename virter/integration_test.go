@@ -248,9 +248,9 @@ func Test_AllResources(t *testing.T) {
 	runCmd.Stderr = os.Stderr
 	err = runCmd.Run()
 	require.NoError(t, err)
-	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
+	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")), "hello component not installed")
 	require.True(t, scriptExists("hello.sh"), "script not found")
-	require.True(t, unitExists("hello.service"))
+	require.True(t, unitExists("hello_world.service"), "missing hello_world service")
 }
 
 func Test_ContainerWithBuild(t *testing.T) {
@@ -276,4 +276,38 @@ func Test_ContainerWithBuild(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")))
 	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello")))
+}
+
+func Test_PlannerConfigs(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err)
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo5"))
+	require.Nil(t, setEnv("MATERIA_PLANNER__CLEANUP_QUADLETS", "true"))
+	require.Nil(t, setEnv("MATERIA_PLANNER__BACKUP_VOLUMES", "false"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo5/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err = planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo5/hello"))
+	require.True(t, servicesRunning(ctx, conn, "/root/materia/virter/out/testrepo5/hello"), "services not running")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentRemoved("hello"), "component not removed")
+	require.True(t, volumeExists(ctx, "systemd-hello"), "volume should still exist")
+	require.False(t, networkExists(ctx, "systemd-hello"), "network still exists")
 }

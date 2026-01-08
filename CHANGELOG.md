@@ -8,6 +8,7 @@ Best effort list of major changes and bugfixes
 - feat: Containers that rely on Build or Image quadlets will use dynamic timeouts:
     - If the Build or Image quadlet has a services definition in the component manifest, materia will add that configured timeout to the default service timeout
     - Otherwise materia will use an extended timeout
+- feat: New `planner` and `executor` config sections, deprecating the old `cleanup`,`cleanup_volumes`,`migrate_volumes`,`backup_volumes` config option locations
 
 ## 0.4.3
 - bugfix: setting `attributes` config will force a default engine configuration

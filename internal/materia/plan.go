@@ -61,7 +61,7 @@ func (p *Plan) Add(a Action) error {
 			if _, ok := p.changes[rootComponent.Name]; !ok {
 				changes.addServiceChange(a)
 			}
-		} else if a.Todo == ActionStart || a.Todo == ActionStop || a.Todo == ActionReload || a.Todo == ActionEnable || a.Todo == ActionDisable || a.Todo == ActionRestart {
+		} else if a.Todo.IsServiceAction() {
 			changes.addServiceChange(a)
 		} else {
 			changes.addResourceChange(a)
@@ -158,6 +158,7 @@ func (p *Plan) Steps() []Action {
 	}
 	slices.SortStableFunc(serviceSteps, prioritizeActions)
 	steps = append(steps, serviceSteps...)
+	slices.SortStableFunc(steps, prioritizeActions)
 
 	return steps
 }

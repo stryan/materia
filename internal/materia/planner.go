@@ -11,6 +11,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
+	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/components"
@@ -25,11 +26,25 @@ type componentTree struct {
 	FinalState   components.ComponentLifecycle
 }
 
-type planOptions struct {
-	cleanupResources bool
-	cleanupVolumes   bool
-	backupVolumes    bool
-	migrateVolumes   bool
+type PlannerConfig struct {
+	CleanupQuadlets bool `toml:"cleanup_quadlets"`
+	CleanupVolumes  bool `toml:"cleanup_volumes"`
+	BackupVolumes   bool `toml:"backup_volumes"`
+	MigrateVolumes  bool `toml:"migrate_volumes"`
+}
+
+func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
+	pc := &PlannerConfig{}
+	pc.CleanupQuadlets = k.Bool("planner.cleanup_quadlets")
+	pc.CleanupVolumes = k.Bool("planner.cleanup_volumes")
+	if k.Exists("planner.backup_volumes") {
+		pc.BackupVolumes = k.Bool("planner.backup_volumes")
+	} else {
+		pc.BackupVolumes = true
+	}
+	pc.MigrateVolumes = k.Bool("planner.migrate_volumes")
+
+	return pc, nil
 }
 
 func (m *Materia) Plan(ctx context.Context) (*Plan, error) {
@@ -218,13 +233,7 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 }
 
 func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
-	opts := planOptions{
-		cleanupResources: m.cleanup,
-		cleanupVolumes:   m.cleanupVolumes,
-		backupVolumes:    m.backupVolumes,
-		migrateVolumes:   m.migrateVolumes,
-	}
-	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, opts, currentTree.host)
+	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.host)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
@@ -245,13 +254,7 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 }
 
 func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
-	opts := planOptions{
-		cleanupResources: m.cleanup,
-		cleanupVolumes:   m.cleanupVolumes,
-		backupVolumes:    m.backupVolumes,
-		migrateVolumes:   m.migrateVolumes,
-	}
-	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, opts, currentTree.host, currentTree.source)
+	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.host, currentTree.source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
@@ -335,7 +338,7 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 	return actions, nil
 }
 
-func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opts planOptions, host *components.Component, source *components.Component) ([]Action, error) {
+func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opts PlannerConfig, host *components.Component, source *components.Component) ([]Action, error) {
 	var diffActions []Action
 	if err := host.Validate(); err != nil {
 		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)
@@ -355,7 +358,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 			Target:      v,
 			DiffContent: []diffmatchpatch.Diff{},
 		})
-		if opts.cleanupResources {
+		if opts.CleanupQuadlets {
 			cleanupActions, err := generateCleanupResourceActions(ctx, mgr, opts, host, v)
 			if err != nil {
 				return diffActions, err
@@ -398,7 +401,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 				Target:      conflictedResource, // TODO should we use source resource here?
 				DiffContent: diffs,
 			})
-			if conflictedResource.Kind == components.ResourceTypeVolume && opts.migrateVolumes {
+			if conflictedResource.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
 				volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
 				if err != nil {
 					return diffActions, err
@@ -412,7 +415,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 	return diffActions, nil
 }
 
-func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opts planOptions, comp *components.Component) ([]Action, error) {
+func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opts PlannerConfig, comp *components.Component) ([]Action, error) {
 	var actions []Action
 	if err := comp.Validate(); err != nil {
 		return actions, fmt.Errorf("invalid component %v: %w", comp.Name, err)
@@ -441,7 +444,7 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 				dirs = append(dirs, r)
 			}
 		}
-		if opts.cleanupResources {
+		if opts.CleanupQuadlets {
 			cleanupActions, err := generateCleanupResourceActions(ctx, mgr, opts, comp, r)
 			if err != nil {
 				return actions, err
@@ -477,7 +480,7 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 	return actions, nil
 }
 
-func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts planOptions, parent *components.Component, res components.Resource) ([]Action, error) {
+func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts PlannerConfig, parent *components.Component, res components.Resource) ([]Action, error) {
 	var result []Action
 
 	switch res.Kind {
@@ -515,10 +518,10 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts p
 		if err != nil {
 			return result, err
 		}
-		if opts.cleanupVolumes {
+		if opts.CleanupVolumes {
 			for _, v := range volumes {
 				if v.Name == res.HostObject {
-					if opts.backupVolumes {
+					if opts.BackupVolumes {
 						result = append(result, Action{
 							Todo:   ActionDump,
 							Parent: parent,

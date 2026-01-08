@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG
 section: 5
 header: User Manual
-footer: materia 0.3.0
-date: October 2025
+footer: materia 0.5.0
+date: December 2026
 author: stryan
 ---
 
@@ -21,6 +21,10 @@ materia-config - Materia configuration settings
 When both environmental variables and a config file are used, config file settings are overwritten by environmental variables.
 
 Materia will by default use any and all configured attributes engines.
+
+For configuring extra planner features (Podman resource cleanup, volume data migration, etc) see `materia-config-planner(5)`.
+
+For configuring extra execution features (Remove invalid components on failed execution, etc) see `materia-config-executor(5)`.
 
 For configuring attributes management with `age`, see `materia-config-age(5)`.
 
@@ -86,11 +90,11 @@ Directory where materia installs non-generated systemd unit files. Defaults to `
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
 
-#### *MATERIA_CLEANUP_PODMAN*/**cleanup**
+#### *MATERIA_CLEANUP*/**cleanup**
 
-If an error occurs while installing a component, don't leave any files behind.
+**Deprecated location, see planner config section for new setting location**
 
-Also removes non-volume Quadlets when their associated resources are removed. Defaults to false.
+Removes non-volume Quadlets when their associated resources are removed. Defaults to false.
 
 Example: If a resource `test.network` file is removed, materia will also run a `podman network rm systemd-test` command.
 
@@ -103,11 +107,15 @@ The following quadlet types are supported by this:
 
 #### *MATERIA_CLEANUP_VOLUMES*/**cleanup_volumes**
 
+**Deprecated location, see planner config section for new setting location**
+
 When removing a `.volume` Quadlet resource, remove the volume from Podman as well. Defaults to false.
 
 This is separate from the above **cleanup_podman** option since volumes container user data. It is recommended to leave this to false or use this in conjunction with the **backupvolumes** option.
 
 #### *MATERIA_BACKUP_VOLUMES*/**backup_volumes**
+
+**Deprecated, see planner config section**
 
 If an action would delete a Podman volume, create a backup of it first using `podman volume export` and store it in **output_dir**. Defaults to true
 
@@ -116,6 +124,7 @@ Note, this only occurs if a Podman volume is actually being deleted e.g. `podman
 #### MATERIA_MIGRATE_VOLUMES/migrate_volumes
 
 (EXPERIMENTAL)
+**Deprecated location, see planner config section for new setting location**
 
 If a volume quadlet is updated, instead of just updating the Quadlet file perform a data migration. A migration consists of the following steps:
 

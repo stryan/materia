@@ -36,6 +36,8 @@ type Materia struct {
 	Host           HostManager
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
+	plannerConfig  PlannerConfig
+	executorConfig ExecutorConfig
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
@@ -46,10 +48,6 @@ type Materia struct {
 	onlyResources  bool
 	debug          bool
 	diffs          bool
-	cleanup        bool
-	cleanupVolumes bool
-	backupVolumes  bool
-	migrateVolumes bool
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
@@ -132,13 +130,22 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 	}
+	pc := PlannerConfig{
+		BackupVolumes: true,
+	}
+	if c.PlannerConfig != nil {
+		pc = *c.PlannerConfig
+	}
+	ec := ExecutorConfig{}
+	if c.ExecutorConfig != nil {
+		ec = *c.ExecutorConfig
+	}
 
 	return &Materia{
 		Host:           hm,
 		Source:         srcman,
 		Manifest:       man,
 		debug:          c.Debug,
-		cleanup:        c.Cleanup,
 		onlyResources:  c.OnlyResources,
 		defaultTimeout: c.Timeout,
 		Vault:          attributes,
@@ -146,9 +153,8 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		snippets:       snips,
 		macros:         loadDefaultMacros(c, hm, snips),
 		rootComponent:  rootComponent,
-		cleanupVolumes: c.CleanupVolumes,
-		backupVolumes:  c.BackupVolumes,
-		migrateVolumes: c.MigrateVolumes,
+		plannerConfig:  pc,
+		executorConfig: ec,
 		Roles:          roles,
 	}, nil
 }

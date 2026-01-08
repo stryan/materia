@@ -435,7 +435,7 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 		name          string
 		component     *components.Component
 		expectedError bool
-		opts          planOptions
+		opts          PlannerConfig
 		expectedPlan  []Action
 		setup         func(comp *components.Component, mhm *MockHostManager)
 		validatePlan  func(*testing.T, []Action)
@@ -524,7 +524,7 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 				}, nil)
 			},
 			expectedError: false,
-			opts:          planOptions{cleanupResources: true, cleanupVolumes: true},
+			opts:          PlannerConfig{CleanupQuadlets: true, CleanupVolumes: true},
 			expectedPlan: []Action{
 				{
 					Todo:   ActionRemove,
@@ -580,7 +580,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 	tests := []struct {
 		name         string
 		stale, fresh *components.Component
-		opts         planOptions
+		opts         PlannerConfig
 		setup        func(host *MockHostManager, stale, fresh *components.Component)
 		want         []Action
 		wantErr      bool
@@ -605,7 +605,6 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			opts: planOptions{},
 			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
 			want:    []Action{},
@@ -631,7 +630,6 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			opts: planOptions{},
 			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
 			want: []Action{
@@ -658,7 +656,6 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			opts: planOptions{},
 			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
 			want: []Action{
@@ -685,7 +682,6 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			opts: planOptions{},
 			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
 			want: []Action{
