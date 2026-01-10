@@ -20,6 +20,7 @@ Work in progress online docs for the Materia Project.
 [Materia config options](materia-config.5.md)
 
 [Materia Planner config options](materia-config-planner.5.md)
+
 [Materia Executor config options](materia-config-executor.5.md)
 
 [Source config](materia-source.5.md)
