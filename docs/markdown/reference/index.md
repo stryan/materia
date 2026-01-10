@@ -19,6 +19,9 @@ Work in progress online docs for the Materia Project.
 
 [Materia config options](materia-config.5.md)
 
+[Materia Planner config options](materia-config-planner.5.md)
+[Materia Executor config options](materia-config-executor.5.md)
+
 [Source config](materia-source.5.md)
 
 ## Attributes Engines
@@ -26,3 +29,5 @@ Work in progress online docs for the Materia Project.
 [Age engine config](materia-config-age.5.md)
 
 [SOPS engine config](materia-config-sops.5.md)
+
+[File engine config](materia-config-file.5.md)

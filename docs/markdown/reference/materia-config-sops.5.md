@@ -12,7 +12,7 @@ materia-config-sops - Materia configuration for SOPS based attribute management
 
 ## Synopsis
 
-**$MATERIA_SOPS__<option-name>**
+*$MATERIA_SOPS__<option-name>*
 
 ## Description
 
