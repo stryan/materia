@@ -237,7 +237,7 @@ func getDefaultPriority(a Action) (int, error) {
 	priorityMap := map[components.ResourceType]map[ActionType]int{
 		components.ResourceTypeComponent: {
 			ActionInstall: 2, ActionUpdate: 3, ActionCleanup: 3,
-			ActionSetup: 4, ActionRemove: 4,
+			ActionSetup: 5, ActionRemove: 4,
 		},
 		components.ResourceTypeDirectory: {
 			ActionInstall: 2, ActionRemove: 4,
@@ -247,59 +247,59 @@ func getDefaultPriority(a Action) (int, error) {
 		},
 		components.ResourceTypeFile: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
+			ActionCleanup: 7, ActionDump: 2,
 		},
 		components.ResourceTypeContainer: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypePod: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeKube: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeNetwork: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2, ActionEnsure: 5,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeBuild: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeImage: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeComponentScript: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
+			ActionCleanup: 7, ActionDump: 2,
 		},
 		components.ResourceTypeScript: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
+			ActionCleanup: 7, ActionDump: 2,
 		},
 		components.ResourceTypePodmanSecret: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2,
+			ActionCleanup: 7, ActionDump: 2,
 		},
 		components.ResourceTypeVolume: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 6, ActionDump: 2, ActionEnsure: 4, ActionImport: 4,
-			ActionStart: 5, ActionStop: 1, ActionRestart: 5, ActionReload: 5,
+			ActionCleanup: 7, ActionDump: 2, ActionEnsure: 5, ActionImport: 4,
+			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
 		components.ResourceTypeService: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionRestart: 5, ActionStart: 5, ActionEnable: 5,
-			ActionDisable: 5, ActionStop: 1, ActionReload: 5,
+			ActionRestart: 6, ActionStart: 6, ActionEnable: 6,
+			ActionDisable: 6, ActionStop: 1, ActionReload: 6,
 		},
 		components.ResourceTypeHost: {
 			ActionReload: 4,

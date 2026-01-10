@@ -35,7 +35,7 @@ const (
 )
 
 func (t ActionType) IsServiceAction() bool {
-	return t == ActionStart || t == ActionRestart || t == ActionStop || t == ActionReload || t == ActionEnable || t == ActionDisable || t == ActionEnsure
+	return t == ActionStart || t == ActionRestart || t == ActionStop || t == ActionReload || t == ActionEnable || t == ActionDisable
 }
 
 func (t ActionType) IsResourceAction() bool {
@@ -43,7 +43,7 @@ func (t ActionType) IsResourceAction() bool {
 }
 
 func (t ActionType) IsHostAction() bool {
-	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump
+	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump || t == ActionEnable
 }
 
 type Action struct {

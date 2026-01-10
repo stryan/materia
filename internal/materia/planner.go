@@ -92,7 +92,7 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 			}
 			err = plan.Append(actions)
 			if err != nil {
-				return nil, fmt.Errorf("error calculating component %v differences:%w", currentTree.Name, err)
+				return nil, fmt.Errorf("error calculating fresh component %v differences:%w", currentTree.Name, err)
 			}
 		} else if currentTree.source == nil {
 			currentTree.host.State = components.StateNeedRemoval
@@ -102,10 +102,19 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 			}
 			err = plan.Append(actions)
 			if err != nil {
-				return nil, fmt.Errorf("error calculating component %v differences:%w", currentTree.Name, err)
+				return nil, fmt.Errorf("error calculating removed component %v differences:%w", currentTree.Name, err)
 			}
 		} else {
 			currentTree.host.State = components.StateMayNeedUpdate
+			currentTree.source.State = components.StateFresh
+			actions, err := m.PlanUpdatedComponent(ctx, currentTree)
+			if err != nil {
+				return nil, err
+			}
+			err = plan.Append(actions)
+			if err != nil {
+				return nil, fmt.Errorf("error calculating updated component %v differences:%w", currentTree.Name, err)
+			}
 		}
 	}
 
@@ -214,6 +223,11 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 	if err != nil {
 		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
 	}
+	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.source)
+	if err != nil {
+		return nil, fmt.Errorf("can't ensure resources: %w", err)
+	}
+	resourceActions = append(resourceActions, ensureActions...)
 	if m.onlyResources {
 		return resourceActions, nil
 	}
@@ -270,6 +284,11 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 	if m.onlyResources {
 		return resourceActions, nil
 	}
+	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.host)
+	if err != nil {
+		return nil, fmt.Errorf("can't ensure resources: %w", err)
+	}
+	resourceActions = append(resourceActions, ensureActions...)
 	var serviceActions []Action
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, Action{
@@ -282,11 +301,13 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 		if err != nil {
 			return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 		}
-		serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.host, currentTree.source, resourceActions, triggeredActions)
-		if err != nil {
-			return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
+		if !m.onlyResources {
+			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.host, currentTree.source, resourceActions, triggeredActions)
+			if err != nil {
+				return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
+			}
 		}
-	} else {
+	} else if !m.onlyResources {
 		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.host)
 		if err != nil {
 			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
@@ -299,6 +320,7 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 			currentTree.FinalState = components.StateOK
 		}
 	}
+
 	return append(resourceActions, serviceActions...), nil
 }
 
@@ -1015,4 +1037,63 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		Parent: parent,
 		Target: res,
 	}, nil
+}
+
+func generateQuadletEnsurements(ctx context.Context, mgr HostManager, comp *components.Component) ([]Action, error) {
+	var actions []Action
+	var questionableResources []components.Resource
+	for _, r := range comp.Resources.List() {
+		if r.Kind == components.ResourceTypeNetwork || r.Kind == components.ResourceTypeVolume {
+			questionableResources = append(questionableResources, r)
+		}
+	}
+	if len(questionableResources) == 0 {
+		return actions, nil
+	}
+
+	volumes, err := mgr.ListVolumes(ctx)
+	if err != nil {
+		return actions, fmt.Errorf("can't list volumes: %w", err)
+	}
+	networks, err := mgr.ListNetworks(ctx)
+	if err != nil {
+		return actions, fmt.Errorf("can't list networks: %w", err)
+	}
+
+	for _, r := range questionableResources {
+		found := false
+		serv, err := mgr.Get(ctx, r.Service())
+		if err != nil {
+			return actions, err
+		}
+		if !serv.Started() {
+			continue
+		}
+		if r.Kind == components.ResourceTypeVolume {
+			for _, v := range volumes {
+				if v.Name == r.HostObject {
+					found = true
+					break
+				}
+			}
+		}
+		if r.Kind == components.ResourceTypeNetwork {
+			for _, n := range networks {
+				if n.Name == r.HostObject {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			continue
+		}
+		actions = append(actions, Action{
+			Todo:   ActionEnsure,
+			Parent: comp,
+			Target: r,
+		})
+	}
+
+	return actions, nil
 }

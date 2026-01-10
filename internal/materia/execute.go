@@ -268,6 +268,27 @@ func (m *Materia) executeAction(ctx context.Context, v Action) error {
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)
 			}
+		case ActionEnsure:
+			err := m.modifyService(ctx, Action{
+				Todo:   ActionReload,
+				Parent: rootComponent,
+				Target: components.Resource{Kind: components.ResourceTypeHost},
+			})
+			if err != nil {
+				return err
+			}
+			err = m.modifyService(ctx, Action{
+				Todo:   ActionRestart,
+				Parent: v.Parent,
+				Target: components.Resource{
+					Parent: v.Parent.Name,
+					Path:   v.Target.Service(),
+					Kind:   components.ResourceTypeService,
+				},
+			})
+			if err != nil {
+				return err
+			}
 		case ActionStart, ActionStop, ActionEnable, ActionDisable, ActionReload, ActionRestart:
 			err := m.modifyService(ctx, v)
 			if err != nil {

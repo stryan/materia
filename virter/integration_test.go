@@ -309,5 +309,64 @@ func Test_PlannerConfigs(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, componentRemoved("hello"), "component not removed")
 	require.True(t, volumeExists(ctx, "systemd-hello"), "volume should still exist")
+	require.True(t, servicesStopped(ctx, conn, "/root/materia/virter/out/testrepo5/hello"), "services still running")
 	require.False(t, networkExists(ctx, "systemd-hello"), "network still exists")
+}
+
+func Test_EnsureResources(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo5"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo5/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err := runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo5/hello"))
+	require.True(t, volumeExists(ctx, "systemd-hello"), "initial volume should exist")
+	stopCmd := exec.Command("systemctl", "stop", "hello")
+	err = stopCmd.Run()
+	require.NoError(t, err)
+	removeCmd := exec.Command("podman", "volume", "rm", "systemd-hello")
+	err = removeCmd.Run()
+	require.NoError(t, err)
+	require.False(t, volumeExists(ctx, "systemd-hello"), "volume should not exist")
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, volumeExists(ctx, "systemd-hello"), "final volume should still exist")
+}
+
+func Test_UpdatedResources(t *testing.T) {
+	ctx := context.Background()
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err)
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo6_pt1"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo6_pt1/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo6_pt1/hello"))
+	require.True(t, volumeExists(ctx, "systemd-hello"), "volume should exist")
+	require.True(t, networkExists(ctx, "systemd-hello"), "network should exist")
+	require.True(t, servicesRunning(ctx, conn, "/root/materia/virter/out/testrepo6_pt1/hello"), "services not running")
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo6_pt2"))
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, servicesRunning(ctx, conn, "/root/materia/virter/out/testrepo6_pt2/hello"), "services not running")
+	require.False(t, fileExists("/etc/containers/systemd/hello/hello.volume"))
+	require.False(t, fileExists("/etc/containers/systemd/hello/hello.network"))
 }
