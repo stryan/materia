@@ -280,43 +280,5 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 	} else {
 		res.Kind = components.FindResourceType(path)
 	}
-
-	// TODO is this something we can do at source level? we can't parse unit files until they're templated
-	// if res.IsQuadlet() {
-	// 	unitData, err := s.ReadResource(res)
-	// 	if err != nil {
-	// 		return res, err
-	// 	}
-	// 	unitfile := parser.NewUnitFile()
-	// 	err = unitfile.Parse(unitData)
-	// 	if err != nil {
-	// 		return res, fmt.Errorf("error parsing container file: %w", err)
-	// 	}
-	// 	nameOption := ""
-	// 	group := ""
-	// 	switch res.Kind {
-	// 	case components.ResourceTypeContainer:
-	// 		group = "Container"
-	// 		nameOption = "ContainerName"
-	// 	case components.ResourceTypeVolume:
-	// 		group = "Volume"
-	// 		nameOption = "VolumeName"
-	// 	case components.ResourceTypeNetwork:
-	// 		group = "Network"
-	// 		nameOption = "NetworkName"
-	// 	case components.ResourceTypePod:
-	// 		group = "Pod"
-	// 		nameOption = "PodName"
-	// 	}
-	// 	if nameOption != "" {
-	// 		name, foundName := unitfile.Lookup(group, nameOption)
-	// 		if foundName {
-	// 			res.PodmanObject = name
-	// 		} else {
-	// 			res.PodmanObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
-	// 		}
-	// 	}
-	//
-	// }
 	return res, nil
 }

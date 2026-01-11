@@ -219,9 +219,20 @@ func (m *Materia) executeAction(ctx context.Context, v Action) error {
 				return err
 			}
 		case ActionCleanup:
-			err := m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+			containersWithVolume, err := m.Host.ListContainers(ctx, containers.ContainerListFilter{
+				Volume: v.Target.HostObject,
+				All:    true,
+			})
 			if err != nil {
-				return err
+				return fmt.Errorf("can't cleanup volume %v: %w", v.Target, err)
+			}
+			if len(containersWithVolume) > 0 {
+				log.Warnf("skipping cleaning up volume %v since it's still in use", v.Target.Path)
+			} else {
+				err = m.Host.RemoveVolume(ctx, &containers.Volume{Name: v.Target.HostObject})
+				if err != nil {
+					return err
+				}
 			}
 
 		case ActionDump:
@@ -256,14 +267,33 @@ func (m *Materia) executeAction(ctx context.Context, v Action) error {
 		case ActionCleanup:
 			switch v.Target.Kind {
 			case components.ResourceTypeNetwork:
-				err := m.Host.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
+				network, err := m.Host.GetNetwork(ctx, v.Target.HostObject)
 				if err != nil {
-					return err
+					return fmt.Errorf("can't cleanup network %v: %w", v.Target, err)
+				}
+				if len(network.Containers) < 1 {
+					err := m.Host.RemoveNetwork(ctx, &containers.Network{Name: v.Target.HostObject})
+					if err != nil {
+						return err
+					}
+				} else {
+					log.Warnf("skipping cleaning up network %v since its still in use", v.Target.Path)
 				}
 			case components.ResourceTypeBuild, components.ResourceTypeImage:
-				err := m.Host.RemoveImage(ctx, v.Target.HostObject)
+				containerWithImage, err := m.Host.ListContainers(ctx, containers.ContainerListFilter{
+					Image: v.Target.HostObject,
+					All:   true,
+				})
 				if err != nil {
-					return err
+					return fmt.Errorf("can't cleanup image/build %v: %w", v.Target.HostObject, err)
+				}
+				if len(containerWithImage) > 0 {
+					log.Warnf("skipping cleaning up image %v since it's still in use", v.Target.Path)
+				} else {
+					err = m.Host.RemoveImage(ctx, v.Target.HostObject)
+					if err != nil {
+						return err
+					}
 				}
 			default:
 				return fmt.Errorf("cleanup is not valid for this resource type: %v", v.Target)

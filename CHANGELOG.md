@@ -10,6 +10,7 @@ Best effort list of major changes and bugfixes
     - Otherwise materia will use an extended timeout
 - feat: New `planner` and `executor` config sections, deprecating the old `cleanup`,`cleanup_volumes`,`migrate_volumes`,`backup_volumes` config option locations
 - feat: ensure volumes and networks exist when unit already started; this fixes situations like installing,removing, and reinstalling a volume. Since the volume service is still marked as `active` systemd wouldn't actually create a new volume.
+- feat/bugfix: materia will no longer attempt to cleanup quadlets that are still in use by other containers
 
 ## 0.4.3
 - bugfix: setting `attributes` config will force a default engine configuration

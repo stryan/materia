@@ -7,8 +7,9 @@ import (
 )
 
 type ContainerManager interface {
-	InspectVolume(context.Context, string) (*containers.Volume, error)
+	GetVolume(context.Context, string) (*containers.Volume, error)
 	ListVolumes(context.Context) ([]*containers.Volume, error)
+	ListContainers(context.Context, containers.ContainerListFilter) ([]*containers.Container, error)
 	PauseContainer(context.Context, string) error
 	UnpauseContainer(context.Context, string) error
 	DumpVolume(context.Context, *containers.Volume, string, bool) error
@@ -16,6 +17,7 @@ type ContainerManager interface {
 	MountVolume(context.Context, *containers.Volume) error
 	RemoveVolume(context.Context, *containers.Volume) error
 	ListNetworks(context.Context) ([]*containers.Network, error)
+	GetNetwork(context.Context, string) (*containers.Network, error)
 	RemoveNetwork(context.Context, *containers.Network) error
 	ListSecrets(context.Context) ([]string, error)
 	GetSecret(context.Context, string) (*containers.PodmanSecret, error)

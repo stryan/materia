@@ -24,9 +24,10 @@ Removes non-volume Quadlets when their associated resources are removed. Default
 
 Example: If a resource `test.network` file is removed, materia will also run a `podman network rm systemd-test` command.
 
+This is done on a best-effort basis. If a resource is in-use by other containers (whether materia managed or otherwise) materia will not attempt to remove it.
+
 The following quadlet types are supported by this:
 
-- Containers
 - Networks
 - Images
 - Build

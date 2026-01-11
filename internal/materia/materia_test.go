@@ -13,7 +13,7 @@ func TestNew(t *testing.T) {
 	sm := NewMockSourceManager(t)
 	sm.EXPECT().LoadManifest(manifests.MateriaManifestFile).Return(&manifests.MateriaManifest{}, nil)
 	hm.EXPECT().GetHostname().Return("localhost")
-	m, err := NewMateriaFromConfig(context.TODO(), &MateriaConfig{
+	m, err := NewMateriaFromConfig(context.Background(), &MateriaConfig{
 		QuadletDir: "/tmp/materia/quadlets",
 		MateriaDir: "/tmp/materia",
 		ServiceDir: "/tmp/services",

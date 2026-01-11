@@ -517,10 +517,8 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 				Services: newServSet(),
 			},
 			setup: func(comp *components.Component, mhm *MockHostManager) {
-				mhm.EXPECT().ListVolumes(mock.Anything).Return([]*containers.Volume{
-					{
-						Name: "systemd-hello",
-					},
+				mhm.EXPECT().GetVolume(mock.Anything, "systemd-hello").Return(&containers.Volume{
+					Name: "systemd-hello",
 				}, nil)
 			},
 			expectedError: false,
@@ -556,7 +554,7 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(tt.component, hm)
 			}
-			actions, err := generateRemovedComponentResources(context.TODO(), hm, tt.opts, tt.component)
+			actions, err := generateRemovedComponentResources(context.Background(), hm, tt.opts, tt.component)
 
 			if tt.expectedError {
 				assert.Error(t, err)

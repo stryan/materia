@@ -504,23 +504,20 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 
 func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts PlannerConfig, parent *components.Component, res components.Resource) ([]Action, error) {
 	var result []Action
-
 	switch res.Kind {
 	case components.ResourceTypeNetwork:
-		networks, err := mgr.ListNetworks(ctx)
+		_, err := mgr.GetNetwork(ctx, res.HostObject)
+		if errors.Is(err, containers.ErrPodmanObjectNotFound) {
+			return result, nil
+		}
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("could not get network %v for cleanup: %v", res.Path, err)
 		}
-		for _, n := range networks {
-			if n.Name == res.HostObject {
-				// TODO also check that containers aren't using it
-				result = append(result, Action{
-					Todo:   ActionCleanup,
-					Parent: parent,
-					Target: res,
-				})
-			}
-		}
+		result = append(result, Action{
+			Todo:   ActionCleanup,
+			Parent: parent,
+			Target: res,
+		})
 	case components.ResourceTypeBuild, components.ResourceTypeImage:
 		images, err := mgr.ListImages(ctx)
 		if err != nil {
@@ -536,28 +533,28 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts P
 			}
 		}
 	case components.ResourceTypeVolume:
-		volumes, err := mgr.ListVolumes(ctx)
+		if !opts.CleanupVolumes {
+			return result, nil
+		}
+		_, err := mgr.GetVolume(ctx, res.HostObject)
+		if errors.Is(err, containers.ErrPodmanObjectNotFound) {
+			return result, nil
+		}
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("could not get volume %v for cleanup: %v", res.Path, err)
 		}
-		if opts.CleanupVolumes {
-			for _, v := range volumes {
-				if v.Name == res.HostObject {
-					if opts.BackupVolumes {
-						result = append(result, Action{
-							Todo:   ActionDump,
-							Parent: parent,
-							Target: res,
-						})
-					}
-					result = append(result, Action{
-						Todo:   ActionCleanup,
-						Parent: parent,
-						Target: res,
-					})
-				}
-			}
+		if opts.BackupVolumes {
+			result = append(result, Action{
+				Todo:   ActionDump,
+				Parent: parent,
+				Target: res,
+			})
 		}
+		result = append(result, Action{
+			Todo:   ActionCleanup,
+			Parent: parent,
+			Target: res,
+		})
 	}
 	return result, nil
 }
