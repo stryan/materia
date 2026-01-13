@@ -3,6 +3,8 @@
 Best effort list of major changes and bugfixes
 
 ## Upcoming
+
+## 0.5.0
 - refactor: planner has been heavily refactored
 - feat: Quadlet resources (.container,.pod,etc) can be used as services in Component services configurations
 - feat: Containers that rely on Build or Image quadlets will use dynamic timeouts:
