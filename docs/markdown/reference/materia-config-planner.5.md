@@ -3,7 +3,7 @@ title: MATERIA-CONFIG-PLANNER
 section: 5
 header: User Manual
 footer: materia 0.5.0
-date: December 2026
+date: January 2026
 author: stryan
 ---
 

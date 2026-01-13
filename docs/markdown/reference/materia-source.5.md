@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE
 section: 5
 header: User Manual
-footer: materia 0.4.0
-date: October 2025
+footer: materia 0.5.0
+date: January 2026
 author: stryan
 ---
 

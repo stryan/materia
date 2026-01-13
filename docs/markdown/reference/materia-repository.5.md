@@ -2,8 +2,8 @@
 title: MATERIA-REPOSITORY
 section: 5
 header: User Manual
-footer: materia 0.3.0
-date: September 2025
+footer: materia 0.5.0
+date: January 2026
 author: stryan
 ---
 

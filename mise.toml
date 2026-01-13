@@ -148,11 +148,12 @@ run = [
 
 [tasks.github-release]
 description = "Generate github release"
-depends = ["lint", "test", "build", "release-tar"]
+depends = ["lint", "test", "build"]
 usage = '''
-  arg "<version>" help="Version to release" default="latest"
+  arg "<version>" help="Version to release" 
 '''
 tools.gh = "latest"
 run = [
+  "mise task run release-tar ${usage_version?}",
   "gh release create ${usage_version?} --generate-notes ./materia-${usage_version?}-amd64.tar.gz ./materia-${usage_version?}-arm64.tar.gz ./bin/materia*",
 ]
