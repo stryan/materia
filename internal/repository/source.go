@@ -192,7 +192,7 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 		newRes := components.Resource{
 			Parent:   c.Name,
 			Path:     resName,
-			Kind:     components.FindResourceType(resName),
+			Kind:     c.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}
 		resources = append(resources, newRes)
@@ -278,7 +278,7 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 	if fileInfo.IsDir() {
 		res.Kind = components.ResourceTypeDirectory
 	} else {
-		res.Kind = components.FindResourceType(path)
+		res.Kind = parent.FindResourceType(path)
 	}
 	return res, nil
 }

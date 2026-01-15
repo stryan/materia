@@ -355,6 +355,7 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 		actions = append(actions, Action{
 			Todo:   ActionSetup,
 			Parent: comp,
+			Target: comp.ToResource(),
 		})
 	}
 	return actions, nil
@@ -486,6 +487,7 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 		actions = append(actions, Action{
 			Todo:   ActionCleanup,
 			Parent: comp,
+			Target: comp.ToResource(),
 		})
 	}
 	actions = append(actions, Action{

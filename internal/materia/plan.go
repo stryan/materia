@@ -236,7 +236,7 @@ func (p *Plan) PrettyLines() []string {
 func getDefaultPriority(a Action) (int, error) {
 	priorityMap := map[components.ResourceType]map[ActionType]int{
 		components.ResourceTypeComponent: {
-			ActionInstall: 2, ActionUpdate: 3, ActionCleanup: 3,
+			ActionInstall: 2, ActionUpdate: 3, ActionCleanup: 2,
 			ActionSetup: 5, ActionRemove: 4,
 		},
 		components.ResourceTypeDirectory: {
