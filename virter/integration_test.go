@@ -370,3 +370,29 @@ func Test_UpdatedResources(t *testing.T) {
 	require.False(t, fileExists("/etc/containers/systemd/hello/hello.volume"))
 	require.False(t, fileExists("/etc/containers/systemd/hello/hello.network"))
 }
+
+func TestComponentScripts(t *testing.T) {
+	ctx := context.Background()
+	repoPath := "/root/materia/virter/in/testrepo7"
+	goldenPath := "/root/materia/virter/out/testrepo7"
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", fmt.Sprintf("%v/test-key.txt", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err := runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")), "hello component not installed")
+	require.True(t, fileExists("/tmp/hello"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentRemoved("hello"))
+	require.False(t, fileExists("/tmp/hello"))
+}

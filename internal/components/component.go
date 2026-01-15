@@ -18,14 +18,16 @@ const DefaultComponentVersion = 1
 var ErrCorruptComponent = errors.New("error corrupt component")
 
 type Component struct {
-	Name      string
-	Settings  manifests.Settings
-	Resources *ResourceSet
-	Scripted  bool
-	State     ComponentLifecycle
-	Defaults  map[string]any
-	Services  *ServiceSet
-	Version   int
+	Name          string
+	Settings      manifests.Settings
+	Resources     *ResourceSet
+	Scripted      bool
+	State         ComponentLifecycle
+	Defaults      map[string]any
+	Services      *ServiceSet
+	Version       int
+	SetupScript   string
+	CleanupScript string
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -48,11 +50,13 @@ type ComponentVersion struct {
 
 func NewComponent(name string) *Component {
 	return &Component{
-		Name:      name,
-		State:     StateStale,
-		Defaults:  make(map[string]any),
-		Services:  NewServiceSet(),
-		Resources: NewResourceSet(),
+		Name:          name,
+		State:         StateStale,
+		Defaults:      make(map[string]any),
+		Services:      NewServiceSet(),
+		Resources:     NewResourceSet(),
+		SetupScript:   "setup.sh",
+		CleanupScript: "cleanup.sh",
 	}
 }
 
@@ -127,8 +131,16 @@ func (c *Component) VersonData() (*bytes.Buffer, error) {
 	return bytes.NewBuffer(buffer), nil
 }
 
-func FindResourceType(file string) ResourceType {
-	if filepath.Base(file) == "setup.sh" || filepath.Base(file) == "cleanup.sh" {
+func (c *Component) ToResource() Resource {
+	return Resource{
+		Path:   c.Name,
+		Parent: c.Name,
+		Kind:   ResourceTypeComponent,
+	}
+}
+
+func (c *Component) FindResourceType(file string) ResourceType {
+	if filepath.Base(file) == c.CleanupScript || filepath.Base(file) == c.SetupScript {
 		return ResourceTypeComponentScript
 	}
 	filename := strings.TrimSuffix(file, ".gotmpl")

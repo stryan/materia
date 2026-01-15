@@ -202,7 +202,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 			newRes := components.Resource{
 				Parent:   c.Name,
 				Path:     resName,
-				Kind:     components.FindResourceType(resName),
+				Kind:     c.FindResourceType(resName),
 				Template: components.IsTemplate(resName),
 			}
 			resources = append(resources, newRes)
@@ -336,13 +336,12 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 	res := components.Resource{
 		Path:     path,
 		Parent:   parent.Name,
-		Kind:     components.FindResourceType(path),
 		Template: false,
 	}
 	if fileInfo.IsDir() {
 		res.Kind = components.ResourceTypeDirectory
 	} else {
-		res.Kind = components.FindResourceType(path)
+		res.Kind = parent.FindResourceType(path)
 	}
 	if res.IsQuadlet() {
 		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.Name), path)
@@ -359,9 +358,15 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		}
 		res.HostObject = hostObject
 	} else {
+
 		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), path)
 		if err != nil {
 			return res, err
+		}
+	}
+	if res.Kind == components.ResourceTypeComponentScript {
+		if fileInfo.Mode().Perm()&0o111 != 0o111 {
+			return res, fmt.Errorf("component script %v is not executable", path)
 		}
 	}
 	return res, nil
@@ -501,7 +506,7 @@ func (r *HostComponentRepository) RunCleanup(comp *components.Component) error {
 
 func (r HostComponentRepository) RunSetup(comp *components.Component) error {
 	path := filepath.Join(r.DataPrefix, comp.Name)
-	cmd := exec.Command(fmt.Sprintf("%v/setup.sh", path))
+	cmd := exec.Command(fmt.Sprintf("%v/%v", path, comp.SetupScript))
 
 	cmd.Dir = path
 	err := cmd.Run()
