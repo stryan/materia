@@ -1,7 +1,7 @@
 # Goals being worked on
 - [ ] Increasing test coverage
 - [ ] Remote components refinement
-- [ ] General refinement
+- [ ] Fix component scripts
 
 # Potential future goals
 - [ ] Migrate containers in and out of pods
