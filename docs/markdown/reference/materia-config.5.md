@@ -68,7 +68,7 @@ Do not sync source repository before running operations.
 
 #### *MATERIA_MATERIA_DIR*/**materia_dir**
 
-Root directory for materia directories. Defaults to `/var/lib/materia` for root and `XDG_DATA_HOME/.local/share/materia` for nonroot.
+Root directory for materia directories. Defaults to `/var/lib/materia` for root and `XDG_DATA_HOME/materia` for nonroot.
 
 #### *MATERIA_SOURCE_DIR*/**source_dir**
 
