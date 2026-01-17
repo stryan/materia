@@ -9,20 +9,22 @@ import (
 )
 
 type HostFactsManager struct {
-	Hostname   string
-	Interfaces map[string]NetworkInterfaces
+	Hostname     string
+	RealHostname string
+	Interfaces   map[string]NetworkInterfaces
 }
 
 func NewHostFacts(hostname string) (*HostFactsManager, error) {
 	facts := &HostFactsManager{}
 	var err error
+	facts.RealHostname, err = os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("error getting hostname: %w", err)
+	}
 	if hostname != "" {
 		facts.Hostname = hostname
 	} else {
-		facts.Hostname, err = os.Hostname()
-		if err != nil {
-			return nil, fmt.Errorf("error getting hostname: %w", err)
-		}
+		facts.Hostname = facts.RealHostname
 	}
 	networks, err := GetInterfaceIPs()
 	if err != nil {
@@ -71,6 +73,10 @@ func (f *HostFactsManager) Lookup(arg string) (any, error) {
 
 func (f *HostFactsManager) GetHostname() string {
 	return f.Hostname
+}
+
+func (f *HostFactsManager) GetRealHostname() string {
+	return f.RealHostname
 }
 
 func (f *HostFactsManager) GetInterfaces() []string {

@@ -14,6 +14,19 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 )
 
+var (
+	DefaultDataDir    = "/var/lib/materia"
+	DefaultQuadletDir = "/etc/containers/systemd"
+	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
+	// otherwise, defer to usual /etc location to work out of the box with MicroOS
+	DefaultServiceDir = "/etc/systemd/system"
+	DefaultScriptsDir = "/usr/local/bin"
+
+	DefaultSourceDir = filepath.Join(DefaultDataDir, "source")
+	DefaultRemoteDir = filepath.Join(DefaultDataDir, "remote")
+	DefaultOutputDir = filepath.Join(DefaultDataDir, "output")
+)
+
 type MateriaConfig struct {
 	Debug          bool              `toml:"debug"`
 	UseStdout      bool              `toml:"use_stdout"`
@@ -44,15 +57,8 @@ type MateriaConfig struct {
 	ExecutorConfig *ExecutorConfig   `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
+	Rootless       bool `toml:"rootless"`
 }
-
-// var defaultConfig = map[string]any{
-// 	"debug":      "",
-// 	"prefix":     "",
-// 	"quadletdir": "",
-// 	"servicedir": "",
-// 	"scriptsdir": "",
-// }
 
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var c MateriaConfig
@@ -137,14 +143,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	} else {
 		c.Remote = (os.Getenv("container") == "podman")
 	}
+	c.Rootless = k.Bool("rootless")
 
 	// calculate defaults
-	dataPath := "/var/lib"
-	quadletPath := "/etc/containers/systemd/"
-	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
-	// otherwise, defer to usual /etc location to work out of the box with MicroOS
-	servicePath := "/etc/systemd/system/"
-	scriptsPath := "/usr/local/bin"
+	dataPath := DefaultDataDir
+	quadletPath := DefaultQuadletDir
+	servicePath := DefaultServiceDir
+	scriptsPath := DefaultScriptsDir
 
 	if c.User.Username != "root" {
 		home := c.User.HomeDir
@@ -178,14 +183,18 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		c.ScriptsDir = scriptsPath
 	}
 	if c.SourceDir == "" {
-		c.SourceDir = filepath.Join(dataPath, "materia", "source")
+		c.SourceDir = DefaultSourceDir
 	}
 	if c.RemoteDir == "" {
-		c.RemoteDir = filepath.Join(dataPath, "materia", "remote")
+		c.RemoteDir = DefaultRemoteDir
 	}
 	if c.OutputDir == "" {
-		c.OutputDir = filepath.Join(dataPath, "materia", "output")
+		c.OutputDir = DefaultOutputDir
 	}
+	c.ExecutorConfig.MateriaDir = c.MateriaDir
+	c.ExecutorConfig.QuadletDir = c.QuadletDir
+	c.ExecutorConfig.ScriptsDir = c.ScriptsDir
+	c.ExecutorConfig.ServiceDir = c.ServiceDir
 
 	return &c, nil
 }
