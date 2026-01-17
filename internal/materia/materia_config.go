@@ -218,7 +218,6 @@ func (c *MateriaConfig) String() string {
 	var result string
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
 	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
 	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
@@ -230,6 +229,7 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	result += fmt.Sprintf("Remote: %v\n", c.Remote)
+	result += fmt.Sprintf("Rootless: %v\n", c.Rootless)
 	if c.PlannerConfig != nil {
 		result += "Planner Config: \n"
 		result += fmt.Sprintf("%v", c.PlannerConfig.String())
