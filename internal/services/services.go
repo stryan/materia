@@ -194,6 +194,29 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	}
 }
 
+func (s *ServiceManager) RunOneshotCommand(ctx context.Context, timeout int, name string, actions ...string) error {
+	props := []dbus.Property{}
+	props = append(props, dbus.PropExecStart(actions, true))
+	props = append(props, dbus.PropRemainAfterExit(true))
+	props = append(props, dbus.PropType("oneshot"))
+	callback := make(chan string)
+	_, err := s.Conn.StartTransientUnitContext(ctx, name, "fail", props, callback)
+	if err != nil {
+		log.Fatal(err)
+	}
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context canceled while waiting for one-shot command %v to finish", actions)
+	case e := <-callback:
+		if e != "done" {
+			return fmt.Errorf("one-shot command %v finished in not done state: %v", actions, e)
+		}
+	case <-time.After(time.Duration(timeout) * time.Second):
+		return fmt.Errorf("timeout while waiting for one-shot command %v to finish", actions)
+	}
+	return nil
+}
+
 func (s *ServiceManager) Close() {
 	s.Conn.Close()
 }
