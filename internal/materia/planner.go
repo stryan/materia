@@ -33,6 +33,10 @@ type PlannerConfig struct {
 	MigrateVolumes  bool `toml:"migrate_volumes"`
 }
 
+func (p *PlannerConfig) String() string {
+	return fmt.Sprintf("Cleanup Quadlets: %v\nCleanup Volumes: %v\nBackup Volumes: %v\nMigrate Volumes: %v\n", p.CleanupQuadlets, p.CleanupVolumes, p.BackupVolumes, p.MigrateVolumes)
+}
+
 func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
 	pc := &PlannerConfig{}
 	pc.CleanupQuadlets = k.Bool("planner.cleanup_quadlets")

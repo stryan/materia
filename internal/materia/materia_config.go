@@ -145,7 +145,6 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	}
 	c.Rootless = k.Bool("rootless")
 
-	// calculate defaults
 	dataPath := DefaultDataDir
 	quadletPath := DefaultQuadletDir
 	servicePath := DefaultServiceDir
@@ -219,9 +218,6 @@ func (c *MateriaConfig) String() string {
 	var result string
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Clean-up Volumes: %v\n", c.CleanupVolumes)
-	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
-	result += fmt.Sprintf("Migrate Volumes: %v\n", c.MigrateVolumes)
 	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
 	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
@@ -234,6 +230,15 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	result += fmt.Sprintf("Remote: %v\n", c.Remote)
+	if c.PlannerConfig != nil {
+		result += "Planner Config: \n"
+		result += fmt.Sprintf("%v", c.PlannerConfig.String())
+	}
+	if c.ExecutorConfig != nil {
+		result += "Executor Config: \n"
+		result += fmt.Sprintf("%v", c.ExecutorConfig.String())
+
+	}
 	if c.AgeConfig != nil {
 		result += "Age Config: \n"
 		result += fmt.Sprintf("%v", c.AgeConfig.String())
@@ -246,5 +251,6 @@ func (c *MateriaConfig) String() string {
 		result += "Sops Config: \n"
 		result += fmt.Sprintf("%v", c.SopsConfig.String())
 	}
+
 	return result
 }
