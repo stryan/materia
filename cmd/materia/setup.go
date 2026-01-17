@@ -15,6 +15,7 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/source"
 	"primamateria.systems/materia/pkg/hostman"
@@ -26,7 +27,7 @@ import (
 )
 
 func setupDirectories(c *materia.MateriaConfig) error {
-	err := os.Mkdir(filepath.Join(c.MateriaDir, "materia"), 0o755)
+	err := os.Mkdir(filepath.Join(c.MateriaDir), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating prefix: %w", err)
 	}
@@ -42,7 +43,7 @@ func setupDirectories(c *materia.MateriaConfig) error {
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating source repo: %w", err)
 	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "materia", "components"), 0o755)
+	err = os.Mkdir(filepath.Join(c.MateriaDir, "components"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating components in prefix: %w", err)
 	}
@@ -167,6 +168,34 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	hm, err := hostman.NewHostManager(ctx, c)
 	if err != nil {
 		return nil, err
+	}
+	if c.Rootless {
+		cn := hm.GetHostname()
+		potentials, err := hm.ListContainers(ctx, containers.ContainerListFilter{})
+		if err != nil {
+			return nil, fmt.Errorf("passed rootless but unable to list materia containers: %w", err)
+		}
+		var materiaContainer *containers.Container
+		for _, v := range potentials {
+			if v.Hostname == cn {
+				materiaContainer = v
+			}
+		}
+		if materiaContainer != nil {
+			if dataSrc, ok := materiaContainer.BindMounts[materia.DefaultDataDir]; ok {
+				c.ExecutorConfig.MateriaDir = dataSrc.Source
+			}
+			if quadSrc, ok := materiaContainer.BindMounts[materia.DefaultQuadletDir]; ok {
+				c.ExecutorConfig.QuadletDir = quadSrc.Source
+			}
+			if scriptSrc, ok := materiaContainer.BindMounts[materia.DefaultScriptsDir]; ok {
+				c.ExecutorConfig.ScriptsDir = scriptSrc.Source
+			}
+			if serviceSrc, ok := materiaContainer.BindMounts[materia.DefaultServiceDir]; ok {
+				c.ExecutorConfig.ServiceDir = serviceSrc.Source
+			}
+
+		}
 	}
 
 	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)

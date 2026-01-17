@@ -154,3 +154,9 @@ Where to send webhook notifications on plan/update failure
 #### MATERIA_SERVER__SOCKET/server.socket
 
 What Unix socket to listen on. Defaults to `/run/materia/materia.sock` for root and `/run/UID/materia/materia.sock` for rootless.
+
+#### MATERIA_ROOTLESS/materia.rootful
+
+(EXPERIMENTAL)
+
+Enables `rootless` mode for Materia in a container. Causes materia to parse its own container's bind mounts to determine where on the host machine directories are. Use when you're running materia in a rootless container and are bind-mounting the user directories to the normal materia root directories in the container i.e. `-v /home/user/.config/containers/systemd:/etc/containers/systemd`.

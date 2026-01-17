@@ -14,6 +14,19 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 )
 
+var (
+	DefaultDataDir    = "/var/lib/materia"
+	DefaultQuadletDir = "/etc/containers/systemd"
+	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
+	// otherwise, defer to usual /etc location to work out of the box with MicroOS
+	DefaultServiceDir = "/etc/systemd/system"
+	DefaultScriptsDir = "/usr/local/bin"
+
+	DefaultSourceDir = filepath.Join(DefaultDataDir, "source")
+	DefaultRemoteDir = filepath.Join(DefaultDataDir, "remote")
+	DefaultOutputDir = filepath.Join(DefaultDataDir, "output")
+)
+
 type MateriaConfig struct {
 	Debug          bool              `toml:"debug"`
 	UseStdout      bool              `toml:"use_stdout"`
@@ -44,15 +57,8 @@ type MateriaConfig struct {
 	ExecutorConfig *ExecutorConfig   `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
+	Rootless       bool `toml:"rootless"`
 }
-
-// var defaultConfig = map[string]any{
-// 	"debug":      "",
-// 	"prefix":     "",
-// 	"quadletdir": "",
-// 	"servicedir": "",
-// 	"scriptsdir": "",
-// }
 
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	var c MateriaConfig
@@ -137,14 +143,12 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	} else {
 		c.Remote = (os.Getenv("container") == "podman")
 	}
+	c.Rootless = k.Bool("rootless")
 
-	// calculate defaults
-	dataPath := "/var/lib"
-	quadletPath := "/etc/containers/systemd/"
-	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
-	// otherwise, defer to usual /etc location to work out of the box with MicroOS
-	servicePath := "/etc/systemd/system/"
-	scriptsPath := "/usr/local/bin"
+	dataPath := DefaultDataDir
+	quadletPath := DefaultQuadletDir
+	servicePath := DefaultServiceDir
+	scriptsPath := DefaultScriptsDir
 
 	if c.User.Username != "root" {
 		home := c.User.HomeDir
@@ -178,14 +182,18 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		c.ScriptsDir = scriptsPath
 	}
 	if c.SourceDir == "" {
-		c.SourceDir = filepath.Join(dataPath, "materia", "source")
+		c.SourceDir = DefaultSourceDir
 	}
 	if c.RemoteDir == "" {
-		c.RemoteDir = filepath.Join(dataPath, "materia", "remote")
+		c.RemoteDir = DefaultRemoteDir
 	}
 	if c.OutputDir == "" {
-		c.OutputDir = filepath.Join(dataPath, "materia", "output")
+		c.OutputDir = DefaultOutputDir
 	}
+	c.ExecutorConfig.MateriaDir = c.MateriaDir
+	c.ExecutorConfig.QuadletDir = c.QuadletDir
+	c.ExecutorConfig.ScriptsDir = c.ScriptsDir
+	c.ExecutorConfig.ServiceDir = c.ServiceDir
 
 	return &c, nil
 }
@@ -210,10 +218,6 @@ func (c *MateriaConfig) String() string {
 	var result string
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Clean-up Volumes: %v\n", c.CleanupVolumes)
-	result += fmt.Sprintf("Back-up Volumes: %v\n", c.BackupVolumes)
-	result += fmt.Sprintf("Migrate Volumes: %v\n", c.MigrateVolumes)
-	result += fmt.Sprintf("Cleanup: %v\n", c.Cleanup)
 	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
 	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
@@ -225,6 +229,16 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	result += fmt.Sprintf("Remote: %v\n", c.Remote)
+	result += fmt.Sprintf("Rootless: %v\n", c.Rootless)
+	if c.PlannerConfig != nil {
+		result += "Planner Config: \n"
+		result += fmt.Sprintf("%v", c.PlannerConfig.String())
+	}
+	if c.ExecutorConfig != nil {
+		result += "Executor Config: \n"
+		result += fmt.Sprintf("%v", c.ExecutorConfig.String())
+
+	}
 	if c.AgeConfig != nil {
 		result += "Age Config: \n"
 		result += fmt.Sprintf("%v", c.AgeConfig.String())
@@ -237,5 +251,6 @@ func (c *MateriaConfig) String() string {
 		result += "Sops Config: \n"
 		result += fmt.Sprintf("%v", c.SopsConfig.String())
 	}
+
 	return result
 }

@@ -44,7 +44,7 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 	return func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
 			"m_dataDir": func(arg string) (string, error) {
-				return filepath.Join(filepath.Join(c.MateriaDir, "materia", "components"), arg), nil
+				return filepath.Join(filepath.Join(c.ExecutorConfig.MateriaDir, "components"), arg), nil
 			},
 			"m_facts": func(arg string) (any, error) {
 				return host.Lookup(arg)
