@@ -24,6 +24,10 @@ type ExecutorConfig struct {
 	ServiceDir        string `toml:"service_dir"`
 }
 
+func (e *ExecutorConfig) String() string {
+	return fmt.Sprintf("Cleanup Components: %v\n,Materia Data Dir: %v\nQuadlets Dir: %v\nScripts Dir: %v\nService Dir: %v\n", e.CleanupComponents, e.MateriaDir, e.QuadletDir, e.ScriptsDir, e.ServiceDir)
+}
+
 func NewExecutorConfig(k *koanf.Koanf) (*ExecutorConfig, error) {
 	ec := &ExecutorConfig{
 		CleanupComponents: k.Bool("executor.cleanup_components"),
