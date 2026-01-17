@@ -9,6 +9,7 @@ import (
 type ContainerManager interface {
 	GetVolume(context.Context, string) (*containers.Volume, error)
 	ListVolumes(context.Context) ([]*containers.Volume, error)
+	GetContainer(context.Context, string) (*containers.Container, error)
 	ListContainers(context.Context, containers.ContainerListFilter) ([]*containers.Container, error)
 	PauseContainer(context.Context, string) error
 	UnpauseContainer(context.Context, string) error
