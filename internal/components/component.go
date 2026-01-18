@@ -87,8 +87,8 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 	for _, s := range secretResources {
 		c.Resources.Set(s)
 	}
-	c.SetupScript = man.SetupScript
-	c.CleanupScript = man.CleanupScript
+	c.SetupScript = man.Settings.SetupScript
+	c.CleanupScript = man.Settings.CleanupScript
 	return nil
 }
 

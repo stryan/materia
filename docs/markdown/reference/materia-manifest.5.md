@@ -94,6 +94,18 @@ Key-value pairs for component settings. Contains the following options:
 
 By default, materia will restart services belonging to `.container` and `.pod` resources when they are updated. Set to `true` to disable this behaviour.
 
+##### SetupScript
+
+(EXPERIMENTAL)
+
+A script resource to run on component installation. It will be run as a `one-shot` transient systemd unit after resources have been installed and the host reloaded, but before services are modified.
+
+##### CleanupScript
+
+(EXPERIMENTAL)
+
+A script resource to run on component removal. It will be run as a `one-shot` transient systemd unit after services are stopped but before anything is removed.
+
 #### *Defaults*
 
 Key-value pairs describing default variable/attribute values for a component.

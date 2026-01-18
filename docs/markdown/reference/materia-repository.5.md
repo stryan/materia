@@ -63,8 +63,6 @@ A single file in a component. Resources are either static files or Golang templa
 
    *script*: A script file, ending in `.sh`. Installed in `PREFIX/components/COMPONENT_NAME/RESOURCENAME `as well as `MATERIA_SCRIPTSDIR`
 
-   *componentscript*: A special script file named either `setup.sh` or `cleanup.sh`. The former is run when the component is installed and the latter on removal.
-
    If a resource filename ends in `.gotmpl` it is treated as a Golang template.
 
    Example: `materia-repo/components/hello/hello.container.gotmpl`

@@ -29,7 +29,9 @@ type BackupsConfig struct {
 }
 
 type Settings struct {
-	NoRestart bool
+	NoRestart     bool   `toml:"NoRestart"`
+	SetupScript   string `toml:"SetupScript"`
+	CleanupScript string `toml:"CleanupScript"`
 }
 
 func (src ServiceResourceConfig) Validate() error {
@@ -40,15 +42,13 @@ func (src ServiceResourceConfig) Validate() error {
 }
 
 type ComponentManifest struct {
-	Defaults      map[string]any          `toml:"Defaults"`
-	Settings      Settings                `toml:"Settings"`
-	Snippets      []SnippetConfig         `toml:"Snippets"`
-	Services      []ServiceResourceConfig `toml:"Services"`
-	Backups       *BackupsConfig          `toml:"Backups"`
-	Scripts       []string                `toml:"Scripts"`
-	Secrets       []string                `toml:"Secrets"`
-	SetupScript   string                  `toml:"SetupScript"`
-	CleanupScript string                  `toml:"CleanupScript"`
+	Defaults map[string]any          `toml:"Defaults"`
+	Settings Settings                `toml:"Settings"`
+	Snippets []SnippetConfig         `toml:"Snippets"`
+	Services []ServiceResourceConfig `toml:"Services"`
+	Backups  *BackupsConfig          `toml:"Backups"`
+	Scripts  []string                `toml:"Scripts"`
+	Secrets  []string                `toml:"Secrets"`
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {
