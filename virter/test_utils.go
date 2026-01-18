@@ -60,6 +60,16 @@ func clearMateria(ctx context.Context) error {
 			return err
 		}
 	}
+	scriptedservs, err := conn.ListUnitsByPatternsContext(ctx, []string{"active"}, []string{"*-materia-setup.service", "*-materia-cleanup.service"})
+	if err != nil {
+		return err
+	}
+	for _, ss := range scriptedservs {
+		err := stopService(ctx, conn, ss.Name)
+		if err != nil {
+			return err
+		}
+	}
 	runningServices = []string{}
 	return nil
 }

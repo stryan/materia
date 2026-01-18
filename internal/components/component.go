@@ -139,10 +139,7 @@ func (c *Component) ToResource() Resource {
 	}
 }
 
-func (c *Component) FindResourceType(file string) ResourceType {
-	if filepath.Base(file) == c.CleanupScript || filepath.Base(file) == c.SetupScript {
-		return ResourceTypeComponentScript
-	}
+func FindResourceType(file string) ResourceType {
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
 	case ".pod":

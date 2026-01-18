@@ -1166,7 +1166,7 @@ func resourceHelper(name, parent, content string) components.Resource {
 	result.Path = strings.TrimSuffix(name, ".gotmpl")
 	result.Template = components.IsTemplate(name)
 	result.Parent = parent
-	result.Kind = components.NewComponent(parent).FindResourceType(result.Path)
+	result.Kind = components.FindResourceType(result.Path)
 	result.Content = content
 	if result.Kind != components.ResourceTypeImage && result.Kind != components.ResourceTypeBuild {
 		result.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(result.Path), filepath.Ext(result.Path)))
@@ -1270,7 +1270,7 @@ func planHelper(todo ActionType, name, res string) Action {
 		},
 		Target: components.Resource{
 			Parent: name,
-			Kind:   components.NewComponent(name).FindResourceType(res),
+			Kind:   components.FindResourceType(res),
 			Path:   res,
 		},
 	}

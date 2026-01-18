@@ -195,10 +195,11 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 }
 
 func (s *ServiceManager) RunOneshotCommand(ctx context.Context, timeout int, name string, actions ...string) error {
-	props := []dbus.Property{}
-	props = append(props, dbus.PropExecStart(actions, true))
-	props = append(props, dbus.PropRemainAfterExit(true))
-	props = append(props, dbus.PropType("oneshot"))
+	props := []dbus.Property{
+		dbus.PropExecStart(actions, true),
+		dbus.PropRemainAfterExit(true),
+		dbus.PropType("oneshot"),
+	}
 	callback := make(chan string)
 	_, err := s.Conn.StartTransientUnitContext(ctx, name, "fail", props, callback)
 	if err != nil {
