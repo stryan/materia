@@ -1,10 +1,10 @@
 # Goals being worked on
 - [ ] Increasing test coverage
 - [ ] Remote components refinement
-- [ ] Fix component scripts
+- [x] Fix component scripts
 
 # Potential future goals
-- [ ] Migrate containers in and out of pods
+- [ ] Support `.quadlets` files
 - [ ] Automatic rollback on failure
 - [ ] "manifest-only" mode as a compose style tool
 - [ ] Pre and post change steps
