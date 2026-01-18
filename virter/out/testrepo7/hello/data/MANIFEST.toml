@@ -1,0 +1,2 @@
+SetupScript = "setup.sh"
+CleanupScript = "cleanup.sh"

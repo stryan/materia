@@ -40,13 +40,15 @@ func (src ServiceResourceConfig) Validate() error {
 }
 
 type ComponentManifest struct {
-	Defaults map[string]any          `toml:"Defaults"`
-	Settings Settings                `toml:"Settings"`
-	Snippets []SnippetConfig         `toml:"Snippets"`
-	Services []ServiceResourceConfig `toml:"Services"`
-	Backups  *BackupsConfig          `toml:"Backups"`
-	Scripts  []string                `toml:"Scripts"`
-	Secrets  []string                `toml:"Secrets"`
+	Defaults      map[string]any          `toml:"Defaults"`
+	Settings      Settings                `toml:"Settings"`
+	Snippets      []SnippetConfig         `toml:"Snippets"`
+	Services      []ServiceResourceConfig `toml:"Services"`
+	Backups       *BackupsConfig          `toml:"Backups"`
+	Scripts       []string                `toml:"Scripts"`
+	Secrets       []string                `toml:"Secrets"`
+	SetupScript   string                  `toml:"SetupScript"`
+	CleanupScript string                  `toml:"CleanupScript"`
 }
 
 func LoadComponentManifest(path string) (*ComponentManifest, error) {

@@ -87,6 +87,8 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 	for _, s := range secretResources {
 		c.Resources.Set(s)
 	}
+	c.SetupScript = man.SetupScript
+	c.CleanupScript = man.CleanupScript
 	return nil
 }
 
@@ -114,6 +116,12 @@ func (c Component) Validate() error {
 	}
 	if c.Services == nil {
 		return errors.New("component without services set")
+	}
+	if c.SetupScript != "" && c.CleanupScript == "" {
+		return errors.New("component has setup script but no cleanup script")
+	}
+	if c.SetupScript == "" && c.CleanupScript != "" {
+		return errors.New("component has cleanup script but no setup script")
 	}
 	return nil
 }
