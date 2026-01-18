@@ -21,7 +21,6 @@ type Component struct {
 	Name          string
 	Settings      manifests.Settings
 	Resources     *ResourceSet
-	Scripted      bool
 	State         ComponentLifecycle
 	Defaults      map[string]any
 	Services      *ServiceSet
@@ -50,13 +49,11 @@ type ComponentVersion struct {
 
 func NewComponent(name string) *Component {
 	return &Component{
-		Name:          name,
-		State:         StateStale,
-		Defaults:      make(map[string]any),
-		Services:      NewServiceSet(),
-		Resources:     NewResourceSet(),
-		SetupScript:   "setup.sh",
-		CleanupScript: "cleanup.sh",
+		Name:      name,
+		State:     StateStale,
+		Defaults:  make(map[string]any),
+		Services:  NewServiceSet(),
+		Resources: NewResourceSet(),
 	}
 }
 
@@ -90,6 +87,8 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 	for _, s := range secretResources {
 		c.Resources.Set(s)
 	}
+	c.SetupScript = man.Settings.SetupScript
+	c.CleanupScript = man.Settings.CleanupScript
 	return nil
 }
 
@@ -118,6 +117,12 @@ func (c Component) Validate() error {
 	if c.Services == nil {
 		return errors.New("component without services set")
 	}
+	if c.SetupScript != "" && c.CleanupScript == "" {
+		return errors.New("component has setup script but no cleanup script")
+	}
+	if c.SetupScript == "" && c.CleanupScript != "" {
+		return errors.New("component has cleanup script but no setup script")
+	}
 	return nil
 }
 
@@ -139,10 +144,7 @@ func (c *Component) ToResource() Resource {
 	}
 }
 
-func (c *Component) FindResourceType(file string) ResourceType {
-	if filepath.Base(file) == c.CleanupScript || filepath.Base(file) == c.SetupScript {
-		return ResourceTypeComponentScript
-	}
+func FindResourceType(file string) ResourceType {
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
 	case ".pod":

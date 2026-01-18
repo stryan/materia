@@ -30,7 +30,7 @@ This defines two entities: a `host `and a `role`. Roles are collections of compo
 
 In this case we have one host: `vindicta`. Vindicta has the "freshrss" component directly assigned to it. Since it has the "base" role it will also have all of those components assigned to it: in this case "podman_exporter".
 
-Materia manifets can also include other metadata or orchestration configuration. For example, we can override a components defined services with the `Overrides` key:
+Materia manifests can also include other metadata or orchestration configuration. For example, we can override a components defined services with the `Overrides` key:
 
 ```toml
 [hosts.vindicta]

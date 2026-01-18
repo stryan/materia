@@ -38,7 +38,6 @@ const (
 	ResourceTypeFile
 	ResourceTypeManifest
 	ResourceTypeScript
-	ResourceTypeComponentScript
 	ResourceTypeDirectory
 
 	ResourceTypeService
@@ -117,7 +116,7 @@ func (r Resource) IsQuadlet() bool {
 
 func (r Resource) IsFile() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeImage, ResourceTypeBuild, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService, ResourceTypeComponentScript:
+	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeImage, ResourceTypeBuild, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService:
 		return true
 	default:
 		return false

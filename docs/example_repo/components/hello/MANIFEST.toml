@@ -1,4 +1,10 @@
-[Defaults]  # set default secrets
+# These lines configure component scripts; they are optional, but if you have one you must have the other
+# This script will be run on component installation as a systemd job.
+SetupScript = "setup.sh"
+# This script will be run on component removal as a systemd job.
+CleanupScript = "cleanup.sh"
+
+[Defaults]  # set default attributes
 containerTag = "latest"
 
 [[Services]]  # services is a TOML array
