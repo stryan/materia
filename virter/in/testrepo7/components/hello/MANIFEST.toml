@@ -1,2 +1,2 @@
-SetupScript = "setup.sh"
-CleanupScript = "cleanup.sh"
+Settings.SetupScript = "setup.sh"
+Settings.CleanupScript = "cleanup.sh"
