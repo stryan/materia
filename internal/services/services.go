@@ -136,6 +136,13 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 }
 
 func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error) {
+	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
+	if err != nil {
+		return nil, fmt.Errorf("couldn't list units: %w", err)
+	}
+	if len(us) == 0 {
+		return nil, ErrServiceNotFound
+	}
 	props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 	if err != nil {
 		return nil, err

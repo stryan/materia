@@ -886,6 +886,9 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 	}
 	for _, s := range comp.Services.List() {
 		liveService, err := getLiveService(ctx, mgr, comp, s)
+		if errors.Is(err, services.ErrServiceNotFound) {
+			continue
+		}
 		if err != nil {
 			return actions, fmt.Errorf("can't get live service for %v: %w", s.Service, err)
 		}
