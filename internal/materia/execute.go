@@ -382,16 +382,25 @@ func (m *Materia) executeAction(ctx context.Context, v Action) error {
 		case ActionSetup:
 			scriptPath := filepath.Join(m.executorConfig.ScriptsDir, v.Target.Path)
 			setupName := fmt.Sprintf("%v-materia-setup.service", v.Parent.Name)
-			if err := m.Host.RunOneshotCommand(ctx, m.defaultTimeout, setupName, scriptPath); err != nil {
+			cleanupName := fmt.Sprintf("%v-materia-cleanup.service", v.Parent.Name)
+			if err := m.Host.RunOneshotCommand(ctx, m.defaultTimeout, setupName, []string{scriptPath}); err != nil {
 				return err
+			}
+			// we succesfully setup, remove any cleanup script instances
+			if err := m.Host.Apply(ctx, cleanupName, services.ServiceStop, m.defaultTimeout); err != nil {
+				log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
 			}
 		case ActionCleanup:
 			scriptPath := filepath.Join(m.executorConfig.ScriptsDir, v.Target.Path)
+			setupName := fmt.Sprintf("%v-materia-setup.service", v.Parent.Name)
 			cleanupName := fmt.Sprintf("%v-materia-cleanup.service", v.Parent.Name)
-			if err := m.Host.RunOneshotCommand(ctx, m.defaultTimeout, cleanupName, scriptPath); err != nil {
+			if err := m.Host.RunOneshotCommand(ctx, m.defaultTimeout, cleanupName, []string{scriptPath}); err != nil {
 				return err
 			}
-
+			// we succesfully setup, remove any setup script instances
+			if err := m.Host.Apply(ctx, setupName, services.ServiceStop, m.defaultTimeout); err != nil {
+				log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
+			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}

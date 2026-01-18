@@ -21,7 +21,6 @@ type Component struct {
 	Name          string
 	Settings      manifests.Settings
 	Resources     *ResourceSet
-	Scripted      bool
 	State         ComponentLifecycle
 	Defaults      map[string]any
 	Services      *ServiceSet
@@ -50,13 +49,11 @@ type ComponentVersion struct {
 
 func NewComponent(name string) *Component {
 	return &Component{
-		Name:          name,
-		State:         StateStale,
-		Defaults:      make(map[string]any),
-		Services:      NewServiceSet(),
-		Resources:     NewResourceSet(),
-		SetupScript:   "setup.sh",
-		CleanupScript: "cleanup.sh",
+		Name:      name,
+		State:     StateStale,
+		Defaults:  make(map[string]any),
+		Services:  NewServiceSet(),
+		Resources: NewResourceSet(),
 	}
 }
 

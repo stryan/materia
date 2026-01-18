@@ -381,13 +381,6 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
 		})
 	}
-	if comp.Scripted {
-		actions = append(actions, Action{
-			Todo:   ActionSetup,
-			Parent: comp,
-			Target: comp.ToResource(),
-		})
-	}
 	return actions, nil
 }
 
@@ -511,13 +504,6 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 			Todo:   ActionRemove,
 			Parent: comp,
 			Target: d,
-		})
-	}
-	if comp.Scripted {
-		actions = append(actions, Action{
-			Todo:   ActionCleanup,
-			Parent: comp,
-			Target: comp.ToResource(),
 		})
 	}
 	actions = append(actions, Action{

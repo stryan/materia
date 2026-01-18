@@ -194,7 +194,7 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	}
 }
 
-func (s *ServiceManager) RunOneshotCommand(ctx context.Context, timeout int, name string, actions ...string) error {
+func (s *ServiceManager) RunOneshotCommand(ctx context.Context, timeout int, name string, actions []string) error {
 	props := []dbus.Property{
 		dbus.PropExecStart(actions, true),
 		dbus.PropRemainAfterExit(true),
