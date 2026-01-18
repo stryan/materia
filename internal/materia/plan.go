@@ -279,10 +279,6 @@ func getDefaultPriority(a Action) (int, error) {
 			ActionCleanup: 7, ActionDump: 2,
 			ActionStart: 6, ActionStop: 1, ActionRestart: 6, ActionReload: 6,
 		},
-		components.ResourceTypeComponentScript: {
-			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
-			ActionCleanup: 7, ActionDump: 2,
-		},
 		components.ResourceTypeScript: {
 			ActionInstall: 3, ActionUpdate: 3, ActionRemove: 3,
 			ActionCleanup: 7, ActionDump: 2,

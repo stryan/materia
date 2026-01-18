@@ -246,6 +246,19 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
+	if currentTree.source.SetupScript != "" {
+		c := currentTree.source
+		setupResource, err := c.Resources.Get(c.SetupScript)
+		if err != nil {
+			return nil, fmt.Errorf("setup resource %v not found: %w", c.SetupScript, err)
+		}
+		serviceActions = append(serviceActions, Action{
+			Todo:     ActionSetup,
+			Parent:   c,
+			Target:   setupResource,
+			Priority: 5,
+		})
+	}
 	currentTree.FinalState = components.StateFresh
 	return append(resourceActions, serviceActions...), nil
 }
@@ -267,6 +280,19 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 		Parent: rootComponent,
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
+	if currentTree.host.CleanupScript != "" {
+		c := currentTree.host
+		setupResource, err := c.Resources.Get(c.CleanupScript)
+		if err != nil {
+			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.CleanupScript, err)
+		}
+		serviceActions = append(serviceActions, Action{
+			Todo:     ActionCleanup,
+			Parent:   c,
+			Target:   setupResource,
+			Priority: 2,
+		})
+	}
 	currentTree.FinalState = components.StateNeedRemoval
 	return append(resourceActions, serviceActions...), nil
 }
@@ -353,13 +379,6 @@ func generateFreshComponentResources(comp *components.Component) ([]Action, erro
 			Parent:      comp,
 			Target:      r,
 			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
-		})
-	}
-	if comp.Scripted {
-		actions = append(actions, Action{
-			Todo:   ActionSetup,
-			Parent: comp,
-			Target: comp.ToResource(),
 		})
 	}
 	return actions, nil
@@ -485,13 +504,6 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 			Todo:   ActionRemove,
 			Parent: comp,
 			Target: d,
-		})
-	}
-	if comp.Scripted {
-		actions = append(actions, Action{
-			Todo:   ActionCleanup,
-			Parent: comp,
-			Target: comp.ToResource(),
 		})
 	}
 	actions = append(actions, Action{

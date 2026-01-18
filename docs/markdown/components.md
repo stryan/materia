@@ -50,7 +50,7 @@ RestartedBy = "hello.container"
 ReloadedBy = "conf/config.toml"
 ```
 
-This manifest sets the default "contaierTag" attribute to be "latest" and defines the "hello.service" service.
+This manifest sets the default "containerTag" attribute to be "latest" and defines the "hello.service" service.
 
 When the component is installed and when `materia update` is run, the "hello.service" systemd unit will be started or restarted.
 

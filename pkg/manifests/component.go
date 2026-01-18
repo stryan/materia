@@ -29,7 +29,9 @@ type BackupsConfig struct {
 }
 
 type Settings struct {
-	NoRestart bool
+	NoRestart     bool   `toml:"NoRestart"`
+	SetupScript   string `toml:"SetupScript"`
+	CleanupScript string `toml:"CleanupScript"`
 }
 
 func (src ServiceResourceConfig) Validate() error {

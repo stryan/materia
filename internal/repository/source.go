@@ -130,10 +130,6 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 		if err != nil {
 			return err
 		}
-		if newRes.Kind == components.ResourceTypeComponentScript {
-			scripts++
-			c.Scripted = true
-		}
 		return c.Resources.Add(newRes)
 	})
 	if err != nil {
@@ -192,7 +188,7 @@ func (s *SourceComponentRepository) ListResources(c *components.Component) ([]co
 		newRes := components.Resource{
 			Parent:   c.Name,
 			Path:     resName,
-			Kind:     c.FindResourceType(resName),
+			Kind:     components.FindResourceType(resName),
 			Template: components.IsTemplate(resName),
 		}
 		resources = append(resources, newRes)
@@ -278,7 +274,7 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 	if fileInfo.IsDir() {
 		res.Kind = components.ResourceTypeDirectory
 	} else {
-		res.Kind = parent.FindResourceType(path)
+		res.Kind = components.FindResourceType(path)
 	}
 	return res, nil
 }

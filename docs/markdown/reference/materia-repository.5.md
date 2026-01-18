@@ -43,27 +43,25 @@ A single file in a component. Resources are either static files or Golang templa
 
    **file**: An arbitrary data file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME`
 
-   *service*: A systemd unit file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME` and `MATERIA_SERVICEDIR`
+   *service*: A systemd unit file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME` and `MATERIA_SERVICE_DIR`
 
-   *container*: A `.container` file. Installed to `MATERIA_QUADLETDIR.`
+   *container*: A `.container` file. Installed to `MATERIA_QUADLET_DIR.`
 
-   *volume*: A `.volume` file. Installed to `MATERIA_QUADLETDIR.`
+   *volume*: A `.volume` file. Installed to `MATERIA_QUADLET_DIR.`
 
-   *pod*: A `.pod` file. Installed to `MATERIA_QUADLETDIR.`
+   *pod*: A `.pod` file. Installed to `MATERIA_QUADLET_DIR.`
 
-   *kube*: A `.kube` file. Installed to `MATERIA_QUADLETDIR.`
+   *kube*: A `.kube` file. Installed to `MATERIA_QUADLET_DIR.`
 
-   *build*: A `.build` file. Installed to `MATERIA_QUADLETDIR.`
+   *build*: A `.build` file. Installed to `MATERIA_QUADLET_DIR.`
 
-   *image*: A `.image` file. Installed to `MATERIA_QUADLETDIR.`
+   *image*: A `.image` file. Installed to `MATERIA_QUADLET_DIR.`
 
    *manifest*: A `MANIFEST.TOML` file. Installed to `PREFIX/components/COMPONENT_NAME/MAINFEST.TOML`
 
    *volumefile*: A data file that should be installed in a Podman volume. Experimental, defined in the components `MANIFEST.toml`
 
-   *script*: A script file, ending in `.sh`. Installed in `PREFIX/components/COMPONENT_NAME/RESOURCENAME `as well as `MATERIA_SCRIPTSDIR`
-
-   *componentscript*: A special script file named either `setup.sh` or `cleanup.sh`. The former is run when the component is installed and the latter on removal.
+   *script*: A script file, ending in `.sh`. Installed in `PREFIX/components/COMPONENT_NAME/RESOURCENAME `as well as `MATERIA_SCRIPTS_DIR`
 
    If a resource filename ends in `.gotmpl` it is treated as a Golang template.
 
