@@ -65,46 +65,47 @@ func LoadComponentManifest(path string) (*ComponentManifest, error) {
 	return &c, nil
 }
 
-func MergeComponentManifests(left, right *ComponentManifest) (*ComponentManifest, error) {
-	if left == nil {
-		return nil, errors.New("need non nil left manifest for merge")
+func MergeComponentManifests(original, override *ComponentManifest) (*ComponentManifest, error) {
+	if original == nil {
+		return nil, errors.New("need non nil original manifest for merge")
 	}
-	if right == nil {
-		return nil, errors.New("need non nil right manifest for merge")
+	if override == nil {
+		return nil, errors.New("need non nil override manifest for merge")
 	}
+
 	result := ComponentManifest{}
 
-	if len(left.Defaults) > 0 {
-		result.Defaults = maps.Clone(left.Defaults)
+	if len(override.Defaults) > 0 {
+		result.Defaults = maps.Clone(override.Defaults)
 	} else {
-		result.Defaults = maps.Clone(right.Defaults)
+		result.Defaults = maps.Clone(original.Defaults)
 	}
-	if len(left.Snippets) > 0 {
-		result.Snippets = append(result.Snippets, left.Snippets...)
+	if len(override.Snippets) > 0 {
+		result.Snippets = append(result.Snippets, override.Snippets...)
 	} else {
-		result.Snippets = append(result.Snippets, right.Snippets...)
+		result.Snippets = append(result.Snippets, original.Snippets...)
 	}
-	if len(left.Services) > 0 {
-		result.Services = append(result.Services, left.Services...)
+	if len(override.Services) > 0 {
+		result.Services = append(result.Services, override.Services...)
 	} else {
-		copy(result.Services, right.Services)
-		result.Services = append(result.Services, right.Services...)
+		copy(result.Services, original.Services)
+		result.Services = append(result.Services, original.Services...)
 	}
-	if left.Backups != nil {
-		result.Backups = left.Backups
+	if override.Backups != nil {
+		result.Backups = override.Backups
 	} else {
-		result.Backups = right.Backups
+		result.Backups = original.Backups
 	}
-	if len(left.Scripts) > 0 {
-		result.Scripts = append(result.Scripts, left.Scripts...)
+	if len(override.Scripts) > 0 {
+		result.Scripts = append(result.Scripts, override.Scripts...)
 	} else {
-		result.Scripts = append(result.Scripts, right.Scripts...)
+		result.Scripts = append(result.Scripts, original.Scripts...)
 	}
-	if len(left.Secrets) > 0 {
-		result.Secrets = append(result.Secrets, left.Secrets...)
+	if len(override.Secrets) > 0 {
+		result.Secrets = append(result.Secrets, override.Secrets...)
 	} else {
-		result.Secrets = append(result.Secrets, right.Secrets...)
-		copy(result.Secrets, right.Secrets)
+		result.Secrets = append(result.Secrets, original.Secrets...)
+		copy(result.Secrets, original.Secrets)
 	}
 
 	return &result, nil
