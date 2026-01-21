@@ -3,6 +3,7 @@ package manifests
 import (
 	"errors"
 	"maps"
+	"slices"
 
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
@@ -21,17 +22,16 @@ type ServiceResourceConfig struct {
 	Timeout     int      `toml:"Timeout"`
 }
 
-type BackupsConfig struct {
-	Online     bool     `toml:"Online"`
-	Pause      bool     `toml:"Pause"`
-	Skip       []string `toml:"Skip"`
-	NoCompress bool     `toml:"NoCompress"`
-}
-
 type Settings struct {
 	NoRestart     bool   `toml:"NoRestart"`
 	SetupScript   string `toml:"SetupScript"`
 	CleanupScript string `toml:"CleanupScript"`
+}
+
+func (s *Settings) Merge(o Settings) {
+	s.NoRestart = o.NoRestart
+	s.CleanupScript = o.CleanupScript
+	s.SetupScript = o.SetupScript
 }
 
 func (src ServiceResourceConfig) Validate() error {
@@ -46,7 +46,6 @@ type ComponentManifest struct {
 	Settings Settings                `toml:"Settings"`
 	Snippets []SnippetConfig         `toml:"Snippets"`
 	Services []ServiceResourceConfig `toml:"Services"`
-	Backups  *BackupsConfig          `toml:"Backups"`
 	Scripts  []string                `toml:"Scripts"`
 	Secrets  []string                `toml:"Secrets"`
 }
@@ -80,33 +79,63 @@ func MergeComponentManifests(original, override *ComponentManifest) (*ComponentM
 	} else {
 		result.Defaults = maps.Clone(original.Defaults)
 	}
+	result.Settings.Merge(override.Settings)
 	if len(override.Snippets) > 0 {
-		result.Snippets = append(result.Snippets, override.Snippets...)
+		copy(result.Snippets, override.Snippets)
 	} else {
-		result.Snippets = append(result.Snippets, original.Snippets...)
+		copy(result.Snippets, original.Snippets)
 	}
 	if len(override.Services) > 0 {
-		result.Services = append(result.Services, override.Services...)
+		copy(result.Services, override.Services)
 	} else {
 		copy(result.Services, original.Services)
-		result.Services = append(result.Services, original.Services...)
 	}
-	if override.Backups != nil {
-		result.Backups = override.Backups
-	} else {
-		result.Backups = original.Backups
-	}
+
 	if len(override.Scripts) > 0 {
-		result.Scripts = append(result.Scripts, override.Scripts...)
+		copy(result.Scripts, override.Scripts)
 	} else {
-		result.Scripts = append(result.Scripts, original.Scripts...)
+		copy(result.Scripts, original.Scripts)
 	}
 	if len(override.Secrets) > 0 {
 		result.Secrets = append(result.Secrets, override.Secrets...)
+		copy(result.Secrets, override.Secrets)
 	} else {
-		result.Secrets = append(result.Secrets, original.Secrets...)
 		copy(result.Secrets, original.Secrets)
 	}
+
+	return &result, nil
+}
+
+func ExtendComponentManifests(original, extension *ComponentManifest) (*ComponentManifest, error) {
+	if original == nil {
+		return nil, errors.New("need non nil original manifest for merge")
+	}
+	if extension == nil {
+		return nil, errors.New("need non nil extension manifest for merge")
+	}
+
+	result := ComponentManifest{}
+	result.Defaults = maps.Clone(original.Defaults)
+	if len(extension.Defaults) > 0 {
+		maps.Copy(result.Defaults, extension.Defaults)
+	}
+	result.Settings = original.Settings
+	result.Settings.Merge(extension.Settings)
+	result.Services = original.Services
+	for _, s := range extension.Services {
+		i := slices.IndexFunc(result.Services, func(src ServiceResourceConfig) bool {
+			return src.Service == s.Service
+		})
+		if i == -1 {
+			result.Services = append(result.Services, s)
+		} else {
+			result.Services[i].ReloadedBy = append(result.Services[i].ReloadedBy, s.ReloadedBy...)
+			result.Services[i].RestartedBy = append(result.Services[i].RestartedBy, s.RestartedBy...)
+		}
+	}
+	result.Snippets = append(original.Snippets, extension.Snippets...)
+	result.Scripts = append(original.Scripts, extension.Scripts...)
+	result.Secrets = append(original.Secrets, extension.Secrets...)
 
 	return &result, nil
 }

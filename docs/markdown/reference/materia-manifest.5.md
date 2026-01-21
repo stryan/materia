@@ -32,7 +32,8 @@ A TOML table containing hosts entries of the following format:
       Components = ["caddy","openldap"]
       Roles = ["base"]
 
-Can also contain an `Overrides` table that contains keys mapped to component manifests. This can be used to override the MANIFSET.toml included with a component on a per-host basis.
+##### hosts.Overrides
+The table can also contain an `Overrides` table that contains keys mapped to component manifests. This can be used to override the MANIFEST.toml included with a component on a per-host basis. Note that this will replace entire tables; if you just want to add an element to a manifest use the `Extensions` table.
 
 Example:
 
@@ -42,6 +43,20 @@ Example:
       port = "80"
       [Hosts.localhost.Overrides.caddy.Services]
       Service = "caddy.service"
+
+This will override the `Defaults` and `Services` entries to be the above.
+
+##### hosts.Extensions
+The table can also contain an `Extensions` table that contains keys mapped to component manifests. This can be used to extend the MANIFEST.toml included with a component on a per-host basis.
+
+Example:
+
+      [Hosts.localhost]
+      Components = ["caddy","openldap"]
+      [Hosts.localhost.Extensions.caddy.Defaults]
+      port = "80"
+
+This will "extend" the `caddy` component's `Defaults` table to have the key-value pair `port = "80"`. If the key already exists in the table it will be updated.
 
 #### **roles**
 
@@ -61,6 +76,7 @@ A TOML table containing Remote Component entries of the following format:
       [Remote.COMPONENT_LOCAL_NAME]
       URL = "git://github.com/example/component_name"
       Version = "v1" # optional
+
 
 #### **Snippets**
 
