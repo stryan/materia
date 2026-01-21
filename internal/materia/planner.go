@@ -174,6 +174,19 @@ func (m *Materia) getOverride(c string) *manifests.ComponentManifest {
 	return nil
 }
 
+func (m *Materia) getExtension(c string) *manifests.ComponentManifest {
+	hostname := m.Host.GetHostname()
+	hostConfig, ok := m.Manifest.Hosts[hostname]
+	if !ok {
+		return nil
+	}
+
+	if o, ok := hostConfig.Extensions[c]; ok {
+		return &o
+	}
+	return nil
+}
+
 func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, assignedComponents []string) (*ComponentGraph, error) {
 	componentGraph := NewComponentGraph()
 
@@ -209,7 +222,8 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 			return nil, err
 		}
 		override := m.getOverride(v)
-		sourceComponent, err := loadSourceComponent(ctx, m.Source, v, attrs, override, m.macros)
+		extension := m.getExtension(v)
+		sourceComponent, err := loadSourceComponent(ctx, m.Source, v, attrs, override, extension, m.macros)
 		if err != nil {
 			return nil, fmt.Errorf("error loading new components: %w", err)
 		}
@@ -729,7 +743,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	return actions, nil
 }
 
-func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, attrs map[string]any, override *manifests.ComponentManifest, macros MacroMap) (*components.Component, error) {
+func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, attrs map[string]any, override, extension *manifests.ComponentManifest, macros MacroMap) (*components.Component, error) {
 	sourceComponent, err := mgr.GetComponent(name)
 	if err != nil {
 		return nil, fmt.Errorf("error loading new components: %w", err)
@@ -743,6 +757,12 @@ func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, at
 		manifest, err = manifests.MergeComponentManifests(manifest, override)
 		if err != nil {
 			return nil, fmt.Errorf("can't load source component %v's overrides: %w", sourceComponent.Name, err)
+		}
+	}
+	if extension != nil {
+		manifest, err = manifests.ExtendComponentManifests(manifest, extension)
+		if err != nil {
+			return nil, fmt.Errorf("can't load source component %v's extensions: %w", sourceComponent.Name, err)
 		}
 	}
 	if err := sourceComponent.ApplyManifest(manifest); err != nil {

@@ -34,6 +34,7 @@ type Host struct {
 	Components []string                     `toml:"Components"`
 	Roles      []string                     `toml:"Roles"`
 	Overrides  map[string]ComponentManifest `toml:"Overrides"`
+	Extensions map[string]ComponentManifest `toml:"Overrides"`
 }
 
 type Role struct {
