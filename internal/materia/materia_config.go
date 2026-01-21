@@ -150,24 +150,31 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	servicePath := DefaultServiceDir
 	scriptsPath := DefaultScriptsDir
 
+	sourcePath := DefaultSourceDir
+	outputPath := DefaultOutputDir
+	remotePath := DefaultRemoteDir
+
 	if c.User.Username != "root" {
 		home := c.User.HomeDir
 		var found bool
 		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
 		if !found {
-			quadletPath = fmt.Sprintf("%v/.config/containers/systemd/", home)
+			quadletPath = filepath.Join(home, ".config", "containers", "systemd")
 		} else {
-			quadletPath = fmt.Sprintf("%v/containers/systemd/", conf)
+			quadletPath = filepath.Join(conf, "containers", "systemd")
 		}
 		datadir, found := os.LookupEnv("XDG_DATA_HOME")
 		if !found {
-			dataPath = fmt.Sprintf("%v/.local/share", home)
-			servicePath = fmt.Sprintf("%v/.local/share/systemd/user", home)
+			dataPath = filepath.Join(home, ".local", "share")
+			servicePath = filepath.Join(home, ".local", "share", "systemd", "user")
 		} else {
 			dataPath = datadir
-			servicePath = fmt.Sprintf("%v/systemd/user", datadir)
+			servicePath = filepath.Join(datadir, "systemd", "user")
 		}
-		scriptsPath = fmt.Sprintf("%v/.local/bin", home)
+		scriptsPath = filepath.Join(home, ".local", "bin")
+		sourcePath = filepath.Join(datadir, "source")
+		outputPath = filepath.Join(datadir, "output")
+		remotePath = filepath.Join(datadir, "remote")
 	}
 	if c.MateriaDir == "" {
 		c.MateriaDir = dataPath
@@ -182,13 +189,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		c.ScriptsDir = scriptsPath
 	}
 	if c.SourceDir == "" {
-		c.SourceDir = DefaultSourceDir
+		c.SourceDir = sourcePath
 	}
 	if c.RemoteDir == "" {
-		c.RemoteDir = DefaultRemoteDir
+		c.RemoteDir = remotePath
 	}
 	if c.OutputDir == "" {
-		c.OutputDir = DefaultOutputDir
+		c.OutputDir = outputPath
 	}
 	c.ExecutorConfig.MateriaDir = c.MateriaDir
 	c.ExecutorConfig.QuadletDir = c.QuadletDir

@@ -1,9 +1,9 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [ ] Remote components refinement
-- [x] Fix component scripts
+- [ ] Add rootless integration tests
 
 # Potential future goals
+- [ ] Remote components refinement
 - [ ] Support `.quadlets` files
 - [ ] Automatic rollback on failure
 - [ ] "manifest-only" mode as a compose style tool
