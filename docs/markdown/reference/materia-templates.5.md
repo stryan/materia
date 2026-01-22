@@ -24,25 +24,34 @@ Macros are privileged functions available to Materia while executing a resource.
 
 Macros are accessed the same way as any other Go Template function: `{{ macro_name }}`.
 
+Macros with arguments should have the arguments passed in quotes.
+
 ### Macro List
 
-#### **m_dataDir component_name**
+#### **m_dataDir "component_name"**
 
 Reference the components **data directory**. Often used for templating bind mounts
 
    Example: `Volume={{ m_dataDir "component" }}/config.yaml:/config.yaml` will be templated as `Volume=/var/lib/materia/components/component/config.yaml:/config.yaml`
 
-#### **m_facts fact_name**
+#### **m_facts "fact_name"**
 
 Lookup a fact about the host.
 
+The following facts are available:
+   `hostname`: Return the hostname of the target host.
+   `interface`: Return information about the provided interface.
+     `interface.eth0` would return all IP addresses for the interface `eth0`
+     `interface.eth0.ip4` or `interface.eth0.ip6` would return all IPv4 or IPv6 addresses for the interface `eth0`.
+     `interface.eth0.ip4.0` Would return the first IPv4 address for the interface `eth0`
+
    Example: `PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}` would template as `PublishPort=<tailscale interface IP address>:<port attribute>:<port attribute>`
 
-#### **m_default attribute value**
+#### **m_default "attribute" "value"**
 
 Return a attribute's value or the provided value if the attribute is not defined
 
-#### **exists attribute**
+#### **exists "attribute"**
 
 Returns true if the attribute is defined, otherwise false
 

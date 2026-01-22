@@ -26,12 +26,13 @@ For configuring extra planner features (Podman resource cleanup, volume data mig
 
 For configuring extra execution features (Remove invalid components on failed execution, etc) see `materia-config-executor(5)`.
 
+For configuring server mode features, see `materia-config-server(5)`.
+
 For configuring attributes management with `age`, see `materia-config-age(5)`.
 
 For configuring attributes management with `sops`, see `materia-config-sops(5)`.
 
 ## Options
-
 Presented in *environmental variable*/**TOML config line option** format.
 
 #### MATERIA_ATTRIBUTES/attributes
@@ -72,11 +73,11 @@ Root directory for materia directories. Defaults to `/var/lib/materia` for root 
 
 #### *MATERIA_SOURCE_DIR*/**source_dir**
 
-Directory where materia keeps local cache of source repository. Defaults to `PREFIX/source`
+Directory where materia keeps local cache of source repository. Defaults to `MATERIA_DATA_DIR/source`
 
 #### *MATERIA_OUTPUT_DIR*/**output_dir**
 
-Directory where materia outputs `lastrun` and `plan` files. Defaults to `PREFIX/output`
+Directory where materia outputs `lastrun` and `plan` files. Defaults to `MATERIA_DATA_DIR/output`
 
 #### *MATERIA_QUADLET_DIR*/**quadlet_dir**
 
@@ -135,27 +136,11 @@ If a volume quadlet is updated, instead of just updating the Quadlet file perfor
     5. Restart the updated service to create the new volume
     6. Import the old volume tarball into the new volume
 
-#### MATERIA_SECRETS_PREFIX/secrets_prefix
+#### MATERIA_SECRETS_MATERIA_DATA_DIR/secrets_prefix
 
 Sets the prefix Materia appends to Podman secrets it manages. Defaults to `materia-`
 
-#### MATERIA_SERVER__UPDATE_INTERVAL/server.update_interval
-
-How long (in seconds) for `materia server` to wait before running a `materia update`.
-
-#### MATERIA_SERVER__PLAN_INTERVAL/server.plan_interval
-
-How long (in seconds) for `materia server` to wait before running a `materia plan`.
-
-#### MATERIA_SERVER__WEBHOOK/server.webhook
-
-Where to send webhook notifications on plan/update failure
-
-#### MATERIA_SERVER__SOCKET/server.socket
-
-What Unix socket to listen on. Defaults to `/run/materia/materia.sock` for root and `/run/UID/materia/materia.sock` for rootless.
-
-#### MATERIA_ROOTLESS/materia.rootful
+#### MATERIA_ROOTLESS/materia.rootless
 
 (EXPERIMENTAL)
 
