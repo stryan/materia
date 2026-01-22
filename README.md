@@ -155,10 +155,10 @@ Assuming the `materia` binary is on your path, run `materia plan`:
 ```
 $ materia plan
 Plan:
-1. Installing component hello
-2. Templating container resource hello/hello.container
-3. Reloading systemd units
-4. Starting service hello/hello.service
+1. (hello) Install component
+2. (hello) Install quadlet hello.container
+3. (root) Reload host
+4. (hello) Start Service hello.service
 
 $
 ```
@@ -170,10 +170,10 @@ Assuming the plan was generated successfully, you can now run the actual update:
 ```
 $ materia update
 Plan:
-1. Installing component hello
-2. Templating container resource hello/hello.container
-3. Reloading systemd units
-4. Starting service hello/hello.service
+1. (hello) Install component
+2. (hello) Install quadlet hello.container
+3. (root) Reload host
+4. (hello) Start Service hello.service
 
 $ ls /etc/containers/systemd/
 hello
