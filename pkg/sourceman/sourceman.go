@@ -13,6 +13,7 @@ import (
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/oci"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
@@ -94,6 +95,18 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 			})
 			if err != nil {
 				return fmt.Errorf("invalid file source: %w", err)
+			}
+		case "oci":
+			remoteSource, err = oci.NewOCISource(&oci.Config{
+				URL:             r.URL,
+				Tag:             r.Version,
+				Username:        r.Username,
+				Password:        r.Password,
+				Insecure:        false,
+				LocalRepository: localpath,
+			})
+			if err != nil {
+				return fmt.Errorf("invalid OCI source: %w", err)
 			}
 		default:
 			return fmt.Errorf("invalid source: %v", parsedPath[0])
