@@ -22,6 +22,7 @@ import (
 	"primamateria.systems/materia/pkg/sourceman"
 
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/oci"
 
 	filesource "primamateria.systems/materia/internal/source/file"
 )
@@ -91,6 +92,15 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid file source: %w", err)
 		}
+	case "oci":
+		config, err := oci.NewConfig(k, sourceDir, sourceConfig.URL)
+		if err != nil {
+			return nil, fmt.Errorf("error creating OCI config: %w", err)
+		}
+		source, err = oci.NewOCISource(config)
+		if err != nil {
+			return nil, fmt.Errorf("invalid OCI source: %w", err)
+		}
 	default:
 		// try to guess from URL
 		parsedPath := strings.Split(sourceConfig.URL, "://")
@@ -112,6 +122,15 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 			source, err = filesource.NewFileSource(config)
 			if err != nil {
 				return nil, fmt.Errorf("invalid file source: %w", err)
+			}
+		case "oci":
+			config, err := oci.NewConfig(k, sourceDir, sourceConfig.URL)
+			if err != nil {
+				return nil, fmt.Errorf("error creating OCI config: %w", err)
+			}
+			source, err = oci.NewOCISource(config)
+			if err != nil {
+				return nil, fmt.Errorf("invalid OCI source: %w", err)
 			}
 		default:
 			return nil, fmt.Errorf("invalid source: %v", parsedPath[0])

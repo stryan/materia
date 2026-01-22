@@ -18,8 +18,10 @@ type SnippetConfig struct {
 }
 
 type RemoteComponentConfig struct {
-	URL     string `toml:"URL"`
-	Version string `toml:"Version"`
+	URL      string `toml:"URL"`
+	Version  string `toml:"Version"`
+	Username string `toml:"Username"`
+	Password string `toml:"Password"`
 }
 
 type MateriaManifest struct {
