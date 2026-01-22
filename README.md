@@ -38,7 +38,7 @@ Grab a release for your architecture from the releases page; the static binaries
 
 For obvious reasons, materia should only be run using `podman` as your container engine.
 
-By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](docs/markdown/index.md) for more details. By default materia uses XDG_DIR settings.
+By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](./docs/markdown/reference/index.md) for more details. By default materia uses XDG_DIR settings in rootless mode.
 ```
 podman run --name materia --rm \
 	--hostname <system_hostname> \
@@ -54,7 +54,8 @@ podman run --name materia --rm \
 	-v /etc/materia/key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE__KEYFILE=/etc/materia/key.txt \
-	--env MATERIA_SOURCE__URL=git://github.com/stryan/materia_example_repo \
+	--env MATERIA_SOURCE__KIND="git" \
+	--env MATERIA_SOURCE__URL=https://github.com/stryan/materia_example_repo \
 	ghcr.io/stryan/materia:stable update
 ```
 
@@ -145,7 +146,8 @@ Materia is designed to be configured with environment variables; if you would li
 
 Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
 
-`export MATERIA_SOURCE__URL="git://github.com:user/materia_repo"`
+`export MATERIA_SOURCE__KIND="git"`
+`export MATERIA_SOURCE__URL="https://github.com/stryan/materia_example_repo"`
 
 ### Generate the test plan
 

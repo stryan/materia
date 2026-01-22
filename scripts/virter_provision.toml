@@ -8,7 +8,6 @@ AgeKeyLocation = "scripts/testrepo/test-key.txt"
 [env]
 MATERIA_DEBUG = "true"
 MATERIA_DIFFS = "true"
-MATERIA_SOURCE_URL = "{{ .Repo }}"
 MATERIA_GIT_PRIVATE_KEY = ".ssh/materia_key"
 MATERIA_HOSTNAME = "localhost"
 REMOTEHOST = "{{ .RemoteHost }}"

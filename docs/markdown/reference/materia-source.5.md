@@ -34,6 +34,8 @@ If left empty materia will guess based off the provided URL. Otherwise the speci
 
 Source location of the *materia-repository(5)* in URL format. Will be provided directly to the source provider.
 
+(The following behaviour is deprecated and will be removed in a future release)
+
 If `source.kind` is not specified it will attempt to guess what source to use based off the following formats:
 
 Accepted formats:
