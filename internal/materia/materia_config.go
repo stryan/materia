@@ -171,10 +171,11 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 			dataPath = datadir
 			servicePath = filepath.Join(datadir, "systemd", "user")
 		}
+		dataPath = filepath.Join(dataPath, "materia")
 		scriptsPath = filepath.Join(home, ".local", "bin")
-		sourcePath = filepath.Join(datadir, "source")
-		outputPath = filepath.Join(datadir, "output")
-		remotePath = filepath.Join(datadir, "remote")
+		sourcePath = filepath.Join(dataPath, "source")
+		outputPath = filepath.Join(dataPath, "output")
+		remotePath = filepath.Join(dataPath, "remote")
 	}
 	if c.MateriaDir == "" {
 		c.MateriaDir = dataPath
@@ -223,39 +224,51 @@ func (c *MateriaConfig) Validate() error {
 
 func (c *MateriaConfig) String() string {
 	var result string
-	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
-	result += fmt.Sprintf("STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
-	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
-	result += fmt.Sprintf("Service Timeout: %v\n", c.Timeout)
+	result += "Materia Config\n"
+	result += "\nFile paths\n"
 	result += fmt.Sprintf("Materia Root: %v\n", c.MateriaDir)
 	result += fmt.Sprintf("Quadlet Dir: %v\n", c.QuadletDir)
 	result += fmt.Sprintf("Scripts Dir: %v\n", c.ScriptsDir)
+	result += fmt.Sprintf("Systemd Units dir: %v\n", c.ServiceDir)
 	result += fmt.Sprintf("Source cache dir: %v\n", c.SourceDir)
 	result += fmt.Sprintf("Remote cache dir: %v\n", c.RemoteDir)
-	result += fmt.Sprintf("Resources Only: %v\n", c.OnlyResources)
+	result += fmt.Sprintf("Output Dir: %v\n", c.OutputDir)
+	result += "\nGlobal Settings\n"
+
+	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
+	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
-	result += fmt.Sprintf("Remote: %v\n", c.Remote)
-	result += fmt.Sprintf("Rootless: %v\n", c.Rootless)
+	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
+	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
+	result += fmt.Sprintf("Podman Secrets Prefix: %v\n", c.SecretsPrefix)
+	result += fmt.Sprintf("Default Service Timeout: %v\n", c.Timeout)
+	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
+	result += fmt.Sprintf("Quiet mode: %v\n", c.Quiet)
+	result += fmt.Sprintf("Resources Changes Only: %v\n", c.OnlyResources)
+	result += fmt.Sprintf("Remote mode: %v\n", c.Remote)
+	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
 	if c.PlannerConfig != nil {
-		result += "Planner Config: \n"
+		result += "\nPlanner Config: \n"
 		result += fmt.Sprintf("%v", c.PlannerConfig.String())
 	}
 	if c.ExecutorConfig != nil {
-		result += "Executor Config: \n"
+		result += "\nExecutor Config: \n"
 		result += fmt.Sprintf("%v", c.ExecutorConfig.String())
-
+	}
+	result += "\nAttributes Config\n"
+	if c.Attributes != "" {
+		result += fmt.Sprintf("Manually Specified Engine: %v\n", c.Attributes)
 	}
 	if c.AgeConfig != nil {
-		result += "Age Config: \n"
+		result += "\nAge Config: \n"
 		result += fmt.Sprintf("%v", c.AgeConfig.String())
 	}
 	if c.FileConfig != nil {
-		result += "File Config: \n"
+		result += "\nFile Config: \n"
 		result += fmt.Sprintf("%v", c.FileConfig.String())
 	}
 	if c.SopsConfig != nil {
-		result += "Sops Config: \n"
+		result += "\nSops Config: \n"
 		result += fmt.Sprintf("%v", c.SopsConfig.String())
 	}
 
