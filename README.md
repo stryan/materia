@@ -5,12 +5,12 @@
 A GitOps style tool for managing services and applications deployed as [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
 
 Materia handles the full lifecycle of an application (or **component**):
-1. It installs components and all their associated Quadlets, templating files with variables and secrets if required
-2. It starts services required by the component
+1. It installs components and all their associated Quadlets and data files, templating files with variables and secrets if required
+2. It starts services required by the component.
 3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
 4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
-See the [Documentation site](https://primamateria.systems) for more details, the [example repository](https://github.com/stryan/materia_example_repo), or read on for a quick start.
+See the [Documentation site](https://primamateria.systems) for more details and the [example repository](https://github.com/stryan/materia_example_repo) for what Materia repository looks like.
 
 # Install
 
@@ -73,118 +73,7 @@ See [install](./install/) for an example Quadlet.
 
 # Quickstart
 
-## Install materia on the destination node
-
-Follow the instructions under Install and get that binary or container on the target.
-
-For this quickstart we will assume you're using the raw binary on machine "testhost". We will also assume that A) you are running the binary as root and B) the root user is already set up for password-less SSH to your Git forge of choice.
-
-## Setup your repository
-
-For a more in-depth look at setting up a repository, see the [example repo](https://github.com/stryan/materia_example_repository) and the [repository documentation](docs/markdown/reference/materia-repository.5.md).
-
-On your workstation, create a bare Git repository with the following directories:
-
-```
-repo/
-repo/components
-repo/components/hello
-```
-
-### Create a component
-Create the following *quadlet resource* in the hello *component* directory:
-```
-cat > repo/components/hello/hello.container.gotmpl << EOL
-[Unit]
-Description=Hello Service
-
-[Container]
-ContainerName=busybox1
-Image=docker.io/busybox:{{.containerTag}}
-Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Hello World; sleep 1; done"
-
-[Install]
-WantedBy=multi-user.target
-EOL
-```
-
-A resource can be any file type; resource files ending with `.gotmpl` are interpreted as Go Templates.
-
-Create the following *manifest resource* for the component:
-```
-cat > repo/components/hello/MANIFEST.toml << EOL
-[Defaults]
-containerTag = "latest"
-[[Services]]
-Service = "hello.service"
-EOL
-```
-
-Manifest resources always have the file name `MANIFEST.toml`
-
-### Assign components to a localhost
-
-Create the following *repository manifest* in the top level of the repository:
-```
-cat > repo/MANIFEST.toml << EOL
-[hosts.testhost]
-components = ["hello"]
-EOL
-```
-
-### Push the repository to your forge of choice
-
-```
-git remote add origin github.com:user/materia_repo
-git push
-```
-
-## Run a test plan
-
-### Set environment variables
-Materia is designed to be configured with environment variables; if you would like to use config files see the [config docs](docs/markdown/reference/materia-config.5.md).
-
-Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
-
-`export MATERIA_SOURCE__KIND="git"`
-`export MATERIA_SOURCE__URL="https://github.com/stryan/materia_example_repo"`
-
-### Generate the test plan
-
-Assuming the `materia` binary is on your path, run `materia plan`:
-```
-$ materia plan
-Plan:
-1. (hello) Install component
-2. (hello) Install quadlet hello.container
-3. (root) Reload host
-4. (hello) Start Service hello.service
-
-$
-```
-
-## Run an update
-
-Assuming the plan was generated successfully, you can now run the actual update:
-
-```
-$ materia update
-Plan:
-1. (hello) Install component
-2. (hello) Install quadlet hello.container
-3. (root) Reload host
-4. (hello) Start Service hello.service
-
-$ ls /etc/containers/systemd/
-hello
-$ ls -a /etc/containers/systemd/hello
-. .. hello.container .materia_managed
-$ ls -a /var/lib/materia/components/hello
-. .. .component_version
-$ systemctl is-active hello.service
-active
-$
-```
+View the Quickstart guide on the [documentation site](https://primamateria.systems/quickstart.html).
 
 # Contributing
 
