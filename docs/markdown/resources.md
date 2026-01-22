@@ -8,7 +8,7 @@ There are several kinds of resources broken up into two categories: Quadlet and 
 
 ## Resource Kinds
 
-Resource kind is determined by file type (with the exception of scripts, which can be defined in a component manifest).
+Resource kind is determined by file type (with the exception of scripts, which can also be defined in a component manifest).
 
 ### Quadlet Resources
 
@@ -31,12 +31,12 @@ Scripts are resources that end in `.sh` OR are manually specified as a script in
 
 Scripts can be designated as setup scripts or cleanup scripts with the `Settings.SetupScript` and `Settings.CleanupScript` component manifest options, respectively.
 
-They are installed to the Scripts directory as well the Data directory. By default this is `/usr/local/bin`.
+They are installed to the Scripts directory as well the Data directory. By default this is `/usr/local/bin` for root and `$HOME/.local/bin` for rootless.
 
 #### Services
-Services are resources that are Systemd unit files. The following types are recognized: `.timer`,`.service`,`.socket`,`.mount`,`.device`,`.automount`,`.device`,`.slice`,`.scope`,`.swap`,`path`, and `.target`.
+Services are resources that are Systemd unit files. The following types are recognized: `.timer`,`.service`,`.socket`,`.mount`,`.device`,`.automount`,`.device`,`.slice`,`.scope`,`.swap`,`.path`, and `.target`.
 
-They are installed the Systemd directory as well as the Data directory. By default this is `/etc/systemd/system`.
+They are installed the Systemd directory as well as the Data directory. By default this is `/etc/systemd/system` for root and .
 
 
 ## Templating Resources
@@ -52,3 +52,5 @@ Materia also includes several "macros" to make writing resources easier. A full 
 `{{ m_dataDir "component name" }}` which returns the data directory for the component specified. Useful for referring to config file resources.
 
 `{{ m_default "attribute name" "default" }}` which returns the attribute value if defined or the default value if not.
+
+`{{ m_facts "fact name" }}` will return the provided host `fact`. See the [facts](./facts.md) page for more details.
