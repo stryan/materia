@@ -10,6 +10,38 @@ Materia handles the full lifecycle of an application (or **component**):
 3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
 4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
+```mermaid
+graph TD
+    Start([Start: materia update]) --> SyncSources[Sync Source from Git repository]
+
+    SyncSources --> BuildGraph[Build Component Graph]
+    BuildGraph --> ListInstalled[List Installed Components on Host]
+    BuildGraph --> ListAssigned[List Assigned Components from Source]
+
+    ListInstalled --> CompareStates[Compare current host state versus desired state]
+    ListAssigned --> CompareStates
+    CompareStates -->|New Component| GenFresh[Generate installation steps: </br>-Install Files<br/>- Start Services]
+
+    CompareStates -->|Removed Component| GenRemove[Generate removal steps:<br/>- Stop Services<br/>- Remove files]
+
+    CompareStates -->|Updated Component| GenUpdate[Generate update steps:<br/>- Add/Update/Remove Files<br/>- Restart Services if needed]
+
+    CompareStates -->|No Changes| GenUnchanged[Start/Stop services]
+
+    GenFresh --> BuildPlan[Build Execution Plan]
+    GenRemove --> BuildPlan
+    GenUpdate --> BuildPlan
+    GenUnchanged --> BuildPlan
+
+    BuildPlan --> ExecutePlan[Execute Plan]
+
+    ExecutePlan --> ExecResources[-Install/Update/Remove templated files<br/>- Install Quadlets<br/>- Create Volumes/Networks]
+
+    ExecResources --> ExecServices[Execute Service Actions:<br/>- Start/Stop/Restart systemd units<br/>]
+
+    ExecServices --> End([End: Host in expected state])
+```
+
 See the [Documentation site](https://primamateria.systems) for more details and the [example repository](https://github.com/stryan/materia_example_repo) for what Materia repository looks like.
 
 # Install
@@ -22,6 +54,7 @@ Materia will not work with Podman versions lower than 4.4, as that is the versio
 
 - Podman 5.4 or higher
 - Systemd v254 or higher
+- AMD64 or ARM64 architecture
 
 Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
 
