@@ -396,3 +396,22 @@ func TestComponentScripts(t *testing.T) {
 	require.True(t, componentRemoved("hello"))
 	require.False(t, fileExists("/tmp/hello"))
 }
+
+func TestOCISource(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, clearMateria(ctx))
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__KIND", "oci"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "oci://git.saintnet.tech/stryan/materia-example-repo:latest"))
+	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, setEnv("MATERIA_SOPS__BASE_DIR", "attributes"))
+	require.Nil(t, setEnv("SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err := planCmd.Run()
+	require.NoError(t, err)
+	require.True(t, fileExists("/var/lib/materia/source/components/freshrss/MANIFEST.toml"))
+	require.True(t, fileExists("/var/lib/materia/source/components/podman_exporter/MANIFEST.toml"))
+}
