@@ -1,17 +1,10 @@
 version = 1
 
-[values]
-Repo = "git@github.com:materia/materia_repo"
-RemoteHost = "github.com"
-AgeKeyLocation = "scripts/testrepo/test-key.txt"
 
 [env]
 MATERIA_DEBUG = "true"
 MATERIA_DIFFS = "true"
-MATERIA_SOURCE_URL = "{{ .Repo }}"
-MATERIA_GIT_PRIVATE_KEY = ".ssh/materia_key"
-MATERIA_HOSTNAME = "localhost"
-REMOTEHOST = "{{ .RemoteHost }}"
+
 
 [[steps]]
 [steps.shell]
@@ -32,11 +25,6 @@ dest = "/usr/local/bin/materia"
 [steps.rsync]
 source = "virter/auth/*"
 dest = "/root/.ssh/"
-
-[[steps]]
-[steps.rsync]
-source = "{{ .AgeKeyLocation }}"
-dest = "/etc/materia/key.txt"
 
 [[steps]]
 [steps.rsync]

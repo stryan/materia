@@ -6,6 +6,7 @@ Best effort list of major changes and bugfixes
 - feat: Component scripts are no longer a separate resource type. They are instead normal script resources that, when specified in the component manifest, are run in a transient systemd unit on installation/removal.
 - bugfix: component removal ignores non-existent services
 - bugfix/feat: `Overrides` now properly overrides manifests, new `Extensions` manifest option
+- feat: add support for OCI images as repository sources.
 
 ## 0.5.1
 - bugfix: fixed some typos around volume importing
