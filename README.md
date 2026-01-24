@@ -61,13 +61,13 @@ podman run --name materia --rm \
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.
 
-See [install](./install/) for an example Quadlet.
+See [install](./install/) for example Quadlets.
 
 ### Available tags
 
-**stable**: Use the latest tagged release
+**stable**: Use the latest tagged release.
 
-**v<tag>**: Specify tagged release
+**v<tag>**: Specific tagged release.
 
 **latest**: Latest push to master
 
@@ -77,8 +77,6 @@ View the Quickstart guide on the [documentation site](https://primamateria.syste
 
 # Contributing
 
-If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
+ Questions or bug reports are welcome! Please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions or ask questions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
 
-Submissions using LLMs for the submitted code must indicate as such, preferably using the `Assisted-by` header as documented in the [Fedora AI-Assisted Contributions Policy](https://docs.fedoraproject.org/en-US/council/policy/ai-contribution-policy/). They will be evaluated on a case-by-case basis.
-
-PR/MR's and bug reports must be created by humans.
+For submitting features/bugfixes/code-in general via merge requests, please see the [Contribution guide](CONTRIBUTING.md).

@@ -2,6 +2,13 @@
 
 Best effort list of major changes and bugfixes
 
+## Deprecations
+### v0.6
+- `autoUpdate` snippet
+- `cleanup`, `cleanup_volumes`, `backup_volumes`, `migrate_volumes` settings are now in the `planner` section.
+### v0.7
+- `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
+
 ## Upcoming
 - feat: Component scripts are no longer a separate resource type. They are instead normal script resources that, when specified in the component manifest, are run in a transient systemd unit on installation/removal.
 - bugfix: component removal ignores non-existent services
