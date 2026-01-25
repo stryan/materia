@@ -2,49 +2,30 @@
 
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#materia:saintnet.tech)
 
-A GitOps style tool for managing services and applications deployed as [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
+A GitOps tool for managing services and applications deployed as [Podman Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
 
 Materia handles the full lifecycle of an application (or **component**):
-1. It installs components and all their associated Quadlets and data files, templating files with variables and secrets if required
-2. It starts services required by the component.
-3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
-4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
+1. Materia polls a remote source, downloading a manifest describing what the state of the applications on the host should look like.
+2. It installs components and all their associated Quadlets and data files, templating files with variables and secrets if required
+3. It starts services required by the component.
+4. When updated files are found in the source repository it updates the installed versions and restarts services accordingly.
+5. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
-```mermaid
-graph TD
-    Start([Start: materia update]) --> SyncSources[Sync Source from Git repository]
+Curious to how it works? See the `materia update` [workflow diagram](./diagram.md)
 
-    SyncSources --> BuildGraph[Build Component Graph]
-    BuildGraph --> ListInstalled[List Installed Components on Host]
-    BuildGraph --> ListAssigned[List Assigned Components from Source]
+# Documentation
 
-    ListInstalled --> CompareStates[Compare current host state versus desired state]
-    ListAssigned --> CompareStates
-    CompareStates -->|New Component| GenFresh[Generate installation steps: </br>-Install Files<br/>- Start Services]
+Main Documentation site: [primamateria.systems](https://primamateria.systems)
 
-    CompareStates -->|Removed Component| GenRemove[Generate removal steps:<br/>- Stop Services<br/>- Remove files]
+Quickstart guide: [On the documentation website](https://primamateria.systems/quickstart.html).
 
-    CompareStates -->|Updated Component| GenUpdate[Generate update steps:<br/>- Add/Update/Remove Files<br/>- Restart Services if needed]
+Online Manpages: [latest](https://primamateria.systems/documentation/latest/reference/)
 
-    CompareStates -->|No Changes| GenUnchanged[Start/Stop services]
+Example Materia Repository: [here](https://github.com/stryan/example-materia-repository)
 
-    GenFresh --> BuildPlan[Build Execution Plan]
-    GenRemove --> BuildPlan
-    GenUpdate --> BuildPlan
-    GenUnchanged --> BuildPlan
+Example Materia Component: [dnsmasq component here](https://github.com/stryan/dnsmasq_component)
 
-    BuildPlan --> ExecutePlan[Execute Plan]
-
-    ExecutePlan --> ExecResources[-Install/Update/Remove templated files<br/>- Install Quadlets<br/>- Create Volumes/Networks]
-
-    ExecResources --> ExecServices[Execute Service Actions:<br/>- Start/Stop/Restart systemd units<br/>]
-
-    ExecServices --> End([End: Host in expected state])
-```
-
-See the [Documentation site](https://primamateria.systems) for more details and the [example repository](https://github.com/stryan/materia_example_repo) for what Materia repository looks like.
-
-# Install
+# Installation
 
 ## Requirements
 
@@ -103,10 +84,6 @@ See [install](./install/) for example Quadlets.
 **v<tag>**: Specific tagged release.
 
 **latest**: Latest push to master
-
-# Quickstart
-
-View the Quickstart guide on the [documentation site](https://primamateria.systems/quickstart.html).
 
 # Contributing
 
