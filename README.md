@@ -21,7 +21,7 @@ Quickstart guide: [On the documentation website](https://primamateria.systems/qu
 
 Online Manpages: [latest](https://primamateria.systems/documentation/latest/reference/)
 
-Example Materia Repository: [here](https://github.com/stryan/example-materia-repository)
+Example Materia Repository: [here](https://github.com/stryan/materia_example_repo)
 
 Example Materia Component: [dnsmasq component here](https://github.com/stryan/dnsmasq_component)
 
