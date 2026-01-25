@@ -12,21 +12,58 @@ component: A collection of resources. Similar to an ansible role and is the basi
 
 resource: An individual file that is installed as part of a component and removed when the component is removed. Includes quadlets, data files, non-generated systemd units, scripts, and more.
 
+attribute: A variable in a templated Materia resource.
+
+plan: The series of steps Materia will take to get the target node to the state specified in the repository.
+
 execution: The act of Materia actually installing a resource to a target. For non-templated resources this is a straight file copy. For templated resources, this involves treating it as a Go template.
 
+
 ## Default locations
+
+### Root
 
 Base prefix for materia data: `/var/lib/materia`
 
 Target's local copy of source repository: `/var/lib/materia/source`
 
-Non quadlet files for components: `/var/lib/materia/components/COMPONENT_NAME`
+Quadlet files (.container,.volume,etc): `/etc/containers/systemd/COMPONENT_NAME/`
 
-Script resources: `/usr/local/bin/` and `/var/lib/components/COMPONENT_NAME`
+Data files for components: `/var/lib/materia/components/COMPONENT_NAME`
 
-Systemd unit files: `/etc/systemd/system/` and `/var/lib/components/COMPONENT_NAME`
+Materia generated files: `/var/lib/materia/output`
+
+Local copies of Remote Components: `/var/lib/materia/remote`
+
+The following resources types are installed to the specified locations as well as the Data file location
+
+Script resources: `/usr/local/bin/`
+
+Systemd unit files: `/etc/systemd/system/`
+
+
+### Rootless
+
+Assuming username is `user`. Materia will use `XDG_DIR` locations by default, even if the environmental variables are not set. This can be overridden.
+
+Base prefix for materia data: `$XDG_DATA_HOME/materia`
+
+Target's local copy of source repository: `$XDG_DATA_HOME/materia/source`
 
 Quadlet files (.container,.volume,etc): `/etc/containers/systemd/COMPONENT_NAME/`
+
+Data files for components: `$XDG_DATA_HOME/materia/components/COMPONENT_NAME`
+
+Materia generated files: `$XDG_DATA_HOME/materia/output`
+
+Local copies of Remote Components: `$XDG_DATA_HOME/materia/remote`
+
+The following resources types are installed to the specified locations as well as the Data file location
+
+Script resources: `$HOME/.local/bin`
+
+Systemd unit files: `$XDG_CONFIG_HOME/containers/systemd/`
+
 
 ## Materia high-level overview
 

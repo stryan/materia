@@ -34,6 +34,8 @@ If left empty materia will guess based off the provided URL. Otherwise the speci
 
 Source location of the *materia-repository(5)* in URL format. Will be provided directly to the source provider.
 
+(The following behaviour is deprecated and will be removed in v0.7)
+
 If `source.kind` is not specified it will attempt to guess what source to use based off the following formats:
 
 Accepted formats:
@@ -75,6 +77,8 @@ Prevents materia from running git operations that would overwrite git history (i
 ### OCI Config
 
 Note: the OCI source only works with remote images. You can not refer to a local image with this.
+
+The OCI image is expected to have the materia repository as its root filesystem.
 
 #### MATERIA_OCI__USERNAME/ oci.username
 

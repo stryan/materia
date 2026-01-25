@@ -6,7 +6,6 @@ LocalRepo = "./testrepo/"
 AgeKeyLocation = "scripts/_vm/auth/key.txt"
 
 [env]
-MATERIA_SOURCE_URL = "{{ .Repo }}"
 MATERIA_LOCALREPO = "{{ .LocalRepo }}"
 MATERIA_PRIVATE_KEY = ".ssh/materia_key"
 MATERIA_DEBUG = "true"

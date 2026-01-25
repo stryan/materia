@@ -21,10 +21,7 @@ roles = ["base"]
 [roles]
 [roles.base]
 components = ["podman_exporter"]
-
-
 ```
-
 
 This defines two entities: a `host `and a `role`. Roles are collections of components and are assigned to hosts. Any host with a given role will be treated as if it has all the role's assigned components assigned to it.
 
@@ -48,5 +45,7 @@ components = ["freshrss"]
 [[hosts.vindicta.Extensions.freshrss.Services]]
 Service = "freshrss.timer"
 ```
+
+This will add a new service definition to the component with the `freshrss.timer` service.
 
 For more details about the Materia manifest, see the [reference page](./reference/materia-manifest.5.md)

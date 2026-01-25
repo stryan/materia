@@ -39,3 +39,25 @@ Files that are general attributes vaults. Defaults to "vault.yml" and "attribute
 Suffix that denotes an encrypted file and comes before the base file type. Use this if your base directory includes both encrypted and un-encrypted files.
 
 Example: `sops.suffix = "enc"` will cause materia to look for files like `vault.enc.yml` instead of `vault.yml`.
+
+## File Format
+
+A file vault is a YAML or INI file with one or more of the following maps:
+
+`globals`: Global attributes
+`hosts`: Attributes scoped to a host
+`components`: Attributes scoped to a component
+`roles`: Attributes scoped to a role
+
+
+An example file would look like this:
+
+```yaml
+globals:
+    localDNS: 192.168.10.10
+    localDomain: saintnet.lan
+    tailscaleDomain: tail36717.ts.net
+components:
+    caddy:
+        caddyImage: git.saintnet.tech/stryan/saintnet_caddy
+```

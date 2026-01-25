@@ -25,6 +25,12 @@ run = "podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.s
 [tasks.build]
 depends = ["generate", "build-arm64", "build-amd64"]
 
+[tasks.fmt]
+depends = ["generate"]
+sources = ["go.mod", "go.sum", "**/*.go"]
+outputs = { auto = true }
+run = "golangci-lint fmt ./cmd/... ./internal/... ./pkg/..."
+
 [tasks.lint]
 depends = ["generate"]
 sources = ["go.mod", "go.sum", "**/*.go"]
@@ -32,7 +38,7 @@ outputs = { auto = true }
 run = "golangci-lint run ./cmd/... ./internal/... ./pkg/..."
 
 [tasks.test]
-depends = ["lint"]
+depends = ["fmt","lint"]
 usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''
@@ -59,6 +65,7 @@ run = """
 """
 
 [tasks.virter-test]
+tools."github:LINBIT/virter" = "latest"
 usage = '''
 flag "-k --keep" help="Keep VM after running tests" default=#false
 flag "-v --verbose" help="Run tests with verbose enabled" default=#false

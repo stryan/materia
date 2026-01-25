@@ -5,7 +5,6 @@ version = 1
 MATERIA_DEBUG = "true"
 MATERIA_DIFFS = "true"
 
-
 [[steps]]
 [steps.shell]
 script = """

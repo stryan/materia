@@ -31,3 +31,24 @@ Directory that contains attributes. Defaults to `secrets`.
 #### **MATERIA_FILE__VAULTS**/**file.vaults**
 
 Files that are general attributes vaults. Defaults to `vault.toml`.
+
+## File Format
+
+A file vault is a TOML file with one or more of the following tables:
+
+`[globals]`: Global attributes
+`[hosts]`: Attributes scoped to a host
+`[components]`: Attributes scoped to a component
+`[roles]`: Attributes scoped to a role
+
+
+An example file would look like this:
+
+```toml
+[components]
+[components.freshrss]
+dataContents = ""
+extensionsContents = ""
+port = "7770"
+containerTag = "edge"
+

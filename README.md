@@ -2,17 +2,30 @@
 
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#materia:saintnet.tech)
 
-A GitOps style tool for managing services and applications deployed as [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
+A GitOps tool for managing services and applications deployed as [Podman Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
 
 Materia handles the full lifecycle of an application (or **component**):
-1. It installs components and all their associated Quadlets, templating files with variables and secrets if required
-2. It starts services required by the component
-3. When updated files are found in the source repository it updates the installed versions and restarts services accordingly
-4. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
+1. Materia polls a remote source, downloading a manifest describing what the state of the applications on the host should look like.
+2. It installs components and all their associated Quadlets and data files, templating files with variables and secrets if required
+3. It starts services required by the component.
+4. When updated files are found in the source repository it updates the installed versions and restarts services accordingly.
+5. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
 
-See the [Documentation site](https://primamateria.systems) for more details, the [example repository](https://github.com/stryan/materia_example_repo), or read on for a quick start.
+Curious to how it works? See the `materia update` [workflow diagram](./diagram.md)
 
-# Install
+# Documentation
+
+Main Documentation site: [primamateria.systems](https://primamateria.systems)
+
+Quickstart guide: [On the documentation website](https://primamateria.systems/quickstart.html).
+
+Online Manpages: [latest](https://primamateria.systems/documentation/latest/reference/)
+
+Example Materia Repository: [here](https://github.com/stryan/example-materia-repository)
+
+Example Materia Component: [dnsmasq component here](https://github.com/stryan/dnsmasq_component)
+
+# Installation
 
 ## Requirements
 
@@ -22,6 +35,7 @@ Materia will not work with Podman versions lower than 4.4, as that is the versio
 
 - Podman 5.4 or higher
 - Systemd v254 or higher
+- AMD64 or ARM64 architecture
 
 Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
 
@@ -38,7 +52,7 @@ Grab a release for your architecture from the releases page; the static binaries
 
 For obvious reasons, materia should only be run using `podman` as your container engine.
 
-By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](docs/markdown/index.md) for more details. By default materia uses XDG_DIR settings.
+By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](./docs/markdown/reference/index.md) for more details. By default materia uses XDG_DIR settings in rootless mode.
 ```
 podman run --name materia --rm \
 	--hostname <system_hostname> \
@@ -54,140 +68,25 @@ podman run --name materia --rm \
 	-v /etc/materia/key.txt:/etc/materia/key.txt \ #Optional, used for age decryption
 	-v /etc/materia/materia_key:/etc/materia/materia_key \ # Optional, used for git+ssh checkouts
 	--env MATERIA_AGE__KEYFILE=/etc/materia/key.txt \
-	--env MATERIA_SOURCE__URL=git://github.com/stryan/materia_example_repo \
+	--env MATERIA_SOURCE__KIND="git" \
+	--env MATERIA_SOURCE__URL=https://github.com/stryan/materia_example_repo \
 	ghcr.io/stryan/materia:stable update
 ```
 
 Note that some security settings may need to be adjusted based off your distro. For example, systems using AppArmor may require `PodmanArgs=--security-opt=apparmor=unconfined`.
 
-See [install](./install/) for an example Quadlet.
+See [install](./install/) for example Quadlets.
 
 ### Available tags
 
-**stable**: Use the latest tagged release
+**stable**: Use the latest tagged release.
 
-**v<tag>**: Specify tagged release
+**v<tag>**: Specific tagged release.
 
 **latest**: Latest push to master
 
-# Quickstart
-
-## Install materia on the destination node
-
-Follow the instructions under Install and get that binary or container on the target.
-
-For this quickstart we will assume you're using the raw binary on machine "testhost". We will also assume that A) you are running the binary as root and B) the root user is already set up for password-less SSH to your Git forge of choice.
-
-## Setup your repository
-
-For a more in-depth look at setting up a repository, see the [example repo](https://github.com/stryan/materia_example_repository) and the [repository documentation](docs/markdown/reference/materia-repository.5.md).
-
-On your workstation, create a bare Git repository with the following directories:
-
-```
-repo/
-repo/components
-repo/components/hello
-```
-
-### Create a component
-Create the following *quadlet resource* in the hello *component* directory:
-```
-cat > repo/components/hello/hello.container.gotmpl << EOL
-[Unit]
-Description=Hello Service
-
-[Container]
-ContainerName=busybox1
-Image=docker.io/busybox:{{.containerTag}}
-Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Hello World; sleep 1; done"
-
-[Install]
-WantedBy=multi-user.target
-EOL
-```
-
-A resource can be any file type; resource files ending with `.gotmpl` are interpreted as Go Templates.
-
-Create the following *manifest resource* for the component:
-```
-cat > repo/components/hello/MANIFEST.toml << EOL
-[Defaults]
-containerTag = "latest"
-[[Services]]
-Service = "hello.service"
-EOL
-```
-
-Manifest resources always have the file name `MANIFEST.toml`
-
-### Assign components to a localhost
-
-Create the following *repository manifest* in the top level of the repository:
-```
-cat > repo/MANIFEST.toml << EOL
-[hosts.testhost]
-components = ["hello"]
-EOL
-```
-
-### Push the repository to your forge of choice
-
-```
-git remote add origin github.com:user/materia_repo
-git push
-```
-
-## Run a test plan
-
-### Set environment variables
-Materia is designed to be configured with environment variables; if you would like to use config files see the [config docs](docs/markdown/reference/materia-config.5.md).
-
-Since we're not using any [attributes](docs/markdown/attributes.md) we only need to set the source URL:
-
-`export MATERIA_SOURCE__URL="git://github.com:user/materia_repo"`
-
-### Generate the test plan
-
-Assuming the `materia` binary is on your path, run `materia plan`:
-```
-$ materia plan
-Plan:
-1. Installing component hello
-2. Templating container resource hello/hello.container
-3. Reloading systemd units
-4. Starting service hello/hello.service
-
-$
-```
-
-## Run an update
-
-Assuming the plan was generated successfully, you can now run the actual update:
-
-```
-$ materia update
-Plan:
-1. Installing component hello
-2. Templating container resource hello/hello.container
-3. Reloading systemd units
-4. Starting service hello/hello.service
-
-$ ls /etc/containers/systemd/
-hello
-$ ls -a /etc/containers/systemd/hello
-. .. hello.container .materia_managed
-$ ls -a /var/lib/materia/components/hello
-. .. .component_version
-$ systemctl is-active hello.service
-active
-$
-```
-
 # Contributing
 
-If you have any questions or issues, please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
+ Questions or bug reports are welcome! Please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions or ask questions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
 
-Submissions using LLMs for the submitted code must indicate as such, preferably using the `Assisted-by` header as documented in the [Fedora AI-Assisted Contributions Policy](https://docs.fedoraproject.org/en-US/council/policy/ai-contribution-policy/). They will be evaluated on a case-by-case basis.
-
-PR/MR's and bug reports must be created by humans.
+For submitting features/bugfixes/code-in general via merge requests, please see the [Contribution guide](CONTRIBUTING.md).
