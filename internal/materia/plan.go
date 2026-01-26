@@ -110,6 +110,9 @@ func (p *Plan) Validate() error {
 		if (a.Target.Kind == components.ResourceTypeService || a.Target.IsQuadlet()) && a.Todo == ActionInstall {
 			needReload = true
 		}
+		if a.Target.Kind == components.ResourceTypeCombined {
+			return fmt.Errorf("%v/%v invalid plan: tried to act on a combined resource: %v", currentStep, maxSteps, a.Target.Path)
+		}
 		if a.Todo == ActionReload && a.Target.Path == "" {
 			reload = true
 		}

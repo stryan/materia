@@ -161,6 +161,8 @@ func FindResourceType(file string) ResourceType {
 		return ResourceTypeImage
 	case ".kube":
 		return ResourceTypeKube
+	case ".quadlets":
+		return ResourceTypeCombined
 	case ".toml":
 		if filepath.Base(file) == manifests.ComponentManifestFile {
 			return ResourceTypeManifest

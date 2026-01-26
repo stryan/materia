@@ -35,6 +35,8 @@ const (
 	ResourceTypeBuild
 	ResourceTypeImage
 
+	ResourceTypeCombined
+
 	ResourceTypeFile
 	ResourceTypeManifest
 	ResourceTypeScript

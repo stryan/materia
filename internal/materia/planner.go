@@ -802,6 +802,20 @@ func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, at
 		} else {
 			r.Content = bodyTemplate
 		}
+		if r.Kind == components.ResourceTypeCombined {
+			expandedResources, err := r.GetResourcesFromQuadletsFile(r.Content)
+			if err != nil {
+				return nil, fmt.Errorf("can't expand combined resource %v: %w", r.Path, err)
+			}
+			for _, er := range expandedResources {
+				// Since range copies the value these won't get processed in this loop
+				// Combined quadlets can only have quadlets and data files so there's no other processing to be done
+				sourceComponent.Resources.Set(er)
+			}
+			// Remove the combined resource from the set so we don't accidentally install it
+			sourceComponent.Resources.Delete(r.Path)
+			continue
+		}
 		if r.IsQuadlet() {
 			hostObject, err := r.GetHostObject(r.Content)
 			if err != nil {
