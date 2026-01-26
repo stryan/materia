@@ -44,6 +44,33 @@ const (
 	ResourceTypePodmanSecret
 )
 
+func (t ResourceType) toExt() (string, error) {
+	switch t {
+	case ResourceTypeBuild:
+		return "build", nil
+	case ResourceTypeComponent:
+		return "component", nil
+	case ResourceTypeContainer:
+		return "container", nil
+	case ResourceTypeImage:
+		return "image", nil
+	case ResourceTypeKube:
+		return "kube", nil
+	case ResourceTypeManifest:
+		return "toml", nil
+	case ResourceTypeNetwork:
+		return "network", nil
+	case ResourceTypePod:
+		return "pod", nil
+	case ResourceTypeScript:
+		return "sh", nil
+	case ResourceTypeVolume:
+		return "volume", nil
+	default:
+		return "", errors.New("resource type wouldn't have file extension")
+	}
+}
+
 func (r Resource) Validate() error {
 	if r.Kind == ResourceTypeHost {
 		if r.Path != "" {
@@ -123,15 +150,7 @@ func (r Resource) IsFile() bool {
 	}
 }
 
-func (r Resource) GetHostObject(unitData string) (string, error) {
-	if !r.IsQuadlet() {
-		return "", errors.New("can't get host object for non-quadlet")
-	}
-	unitfile := parser.NewUnitFile()
-	err := unitfile.Parse(unitData)
-	if err != nil {
-		return "", fmt.Errorf("error parsing systemd unit file: %w", err)
-	}
+func hostObjectFromUnitFile(r Resource, unitfile *parser.UnitFile) (string, error) {
 	nameOption := ""
 	group := ""
 	switch r.Kind {
@@ -171,4 +190,74 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 	// Technically build and kube resources also don't have systemd- prefixed host objects
 	// but we'll always have unique identifers for those quadlets so we won't worry about them yet.
 	return fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(r.Path), filepath.Ext(r.Path))), nil
+}
+
+func (r Resource) GetHostObject(unitData string) (string, error) {
+	if !r.IsQuadlet() {
+		return "", errors.New("can't get host object for non-quadlet")
+	}
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(unitData)
+	if err != nil {
+		return "", fmt.Errorf("error parsing systemd unit file: %w", err)
+	}
+	return hostObjectFromUnitFile(r, unitfile)
+}
+
+func (r Resource) GetResourcesFromQuadletsFile(quadletData string) ([]Resource, error) {
+	var result []Resource
+	chunks := strings.Split(quadletData, "---\n")
+	for _, quadlet := range chunks {
+		unitfile := parser.NewUnitFile()
+		err := unitfile.Parse(quadlet)
+		if err != nil {
+			return result, fmt.Errorf("error parsing systemd unit file: %w", err)
+		}
+		res := Resource{}
+		if unitfile.HasGroup("Container") {
+			res.Kind = ResourceTypeContainer
+		}
+		if unitfile.HasGroup("Volume") {
+			res.Kind = ResourceTypeVolume
+		}
+		if unitfile.HasGroup("Build") {
+			res.Kind = ResourceTypeBuild
+		}
+		if unitfile.HasGroup("Image") {
+			res.Kind = ResourceTypeImage
+		}
+		if unitfile.HasGroup("Network") {
+			res.Kind = ResourceTypeNetwork
+		}
+		if unitfile.HasGroup("Pod") {
+			res.Kind = ResourceTypePod
+		}
+		if unitfile.HasGroup("Kube") {
+			res.Kind = ResourceTypeKube
+		}
+		firstLineIndex := strings.Index(quadlet, "\n")
+		if firstLineIndex == -1 {
+			return result, errors.New("something has gone horrible wrong")
+		}
+		firstLine := quadlet[:firstLineIndex]
+		if strings.HasPrefix(firstLine, "# FileName") {
+			name := strings.Split(firstLine, "=")
+			if len(name) < 2 || name[1] == "" {
+				return result, errors.New("bad filename")
+			}
+			ext, err := res.Kind.toExt()
+			if err != nil {
+				return result, err
+			}
+			res.Path = fmt.Sprintf("%v.%v", name[1], ext)
+		}
+		res.Content = quadlet[firstLineIndex:]
+		res.HostObject, err = hostObjectFromUnitFile(res, unitfile)
+		if err != nil {
+			return result, err
+		}
+		res.Parent = r.Parent
+		result = append(result, res)
+	}
+	return result, nil
 }

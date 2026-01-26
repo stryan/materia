@@ -7,8 +7,8 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/pkg/components"
 )
 
 type componentChanges struct {

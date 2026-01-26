@@ -14,9 +14,9 @@ import (
 	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
-	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

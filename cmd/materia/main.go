@@ -8,8 +8,8 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
-	"primamateria.systems/materia/internal/components"
 	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/hostman"
 )
 

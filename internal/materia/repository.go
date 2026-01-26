@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

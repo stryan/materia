@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/components"
+	"primamateria.systems/materia/pkg/components"
 )
 
 //go:generate stringer -type ActionType -trimprefix Action
