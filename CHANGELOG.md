@@ -4,6 +4,11 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## 0.5.1
+- bugfix: fixed some typos around volume importing
+- bugfix: safer component graph generation
+- bugfix: safer services
+
 ## 0.5.0
 - refactor: planner has been heavily refactored
 - feat: Quadlet resources (.container,.pod,etc) can be used as services in Component services configurations
