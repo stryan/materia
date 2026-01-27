@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var supportedVolumeDumpExts = []string{"tar", "tar.gz", "tgz", "bzip", "tar.xz", "txz"}
+var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".tgz", ".bzip", ".tar.xz", ".txz"}
 
 type Volume struct {
 	Name       string `json:"Name"`
