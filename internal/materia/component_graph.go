@@ -21,6 +21,12 @@ func (g *ComponentGraph) Add(tree *componentTree) error {
 	if tree.source != nil && tree.host != nil && tree.source.Name != tree.host.Name {
 		return fmt.Errorf("tried to add two seperate components as tree: %v vs %v", tree.source.Name, tree.host.Name)
 	}
+	if tree.source == nil && tree.host == nil {
+		return fmt.Errorf("tried to add empty component tree: %v", tree.Name)
+	}
+	if tree.Name == "" {
+		return fmt.Errorf("tried to add unnamed component")
+	}
 	g.graph[tree.Name] = tree
 	return nil
 }
