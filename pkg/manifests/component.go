@@ -7,6 +7,7 @@ import (
 
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -50,7 +51,21 @@ type ComponentManifest struct {
 	Secrets  []string                `toml:"Secrets"`
 }
 
-func LoadComponentManifest(path string) (*ComponentManifest, error) {
+func LoadComponentManifestFromContent(buffer []byte) (*ComponentManifest, error) {
+	k := koanf.New(".")
+	err := k.Load(rawbytes.Provider(buffer), toml.Parser())
+	if err != nil {
+		return nil, err
+	}
+	var c ComponentManifest
+	err = k.Unmarshal("", &c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func LoadComponentManifestFromFile(path string) (*ComponentManifest, error) {
 	k := koanf.New(".")
 	err := k.Load(file.Provider(path), toml.Parser())
 	if err != nil {

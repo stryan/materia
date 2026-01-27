@@ -147,7 +147,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 }
 
 func (r *HostComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifest(filepath.Join(r.DataPrefix, parent.Name, manifests.ComponentManifestFile))
+	return manifests.LoadComponentManifestFromFile(filepath.Join(r.DataPrefix, parent.Name, manifests.ComponentManifestFile))
 }
 
 func (r *HostComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
@@ -385,7 +385,7 @@ func (r *HostComponentRepository) ReadResource(res components.Resource) (string,
 
 func (r *HostComponentRepository) InstallResource(res components.Resource, data *bytes.Buffer) error {
 	if err := res.Validate(); err != nil {
-		return fmt.Errorf("can't install invalid resource: %w", err)
+		return fmt.Errorf("can't install invalid resource %v: %w", res.Path, err)
 	}
 	if res.IsQuadlet() {
 		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Path), data.Bytes(), 0o755)

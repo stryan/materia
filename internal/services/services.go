@@ -96,6 +96,9 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 		}
 		return s.Conn.ReloadContext(ctx)
 	}
+	if timeout == 0 {
+		timeout = 30
+	}
 	callback := make(chan string)
 	var err error
 	switch action {

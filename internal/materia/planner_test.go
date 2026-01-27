@@ -232,8 +232,8 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 				assert.Len(t, graph.List(), 1)
 				tree, err := graph.Get("comp1")
 				require.NoError(t, err)
-				assert.NotNil(t, tree.host)
-				assert.Nil(t, tree.source)
+				assert.NotNil(t, tree.Host)
+				assert.Nil(t, tree.Source)
 			},
 		},
 		{
@@ -270,8 +270,8 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 				assert.Len(t, graph.List(), 1)
 				tree, err := graph.Get("comp2")
 				require.NoError(t, err)
-				assert.Nil(t, tree.host)
-				assert.NotNil(t, tree.source)
+				assert.Nil(t, tree.Host)
+				assert.NotNil(t, tree.Source)
 			},
 		},
 		{
@@ -307,8 +307,8 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 				assert.Len(t, graph.List(), 1)
 				tree, err := graph.Get("comp1")
 				require.NoError(t, err)
-				assert.NotNil(t, tree.host)
-				assert.NotNil(t, tree.source)
+				assert.NotNil(t, tree.Host)
+				assert.NotNil(t, tree.Source)
 			},
 		},
 	}

@@ -69,7 +69,7 @@ func (t ResourceType) toExt() (string, error) {
 	case ResourceTypeVolume:
 		return "volume", nil
 	default:
-		return "", errors.New("resource type wouldn't have file extension")
+		return "", fmt.Errorf("resource type wouldn't have file extension: %v", t)
 	}
 }
 
@@ -206,16 +206,41 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 	return hostObjectFromUnitFile(r, unitfile)
 }
 
-func (r Resource) GetResourcesFromQuadletsFile(quadletData string) ([]Resource, error) {
+func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error) {
 	var result []Resource
 	chunks := strings.Split(quadletData, "---\n")
 	for _, quadlet := range chunks {
+		res := Resource{}
+		filename := ""
+		firstLineIndex := strings.Index(quadlet, "\n")
+		if firstLineIndex == -1 {
+			return result, errors.New("something has gone horrible wrong")
+		}
+		firstLine := quadlet[:firstLineIndex]
+		if strings.HasPrefix(firstLine, "# FileName") {
+			name := strings.Split(firstLine, "=")
+			if len(name) < 2 || name[1] == "" {
+				return result, errors.New("bad filename")
+			}
+			filename = name[1]
+		}
+		if filename == "MANIFEST.toml" {
+			res = Resource{
+				Path:       "MANIFEST.toml",
+				HostObject: "",
+				Parent:     parent,
+				Kind:       ResourceTypeManifest,
+				Template:   false,
+				Content:    quadlet,
+			}
+			continue
+		}
+
 		unitfile := parser.NewUnitFile()
 		err := unitfile.Parse(quadlet)
 		if err != nil {
 			return result, fmt.Errorf("error parsing systemd unit file: %w", err)
 		}
-		res := Resource{}
 		if unitfile.HasGroup("Container") {
 			res.Kind = ResourceTypeContainer
 		}
@@ -237,28 +262,22 @@ func (r Resource) GetResourcesFromQuadletsFile(quadletData string) ([]Resource, 
 		if unitfile.HasGroup("Kube") {
 			res.Kind = ResourceTypeKube
 		}
-		firstLineIndex := strings.Index(quadlet, "\n")
-		if firstLineIndex == -1 {
-			return result, errors.New("something has gone horrible wrong")
-		}
-		firstLine := quadlet[:firstLineIndex]
-		if strings.HasPrefix(firstLine, "# FileName") {
-			name := strings.Split(firstLine, "=")
-			if len(name) < 2 || name[1] == "" {
-				return result, errors.New("bad filename")
-			}
-			ext, err := res.Kind.toExt()
-			if err != nil {
-				return result, err
-			}
-			res.Path = fmt.Sprintf("%v.%v", name[1], ext)
+		if res.Kind == ResourceTypeUnknown {
+			// it's a valid systemd unit file but not a quadlet, treat it as a service
+			res.Kind = ResourceTypeService
 		}
 		res.Content = quadlet[firstLineIndex:]
 		res.HostObject, err = hostObjectFromUnitFile(res, unitfile)
 		if err != nil {
 			return result, err
 		}
-		res.Parent = r.Parent
+		res.Parent = parent
+		ext, err := res.Kind.toExt()
+		if err != nil {
+			return result, err
+		}
+		res.Path = fmt.Sprintf("%v.%v", filename, ext)
+
 		result = append(result, res)
 	}
 	return result, nil

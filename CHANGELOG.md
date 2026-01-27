@@ -14,6 +14,8 @@ Best effort list of major changes and bugfixes
 - bugfix: component removal ignores non-existent services
 - bugfix/feat: `Overrides` now properly overrides manifests, new `Extensions` manifest option
 - feat: add support for OCI images as repository sources.
+- feat: experimental support for `.quadlets` files
+- experimental feature: `manifest` and `banish` commands for using `.quadlets` files like compose files. These will most likely be moved to a separate project once internal API's have stabilized.
 
 ## 0.5.1
 - bugfix: fixed some typos around volume importing

@@ -15,7 +15,10 @@ import (
 
 const DefaultComponentVersion = 1
 
-var ErrCorruptComponent = errors.New("error corrupt component")
+var (
+	ErrCorruptComponent = errors.New("error corrupt component")
+	ErrUnloadedManifest = errors.New("error unloaded manifest")
+)
 
 type Component struct {
 	Name          string
@@ -55,6 +58,20 @@ func NewComponent(name string) *Component {
 		Services:  NewServiceSet(),
 		Resources: NewResourceSet(),
 	}
+}
+
+func (c *Component) GetManifest() (*manifests.ComponentManifest, error) {
+	if c.Resources == nil {
+		return nil, errors.New("unloaded component")
+	}
+	manResource, err := c.Resources.Get(manifests.ComponentManifestFile)
+	if err != nil {
+		return nil, err
+	}
+	if manResource.Content == "" {
+		return nil, ErrUnloadedManifest
+	}
+	return manifests.LoadComponentManifestFromContent([]byte(manResource.Content))
 }
 
 func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {

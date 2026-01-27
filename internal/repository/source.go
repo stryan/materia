@@ -249,7 +249,7 @@ func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*
 		return nil, err
 	}
 
-	return manifests.LoadComponentManifest(filepath.Join(prefix, manifests.ComponentManifestFile))
+	return manifests.LoadComponentManifestFromFile(filepath.Join(prefix, manifests.ComponentManifestFile))
 }
 
 func (s *SourceComponentRepository) NewResource(parent *components.Component, path string) (components.Resource, error) {

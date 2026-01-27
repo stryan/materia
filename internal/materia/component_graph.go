@@ -8,20 +8,20 @@ import (
 var ErrTreeNotFound = errors.New("tree not found")
 
 type ComponentGraph struct {
-	graph map[string]*componentTree
+	graph map[string]*ComponentTree
 }
 
 func NewComponentGraph() *ComponentGraph {
 	return &ComponentGraph{
-		graph: make(map[string]*componentTree),
+		graph: make(map[string]*ComponentTree),
 	}
 }
 
-func (g *ComponentGraph) Add(tree *componentTree) error {
-	if tree.source != nil && tree.host != nil && tree.source.Name != tree.host.Name {
-		return fmt.Errorf("tried to add two seperate components as tree: %v vs %v", tree.source.Name, tree.host.Name)
+func (g *ComponentGraph) Add(tree *ComponentTree) error {
+	if tree.Source != nil && tree.Host != nil && tree.Source.Name != tree.Host.Name {
+		return fmt.Errorf("tried to add two seperate components as tree: %v vs %v", tree.Source.Name, tree.Host.Name)
 	}
-	if tree.source == nil && tree.host == nil {
+	if tree.Source == nil && tree.Host == nil {
 		return fmt.Errorf("tried to add empty component tree: %v", tree.Name)
 	}
 	if tree.Name == "" {
@@ -31,7 +31,7 @@ func (g *ComponentGraph) Add(tree *componentTree) error {
 	return nil
 }
 
-func (g *ComponentGraph) Get(name string) (*componentTree, error) {
+func (g *ComponentGraph) Get(name string) (*ComponentTree, error) {
 	if tree, ok := g.graph[name]; !ok {
 		return nil, ErrTreeNotFound
 	} else {
@@ -39,8 +39,8 @@ func (g *ComponentGraph) Get(name string) (*componentTree, error) {
 	}
 }
 
-func (g *ComponentGraph) List() []*componentTree {
-	var result []*componentTree
+func (g *ComponentGraph) List() []*ComponentTree {
+	var result []*ComponentTree
 	allComponentNames := sortedKeys(g.graph)
 	for _, name := range allComponentNames {
 		result = append(result, g.graph[name])

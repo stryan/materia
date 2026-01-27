@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
@@ -18,7 +19,6 @@ var Version string
 func main() {
 	cliflags := make(map[string]any)
 	ctx := context.Background()
-
 	var configFile string
 
 	app := &cli.Command{
@@ -428,6 +428,211 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:  "manifest",
+				Usage: "Manifest a quadlets file",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "file",
+						Aliases: []string{"f"},
+						Usage:   "Manifest file",
+					},
+					&cli.BoolFlag{
+						Name:  "dry",
+						Usage: "Dry run manifestation",
+					},
+				},
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					filename := cCtx.String("file")
+					curdir, err := os.Getwd()
+					if err != nil {
+						return err
+					}
+					if filename == "" {
+						filename = filepath.Join(curdir, "manifest.quadlets")
+					}
+
+					basedir := filepath.Base(filepath.Dir(filename))
+					if err != nil {
+						return err
+					}
+
+					dry := cCtx.Bool("dry")
+					r := components.Resource{
+						Path:     filename,
+						Template: false,
+						Kind:     components.ResourceTypeCombined,
+						Parent:   fmt.Sprintf("%v-manifestation", basedir),
+						Content:  "",
+					}
+					data, err := os.ReadFile(filename)
+					if err != nil {
+						return err
+					}
+					r.Content = string(data)
+					k, err := LoadConfigs(ctx, configFile, map[string]any{})
+					if err != nil {
+						return err
+					}
+					c, err := materia.NewConfig(k)
+					if err != nil {
+						return err
+					}
+					hm, err := hostman.NewHostManager(ctx, c)
+					if err != nil {
+						return err
+					}
+
+					m := &materia.Materia{Host: hm}
+					sourceComp, err := createManifestComponent(r)
+					if err != nil {
+						return err
+					}
+					sourceComp.State = components.StateFresh
+					currentVolumes, err := m.Host.ListVolumes(ctx)
+					if err != nil {
+						return err
+					}
+					vollist := make([]string, 0, len(currentVolumes))
+					for _, v := range currentVolumes {
+						vollist = append(vollist, v.Name)
+					}
+
+					actions, err := m.PlanFreshComponent(
+						ctx,
+						&materia.ComponentTree{
+							Name:       "manifestation",
+							FinalState: components.StateFresh,
+							Host:       nil,
+							Source:     sourceComp,
+						},
+					)
+					if err != nil {
+						return err
+					}
+					plan := materia.NewPlan([]string{}, vollist)
+					err = plan.Append(actions)
+					if err != nil {
+						return err
+					}
+					fmt.Println(plan.Pretty())
+					if dry {
+						return nil
+					}
+					steps, err := m.Execute(ctx, plan)
+					if err != nil {
+						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
+						return err
+					}
+
+					return nil
+				},
+			},
+			{
+				Name:  "banish",
+				Usage: "Banish quadlets associated with a quadlets file",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "file",
+						Aliases: []string{"f"},
+						Usage:   "Manifest file",
+					},
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "Force removal",
+					},
+				},
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					filename := cCtx.String("file")
+					force := cCtx.Bool("force")
+					curdir, err := os.Getwd()
+					if err != nil {
+						return err
+					}
+					if filename == "" {
+						filename = filepath.Join(curdir, "manifest.quadlets")
+					}
+
+					basedir := filepath.Base(filepath.Dir(filename))
+					if err != nil {
+						return err
+					}
+					r := components.Resource{
+						Path:     filename,
+						Template: false,
+						Parent:   fmt.Sprintf("%v-manifestation", basedir),
+						Kind:     components.ResourceTypeCombined,
+						Content:  "",
+					}
+
+					data, err := os.ReadFile(filename)
+					if err != nil {
+						return err
+					}
+					r.Content = string(data)
+					k, err := LoadConfigs(ctx, configFile, map[string]any{})
+					if err != nil {
+						return err
+					}
+					c, err := materia.NewConfig(k)
+					if err != nil {
+						return err
+					}
+					hm, err := hostman.NewHostManager(ctx, c)
+					if err != nil {
+						return err
+					}
+
+					m := &materia.Materia{Host: hm}
+					installedComp, err := createManifestComponent(r)
+					if err != nil {
+						return err
+					}
+					installedComp.State = components.StateNeedRemoval
+					currentVolumes, err := m.Host.ListVolumes(ctx)
+					if err != nil {
+						return err
+					}
+					vollist := make([]string, 0, len(currentVolumes))
+					for _, v := range currentVolumes {
+						vollist = append(vollist, v.Name)
+					}
+
+					actions, err := m.PlanRemovedComponent(
+						ctx,
+						&materia.ComponentTree{
+							Name:       installedComp.Name,
+							FinalState: components.StateNeedRemoval,
+							Source:     nil,
+							Host:       installedComp,
+						},
+					)
+					if err != nil && !force {
+						return err
+					}
+					if force {
+						err := hm.PurgeComponentByName(installedComp.Name)
+						if err != nil {
+							return err
+						}
+						return nil
+					}
+					plan := materia.NewPlan([]string{}, vollist)
+					err = plan.Append(actions)
+					if err != nil {
+						return err
+					}
+					fmt.Println(plan.Pretty())
+					steps, err := m.Execute(ctx, plan)
+					if err != nil {
+						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
+						return err
+					}
+
+					return nil
+				},
+			},
+
 			{
 				Name:  "clean",
 				Usage: "remove all related file paths",

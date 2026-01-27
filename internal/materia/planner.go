@@ -20,8 +20,8 @@ import (
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-type componentTree struct {
-	host, source *components.Component
+type ComponentTree struct {
+	Host, Source *components.Component
 	Name         string
 	FinalState   components.ComponentLifecycle
 }
@@ -88,8 +88,8 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 
 	log.Debug("calculating component differences")
 	for _, currentTree := range componentGraph.List() {
-		if currentTree.host == nil {
-			currentTree.source.State = components.StateFresh
+		if currentTree.Host == nil {
+			currentTree.Source.State = components.StateFresh
 			actions, err := m.PlanFreshComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
@@ -98,8 +98,8 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 			if err != nil {
 				return nil, fmt.Errorf("error calculating fresh component %v differences:%w", currentTree.Name, err)
 			}
-		} else if currentTree.source == nil {
-			currentTree.host.State = components.StateNeedRemoval
+		} else if currentTree.Source == nil {
+			currentTree.Host.State = components.StateNeedRemoval
 			actions, err := m.PlanRemovedComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
@@ -109,8 +109,8 @@ func (m *Materia) plan(ctx context.Context, installedComponents, assignedCompone
 				return nil, fmt.Errorf("error calculating removed component %v differences:%w", currentTree.Name, err)
 			}
 		} else {
-			currentTree.host.State = components.StateMayNeedUpdate
-			currentTree.source.State = components.StateFresh
+			currentTree.Host.State = components.StateMayNeedUpdate
+			currentTree.Source.State = components.StateFresh
 			actions, err := m.PlanUpdatedComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
@@ -197,9 +197,9 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 		if err != nil {
 			return nil, fmt.Errorf("can't load host component: %w", err)
 		}
-		err = componentGraph.Add(&componentTree{
+		err = componentGraph.Add(&ComponentTree{
 			Name: v,
-			host: hostComponent,
+			Host: hostComponent,
 		})
 		if err != nil {
 			return nil, err
@@ -215,7 +215,7 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 		})
 		tree, err := componentGraph.Get(v)
 		if errors.Is(err, ErrTreeNotFound) {
-			tree = &componentTree{
+			tree = &ComponentTree{
 				Name: v,
 			}
 		} else if err != nil {
@@ -227,7 +227,7 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 		if err != nil {
 			return nil, fmt.Errorf("error loading new components: %w", err)
 		}
-		tree.source = sourceComponent
+		tree.Source = sourceComponent
 		err = componentGraph.Add(tree)
 		if err != nil {
 			return nil, err
@@ -236,12 +236,12 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 	return componentGraph, nil
 }
 
-func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
-	resourceActions, err := generateFreshComponentResources(currentTree.source)
+func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *ComponentTree) ([]Action, error) {
+	resourceActions, err := generateFreshComponentResources(currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.source)
+	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
@@ -256,12 +256,12 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
-	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.source)
+	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
-	if currentTree.source.SetupScript != "" {
-		c := currentTree.source
+	if currentTree.Source.SetupScript != "" {
+		c := currentTree.Source
 		setupResource, err := c.Resources.Get(c.SetupScript)
 		if err != nil {
 			return nil, fmt.Errorf("setup resource %v not found: %w", c.SetupScript, err)
@@ -277,15 +277,15 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *component
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
-	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.host)
+func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *ComponentTree) ([]Action, error) {
+	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
 	if m.onlyResources {
 		return resourceActions, nil
 	}
-	serviceActions, err := processRemovedComponentServices(ctx, m.Host, currentTree.host)
+	serviceActions, err := processRemovedComponentServices(ctx, m.Host, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan removed services for %v: %w", currentTree.Name, err)
 	}
@@ -294,8 +294,8 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 		Parent: rootComponent,
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
-	if currentTree.host.CleanupScript != "" {
-		c := currentTree.host
+	if currentTree.Host.CleanupScript != "" {
+		c := currentTree.Host
 		setupResource, err := c.Resources.Get(c.CleanupScript)
 		if err != nil {
 			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.CleanupScript, err)
@@ -311,24 +311,24 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *compone
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *componentTree) ([]Action, error) {
-	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.host, currentTree.source)
+func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]Action, error) {
+	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
-	if currentTree.host.Version != components.DefaultComponentVersion {
-		currentTree.host.Version = components.DefaultComponentVersion
+	if currentTree.Host.Version != components.DefaultComponentVersion {
+		currentTree.Host.Version = components.DefaultComponentVersion
 		resourceActions = append(resourceActions, Action{
 			Todo:   ActionUpdate,
-			Parent: currentTree.host,
-			Target: components.Resource{Parent: currentTree.source.Name, Kind: components.ResourceTypeComponent, Path: currentTree.source.Name},
+			Parent: currentTree.Host,
+			Target: components.Resource{Parent: currentTree.Source.Name, Kind: components.ResourceTypeComponent, Path: currentTree.Source.Name},
 		})
 	}
 
 	if m.onlyResources {
 		return resourceActions, nil
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.host)
+	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
@@ -340,27 +340,27 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *compone
 			Parent: rootComponent,
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
-		currentTree.host.State = components.StateNeedUpdate
-		triggeredActions, err := generateComponentServiceTriggers(currentTree.source)
+		currentTree.Host.State = components.StateNeedUpdate
+		triggeredActions, err := generateComponentServiceTriggers(currentTree.Source)
 		if err != nil {
 			return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 		}
 		if !m.onlyResources {
-			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.host, currentTree.source, resourceActions, triggeredActions)
+			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.Host, currentTree.Source, resourceActions, triggeredActions)
 			if err != nil {
 				return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
 			}
 		}
 	} else if !m.onlyResources {
-		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.host)
+		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.Host)
 		if err != nil {
 			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
 		}
 		if len(serviceActions) > 0 {
-			currentTree.host.State = components.StateNeedUpdate
+			currentTree.Host.State = components.StateNeedUpdate
 			currentTree.FinalState = components.StateNeedUpdate
 		} else {
-			currentTree.host.State = components.StateOK
+			currentTree.Host.State = components.StateOK
 			currentTree.FinalState = components.StateOK
 		}
 	}
@@ -803,7 +803,7 @@ func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, at
 			r.Content = bodyTemplate
 		}
 		if r.Kind == components.ResourceTypeCombined {
-			expandedResources, err := r.GetResourcesFromQuadletsFile(r.Content)
+			expandedResources, err := components.GetResourcesFromQuadletsFile(r.Parent, r.Content)
 			if err != nil {
 				return nil, fmt.Errorf("can't expand combined resource %v: %w", r.Path, err)
 			}
