@@ -257,7 +257,16 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
 	}
-	defer func() { _ = qFile.Close() }()
+	defer func() {
+		closeErr := qFile.Close()
+		if err != nil {
+			if closeErr != nil {
+				log.Warnf("can't managed file: %v", err)
+			}
+			return
+		}
+		err = closeErr
+	}()
 	vd, err := c.VersonData()
 	if err != nil {
 		return err
