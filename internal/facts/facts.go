@@ -62,7 +62,7 @@ func (f *HostFactsManager) Lookup(arg string) (any, error) {
 				return f.Interfaces[input[1]].Ip4[index], nil
 			}
 			if input[2] == "ip6" {
-				return f.Interfaces[input[1]].Ip4[index], nil
+				return f.Interfaces[input[1]].Ip6[index], nil
 			}
 		}
 	}

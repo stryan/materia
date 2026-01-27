@@ -106,7 +106,7 @@ func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
 }
 
 func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, sourcePath string) error {
-	if slices.Contains(supportedVolumeDumpExts, filepath.Ext(sourcePath)) {
+	if !slices.Contains(supportedVolumeDumpExts, filepath.Ext(sourcePath)) {
 		return fmt.Errorf("unsupported volume dump type %v for import", filepath.Ext(sourcePath))
 	}
 	if volume.Driver != "local" && volume.Driver != "" {
