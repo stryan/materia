@@ -18,7 +18,7 @@ import (
 )
 
 type SourceManager struct {
-	materia.ComponentRepository
+	materia.ComponentReader
 	sourceDir string
 	remoteDir string
 	sources   []materia.Source
@@ -30,9 +30,9 @@ func NewSourceManager(c *materia.MateriaConfig) (*SourceManager, error) {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
 	return &SourceManager{
-		ComponentRepository: sourceRepo,
-		sourceDir:           c.SourceDir,
-		remoteDir:           c.RemoteDir,
+		ComponentReader: sourceRepo,
+		sourceDir:       c.SourceDir,
+		remoteDir:       c.RemoteDir,
 	}, nil
 }
 

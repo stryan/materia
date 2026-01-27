@@ -14,16 +14,8 @@ import (
 
 func TestExecute(t *testing.T) {
 	ctx := context.Background()
-	sm := NewMockSourceManager(t)
 	hm := NewMockHostManager(t)
-	v := NewMockAttributesEngine(t)
-	man := &manifests.MateriaManifest{
-		Hosts: map[string]manifests.Host{
-			"localhost": {
-				Components: []string{"hello"},
-			},
-		},
-	}
+
 	containerResource := components.Resource{
 		Path:   "hello.container",
 		Parent: "hello",
@@ -87,9 +79,9 @@ func TestExecute(t *testing.T) {
 	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, bytes.NewBufferString("")).Return(nil)
 	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
-	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
+	e := &Executor{host: hm}
 
-	steps, err := m.Execute(ctx, plan)
+	steps, err := e.Execute(ctx, plan)
 	assert.NoError(t, err)
 	assert.Equal(t, plan.Size(), steps, "Missed steps: %v != %v", steps, plan.Size())
 }

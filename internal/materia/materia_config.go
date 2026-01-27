@@ -202,6 +202,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.ExecutorConfig.QuadletDir = c.QuadletDir
 	c.ExecutorConfig.ScriptsDir = c.ScriptsDir
 	c.ExecutorConfig.ServiceDir = c.ServiceDir
+	c.ExecutorConfig.OutputDir = c.OutputDir
 
 	return &c, nil
 }

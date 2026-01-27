@@ -8,7 +8,8 @@ import (
 type HostManager interface {
 	ServiceManager
 	ContainerManager
-	ComponentRepository
+	ComponentReader
+	ComponentWriter
 	FactsProvider
 	ListInstalledComponents() ([]string, error)
 	InstallScript(context.Context, string, *bytes.Buffer) error

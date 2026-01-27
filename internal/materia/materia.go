@@ -37,7 +37,7 @@ type Materia struct {
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
 	plannerConfig  PlannerConfig
-	executorConfig ExecutorConfig
+	Executor       Executor
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
@@ -140,6 +140,11 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if c.ExecutorConfig != nil {
 		ec = *c.ExecutorConfig
 	}
+	e := Executor{
+		ec,
+		hm,
+		c.Timeout,
+	}
 
 	return &Materia{
 		Host:           hm,
@@ -154,7 +159,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		macros:         loadDefaultMacros(c, hm, snips),
 		rootComponent:  rootComponent,
 		plannerConfig:  pc,
-		executorConfig: ec,
+		Executor:       e,
 		Roles:          roles,
 	}, nil
 }
@@ -241,7 +246,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = m.Execute(ctx, removalPlan)
+	_, err = m.Executor.Execute(ctx, removalPlan)
 	return err
 }
 

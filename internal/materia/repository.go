@@ -17,20 +17,23 @@ type Repository interface {
 	Clean(ctx context.Context) error
 }
 
-// TODO split this into host and source repos
-type ComponentRepository interface {
+type ComponentReader interface {
 	GetComponent(string) (*components.Component, error)
 	GetResource(*components.Component, string) (components.Resource, error)
 	GetManifest(*components.Component) (*manifests.ComponentManifest, error)
-	InstallComponent(*components.Component) error
+	ReadResource(components.Resource) (string, error)
+	ListResources(*components.Component) ([]components.Resource, error)
 	ComponentExists(string) (bool, error)
+	ListComponentNames() ([]string, error)
+	Clean() error
+}
+
+type ComponentWriter interface {
+	InstallComponent(*components.Component) error
 	RemoveComponent(*components.Component) error
 	UpdateComponent(*components.Component) error
-	ReadResource(components.Resource) (string, error)
 	InstallResource(components.Resource, *bytes.Buffer) error
 	RemoveResource(components.Resource) error
-	ListResources(*components.Component) ([]components.Resource, error)
-	ListComponentNames() ([]string, error)
 	RunCleanup(*components.Component) error
 	RunSetup(*components.Component) error
 	PurgeComponent(*components.Component) error

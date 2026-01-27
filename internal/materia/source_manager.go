@@ -7,7 +7,7 @@ import (
 )
 
 type SourceManager interface {
-	ComponentRepository
+	ComponentReader
 	LoadManifest(string) (*manifests.MateriaManifest, error)
 	AddSource(Source) error
 	Sync(context.Context) error
