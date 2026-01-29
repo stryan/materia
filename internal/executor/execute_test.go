@@ -1,4 +1,4 @@
-package materia
+package executor
 
 import (
 	"bytes"
@@ -7,14 +7,33 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
+	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/internal/mocks"
+	"primamateria.systems/materia/internal/plan"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
+func newResSet(resources ...components.Resource) *components.ResourceSet {
+	rs := components.NewResourceSet()
+	for _, v := range resources {
+		_ = rs.Add(v)
+	}
+	return rs
+}
+
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
+	ss := components.NewServiceSet()
+	for _, v := range services {
+		ss.Add(v)
+	}
+	return ss
+}
+
 func TestExecute(t *testing.T) {
 	ctx := context.Background()
-	hm := NewMockHostManager(t)
+	hm := mocks.NewMockHostManager(t)
 
 	containerResource := components.Resource{
 		Path:   "hello.container",
@@ -39,38 +58,38 @@ func TestExecute(t *testing.T) {
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,
 	}
-	planSteps := []Action{
+	planSteps := []actions.Action{
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
 			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      containerResource,
 			DiffContent: getDiffs("", "[Container]"),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      dataResource,
 			DiffContent: getDiffs("", "FOO=BAR"),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      manifestResource,
 			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:   ActionReload,
-			Parent: rootComponent,
+			Todo:   actions.ActionReload,
+			Parent: components.NewComponent("root"),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		},
 	}
-	plan := NewPlan([]string{}, []string{})
+	plan := plan.NewPlan([]string{}, []string{})
 	for _, p := range planSteps {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}

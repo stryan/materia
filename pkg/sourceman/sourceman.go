@@ -9,22 +9,27 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
 	"primamateria.systems/materia/internal/source/oci"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/source"
 )
 
-type SourceManager struct {
-	materia.ComponentReader
-	sourceDir string
-	remoteDir string
-	sources   []materia.Source
+type SourceManConfig struct {
+	SourceDir, RemoteDir string
 }
 
-func NewSourceManager(c *materia.MateriaConfig) (*SourceManager, error) {
+type SourceManager struct {
+	components.ComponentReader
+	sourceDir string
+	remoteDir string
+	sources   []source.Source
+}
+
+func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
@@ -46,7 +51,7 @@ func (s *SourceManager) Sync(ctx context.Context) error {
 	return nil
 }
 
-func (s *SourceManager) AddSource(newSource materia.Source) error {
+func (s *SourceManager) AddSource(newSource source.Source) error {
 	s.sources = append(s.sources, newSource)
 
 	return nil
@@ -70,7 +75,7 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 	// TODO update to new source format?
 	for name, r := range man.Remotes {
 		parsedPath := strings.Split(r.URL, "://")
-		var remoteSource materia.Source
+		var remoteSource source.Source
 		var err error
 		localpath := filepath.Join(s.remoteDir, "components", name)
 		switch parsedPath[0] {
@@ -138,5 +143,10 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (s *SourceManager) Clean() error {
+	// TODO
 	return nil
 }

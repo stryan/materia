@@ -15,10 +15,13 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/internal/executor"
+	"primamateria.systems/materia/internal/plan"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -37,7 +40,7 @@ type Materia struct {
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
 	plannerConfig  PlannerConfig
-	Executor       Executor
+	Executor       *executor.Executor
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
@@ -136,15 +139,11 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if c.PlannerConfig != nil {
 		pc = *c.PlannerConfig
 	}
-	ec := ExecutorConfig{}
+	ec := executor.ExecutorConfig{}
 	if c.ExecutorConfig != nil {
 		ec = *c.ExecutorConfig
 	}
-	e := Executor{
-		ec,
-		hm,
-		c.Timeout,
-	}
+	e := executor.NewExecutor(ec, hm, c.Timeout)
 
 	return &Materia{
 		Host:           hm,
@@ -250,7 +249,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	return err
 }
 
-func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
+func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
 	if roles != nil {
 		m.Roles = roles
 	}
@@ -292,14 +291,14 @@ type change struct {
 	ResourceName, Before, After string
 }
 
-func (m *Materia) SavePlan(p *Plan, outputfile string) error {
+func (m *Materia) SavePlan(p *plan.Plan, outputfile string) error {
 	path := filepath.Join(m.OutputDir, outputfile)
 	planOutput := planOutput{
 		Timestamp: time.Now(),
 		Plan:      p.PrettyLines(),
 	}
 	for _, a := range p.Steps() {
-		if a.Todo == ActionUpdate {
+		if a.Todo == actions.ActionUpdate {
 			dmp := diffmatchpatch.New()
 			before := dmp.DiffText1(a.DiffContent)
 			after := dmp.DiffText2(a.DiffContent)

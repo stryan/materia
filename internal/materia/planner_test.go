@@ -13,8 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
@@ -193,13 +195,13 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 		name           string
 		installedComps []string
 		assignedComps  []string
-		setup          func(*MockHostManager, *MockSourceManager, *MockAttributesEngine)
+		setup          func(*mocks.MockHostManager, *mocks.MockSourceManager, *mocks.MockAttributesEngine)
 		expectedError  bool
 		validateGraph  func(*testing.T, *ComponentGraph)
 	}{
 		{
 			name:          "happy-path/empty-components",
-			setup:         func(_ *MockHostManager, _ *MockSourceManager, _ *MockAttributesEngine) {},
+			setup:         func(_ *mocks.MockHostManager, _ *mocks.MockSourceManager, _ *mocks.MockAttributesEngine) {},
 			expectedError: false,
 			validateGraph: func(t *testing.T, graph *ComponentGraph) {
 				assert.Empty(t, graph.List())
@@ -208,7 +210,7 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 		{
 			name:           "sad-path/host-component-error",
 			installedComps: []string{"comp1"},
-			setup: func(mhm *MockHostManager, _ *MockSourceManager, vault *MockAttributesEngine) {
+			setup: func(mhm *mocks.MockHostManager, _ *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
 				mhm.EXPECT().GetComponent("comp1").Return(nil, errors.New("bwah?"))
 			},
 			expectedError: true,
@@ -216,7 +218,7 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 		{
 			name:           "happy-path/load-host-component",
 			installedComps: []string{"comp1"},
-			setup: func(mhm *MockHostManager, _ *MockSourceManager, vault *MockAttributesEngine) {
+			setup: func(mhm *mocks.MockHostManager, _ *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
 				comp := &components.Component{
 					Name:      "comp1",
 					Version:   components.DefaultComponentVersion,
@@ -239,7 +241,7 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 		{
 			name:          "sad-path/source-component-error",
 			assignedComps: []string{"comp2"},
-			setup: func(mhm *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+			setup: func(mhm *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
 				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
 					Hostname:  "localhost",
 					Component: "comp2",
@@ -251,7 +253,7 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 		{
 			name:          "happy-path/load-source-component",
 			assignedComps: []string{"comp2"},
-			setup: func(_ *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+			setup: func(_ *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
 				comp := &components.Component{
 					Name:      "comp2",
 					Resources: newResSet(),
@@ -278,7 +280,7 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 			name:           "happy-path/full-tree",
 			installedComps: []string{"comp1"},
 			assignedComps:  []string{"comp1"},
-			setup: func(mhm *MockHostManager, msm *MockSourceManager, vault *MockAttributesEngine) {
+			setup: func(mhm *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
 				hostComp := &components.Component{
 					Name:      "comp1",
 					Version:   components.DefaultComponentVersion,
@@ -315,9 +317,9 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mhm := NewMockHostManager(t)
-			msm := NewMockSourceManager(t)
-			mv := NewMockAttributesEngine(t)
+			mhm := mocks.NewMockHostManager(t)
+			msm := mocks.NewMockSourceManager(t)
+			mv := mocks.NewMockAttributesEngine(t)
 
 			m := &Materia{
 				Host:   mhm,
@@ -353,8 +355,8 @@ func TestGenerateFreshComponentResources(t *testing.T) {
 		name          string
 		component     *components.Component
 		expectedError bool
-		expectedPlan  []Action
-		validatePlan  func(*testing.T, []Action)
+		expectedPlan  []actions.Action
+		validatePlan  func(*testing.T, []actions.Action)
 	}{
 		{
 			name: "sad-path/not-fresh",
@@ -367,17 +369,17 @@ func TestGenerateFreshComponentResources(t *testing.T) {
 			name:          "happy-path/resources",
 			component:     testComponents[1],
 			expectedError: false,
-			expectedPlan: []Action{
+			expectedPlan: []actions.Action{
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: "hello"},
 				},
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: "hello.container"},
 				},
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 			},
@@ -386,22 +388,22 @@ func TestGenerateFreshComponentResources(t *testing.T) {
 			name:          "happy-path/secrets",
 			component:     testComponents[5],
 			expectedError: false,
-			expectedPlan: []Action{
+			expectedPlan: []actions.Action{
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: "hello-secret"},
 				},
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: "hello.container"},
 				},
 
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
-					Todo:   ActionInstall,
+					Todo:   actions.ActionInstall,
 					Target: components.Resource{Path: "secret"},
 				},
 			},
@@ -436,9 +438,9 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 		component     *components.Component
 		expectedError bool
 		opts          PlannerConfig
-		expectedPlan  []Action
-		setup         func(comp *components.Component, mhm *MockHostManager)
-		validatePlan  func(*testing.T, []Action)
+		expectedPlan  []actions.Action
+		setup         func(comp *components.Component, mhm *mocks.MockHostManager)
+		validatePlan  func(*testing.T, []actions.Action)
 	}{
 		{
 			name: "sad-path/not-needed-removal",
@@ -459,17 +461,17 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 				}),
 			},
 			expectedError: false,
-			expectedPlan: []Action{
+			expectedPlan: []actions.Action{
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello.container"},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
@@ -483,21 +485,21 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 				Services:  newServSet(),
 			},
 			expectedError: false,
-			expectedPlan: []Action{
+			expectedPlan: []actions.Action{
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello.container"},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "secret"},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello-secret", Kind: components.ResourceTypeComponent},
 				},
 			},
@@ -516,32 +518,32 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 					}, testResources[6]),
 				Services: newServSet(),
 			},
-			setup: func(comp *components.Component, mhm *MockHostManager) {
+			setup: func(comp *components.Component, mhm *mocks.MockHostManager) {
 				mhm.EXPECT().GetVolume(mock.Anything, "systemd-hello").Return(&containers.Volume{
 					Name: "systemd-hello",
 				}, nil)
 			},
 			expectedError: false,
 			opts:          PlannerConfig{CleanupQuadlets: true, CleanupVolumes: true},
-			expectedPlan: []Action{
+			expectedPlan: []actions.Action{
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello.volume"},
 				},
 				{
-					Todo:   ActionCleanup,
+					Todo:   actions.ActionCleanup,
 					Target: components.Resource{Path: "hello.volume"},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello.container"},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: manifests.ComponentManifestFile},
 				},
 				{
-					Todo:   ActionRemove,
+					Todo:   actions.ActionRemove,
 					Target: components.Resource{Path: "hello", Kind: components.ResourceTypeComponent},
 				},
 			},
@@ -550,7 +552,7 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hm := NewMockHostManager(t)
+			hm := mocks.NewMockHostManager(t)
 			if tt.setup != nil {
 				tt.setup(tt.component, hm)
 			}
@@ -579,8 +581,8 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 		name         string
 		stale, fresh *components.Component
 		opts         PlannerConfig
-		setup        func(host *MockHostManager, stale, fresh *components.Component)
-		want         []Action
+		setup        func(host *mocks.MockHostManager, stale, fresh *components.Component)
+		want         []actions.Action
 		wantErr      bool
 	}{
 		{
@@ -603,9 +605,9 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
-			want:    []Action{},
+			want:    []actions.Action{},
 			wantErr: false,
 		},
 		{
@@ -628,10 +630,10 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
-			want: []Action{
-				planHelper(ActionUpdate, "hello", "hello.container"),
+			want: []actions.Action{
+				planHelper(actions.ActionUpdate, "hello", "hello.container"),
 			},
 			wantErr: false,
 		},
@@ -654,10 +656,10 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
-			want: []Action{
-				planHelper(ActionRemove, "hello", "hello.container"),
+			want: []actions.Action{
+				planHelper(actions.ActionRemove, "hello", "hello.container"),
 			},
 			wantErr: false,
 		},
@@ -680,17 +682,17 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				),
 				Services: newServSet(),
 			},
-			setup: func(host *MockHostManager, stale *components.Component, fresh *components.Component) {
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
-			want: []Action{
-				planHelper(ActionInstall, "hello", "hello.container"),
+			want: []actions.Action{
+				planHelper(actions.ActionInstall, "hello", "hello.container"),
 			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hm := NewMockHostManager(t)
+			hm := mocks.NewMockHostManager(t)
 			tt.setup(hm, tt.stale, tt.fresh)
 			got, gotErr := generateUpdatedComponentResources(context.Background(), hm, tt.opts, tt.stale, tt.fresh)
 			if gotErr != nil {
@@ -718,29 +720,29 @@ func TestProcessFreshComponentServices(t *testing.T) {
 	tests := []struct {
 		name         string
 		component    *components.Component
-		setup        func(comp *components.Component, sm *MockHostManager)
-		want         []Action
+		setup        func(comp *components.Component, sm *mocks.MockHostManager)
+		want         []actions.Action
 		wantErr      bool
-		validatePlan func(*testing.T, []Action)
+		validatePlan func(*testing.T, []actions.Action)
 	}{
 		{
 			name:      "no services",
 			component: testComponents[0],
-			want:      []Action{},
-			setup:     func(comp *components.Component, services *MockHostManager) {},
+			want:      []actions.Action{},
+			setup:     func(comp *components.Component, services *mocks.MockHostManager) {},
 		},
 		{
 			name:      "services - none running",
 			component: testComponents[1],
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStart,
+					Todo: actions.ActionStart,
 					Target: components.Resource{
 						Path: "hello.service",
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -753,7 +755,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 		{
 			name:      "services - running",
 			component: testComponents[1],
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -774,21 +776,21 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					Static:  true,
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionEnable,
+					Todo: actions.ActionEnable,
 					Target: components.Resource{
 						Path: "hello.service",
 					},
 				},
 				{
-					Todo: ActionStart,
+					Todo: actions.ActionStart,
 					Target: components.Resource{
 						Path: "hello.service",
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -809,8 +811,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					Stopped: true,
 				}),
 			},
-			want: []Action{},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			want: []actions.Action{},
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 			},
 		},
 		{
@@ -823,15 +825,15 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					Service: "hello.container",
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStart,
+					Todo: actions.ActionStart,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
@@ -848,21 +850,21 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					Service: "hello.container",
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStart,
+					Todo: actions.ActionStart,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
 				}, nil)
 			},
-			validatePlan: func(t *testing.T, a []Action) {
+			validatePlan: func(t *testing.T, a []actions.Action) {
 				assert.Equal(t, 1, len(a))
 				assert.NotNil(t, a[0].Metadata)
 				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 60)
@@ -885,21 +887,21 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStart,
+					Todo: actions.ActionStart,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
 				}, nil)
 			},
-			validatePlan: func(t *testing.T, a []Action) {
+			validatePlan: func(t *testing.T, a []actions.Action) {
 				assert.Equal(t, 1, len(a))
 				assert.NotNil(t, a[0].Metadata)
 				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 160)
@@ -908,7 +910,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hm := NewMockHostManager(t)
+			hm := mocks.NewMockHostManager(t)
 			tt.setup(tt.component, hm)
 			got, gotErr := processFreshOrUnchangedComponentServices(context.Background(), hm, tt.component)
 			if gotErr != nil {
@@ -939,21 +941,21 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 	tests := []struct {
 		name         string
 		component    *components.Component
-		setup        func(comp *components.Component, sm *MockHostManager)
-		want         []Action
+		setup        func(comp *components.Component, sm *mocks.MockHostManager)
+		want         []actions.Action
 		wantErr      bool
-		validatePlan func(*testing.T, []Action)
+		validatePlan func(*testing.T, []actions.Action)
 	}{
 		{
 			name:      "no services",
 			component: testComponents[0],
-			want:      []Action{},
-			setup:     func(comp *components.Component, services *MockHostManager) {},
+			want:      []actions.Action{},
+			setup:     func(comp *components.Component, services *mocks.MockHostManager) {},
 		},
 		{
 			name:      "services - none running",
 			component: testComponents[1],
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -966,15 +968,15 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 		{
 			name:      "services - running",
 			component: testComponents[1],
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStop,
+					Todo: actions.ActionStop,
 					Target: components.Resource{
 						Path: "hello.service",
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -995,15 +997,15 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					Static:  true,
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStop,
+					Todo: actions.ActionStop,
 					Target: components.Resource{
 						Path: "hello.service",
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -1024,8 +1026,8 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					Stopped: true,
 				}),
 			},
-			want: []Action{},
-			setup: func(comp *components.Component, sm *MockHostManager) {
+			want: []actions.Action{},
+			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
 					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
@@ -1045,15 +1047,15 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					Service: "hello.container",
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStop,
+					Todo: actions.ActionStop,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "active",
@@ -1070,21 +1072,21 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					Service: "hello.container",
 				}),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStop,
+					Todo: actions.ActionStop,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "active",
 				}, nil)
 			},
-			validatePlan: func(t *testing.T, a []Action) {
+			validatePlan: func(t *testing.T, a []actions.Action) {
 				assert.Equal(t, 1, len(a))
 				assert.NotNil(t, a[0].Metadata)
 				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 60)
@@ -1107,15 +1109,15 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				),
 			},
-			want: []Action{
+			want: []actions.Action{
 				{
-					Todo: ActionStop,
+					Todo: actions.ActionStop,
 					Target: components.Resource{
 						Path: "hello.container",
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *MockHostManager) {
+			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().Get(mock.Anything, "hello.image").Return(&services.Service{
 					Name:  "hello-image.service",
 					State: "inactive",
@@ -1125,7 +1127,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					State: "active",
 				}, nil)
 			},
-			validatePlan: func(t *testing.T, a []Action) {
+			validatePlan: func(t *testing.T, a []actions.Action) {
 				assert.Equal(t, 1, len(a))
 				assert.NotNil(t, a[0].Metadata)
 				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 160)
@@ -1134,7 +1136,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hm := NewMockHostManager(t)
+			hm := mocks.NewMockHostManager(t)
 			tt.setup(tt.component, hm)
 			got, gotErr := processRemovedComponentServices(context.Background(), hm, tt.component)
 			if gotErr != nil {
@@ -1175,12 +1177,12 @@ func resourceHelper(name, parent, content string) components.Resource {
 }
 
 func TestPlan(t *testing.T) {
-	expected := []Action{
-		planHelper(ActionInstall, "hello", ""),
-		planHelper(ActionInstall, "hello", "hello.container"),
-		planHelper(ActionInstall, "hello", "hello.env"),
-		planHelper(ActionInstall, "hello", manifests.ComponentManifestFile),
-		planHelper(ActionReload, "", ""),
+	expected := []actions.Action{
+		planHelper(actions.ActionInstall, "hello", ""),
+		planHelper(actions.ActionInstall, "hello", "hello.container"),
+		planHelper(actions.ActionInstall, "hello", "hello.env"),
+		planHelper(actions.ActionInstall, "hello", manifests.ComponentManifestFile),
+		planHelper(actions.ActionReload, "", ""),
 	}
 	man := &manifests.MateriaManifest{
 		Hosts: map[string]manifests.Host{
@@ -1190,9 +1192,9 @@ func TestPlan(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
-	sm := NewMockSourceManager(t)
-	hm := NewMockHostManager(t)
-	v := NewMockAttributesEngine(t)
+	sm := mocks.NewMockSourceManager(t)
+	hm := mocks.NewMockHostManager(t)
+	v := mocks.NewMockAttributesEngine(t)
 	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
 	hm.EXPECT().GetHostname().Return("localhost")
 	hm.EXPECT().ListInstalledComponents().Return([]string{}, nil)
@@ -1238,13 +1240,13 @@ func TestPlan(t *testing.T) {
 	}
 }
 
-func planHelper(todo ActionType, name, res string) Action {
+func planHelper(todo actions.ActionType, name, res string) actions.Action {
 	if res == "" {
 		if name == "" {
 			name = "root"
 		}
-		if todo == ActionReload {
-			return Action{
+		if todo == actions.ActionReload {
+			return actions.Action{
 				Todo:   todo,
 				Parent: &components.Component{Name: name},
 				Target: components.Resource{
@@ -1253,7 +1255,7 @@ func planHelper(todo ActionType, name, res string) Action {
 				},
 			}
 		}
-		return Action{
+		return actions.Action{
 			Todo:   todo,
 			Parent: &components.Component{Name: name},
 			Target: components.Resource{
@@ -1263,7 +1265,7 @@ func planHelper(todo ActionType, name, res string) Action {
 			},
 		}
 	}
-	act := Action{
+	act := actions.Action{
 		Todo: todo,
 		Parent: &components.Component{
 			Name: name,

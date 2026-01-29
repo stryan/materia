@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/internal/plan"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/hostman"
 )
@@ -323,7 +324,17 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
@@ -478,7 +489,17 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
@@ -510,7 +531,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					plan := materia.NewPlan([]string{}, vollist)
+					plan := plan.NewPlan([]string{}, vollist)
 					err = plan.Append(actions)
 					if err != nil {
 						return err
@@ -578,7 +599,17 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
@@ -617,7 +648,7 @@ func main() {
 						}
 						return nil
 					}
-					plan := materia.NewPlan([]string{}, vollist)
+					plan := plan.NewPlan([]string{}, vollist)
 					err = plan.Append(actions)
 					if err != nil {
 						return err

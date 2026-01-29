@@ -3,13 +3,17 @@ package materia
 import (
 	"bytes"
 	"context"
+
+	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/serviceman"
 )
 
 type HostManager interface {
-	ServiceManager
-	ContainerManager
-	ComponentReader
-	ComponentWriter
+	serviceman.ServiceManager
+	containers.ContainerManager
+	components.ComponentReader
+	components.ComponentWriter
 	FactsProvider
 	ListInstalledComponents() ([]string, error)
 	InstallScript(context.Context, string, *bytes.Buffer) error

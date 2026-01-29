@@ -1,26 +1,27 @@
 ---
 all: false
-dir: '{{.InterfaceDir}}'
-filename: mocks_test.go
+filename: mock_{{.InterfaceName | snakecase}}.go
 force-file-write: true
 formatter: goimports
 log-level: info
-structname: '{{.Mock}}{{.InterfaceName}}'
-pkgname: '{{.SrcPackageName}}'
+structname: Mock{{.InterfaceName}}
 recursive: false
-require-template-schema-exists: true
 template: testify
-template-schema: '{{.Template}}.schema.json'
+pkgname: mocks
 packages:
   primamateria.systems/materia/internal/materia:
     config:
       all: true
+      dir: internal/mocks
   primamateria.systems/materia/internal/attributes:
     config:
       all: true
+      dir: internal/mocks
   primamateria.systems/materia/pkg/hostman:
     config:
       all: true
+      dir: internal/mocks
   primamateria.systems/materia/pkg/sourceman:
     config:
       all: true
+      dir: internal/mocks

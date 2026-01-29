@@ -12,6 +12,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/internal/executor"
 )
 
 var (
@@ -28,33 +29,33 @@ var (
 )
 
 type MateriaConfig struct {
-	Debug          bool              `toml:"debug"`
-	UseStdout      bool              `toml:"use_stdout"`
-	Hostname       string            `toml:"hostname"`
-	Roles          []string          `toml:"roles"`
-	Timeout        int               `toml:"timeout"`
-	MateriaDir     string            `toml:"materia_dir"`
-	QuadletDir     string            `toml:"quadlet_dir"`
-	ServiceDir     string            `toml:"service_dir"`
-	ScriptsDir     string            `toml:"scripts_dir"`
-	SourceDir      string            `toml:"source_dir"`
-	OutputDir      string            `toml:"output_dir"`
-	RemoteDir      string            `toml:"remote_dir"`
-	NoSync         bool              `toml:"nosync"`
-	OnlyResources  bool              `toml:"only_resources"`
-	Quiet          bool              `toml:"quiet"`
-	Cleanup        bool              `toml:"cleanup"`
-	CleanupVolumes bool              `toml:"cleanup_volumes"`
-	BackupVolumes  bool              `toml:"backup_volumes"`
-	MigrateVolumes bool              `toml:"migrate_volumes"`
-	Attributes     string            `toml:"attributes"`
-	CompressionCmd string            `toml:"compression_cmd"`
-	SecretsPrefix  string            `toml:"secrets_prefix"`
-	AgeConfig      *age.Config       `toml:"age"`
-	FileConfig     *fileattrs.Config `toml:"file"`
-	SopsConfig     *sops.Config      `toml:"sops"`
-	PlannerConfig  *PlannerConfig    `toml:"planner"`
-	ExecutorConfig *ExecutorConfig   `toml:"executor"`
+	Debug          bool                     `toml:"debug"`
+	UseStdout      bool                     `toml:"use_stdout"`
+	Hostname       string                   `toml:"hostname"`
+	Roles          []string                 `toml:"roles"`
+	Timeout        int                      `toml:"timeout"`
+	MateriaDir     string                   `toml:"materia_dir"`
+	QuadletDir     string                   `toml:"quadlet_dir"`
+	ServiceDir     string                   `toml:"service_dir"`
+	ScriptsDir     string                   `toml:"scripts_dir"`
+	SourceDir      string                   `toml:"source_dir"`
+	OutputDir      string                   `toml:"output_dir"`
+	RemoteDir      string                   `toml:"remote_dir"`
+	NoSync         bool                     `toml:"nosync"`
+	OnlyResources  bool                     `toml:"only_resources"`
+	Quiet          bool                     `toml:"quiet"`
+	Cleanup        bool                     `toml:"cleanup"`
+	CleanupVolumes bool                     `toml:"cleanup_volumes"`
+	BackupVolumes  bool                     `toml:"backup_volumes"`
+	MigrateVolumes bool                     `toml:"migrate_volumes"`
+	Attributes     string                   `toml:"attributes"`
+	CompressionCmd string                   `toml:"compression_cmd"`
+	SecretsPrefix  string                   `toml:"secrets_prefix"`
+	AgeConfig      *age.Config              `toml:"age"`
+	FileConfig     *fileattrs.Config        `toml:"file"`
+	SopsConfig     *sops.Config             `toml:"sops"`
+	PlannerConfig  *PlannerConfig           `toml:"planner"`
+	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
 	Rootless       bool `toml:"rootless"`
@@ -124,7 +125,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		pc.MigrateVolumes = k.Bool("migrate_volumes")
 		c.PlannerConfig = pc
 	}
-	c.ExecutorConfig, err = NewExecutorConfig(k)
+	c.ExecutorConfig, err = executor.NewExecutorConfig(k)
 	if err != nil {
 		return nil, err
 	}
