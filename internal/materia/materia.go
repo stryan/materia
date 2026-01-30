@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -21,12 +20,11 @@ import (
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/executor"
+	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/internal/plan"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
-
-type MacroMap func(map[string]any) template.FuncMap
 
 // TODO ugly hack, remove
 var rootComponent = &components.Component{
@@ -44,8 +42,8 @@ type Materia struct {
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
-	macros         MacroMap
-	snippets       map[string]*Snippet
+	macros         macros.MacroMap
+	snippets       map[string]*macros.Snippet
 	OutputDir      string
 	defaultTimeout int
 	onlyResources  bool
@@ -107,7 +105,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	snips := make(map[string]*Snippet)
+	snips := make(map[string]*macros.Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v

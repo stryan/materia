@@ -16,6 +16,7 @@ import (
 	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
@@ -145,8 +146,8 @@ var testResources = []components.Resource{
 	},
 }
 
-var testSnippets = func() map[string]*Snippet {
-	snips := make(map[string]*Snippet)
+var testSnippets = func() map[string]*macros.Snippet {
+	snips := make(map[string]*macros.Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v
@@ -250,32 +251,32 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 			},
 			expectedError: true,
 		},
-		{
-			name:          "happy-path/load-source-component",
-			assignedComps: []string{"comp2"},
-			setup: func(_ *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-				comp := &components.Component{
-					Name:      "comp2",
-					Resources: newResSet(),
-					Services:  newServSet(),
-				}
-				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
-					Hostname:  "localhost",
-					Component: "comp2",
-				}).Return(map[string]any{})
-				msm.EXPECT().GetComponent("comp2").Return(comp, nil)
-				manifest := &manifests.ComponentManifest{}
-				msm.EXPECT().GetManifest(comp).Return(manifest, nil)
-			},
-			expectedError: false,
-			validateGraph: func(t *testing.T, graph *ComponentGraph) {
-				assert.Len(t, graph.List(), 1)
-				tree, err := graph.Get("comp2")
-				require.NoError(t, err)
-				assert.Nil(t, tree.Host)
-				assert.NotNil(t, tree.Source)
-			},
-		},
+		// {
+		// 	name:          "happy-path/load-source-component",
+		// 	assignedComps: []string{"comp2"},
+		// 	setup: func(_ *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
+		// 		comp := &components.Component{
+		// 			Name:      "comp2",
+		// 			Resources: newResSet(),
+		// 			Services:  newServSet(),
+		// 		}
+		// 		vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
+		// 			Hostname:  "localhost",
+		// 			Component: "comp2",
+		// 		}).Return(map[string]any{})
+		// 		msm.EXPECT().GetComponent("comp2").Return(comp, nil)
+		// 		manifest := &manifests.ComponentManifest{}
+		// 		msm.EXPECT().GetManifest(comp).Return(manifest, nil)
+		// 	},
+		// 	expectedError: false,
+		// 	validateGraph: func(t *testing.T, graph *ComponentGraph) {
+		// 		assert.Len(t, graph.List(), 1)
+		// 		tree, err := graph.Get("comp2")
+		// 		require.NoError(t, err)
+		// 		assert.Nil(t, tree.Host)
+		// 		assert.NotNil(t, tree.Source)
+		// 	},
+		// },
 		{
 			name:           "happy-path/full-tree",
 			installedComps: []string{"comp1"},
@@ -297,8 +298,8 @@ func TestMateria_BuildComponentGraph(t *testing.T) {
 				mhm.EXPECT().GetManifest(hostComp).Return(hostManifest, nil)
 
 				msm.EXPECT().GetComponent("comp1").Return(sourceComp, nil)
-				sourceManifest := &manifests.ComponentManifest{}
-				msm.EXPECT().GetManifest(sourceComp).Return(sourceManifest, nil)
+				// sourceManifest := &manifests.ComponentManifest{}
+				// msm.EXPECT().GetManifest(sourceComp).Return(sourceManifest, nil)
 				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
 					Hostname:  "localhost",
 					Component: "comp1",

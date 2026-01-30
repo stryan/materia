@@ -7,31 +7,26 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-type Snippet struct {
-	Name       string
-	Parameters []string
-	Body       *template.Template
-}
-
-func configToSnippet(c manifests.SnippetConfig) (*Snippet, error) {
+func configToSnippet(c manifests.SnippetConfig) (*macros.Snippet, error) {
 	var err error
 	t := template.New(c.Name)
 	t, err = t.Parse(c.Body)
 	if err != nil {
 		return nil, err
 	}
-	return &Snippet{
+	return &macros.Snippet{
 		Name:       c.Name,
 		Parameters: c.Parameters,
 		Body:       t,
 	}, nil
 }
 
-func loadDefaultSnippets() []*Snippet {
-	return []*Snippet{
+func loadDefaultSnippets() []*macros.Snippet {
+	return []*macros.Snippet{
 		{
 			Name:       "autoUpdate",
 			Parameters: []string{"source"},
@@ -40,7 +35,7 @@ func loadDefaultSnippets() []*Snippet {
 	}
 }
 
-func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*Snippet) MacroMap {
+func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*macros.Snippet) macros.MacroMap {
 	return func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
 			"m_dataDir": func(arg string) (string, error) {
