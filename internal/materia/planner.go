@@ -194,7 +194,9 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 	hostname := m.Host.GetHostname()
 	log.Debug("loading host components")
 	for _, v := range installedComponents {
-		hostComponent, err := loadHostComponent(ctx, m.Host, v)
+		hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+		hostComponent := components.NewComponent(v)
+		err := hostPipeline.Load(ctx, hostComponent)
 		if err != nil {
 			return nil, fmt.Errorf("can't load host component: %w", err)
 		}
@@ -227,7 +229,6 @@ func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, 
 		sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, []*manifests.ComponentManifest{override}, []*manifests.ComponentManifest{extension})
 		sourceComponent := components.NewComponent(v)
 		err = sourcePipeline.Load(ctx, sourceComponent)
-		// sourceComponent, err := loadSourceComponent(ctx, m.Source, v, attrs, override, extension, m.macros)
 		if err != nil {
 			return nil, fmt.Errorf("error loading new components: %w", err)
 		}
@@ -746,145 +747,6 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		result = append(result, startAction)
 	}
 	return result, nil
-}
-
-// func loadSourceComponent(ctx context.Context, mgr SourceManager, name string, attrs map[string]any, override, extension *manifests.ComponentManifest, macros macros.MacroMap) (*components.Component, error) {
-// 	sourceComponent, err := mgr.GetComponent(name)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error loading new components: %w", err)
-// 	}
-//
-// 	manifest, err := mgr.GetManifest(sourceComponent)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("can't load source component %v manifest: %w", sourceComponent.Name, err)
-// 	}
-// 	if override != nil {
-// 		manifest, err = manifests.MergeComponentManifests(manifest, override)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("can't load source component %v's overrides: %w", sourceComponent.Name, err)
-// 		}
-// 	}
-// 	if extension != nil {
-// 		manifest, err = manifests.ExtendComponentManifests(manifest, extension)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("can't load source component %v's extensions: %w", sourceComponent.Name, err)
-// 		}
-// 	}
-// 	if err := sourceComponent.ApplyManifest(manifest); err != nil {
-// 		return nil, fmt.Errorf("can't apply source component %v manifest: %w", sourceComponent.Name, err)
-// 	}
-// 	attrs = attributes.MergeAttributes(attrs, sourceComponent.Defaults)
-// 	for _, r := range sourceComponent.Resources.List() {
-// 		if r.Kind == components.ResourceTypePodmanSecret {
-// 			newSecret, ok := attrs[r.Path]
-// 			if !ok {
-// 				newSecret = ""
-// 			}
-// 			newSecretString, isString := newSecret.(string)
-// 			if !isString {
-// 				return nil, fmt.Errorf("tried to load a non-string for secret %v", r.Path)
-// 			}
-// 			r.Content = newSecretString
-// 			sourceComponent.Resources.Set(r)
-// 			continue
-// 		}
-// 		bodyTemplate, err := mgr.ReadResource(r)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("can't read source resource %v/%v: %w", sourceComponent.Name, r.Name(), err)
-// 		}
-// 		if r.Template {
-// 			result := bytes.NewBuffer([]byte{})
-// 			tmpl, err := template.New("resource").Option("missingkey=error").Funcs(macros(attrs)).Parse(bodyTemplate)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			err = tmpl.Execute(result, attrs)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-//
-// 			r.Content = result.String()
-// 		} else {
-// 			r.Content = bodyTemplate
-// 		}
-// 		if r.Kind == components.ResourceTypeCombined {
-// 			expandedResources, err := components.GetResourcesFromQuadletsFile(r.Parent, r.Content)
-// 			if err != nil {
-// 				return nil, fmt.Errorf("can't expand combined resource %v: %w", r.Path, err)
-// 			}
-// 			for _, er := range expandedResources {
-// 				// Since range copies the value these won't get processed in this loop
-// 				// Combined quadlets can only have quadlets and data files so there's no other processing to be done
-// 				sourceComponent.Resources.Set(er)
-// 			}
-// 			// Remove the combined resource from the set so we don't accidentally install it
-// 			sourceComponent.Resources.Delete(r.Path)
-// 			continue
-// 		}
-// 		if r.IsQuadlet() {
-// 			hostObject, err := r.GetHostObject(r.Content)
-// 			if err != nil {
-// 				return nil, err
-// 			}
-// 			r.HostObject = hostObject
-// 		}
-// 		sourceComponent.Resources.Set(r)
-// 	}
-// 	return sourceComponent, nil
-// }
-
-func loadHostComponent(ctx context.Context, mgr HostManager, name string) (*components.Component, error) {
-	hostComponent, err := mgr.GetComponent(name)
-	if err != nil {
-		return nil, fmt.Errorf("can't load host component: %w", err)
-	}
-	if hostComponent.Version == components.DefaultComponentVersion {
-		manifest, err := mgr.GetManifest(hostComponent)
-		if err != nil {
-			return nil, fmt.Errorf("can't load host component %v manifest: %w", hostComponent.Name, err)
-		}
-		if err := hostComponent.ApplyManifest(manifest); err != nil {
-			return nil, fmt.Errorf("can't apply host component %v manifest: %w", hostComponent.Name, err)
-		}
-	}
-	var deletedSecrets []components.Resource
-	for _, r := range hostComponent.Resources.List() {
-		if r.Kind == components.ResourceTypePodmanSecret {
-			secretsList, err := mgr.ListSecrets(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("error listing secrets during resource validation")
-			}
-			if !slices.Contains(secretsList, r.Path) {
-				// secret isn't there so we treat it like the resource never existed
-				deletedSecrets = append(deletedSecrets, r)
-			} else {
-				curSecret, err := mgr.GetSecret(ctx, r.Path)
-				if err != nil {
-					return nil, err
-				}
-				r.Content = curSecret.Value
-				hostComponent.Resources.Set(r)
-			}
-			continue
-		}
-		body, err := mgr.ReadResource(r)
-		if err != nil {
-			return nil, fmt.Errorf("can't read host resource %v/%v: %w", hostComponent.Name, r.Name(), err)
-		}
-		r.Content = body
-		if r.IsQuadlet() {
-			hostObject, err := r.GetHostObject(body)
-			if err != nil {
-				return nil, err
-			}
-			r.HostObject = hostObject
-		}
-		hostComponent.Resources.Set(r)
-	}
-	for _, r := range deletedSecrets {
-		hostComponent.Resources.Delete(r.Path)
-	}
-	return hostComponent, nil
 }
 
 func getLiveService(ctx context.Context, mgr HostManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {
