@@ -131,14 +131,6 @@ func (e *Executor) executeAction(ctx context.Context, v actions.Action) error {
 			if err := e.host.RemoveComponent(v.Parent); err != nil {
 				return err
 			}
-		case actions.ActionCleanup:
-			if err := e.host.RunCleanup(v.Parent); err != nil {
-				return err
-			}
-		case actions.ActionSetup:
-			if err := e.host.RunSetup(v.Parent); err != nil {
-				return err
-			}
 		default:
 			return fmt.Errorf("invalid action type %v for resource %v", v.Todo, v.Target.Kind)
 		}

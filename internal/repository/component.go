@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 
@@ -480,28 +479,4 @@ func (r *HostComponentRepository) Clean() error {
 
 	}
 	return os.RemoveAll(r.DataPrefix)
-}
-
-func (r *HostComponentRepository) RunCleanup(comp *components.Component) error {
-	path := filepath.Join(r.DataPrefix, comp.Name)
-	cmd := exec.Command(fmt.Sprintf("%v/cleanup.sh", path))
-
-	cmd.Dir = path
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r HostComponentRepository) RunSetup(comp *components.Component) error {
-	path := filepath.Join(r.DataPrefix, comp.Name)
-	cmd := exec.Command(fmt.Sprintf("%v/%v", path, comp.SetupScript))
-
-	cmd.Dir = path
-	err := cmd.Run()
-	if err != nil {
-		return err
-	}
-	return nil
 }

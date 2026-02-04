@@ -23,8 +23,6 @@ type ComponentWriter interface {
 	UpdateComponent(*Component) error
 	InstallResource(Resource, *bytes.Buffer) error
 	RemoveResource(Resource) error
-	RunCleanup(*Component) error
-	RunSetup(*Component) error
 	PurgeComponent(*Component) error
 	PurgeComponentByName(string) error
 	Clean() error
