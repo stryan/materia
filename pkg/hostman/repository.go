@@ -1,4 +1,4 @@
-package materia
+package hostman
 
 import (
 	"bytes"

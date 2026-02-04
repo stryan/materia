@@ -31,8 +31,8 @@ type HostManager struct {
 	*services.ServiceManager
 	*facts.HostFactsManager
 	*repository.HostComponentRepository
-	Scripts repository.FileRepository
-	Units   repository.FileRepository
+	Scripts Repository
+	Units   Repository
 }
 
 func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error) {
@@ -69,8 +69,8 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 		sm,
 		factsm,
 		hostRepo,
-		*scriptRepo,
-		*serviceRepo,
+		scriptRepo,
+		serviceRepo,
 	}, nil
 }
 
