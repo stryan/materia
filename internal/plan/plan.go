@@ -30,18 +30,13 @@ func (c *componentChanges) addServiceChange(a actions.Action) {
 }
 
 type Plan struct {
-	size       int
-	volumes    []string
-	components []string
-
+	size    int
 	changes map[string]*componentChanges
 }
 
-func NewPlan(installedComps, volList []string) *Plan {
+func NewPlan() *Plan {
 	return &Plan{
-		volumes:    volList,
-		components: installedComps,
-		changes:    make(map[string]*componentChanges),
+		changes: make(map[string]*componentChanges),
 	}
 }
 
@@ -97,54 +92,6 @@ func (p *Plan) Empty() bool {
 
 func (p *Plan) Size() int {
 	return p.size
-}
-
-func (p *Plan) Validate() error {
-	steps := p.Steps()
-	componentList := p.components
-	needReload := false
-	reload := false
-	deletedVoles := []string{}
-	currentStep := 1
-	maxSteps := len(steps)
-	for _, a := range steps {
-		if (a.Target.Kind == components.ResourceTypeService || a.Target.IsQuadlet()) && a.Todo == actions.ActionInstall {
-			needReload = true
-		}
-		if a.Target.Kind == components.ResourceTypeCombined {
-			return fmt.Errorf("%v/%v invalid plan: tried to act on a combined resource: %v", currentStep, maxSteps, a.Target.Path)
-		}
-		if a.Todo == actions.ActionReload && a.Target.Path == "" {
-			reload = true
-		}
-		if a.Target.IsQuadlet() && a.Target.HostObject == "" {
-			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Target)
-		}
-		if a.Todo == actions.ActionRemove && a.Target.Kind == components.ResourceTypeVolume {
-			deletedVoles = append(deletedVoles, a.Target.Path)
-		}
-		if a.Todo == actions.ActionDump && a.Target.Kind == components.ResourceTypeVolume {
-			if slices.Contains(deletedVoles, a.Target.Path) {
-				return fmt.Errorf("%v/%v: invalid plan: deleted volume %v before dumping", currentStep, maxSteps, a.Target.Path)
-			}
-		}
-
-		if a.Todo == actions.ActionInstall {
-			if a.Target.Kind == components.ResourceTypeComponent {
-				componentList = append(componentList, a.Parent.Name)
-			} else {
-				if !slices.Contains(componentList, a.Parent.Name) {
-					return fmt.Errorf("%v/%v: invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Target, a.Parent.Name)
-				}
-			}
-		}
-		currentStep++
-	}
-	if needReload && !reload {
-		return fmt.Errorf("invalid plan: %v/%v: systemd units added without a daemon-reload", currentStep, maxSteps) // yeah yeah this is always at the end
-	}
-
-	return nil
 }
 
 func (p *Plan) Steps() []actions.Action {

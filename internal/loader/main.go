@@ -34,7 +34,11 @@ func NewSourceComponentPipeline(mgr components.ComponentReader, macros macros.Ma
 	return &ComponentLoadPipeline{
 		stages: []ComponentLoadStage{
 			&ComponentInitStage{manager: mgr},
-			&ManifestLoadStage{manager: mgr},
+			&ManifestLoadStage{
+				manager:    mgr,
+				overrides:  overrides,
+				extensions: extensions,
+			},
 			&ResourceDiscoveryStage{manager: mgr},
 			&TemplateProcessorStage{macros: macros, attrs: attrs},
 			&SecretInjectorStage{attrs: attrs},

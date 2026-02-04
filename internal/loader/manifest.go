@@ -36,7 +36,7 @@ func (s *ManifestLoadStage) Process(ctx context.Context, comp *components.Compon
 	}
 	if len(s.extensions) > 0 {
 		for _, extension := range s.extensions {
-			manifest, err = manifests.MergeComponentManifests(manifest, extension)
+			manifest, err = manifests.ExtendComponentManifests(manifest, extension)
 			if err != nil {
 				return fmt.Errorf("can't load source component %v's overrides: %w", comp.Name, err)
 			}

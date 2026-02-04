@@ -9,7 +9,11 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-var MateriaManifestFile = "MANIFEST.toml"
+var (
+	MateriaManifestFile           = "MANIFEST.toml"
+	ErrHostNotInManifest          = errors.New("host not in manifest")
+	ErrComponentNotAssignedToHost = errors.New("component not assigned to host")
+)
 
 type SnippetConfig struct {
 	Name       string   `toml:"Name"`
@@ -36,7 +40,7 @@ type Host struct {
 	Components []string                     `toml:"Components"`
 	Roles      []string                     `toml:"Roles"`
 	Overrides  map[string]ComponentManifest `toml:"Overrides"`
-	Extensions map[string]ComponentManifest `toml:"Overrides"`
+	Extensions map[string]ComponentManifest `toml:"Extensions"`
 }
 
 type Role struct {
@@ -70,4 +74,28 @@ func (m MateriaManifest) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (m *MateriaManifest) GetComponentOverride(hostname, componentName string) (*ComponentManifest, error) {
+	hostConfig, ok := m.Hosts[hostname]
+	if !ok {
+		return nil, ErrHostNotInManifest
+	}
+
+	if o, ok := hostConfig.Overrides[componentName]; ok {
+		return &o, nil
+	}
+	return nil, ErrComponentNotAssignedToHost
+}
+
+func (m *MateriaManifest) GetComponentExtension(hostname, componentName string) (*ComponentManifest, error) {
+	hostConfig, ok := m.Hosts[hostname]
+	if !ok {
+		return nil, ErrHostNotInManifest
+	}
+
+	if o, ok := hostConfig.Extensions[componentName]; ok {
+		return &o, nil
+	}
+	return nil, ErrComponentNotAssignedToHost
 }

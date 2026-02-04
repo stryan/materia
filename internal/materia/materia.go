@@ -15,13 +15,16 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/executor"
+	"primamateria.systems/materia/internal/loader"
 	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/internal/plan"
+	"primamateria.systems/materia/internal/planner"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -37,8 +40,9 @@ type Materia struct {
 	Host           HostManager
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
-	plannerConfig  PlannerConfig
+	plannerConfig  planner.PlannerConfig
 	Executor       *executor.Executor
+	Planner        *planner.Planner
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
@@ -48,7 +52,6 @@ type Materia struct {
 	defaultTimeout int
 	onlyResources  bool
 	debug          bool
-	diffs          bool
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
@@ -131,7 +134,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 	}
-	pc := PlannerConfig{
+	pc := planner.PlannerConfig{
 		BackupVolumes: true,
 	}
 	if c.PlannerConfig != nil {
@@ -142,6 +145,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		ec = *c.ExecutorConfig
 	}
 	e := executor.NewExecutor(ec, hm, c.Timeout)
+	p := planner.NewPlanner(pc, hm)
 
 	return &Materia{
 		Host:           hm,
@@ -157,6 +161,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		rootComponent:  rootComponent,
 		plannerConfig:  pc,
 		Executor:       e,
+		Planner:        p,
 		Roles:          roles,
 	}, nil
 }
@@ -227,19 +232,14 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
-	comp, err := m.Host.GetComponent(name)
+	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+	hostComponent := components.NewComponent(name)
+	err = hostPipeline.Load(ctx, hostComponent)
 	if err != nil {
-		return err
-	}
-	manifest, err := m.Host.GetManifest(comp)
-	if err != nil {
-		return err
-	}
-	if err := comp.ApplyManifest(manifest); err != nil {
-		return err
+		return fmt.Errorf("can't load host component: %w", err)
 	}
 
-	removalPlan, err := m.plan(ctx, []string{comp.Name}, []string{})
+	removalPlan, err := m.Planner.Plan(ctx, "local", []*components.Component{hostComponent}, []*components.Component{})
 	if err != nil {
 		return err
 	}
@@ -247,15 +247,99 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	return err
 }
 
+func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
+	log.Debug("determining installed components")
+	installedNames, err := m.Host.ListInstalledComponents()
+	if err != nil {
+		return nil, err
+	}
+	log.Debug("determining assigned components")
+	assignedNames, err := m.GetAssignedComponents()
+	if err != nil {
+		return nil, err
+	}
+	hostname := m.Host.GetHostname()
+	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+	installedComponents := make([]*components.Component, 0, len(installedNames))
+	for _, n := range installedNames {
+		hostComponent := components.NewComponent(n)
+		err := hostPipeline.Load(ctx, hostComponent)
+		if err != nil {
+			return nil, fmt.Errorf("can't load host component: %w", err)
+		}
+		installedComponents = append(installedComponents, hostComponent)
+	}
+	assignedComponents := make([]*components.Component, 0, len(assignedNames))
+	for _, n := range assignedNames {
+		attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+			Hostname:  hostname,
+			Roles:     m.Roles,
+			Component: n,
+		})
+		overrides := make([]*manifests.ComponentManifest, 0)
+		override, err := m.Manifest.GetComponentOverride(hostname, n)
+		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+			return nil, err
+		}
+		if override != nil {
+			overrides = append(overrides, override)
+		}
+		extensions := make([]*manifests.ComponentManifest, 0)
+		extension, err := m.Manifest.GetComponentExtension(hostname, n)
+		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+			return nil, err
+		}
+		if extension != nil {
+			extensions = append(extensions, extension)
+		}
+
+		sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
+		sourceComponent := components.NewComponent(n)
+		err = sourcePipeline.Load(ctx, sourceComponent)
+		if err != nil {
+			return nil, fmt.Errorf("error loading new components: %w", err)
+		}
+		assignedComponents = append(assignedComponents, sourceComponent)
+	}
+
+	actionPlan, err := m.Planner.Plan(ctx, hostname, installedComponents, assignedComponents)
+	if err != nil {
+		return nil, err
+	}
+	planValidator := plan.NewDefaultValidationPipeline(installedNames)
+	return actionPlan, planValidator.Validate(actionPlan)
+}
+
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
-	if roles != nil {
-		m.Roles = roles
+	hostname := m.Host.GetHostname()
+	attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+		Hostname:  hostname,
+		Roles:     roles,
+		Component: name,
+	})
+	overrides := make([]*manifests.ComponentManifest, 0)
+	override, err := m.Manifest.GetComponentOverride(hostname, name)
+	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+		return nil, err
 	}
-	assigned := []string{}
-	if name != "" {
-		assigned = []string{name}
+	if override != nil {
+		overrides = append(overrides, override)
 	}
-	return m.plan(ctx, []string{}, assigned)
+	extensions := make([]*manifests.ComponentManifest, 0)
+	extension, err := m.Manifest.GetComponentExtension(hostname, name)
+	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+		return nil, err
+	}
+	if extension != nil {
+		extensions = append(extensions, extension)
+	}
+	sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
+	sourceComponent := components.NewComponent(name)
+	err = sourcePipeline.Load(ctx, sourceComponent)
+	if err != nil {
+		return nil, fmt.Errorf("can't load host component: %w", err)
+	}
+	return m.Planner.Plan(ctx, hostname, []*components.Component{}, []*components.Component{sourceComponent})
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {

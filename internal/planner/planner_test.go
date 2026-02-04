@@ -1,22 +1,17 @@
-package materia
+package planner
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
-	"text/template"
 
 	"github.com/stretchr/testify/assert"
-	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
@@ -89,11 +84,12 @@ var testComponents = []*components.Component{
 
 var testResources = []components.Resource{
 	{
-		Path:     "hello.container",
-		Parent:   "hello",
-		Kind:     components.ResourceTypeContainer,
-		Template: true,
-		Content:  "[Container]\nImage=docker.io/materia/hello:latest",
+		Path:       "hello.container",
+		Parent:     "hello",
+		Kind:       components.ResourceTypeContainer,
+		Template:   true,
+		Content:    "[Container]\nImage=docker.io/materia/hello:latest",
+		HostObject: "systemd-hello",
 	},
 	{
 		Path:     "hello.env",
@@ -114,10 +110,11 @@ var testResources = []components.Resource{
 		Template: false,
 	},
 	{
-		Path:     "goodbye.container",
-		Parent:   "goodbye",
-		Kind:     components.ResourceTypeContainer,
-		Template: true,
+		Path:       "goodbye.container",
+		Parent:     "goodbye",
+		Kind:       components.ResourceTypeContainer,
+		Template:   true,
+		HostObject: "systemd-goodbye",
 	},
 	{
 		Path:     "conf/deep.env",
@@ -138,205 +135,56 @@ var testResources = []components.Resource{
 		Template: false,
 	},
 	{
-		Path:     "hello.container",
-		Parent:   "hello",
-		Kind:     components.ResourceTypeContainer,
-		Template: false,
-		Content:  "[Container]\nImage=hello.image",
+		Path:       "hello.container",
+		Parent:     "hello",
+		Kind:       components.ResourceTypeContainer,
+		Template:   false,
+		Content:    "[Container]\nImage=hello.image",
+		HostObject: "systemd-hello.container",
 	},
 }
 
-var testSnippets = func() map[string]*macros.Snippet {
-	snips := make(map[string]*macros.Snippet)
-	defaultSnippets := loadDefaultSnippets()
-	for _, v := range defaultSnippets {
-		snips[v.Name] = v
-	}
-	return snips
-}
-
-var testMacroMap = func(vars map[string]any) template.FuncMap {
-	return template.FuncMap{
-		"m_dataDir": func(arg string) (string, error) {
-			return filepath.Join(filepath.Join("/var/lib/", "materia", "components"), arg), nil
-		},
-		"m_facts": func(arg string) (any, error) {
-			return "fact!", nil
-		},
-		"m_default": func(arg string, def string) string {
-			val, ok := vars[arg]
-			if ok {
-				return val.(string)
-			}
-			return def
-		},
-		"exists": func(arg string) bool {
-			_, ok := vars[arg]
-			return ok
-		},
-		"snippet": func(name string, args ...string) (string, error) {
-			s, ok := testSnippets()[name]
-			if !ok {
-				return "", errors.New("snippet not found")
-			}
-			snipVars := make(map[string]string, len(s.Parameters))
-			for k, v := range s.Parameters {
-				snipVars[v] = args[k]
-			}
-
-			result := bytes.NewBuffer([]byte{})
-			err := s.Body.Execute(result, snipVars)
-			return result.String(), err
-		},
-	}
-}
-
-func TestMateria_BuildComponentGraph(t *testing.T) {
+func Test_BuildComponentGraph(t *testing.T) {
 	tests := []struct {
 		name           string
 		installedComps []string
 		assignedComps  []string
-		setup          func(*mocks.MockHostManager, *mocks.MockSourceManager, *mocks.MockAttributesEngine)
 		expectedError  bool
 		validateGraph  func(*testing.T, *ComponentGraph)
 	}{
 		{
 			name:          "happy-path/empty-components",
-			setup:         func(_ *mocks.MockHostManager, _ *mocks.MockSourceManager, _ *mocks.MockAttributesEngine) {},
 			expectedError: false,
 			validateGraph: func(t *testing.T, graph *ComponentGraph) {
 				assert.Empty(t, graph.List())
 			},
 		},
 		{
-			name:           "sad-path/host-component-error",
-			installedComps: []string{"comp1"},
-			setup: func(mhm *mocks.MockHostManager, _ *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-				mhm.EXPECT().GetComponent("comp1").Return(nil, errors.New("bwah?"))
-			},
-			expectedError: true,
-		},
-		{
-			name:           "happy-path/load-host-component",
-			installedComps: []string{"comp1"},
-			setup: func(mhm *mocks.MockHostManager, _ *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-				comp := &components.Component{
-					Name:      "comp1",
-					Version:   components.DefaultComponentVersion,
-					Resources: newResSet(),
-					Services:  newServSet(),
-				}
-				mhm.EXPECT().GetComponent("comp1").Return(comp, nil)
-				manifest := &manifests.ComponentManifest{}
-				mhm.EXPECT().GetManifest(comp).Return(manifest, nil)
-			},
-			expectedError: false,
-			validateGraph: func(t *testing.T, graph *ComponentGraph) {
-				assert.Len(t, graph.List(), 1)
-				tree, err := graph.Get("comp1")
-				require.NoError(t, err)
-				assert.NotNil(t, tree.Host)
-				assert.Nil(t, tree.Source)
-			},
-		},
-		{
-			name:          "sad-path/source-component-error",
-			assignedComps: []string{"comp2"},
-			setup: func(mhm *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
-					Hostname:  "localhost",
-					Component: "comp2",
-				}).Return(map[string]any{})
-				msm.EXPECT().GetComponent("comp2").Return(nil, errors.New("bwah?"))
-			},
-			expectedError: true,
-		},
-		// {
-		// 	name:          "happy-path/load-source-component",
-		// 	assignedComps: []string{"comp2"},
-		// 	setup: func(_ *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-		// 		comp := &components.Component{
-		// 			Name:      "comp2",
-		// 			Resources: newResSet(),
-		// 			Services:  newServSet(),
-		// 		}
-		// 		vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
-		// 			Hostname:  "localhost",
-		// 			Component: "comp2",
-		// 		}).Return(map[string]any{})
-		// 		msm.EXPECT().GetComponent("comp2").Return(comp, nil)
-		// 		manifest := &manifests.ComponentManifest{}
-		// 		msm.EXPECT().GetManifest(comp).Return(manifest, nil)
-		// 	},
-		// 	expectedError: false,
-		// 	validateGraph: func(t *testing.T, graph *ComponentGraph) {
-		// 		assert.Len(t, graph.List(), 1)
-		// 		tree, err := graph.Get("comp2")
-		// 		require.NoError(t, err)
-		// 		assert.Nil(t, tree.Host)
-		// 		assert.NotNil(t, tree.Source)
-		// 	},
-		// },
-		{
 			name:           "happy-path/full-tree",
 			installedComps: []string{"comp1"},
 			assignedComps:  []string{"comp1"},
-			setup: func(mhm *mocks.MockHostManager, msm *mocks.MockSourceManager, vault *mocks.MockAttributesEngine) {
-				hostComp := &components.Component{
-					Name:      "comp1",
-					Version:   components.DefaultComponentVersion,
-					Resources: newResSet(),
-					Services:  newServSet(),
-				}
-				sourceComp := &components.Component{
-					Name:      "comp1",
-					Resources: newResSet(),
-					Services:  newServSet(),
-				}
-				mhm.EXPECT().GetComponent("comp1").Return(hostComp, nil)
-				hostManifest := &manifests.ComponentManifest{}
-				mhm.EXPECT().GetManifest(hostComp).Return(hostManifest, nil)
-
-				msm.EXPECT().GetComponent("comp1").Return(sourceComp, nil)
-				// sourceManifest := &manifests.ComponentManifest{}
-				// msm.EXPECT().GetManifest(sourceComp).Return(sourceManifest, nil)
-				vault.EXPECT().Lookup(mock.Anything, attributes.AttributesFilter{
-					Hostname:  "localhost",
-					Component: "comp1",
-				}).Return(map[string]any{})
-			},
-			expectedError: false,
+			expectedError:  false,
 			validateGraph: func(t *testing.T, graph *ComponentGraph) {
 				assert.Len(t, graph.List(), 1)
 				tree, err := graph.Get("comp1")
 				require.NoError(t, err)
-				assert.NotNil(t, tree.Host)
-				assert.NotNil(t, tree.Source)
+				assert.NotNil(t, tree.Host, "expected non nill host component")
+				assert.NotNil(t, tree.Source, "expected non nill source component")
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mhm := mocks.NewMockHostManager(t)
-			msm := mocks.NewMockSourceManager(t)
-			mv := mocks.NewMockAttributesEngine(t)
-
-			m := &Materia{
-				Host:   mhm,
-				Source: msm,
-				Vault:  mv,
-				Manifest: &manifests.MateriaManifest{
-					Hosts: map[string]manifests.Host{
-						"localhost": {},
-					},
-				},
+			ic := make([]*components.Component, 0, len(tt.installedComps))
+			ac := make([]*components.Component, 0, len(tt.assignedComps))
+			for _, i := range tt.installedComps {
+				ic = append(ic, components.NewComponent(i))
 			}
-
-			mhm.EXPECT().GetHostname().Return("localhost")
-			tt.setup(mhm, msm, mv)
-
-			graph, err := m.BuildComponentGraph(context.Background(), tt.installedComps, tt.assignedComps)
+			for _, a := range tt.assignedComps {
+				ac = append(ac, components.NewComponent(a))
+			}
+			graph, err := BuildComponentGraph(context.Background(), ic, ac)
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -1185,24 +1033,13 @@ func TestPlan(t *testing.T) {
 		planHelper(actions.ActionInstall, "hello", manifests.ComponentManifestFile),
 		planHelper(actions.ActionReload, "", ""),
 	}
-	man := &manifests.MateriaManifest{
-		Hosts: map[string]manifests.Host{
-			"localhost": {
-				Components: []string{"hello"},
-			},
-		},
-	}
+
 	ctx := context.Background()
-	sm := mocks.NewMockSourceManager(t)
-	hm := mocks.NewMockHostManager(t)
-	v := mocks.NewMockAttributesEngine(t)
-	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
-	hm.EXPECT().GetHostname().Return("localhost")
-	hm.EXPECT().ListInstalledComponents().Return([]string{}, nil)
-	hm.EXPECT().ListVolumes(ctx).Return([]*containers.Volume{}, nil)
+	p := &Planner{}
 	containerResource := components.Resource{
-		Path: "hello.container",
-		Kind: components.ResourceTypeContainer,
+		Path:       "hello.container",
+		Kind:       components.ResourceTypeContainer,
+		HostObject: "systemd-hello",
 	}
 	dataResource := components.Resource{
 		Path: "hello.env",
@@ -1220,18 +1057,7 @@ func TestPlan(t *testing.T) {
 		Services:  newServSet(),
 		Version:   components.DefaultComponentVersion,
 	}
-	sm.EXPECT().GetComponent("hello").Return(helloComp, nil)
-	sm.EXPECT().GetManifest(helloComp).Return(&manifests.ComponentManifest{}, nil)
-	v.EXPECT().Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  "localhost",
-		Roles:     []string(nil),
-		Component: "hello",
-	}).Return(map[string]any{})
-	sm.EXPECT().ReadResource(containerResource).Return("[Container]", nil)
-	sm.EXPECT().ReadResource(dataResource).Return("FOO=bar", nil)
-	sm.EXPECT().ReadResource(manifestResource).Return("", nil)
-
-	plan, err := m.Plan(ctx)
+	plan, err := p.Plan(ctx, "localhost", []*components.Component{}, []*components.Component{helloComp})
 	assert.NoError(t, err)
 	for k, v := range plan.Steps() {
 		expected := expected[k]

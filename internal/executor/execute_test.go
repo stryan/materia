@@ -89,7 +89,7 @@ func TestExecute(t *testing.T) {
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		},
 	}
-	plan := plan.NewPlan([]string{}, []string{})
+	plan := plan.NewPlan()
 	for _, p := range planSteps {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}

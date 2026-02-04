@@ -13,6 +13,7 @@ import (
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/executor"
+	"primamateria.systems/materia/internal/planner"
 )
 
 var (
@@ -54,7 +55,7 @@ type MateriaConfig struct {
 	AgeConfig      *age.Config              `toml:"age"`
 	FileConfig     *fileattrs.Config        `toml:"file"`
 	SopsConfig     *sops.Config             `toml:"sops"`
-	PlannerConfig  *PlannerConfig           `toml:"planner"`
+	PlannerConfig  *planner.PlannerConfig   `toml:"planner"`
 	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
@@ -105,13 +106,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		}
 	}
 	if k.Exists("planner") {
-		c.PlannerConfig, err = NewPlannerConfig(k)
+		c.PlannerConfig, err = planner.NewPlannerConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// TODO remove in 0.6
-		pc := &PlannerConfig{}
+		pc := &planner.PlannerConfig{}
 		if k.Exists("cleanup") || k.Exists("cleanup_volumes") || k.Exists("backup_volumes") || k.Exists("migrate_volumes") {
 			log.Warn("configuring planner settings directly is deprecated and will be removed in 0.6")
 		}

@@ -1,4 +1,4 @@
-package materia
+package planner
 
 import (
 	"context"
@@ -7,35 +7,32 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/loader"
 	"primamateria.systems/materia/internal/plan"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-type ComponentTree struct {
-	Host, Source *components.Component
-	Name         string
-	FinalState   components.ComponentLifecycle
+type HostStateManager interface {
+	ListVolumes(context.Context) ([]*containers.Volume, error)
+	GetNetwork(context.Context, string) (*containers.Network, error)
+	ListImages(context.Context) ([]*containers.Image, error)
+	ListNetworks(context.Context) ([]*containers.Network, error)
+	GetVolume(context.Context, string) (*containers.Volume, error)
+	Get(context.Context, string) (*services.Service, error)
 }
 
 type PlannerConfig struct {
+	OnlyResources   bool `toml:"only_resources"`
 	CleanupQuadlets bool `toml:"cleanup_quadlets"`
 	CleanupVolumes  bool `toml:"cleanup_volumes"`
 	BackupVolumes   bool `toml:"backup_volumes"`
 	MigrateVolumes  bool `toml:"migrate_volumes"`
-}
-
-func (p *PlannerConfig) String() string {
-	return fmt.Sprintf("Cleanup Quadlets: %v\nCleanup Volumes: %v\nBackup Volumes: %v\nMigrate Volumes: %v\n", p.CleanupQuadlets, p.CleanupVolumes, p.BackupVolumes, p.MigrateVolumes)
 }
 
 func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
@@ -52,197 +49,72 @@ func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
 	return pc, nil
 }
 
-func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
-	log.Debug("determining installed components")
-	installed, err := m.Host.ListInstalledComponents()
-	if err != nil {
-		return nil, err
-	}
-	log.Debug("determining assigned components")
-	assigned, err := m.GetAssignedComponents()
-	if err != nil {
-		return nil, err
-	}
-	return m.plan(ctx, installed, assigned)
+func (p *PlannerConfig) String() string {
+	return fmt.Sprintf("Cleanup Quadlets: %v\nCleanup Volumes: %v\nBackup Volumes: %v\nMigrate Volumes: %v\n", p.CleanupQuadlets, p.CleanupVolumes, p.BackupVolumes, p.MigrateVolumes)
 }
 
-func (m *Materia) plan(ctx context.Context, installedComponents, assignedComponents []string) (*plan.Plan, error) {
-	log.Debug("starting plan")
-	currentVolumes, err := m.Host.ListVolumes(ctx)
+type Planner struct {
+	PlannerConfig
+	Host HostStateManager
+}
+
+func NewPlanner(conf PlannerConfig, host HostStateManager) *Planner {
+	return &Planner{conf, host}
+}
+
+func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents, assignedComponents []*components.Component) (*plan.Plan, error) {
+	installedCompNames := make([]string, 0, len(installedComponents))
+	for _, c := range installedComponents {
+		installedCompNames = append(installedCompNames, c.Name)
+	}
+	actionPlan := plan.NewPlan()
+	componentGraph, err := BuildComponentGraph(ctx, installedComponents, assignedComponents)
 	if err != nil {
 		return nil, err
 	}
-	var vollist []string
-	for _, v := range currentVolumes {
-		vollist = append(vollist, v.Name)
-	}
 
-	plan := plan.NewPlan(installedComponents, vollist)
-	if len(installedComponents) == 0 && len(assignedComponents) == 0 {
-		return plan, nil
-	}
-	log.Debug("building component graph")
-	componentGraph, err := m.BuildComponentGraph(ctx, installedComponents, assignedComponents)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug("calculating component differences")
 	for _, currentTree := range componentGraph.List() {
 		if currentTree.Host == nil {
 			currentTree.Source.State = components.StateFresh
-			actions, err := m.PlanFreshComponent(ctx, currentTree)
+			actions, err := p.PlanFreshComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
 			}
-			err = plan.Append(actions)
+			err = actionPlan.Append(actions)
 			if err != nil {
 				return nil, fmt.Errorf("error calculating fresh component %v differences:%w", currentTree.Name, err)
 			}
 		} else if currentTree.Source == nil {
 			currentTree.Host.State = components.StateNeedRemoval
-			actions, err := m.PlanRemovedComponent(ctx, currentTree)
+			actions, err := p.PlanRemovedComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
 			}
-			err = plan.Append(actions)
+			err = actionPlan.Append(actions)
 			if err != nil {
 				return nil, fmt.Errorf("error calculating removed component %v differences:%w", currentTree.Name, err)
 			}
 		} else {
 			currentTree.Host.State = components.StateMayNeedUpdate
 			currentTree.Source.State = components.StateFresh
-			actions, err := m.PlanUpdatedComponent(ctx, currentTree)
+			actions, err := p.PlanUpdatedComponent(ctx, currentTree)
 			if err != nil {
 				return nil, err
 			}
-			err = plan.Append(actions)
+			err = actionPlan.Append(actions)
 			if err != nil {
 				return nil, fmt.Errorf("error calculating updated component %v differences:%w", currentTree.Name, err)
 			}
 		}
 	}
-
-	if err := plan.Validate(); err != nil {
+	planValidationPipeline := plan.NewDefaultValidationPipeline(installedCompNames)
+	if err := planValidationPipeline.Validate(actionPlan); err != nil {
 		return nil, fmt.Errorf("generated invalid plan: %w", err)
 	}
-	var installing, removing, updating, ok []string
-	for _, v := range componentGraph.List() {
-		switch v.FinalState {
-		case components.StateFresh:
-			installing = append(installing, v.Name)
-			log.Debug("fresh:", "component", v.Name)
-		case components.StateNeedUpdate:
-			updating = append(updating, v.Name)
-			log.Debug("updating:", "component", v.Name)
-		case components.StateMayNeedUpdate:
-			log.Warn("component still listed as may need update", "component", v.Name)
-		case components.StateNeedRemoval:
-			removing = append(removing, v.Name)
-			log.Debug("remove:", "component", v.Name)
-		case components.StateOK:
-			ok = append(ok, v.Name)
-			log.Debug("ok:", "component", v.Name)
-		case components.StateRemoved:
-			log.Debug("removed:", "component", v.Name)
-		case components.StateStale:
-			log.Debug("stale:", "component", v.Name)
-		case components.StateUnknown:
-			log.Debug("unknown:", "component", v.Name)
-		default:
-			panic(fmt.Sprintf("unexpected main.ComponentLifecycle: %#v", v.FinalState))
-		}
-	}
-
-	log.Debug("installing components", "installing", installing)
-	log.Debug("removing components", "removing", removing)
-	log.Debug("updating components", "updating", updating)
-	log.Debug("unchanged components", "unchanged", ok)
-
-	return plan, nil
+	return actionPlan, nil
 }
 
-func (m *Materia) getOverride(c string) *manifests.ComponentManifest {
-	hostname := m.Host.GetHostname()
-	hostConfig, ok := m.Manifest.Hosts[hostname]
-	if !ok {
-		return nil
-	}
-
-	if o, ok := hostConfig.Overrides[c]; ok {
-		return &o
-	}
-	return nil
-}
-
-func (m *Materia) getExtension(c string) *manifests.ComponentManifest {
-	hostname := m.Host.GetHostname()
-	hostConfig, ok := m.Manifest.Hosts[hostname]
-	if !ok {
-		return nil
-	}
-
-	if o, ok := hostConfig.Extensions[c]; ok {
-		return &o
-	}
-	return nil
-}
-
-func (m *Materia) BuildComponentGraph(ctx context.Context, installedComponents, assignedComponents []string) (*ComponentGraph, error) {
-	componentGraph := NewComponentGraph()
-
-	hostname := m.Host.GetHostname()
-	log.Debug("loading host components")
-	for _, v := range installedComponents {
-		hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
-		hostComponent := components.NewComponent(v)
-		err := hostPipeline.Load(ctx, hostComponent)
-		if err != nil {
-			return nil, fmt.Errorf("can't load host component: %w", err)
-		}
-		err = componentGraph.Add(&ComponentTree{
-			Name: v,
-			Host: hostComponent,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-	}
-	log.Debug("loading source components")
-	for _, v := range assignedComponents {
-		attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-			Hostname:  hostname,
-			Roles:     m.Roles,
-			Component: v,
-		})
-		tree, err := componentGraph.Get(v)
-		if errors.Is(err, ErrTreeNotFound) {
-			tree = &ComponentTree{
-				Name: v,
-			}
-		} else if err != nil {
-			return nil, err
-		}
-		override := m.getOverride(v)
-		extension := m.getExtension(v)
-		sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, []*manifests.ComponentManifest{override}, []*manifests.ComponentManifest{extension})
-		sourceComponent := components.NewComponent(v)
-		err = sourcePipeline.Load(ctx, sourceComponent)
-		if err != nil {
-			return nil, fmt.Errorf("error loading new components: %w", err)
-		}
-
-		tree.Source = sourceComponent
-		err = componentGraph.Add(tree)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return componentGraph, nil
-}
-
-func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+func (m *Planner) PlanFreshComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
 	resourceActions, err := generateFreshComponentResources(currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
@@ -252,13 +124,13 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *Component
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
 	resourceActions = append(resourceActions, ensureActions...)
-	if m.onlyResources {
+	if m.OnlyResources {
 		return resourceActions, nil
 	}
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: rootComponent,
+			Parent: components.NewComponent("root"),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
@@ -283,12 +155,12 @@ func (m *Materia) PlanFreshComponent(ctx context.Context, currentTree *Component
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
-	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.Host)
+func (m *Planner) PlanRemovedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.PlannerConfig, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
-	if m.onlyResources {
+	if m.OnlyResources {
 		return resourceActions, nil
 	}
 	serviceActions, err := processRemovedComponentServices(ctx, m.Host, currentTree.Host)
@@ -297,7 +169,7 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	}
 	resourceActions = append(resourceActions, actions.Action{
 		Todo:   actions.ActionReload,
-		Parent: rootComponent,
+		Parent: components.NewComponent("root"),
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
 	if currentTree.Host.CleanupScript != "" {
@@ -317,8 +189,8 @@ func (m *Materia) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
-	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.plannerConfig, currentTree.Host, currentTree.Source)
+func (m *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.PlannerConfig, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
@@ -331,7 +203,7 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 		})
 	}
 
-	if m.onlyResources {
+	if m.OnlyResources {
 		return resourceActions, nil
 	}
 	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.Host)
@@ -343,7 +215,7 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: rootComponent,
+			Parent: components.NewComponent("root"),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 		currentTree.Host.State = components.StateNeedUpdate
@@ -351,13 +223,13 @@ func (m *Materia) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 		if err != nil {
 			return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 		}
-		if !m.onlyResources {
-			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, m.diffs, currentTree.Host, currentTree.Source, resourceActions, triggeredActions)
+		if !m.OnlyResources {
+			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, currentTree.Host, currentTree.Source, resourceActions, triggeredActions)
 			if err != nil {
 				return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
 			}
 		}
-	} else if !m.onlyResources {
+	} else if !m.OnlyResources {
 		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.Host)
 		if err != nil {
 			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
@@ -404,7 +276,7 @@ func generateFreshComponentResources(comp *components.Component) ([]actions.Acti
 	return result, nil
 }
 
-func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opts PlannerConfig, host *components.Component, source *components.Component) ([]actions.Action, error) {
+func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager, opts PlannerConfig, host *components.Component, source *components.Component) ([]actions.Action, error) {
 	var diffActions []actions.Action
 	if err := host.Validate(); err != nil {
 		return diffActions, fmt.Errorf("self component invalid during comparison: %w", err)
@@ -481,7 +353,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostManager, opt
 	return diffActions, nil
 }
 
-func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opts PlannerConfig, comp *components.Component) ([]actions.Action, error) {
+func generateRemovedComponentResources(ctx context.Context, mgr HostStateManager, opts PlannerConfig, comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	if err := comp.Validate(); err != nil {
 		return result, fmt.Errorf("invalid component %v: %w", comp.Name, err)
@@ -540,7 +412,7 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostManager, opt
 	return result, nil
 }
 
-func generateCleanupResourceActions(ctx context.Context, mgr HostManager, opts PlannerConfig, parent *components.Component, res components.Resource) ([]actions.Action, error) {
+func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, opts PlannerConfig, parent *components.Component, res components.Resource) ([]actions.Action, error) {
 	var result []actions.Action
 	switch res.Kind {
 	case components.ResourceTypeNetwork:
@@ -619,7 +491,7 @@ func generateComponentServiceTriggers(newComponent *components.Component) (map[s
 	return triggeredActions, nil
 }
 
-func generateVolumeMigrationActions(ctx context.Context, mgr HostManager, parent *components.Component, volumeRes components.Resource) ([]actions.Action, error) {
+func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, parent *components.Component, volumeRes components.Resource) ([]actions.Action, error) {
 	var diffActions []actions.Action
 	if volumeRes.Kind != components.ResourceTypeVolume {
 		return diffActions, errors.New("non volume resource")
@@ -749,7 +621,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 	return result, nil
 }
 
-func getLiveService(ctx context.Context, mgr HostManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {
+func getLiveService(ctx context.Context, mgr HostStateManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {
 	if src.Service == "" {
 		return nil, errors.New("tried to get empty live service")
 	}
@@ -767,7 +639,7 @@ func getLiveService(ctx context.Context, mgr HostManager, parent *components.Com
 	return liveService, nil
 }
 
-func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManager, component *components.Component) ([]actions.Action, error) {
+func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostStateManager, component *components.Component) ([]actions.Action, error) {
 	var actions []actions.Action
 	if component.Services == nil {
 		return actions, nil
@@ -792,7 +664,7 @@ func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostManag
 	return actions, nil
 }
 
-func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp *components.Component) ([]actions.Action, error) {
+func processRemovedComponentServices(ctx context.Context, mgr HostStateManager, comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	if comp.Services == nil {
 		return result, nil
@@ -816,7 +688,7 @@ func processRemovedComponentServices(ctx context.Context, mgr HostManager, comp 
 	return result, nil
 }
 
-func processUpdatedComponentServices(ctx context.Context, host HostManager, showDiffs bool, original, newComponent *components.Component, resourceActions []actions.Action, triggeredActions map[string][]actions.Action) ([]actions.Action, error) {
+func processUpdatedComponentServices(ctx context.Context, host HostStateManager, original, newComponent *components.Component, resourceActions []actions.Action, triggeredActions map[string][]actions.Action) ([]actions.Action, error) {
 	var result []actions.Action
 	var triggeredServices []string
 
@@ -958,7 +830,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 	}, nil
 }
 
-func generateQuadletEnsurements(ctx context.Context, mgr HostManager, comp *components.Component) ([]actions.Action, error) {
+func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	var questionableResources []components.Resource
 	for _, r := range comp.Resources.List() {
