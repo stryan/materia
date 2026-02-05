@@ -1,4 +1,4 @@
-FROM registry.opensuse.org/opensuse/tumbleweed-microdnf:latest
+FROM registry.opensuse.org/opensuse/tumbleweed-dnf:latest
 WORKDIR /app
 ARG TARGETARCH
 
