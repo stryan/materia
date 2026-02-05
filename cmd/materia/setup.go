@@ -17,8 +17,9 @@ import (
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/materia"
-	"primamateria.systems/materia/internal/source"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/source"
+
 	"primamateria.systems/materia/pkg/sourceman"
 
 	"primamateria.systems/materia/internal/source/git"
@@ -61,7 +62,7 @@ func setupLogger(c *materia.MateriaConfig) {
 	}
 }
 
-func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
+func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 	rawSourceConfig := k.Cut("source")
 	var sourceConfig source.SourceConfig
 	sourceConfig.URL = rawSourceConfig.String("url")
@@ -71,7 +72,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (materia.Source, error) {
 	if err != nil {
 		return nil, err
 	}
-	var source materia.Source
+	var source source.Source
 
 	switch sourceConfig.Kind {
 	case "git":
@@ -163,7 +164,21 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	if err != nil {
 		return nil, err
 	}
-	sm, err := sourceman.NewSourceManager(c)
+	hmc := &hostman.HostmanConfig{
+		Hostname:            c.Hostname,
+		Timeout:             c.Timeout,
+		RemotePodman:        c.Remote,
+		PodmanSecretsPrefix: c.SecretsPrefix,
+		DataDir:             c.MateriaDir,
+		QuadletDir:          c.QuadletDir,
+		ScriptsDir:          c.ScriptsDir,
+		ServicesDir:         c.ServiceDir,
+	}
+	smc := &sourceman.SourceManConfig{
+		SourceDir: c.SourceDir,
+		RemoteDir: c.RemoteDir,
+	}
+	sm, err := sourceman.NewSourceManager(smc)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +199,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 			return nil, fmt.Errorf("error with repo remotes sync: %w", err)
 		}
 	}
-	hm, err := hostman.NewHostManager(ctx, c)
+	hm, err := hostman.NewHostManager(ctx, hmc)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package materia
+package executor
 
 import (
 	"bytes"
@@ -7,23 +7,34 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
+	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/plan"
 )
+
+func newResSet(resources ...components.Resource) *components.ResourceSet {
+	rs := components.NewResourceSet()
+	for _, v := range resources {
+		_ = rs.Add(v)
+	}
+	return rs
+}
+
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
+	ss := components.NewServiceSet()
+	for _, v := range services {
+		ss.Add(v)
+	}
+	return ss
+}
 
 func TestExecute(t *testing.T) {
 	ctx := context.Background()
-	sm := NewMockSourceManager(t)
-	hm := NewMockHostManager(t)
-	v := NewMockAttributesEngine(t)
-	man := &manifests.MateriaManifest{
-		Hosts: map[string]manifests.Host{
-			"localhost": {
-				Components: []string{"hello"},
-			},
-		},
-	}
+	hm := mocks.NewMockHostManager(t)
+
 	containerResource := components.Resource{
 		Path:   "hello.container",
 		Parent: "hello",
@@ -47,38 +58,38 @@ func TestExecute(t *testing.T) {
 		Defaults:  map[string]any{},
 		Version:   components.DefaultComponentVersion,
 	}
-	planSteps := []Action{
+	planSteps := []actions.Action{
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
 			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      containerResource,
 			DiffContent: getDiffs("", "[Container]"),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      dataResource,
 			DiffContent: getDiffs("", "FOO=BAR"),
 		},
 		{
-			Todo:        ActionInstall,
+			Todo:        actions.ActionInstall,
 			Parent:      helloComp,
 			Target:      manifestResource,
 			DiffContent: getDiffs("", ""),
 		},
 		{
-			Todo:   ActionReload,
-			Parent: rootComponent,
+			Todo:   actions.ActionReload,
+			Parent: components.NewComponent("root"),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		},
 	}
-	plan := NewPlan([]string{}, []string{})
+	plan := plan.NewPlan()
 	for _, p := range planSteps {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
@@ -87,9 +98,9 @@ func TestExecute(t *testing.T) {
 	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, bytes.NewBufferString("")).Return(nil)
 	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
-	m := &Materia{Manifest: man, Source: sm, Host: hm, Vault: v, macros: testMacroMap}
+	e := &Executor{host: hm}
 
-	steps, err := m.Execute(ctx, plan)
+	steps, err := e.Execute(ctx, plan)
 	assert.NoError(t, err)
 	assert.Equal(t, plan.Size(), steps, "Missed steps: %v != %v", steps, plan.Size())
 }

@@ -67,7 +67,21 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, err
 	}
-	sm, err := sourceman.NewSourceManager(c)
+	hmc := &hostman.HostmanConfig{
+		Hostname:            c.Hostname,
+		Timeout:             c.Timeout,
+		RemotePodman:        c.Remote,
+		PodmanSecretsPrefix: c.SecretsPrefix,
+		DataDir:             c.MateriaDir,
+		QuadletDir:          c.QuadletDir,
+		ScriptsDir:          c.ScriptsDir,
+		ServicesDir:         c.ServiceDir,
+	}
+	smc := &sourceman.SourceManConfig{
+		SourceDir: c.SourceDir,
+		RemoteDir: c.RemoteDir,
+	}
+	sm, err := sourceman.NewSourceManager(smc)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +97,8 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
 	}
-	hm, err := hostman.NewHostManager(ctx, c)
+
+	hm, err := hostman.NewHostManager(ctx, hmc)
 	if err != nil {
 		return nil, err
 	}

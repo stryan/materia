@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
 func TestNew(t *testing.T) {
-	hm := NewMockHostManager(t)
-	sm := NewMockSourceManager(t)
+	hm := mocks.NewMockHostManager(t)
+	sm := mocks.NewMockSourceManager(t)
 	sm.EXPECT().LoadManifest(manifests.MateriaManifestFile).Return(&manifests.MateriaManifest{}, nil)
 	hm.EXPECT().GetHostname().Return("localhost")
 	m, err := NewMateriaFromConfig(context.Background(), &MateriaConfig{

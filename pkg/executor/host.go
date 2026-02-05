@@ -1,4 +1,4 @@
-package materia
+package executor
 
 import (
 	"bytes"
@@ -9,13 +9,10 @@ import (
 	"primamateria.systems/materia/pkg/serviceman"
 )
 
-type HostManager interface {
+type Host interface {
 	serviceman.ServiceManager
 	containers.ContainerManager
-	components.ComponentReader
 	components.ComponentWriter
-	FactsProvider
-	ListInstalledComponents() ([]string, error)
 	InstallScript(context.Context, string, *bytes.Buffer) error
 	RemoveScript(context.Context, string) error
 	InstallUnit(context.Context, string, *bytes.Buffer) error

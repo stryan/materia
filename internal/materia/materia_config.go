@@ -12,6 +12,8 @@ import (
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/pkg/executor"
+	"primamateria.systems/materia/pkg/planner"
 )
 
 var (
@@ -28,33 +30,33 @@ var (
 )
 
 type MateriaConfig struct {
-	Debug          bool              `toml:"debug"`
-	UseStdout      bool              `toml:"use_stdout"`
-	Hostname       string            `toml:"hostname"`
-	Roles          []string          `toml:"roles"`
-	Timeout        int               `toml:"timeout"`
-	MateriaDir     string            `toml:"materia_dir"`
-	QuadletDir     string            `toml:"quadlet_dir"`
-	ServiceDir     string            `toml:"service_dir"`
-	ScriptsDir     string            `toml:"scripts_dir"`
-	SourceDir      string            `toml:"source_dir"`
-	OutputDir      string            `toml:"output_dir"`
-	RemoteDir      string            `toml:"remote_dir"`
-	NoSync         bool              `toml:"nosync"`
-	OnlyResources  bool              `toml:"only_resources"`
-	Quiet          bool              `toml:"quiet"`
-	Cleanup        bool              `toml:"cleanup"`
-	CleanupVolumes bool              `toml:"cleanup_volumes"`
-	BackupVolumes  bool              `toml:"backup_volumes"`
-	MigrateVolumes bool              `toml:"migrate_volumes"`
-	Attributes     string            `toml:"attributes"`
-	CompressionCmd string            `toml:"compression_cmd"`
-	SecretsPrefix  string            `toml:"secrets_prefix"`
-	AgeConfig      *age.Config       `toml:"age"`
-	FileConfig     *fileattrs.Config `toml:"file"`
-	SopsConfig     *sops.Config      `toml:"sops"`
-	PlannerConfig  *PlannerConfig    `toml:"planner"`
-	ExecutorConfig *ExecutorConfig   `toml:"executor"`
+	Debug          bool                     `toml:"debug"`
+	UseStdout      bool                     `toml:"use_stdout"`
+	Hostname       string                   `toml:"hostname"`
+	Roles          []string                 `toml:"roles"`
+	Timeout        int                      `toml:"timeout"`
+	MateriaDir     string                   `toml:"materia_dir"`
+	QuadletDir     string                   `toml:"quadlet_dir"`
+	ServiceDir     string                   `toml:"service_dir"`
+	ScriptsDir     string                   `toml:"scripts_dir"`
+	SourceDir      string                   `toml:"source_dir"`
+	OutputDir      string                   `toml:"output_dir"`
+	RemoteDir      string                   `toml:"remote_dir"`
+	NoSync         bool                     `toml:"nosync"`
+	OnlyResources  bool                     `toml:"only_resources"`
+	Quiet          bool                     `toml:"quiet"`
+	Cleanup        bool                     `toml:"cleanup"`
+	CleanupVolumes bool                     `toml:"cleanup_volumes"`
+	BackupVolumes  bool                     `toml:"backup_volumes"`
+	MigrateVolumes bool                     `toml:"migrate_volumes"`
+	Attributes     string                   `toml:"attributes"`
+	CompressionCmd string                   `toml:"compression_cmd"`
+	SecretsPrefix  string                   `toml:"secrets_prefix"`
+	AgeConfig      *age.Config              `toml:"age"`
+	FileConfig     *fileattrs.Config        `toml:"file"`
+	SopsConfig     *sops.Config             `toml:"sops"`
+	PlannerConfig  *planner.PlannerConfig   `toml:"planner"`
+	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
 	Rootless       bool `toml:"rootless"`
@@ -104,13 +106,13 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		}
 	}
 	if k.Exists("planner") {
-		c.PlannerConfig, err = NewPlannerConfig(k)
+		c.PlannerConfig, err = planner.NewPlannerConfig(k)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// TODO remove in 0.6
-		pc := &PlannerConfig{}
+		pc := &planner.PlannerConfig{}
 		if k.Exists("cleanup") || k.Exists("cleanup_volumes") || k.Exists("backup_volumes") || k.Exists("migrate_volumes") {
 			log.Warn("configuring planner settings directly is deprecated and will be removed in 0.6")
 		}
@@ -124,7 +126,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		pc.MigrateVolumes = k.Bool("migrate_volumes")
 		c.PlannerConfig = pc
 	}
-	c.ExecutorConfig, err = NewExecutorConfig(k)
+	c.ExecutorConfig, err = executor.NewExecutorConfig(k)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +204,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.ExecutorConfig.QuadletDir = c.QuadletDir
 	c.ExecutorConfig.ScriptsDir = c.ScriptsDir
 	c.ExecutorConfig.ServiceDir = c.ServiceDir
+	c.ExecutorConfig.OutputDir = c.OutputDir
 
 	return &c, nil
 }

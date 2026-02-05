@@ -1,8 +1,15 @@
 package source
 
 import (
+	"context"
 	"errors"
 )
+
+type Source interface {
+	Sync(context.Context) error
+	Close(context.Context) error
+	Clean() error
+}
 
 type SourceConfig struct {
 	URL  string `toml:"url" json:"url" yaml:"url"`

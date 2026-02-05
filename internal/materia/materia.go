@@ -9,21 +9,25 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"text/template"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/executor"
+	"primamateria.systems/materia/pkg/loader"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/planner"
 )
-
-type MacroMap func(map[string]any) template.FuncMap
 
 // TODO ugly hack, remove
 var rootComponent = &components.Component{
@@ -36,18 +40,18 @@ type Materia struct {
 	Host           HostManager
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
-	plannerConfig  PlannerConfig
-	executorConfig ExecutorConfig
+	plannerConfig  planner.PlannerConfig
+	Executor       *executor.Executor
+	Planner        *planner.Planner
 	Vault          AttributesEngine
 	rootComponent  *components.Component
 	Roles          []string
-	macros         MacroMap
-	snippets       map[string]*Snippet
+	macros         macros.MacroMap
+	snippets       map[string]*macros.Snippet
 	OutputDir      string
 	defaultTimeout int
 	onlyResources  bool
 	debug          bool
-	diffs          bool
 }
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
@@ -104,7 +108,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
-	snips := make(map[string]*Snippet)
+	snips := make(map[string]*macros.Snippet)
 	defaultSnippets := loadDefaultSnippets()
 	for _, v := range defaultSnippets {
 		snips[v.Name] = v
@@ -130,16 +134,18 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err != nil {
 		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 	}
-	pc := PlannerConfig{
+	pc := planner.PlannerConfig{
 		BackupVolumes: true,
 	}
 	if c.PlannerConfig != nil {
 		pc = *c.PlannerConfig
 	}
-	ec := ExecutorConfig{}
+	ec := executor.ExecutorConfig{}
 	if c.ExecutorConfig != nil {
 		ec = *c.ExecutorConfig
 	}
+	e := executor.NewExecutor(ec, hm, c.Timeout)
+	p := planner.NewPlanner(pc, hm)
 
 	return &Materia{
 		Host:           hm,
@@ -154,7 +160,8 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		macros:         loadDefaultMacros(c, hm, snips),
 		rootComponent:  rootComponent,
 		plannerConfig:  pc,
-		executorConfig: ec,
+		Executor:       e,
+		Planner:        p,
 		Roles:          roles,
 	}, nil
 }
@@ -225,35 +232,114 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	if !isInstalled {
 		return errors.New("component not installed")
 	}
-	comp, err := m.Host.GetComponent(name)
+	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+	hostComponent := components.NewComponent(name)
+	err = hostPipeline.Load(ctx, hostComponent)
 	if err != nil {
-		return err
-	}
-	manifest, err := m.Host.GetManifest(comp)
-	if err != nil {
-		return err
-	}
-	if err := comp.ApplyManifest(manifest); err != nil {
-		return err
+		return fmt.Errorf("can't load host component: %w", err)
 	}
 
-	removalPlan, err := m.plan(ctx, []string{comp.Name}, []string{})
+	removalPlan, err := m.Planner.Plan(ctx, "local", []*components.Component{hostComponent}, []*components.Component{})
 	if err != nil {
 		return err
 	}
-	_, err = m.Execute(ctx, removalPlan)
+	_, err = m.Executor.Execute(ctx, removalPlan)
 	return err
 }
 
-func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*Plan, error) {
-	if roles != nil {
-		m.Roles = roles
+func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
+	log.Debug("determining installed components")
+	installedNames, err := m.Host.ListInstalledComponents()
+	if err != nil {
+		return nil, err
 	}
-	assigned := []string{}
-	if name != "" {
-		assigned = []string{name}
+	log.Debug("determining assigned components")
+	assignedNames, err := m.GetAssignedComponents()
+	if err != nil {
+		return nil, err
 	}
-	return m.plan(ctx, []string{}, assigned)
+	hostname := m.Host.GetHostname()
+	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+	installedComponents := make([]*components.Component, 0, len(installedNames))
+	for _, n := range installedNames {
+		hostComponent := components.NewComponent(n)
+		err := hostPipeline.Load(ctx, hostComponent)
+		if err != nil {
+			return nil, fmt.Errorf("can't load host component: %w", err)
+		}
+		installedComponents = append(installedComponents, hostComponent)
+	}
+	assignedComponents := make([]*components.Component, 0, len(assignedNames))
+	for _, n := range assignedNames {
+		attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+			Hostname:  hostname,
+			Roles:     m.Roles,
+			Component: n,
+		})
+		overrides := make([]*manifests.ComponentManifest, 0)
+		override, err := m.Manifest.GetComponentOverride(hostname, n)
+		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+			return nil, err
+		}
+		if override != nil {
+			overrides = append(overrides, override)
+		}
+		extensions := make([]*manifests.ComponentManifest, 0)
+		extension, err := m.Manifest.GetComponentExtension(hostname, n)
+		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+			return nil, err
+		}
+		if extension != nil {
+			extensions = append(extensions, extension)
+		}
+
+		sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
+		sourceComponent := components.NewComponent(n)
+		err = sourcePipeline.Load(ctx, sourceComponent)
+		if err != nil {
+			return nil, fmt.Errorf("error loading new components: %w", err)
+		}
+		assignedComponents = append(assignedComponents, sourceComponent)
+	}
+
+	actionPlan, err := m.Planner.Plan(ctx, hostname, installedComponents, assignedComponents)
+	if err != nil {
+		return nil, err
+	}
+	planValidator := plan.NewDefaultValidationPipeline(installedNames)
+	return actionPlan, planValidator.Validate(actionPlan)
+}
+
+func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
+	hostname := m.Host.GetHostname()
+	attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+		Hostname:  hostname,
+		Roles:     roles,
+		Component: name,
+	})
+	overrides := make([]*manifests.ComponentManifest, 0)
+	override, err := m.Manifest.GetComponentOverride(hostname, name)
+	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+		return nil, err
+	}
+	if override != nil {
+		overrides = append(overrides, override)
+	}
+	extensions := make([]*manifests.ComponentManifest, 0)
+	extension, err := m.Manifest.GetComponentExtension(hostname, name)
+	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
+		return nil, err
+	}
+	if extension != nil {
+		extensions = append(extensions, extension)
+	}
+	sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
+	sourceComponent := components.NewComponent(name)
+	err = sourcePipeline.Load(ctx, sourceComponent)
+	if err != nil {
+		return nil, fmt.Errorf("can't load host component: %w", err)
+	}
+	return m.Planner.Plan(ctx, hostname, []*components.Component{}, []*components.Component{sourceComponent})
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
@@ -287,14 +373,14 @@ type change struct {
 	ResourceName, Before, After string
 }
 
-func (m *Materia) SavePlan(p *Plan, outputfile string) error {
+func (m *Materia) SavePlan(p *plan.Plan, outputfile string) error {
 	path := filepath.Join(m.OutputDir, outputfile)
 	planOutput := planOutput{
 		Timestamp: time.Now(),
 		Plan:      p.PrettyLines(),
 	}
 	for _, a := range p.Steps() {
-		if a.Todo == ActionUpdate {
+		if a.Todo == actions.ActionUpdate {
 			dmp := diffmatchpatch.New()
 			before := dmp.DiffText1(a.DiffContent)
 			after := dmp.DiffText2(a.DiffContent)

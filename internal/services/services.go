@@ -138,7 +138,7 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	}
 }
 
-func (s *ServiceManager) Get(ctx context.Context, name string) (*Service, error) {
+func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service, error) {
 	if name == "" {
 		return nil, errors.New("empty service name")
 	}

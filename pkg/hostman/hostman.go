@@ -10,22 +10,33 @@ import (
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/facts"
-	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/services"
 )
+
+type HostmanConfig struct {
+	Hostname            string
+	Timeout             int
+	RemotePodman        bool
+	PodmanSecretsPrefix string
+
+	DataDir     string
+	QuadletDir  string
+	ScriptsDir  string
+	ServicesDir string
+}
 
 type HostManager struct {
 	*containers.PodmanManager
 	*services.ServiceManager
 	*facts.HostFactsManager
 	*repository.HostComponentRepository
-	Scripts repository.FileRepository
-	Units   repository.FileRepository
+	Scripts Repository
+	Units   Repository
 }
 
-func NewHostManager(ctx context.Context, c *materia.MateriaConfig) (*HostManager, error) {
-	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.MateriaDir, "components"))
+func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error) {
+	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.DataDir, "components"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
@@ -40,7 +51,7 @@ func NewHostManager(ctx context.Context, c *materia.MateriaConfig) (*HostManager
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := containers.NewPodmanManager(c.Remote, c.SecretsPrefix)
+	cm, err := containers.NewPodmanManager(c.RemotePodman, c.PodmanSecretsPrefix)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +59,7 @@ func NewHostManager(ctx context.Context, c *materia.MateriaConfig) (*HostManager
 	if err != nil {
 		return nil, fmt.Errorf("failed to create script repo: %w", err)
 	}
-	serviceRepo, err := repository.NewFileRepository(c.ServiceDir)
+	serviceRepo, err := repository.NewFileRepository(c.ServicesDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
@@ -58,8 +69,8 @@ func NewHostManager(ctx context.Context, c *materia.MateriaConfig) (*HostManager
 		sm,
 		factsm,
 		hostRepo,
-		*scriptRepo,
-		*serviceRepo,
+		scriptRepo,
+		serviceRepo,
 	}, nil
 }
 

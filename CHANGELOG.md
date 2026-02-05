@@ -10,6 +10,7 @@ Best effort list of major changes and bugfixes
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 
 ## Upcoming
+- refactor: planner,plan,executor, and component loading modules have been publicized and refactored.
 - feat: Component scripts are no longer a separate resource type. They are instead normal script resources that, when specified in the component manifest, are run in a transient systemd unit on installation/removal.
 - bugfix: component removal ignores non-existent services
 - bugfix/feat: `Overrides` now properly overrides manifests, new `Extensions` manifest option

@@ -11,7 +11,10 @@ import (
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/planner"
 )
 
 var Version string
@@ -323,7 +326,17 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
@@ -478,29 +491,32 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
+					plannerObj := planner.NewPlanner(planner.PlannerConfig{}, hm)
+					executorObj := executor.NewExecutor(executor.ExecutorConfig{}, hm, 0)
+					planValidator := plan.NewDefaultValidationPipeline([]string{})
 
-					m := &materia.Materia{Host: hm}
 					sourceComp, err := createManifestComponent(r)
 					if err != nil {
 						return err
 					}
 					sourceComp.State = components.StateFresh
-					currentVolumes, err := m.Host.ListVolumes(ctx)
-					if err != nil {
-						return err
-					}
-					vollist := make([]string, 0, len(currentVolumes))
-					for _, v := range currentVolumes {
-						vollist = append(vollist, v.Name)
-					}
-
-					actions, err := m.PlanFreshComponent(
+					actions, err := plannerObj.PlanFreshComponent(
 						ctx,
-						&materia.ComponentTree{
+						&planner.ComponentTree{
 							Name:       "manifestation",
 							FinalState: components.StateFresh,
 							Host:       nil,
@@ -510,16 +526,19 @@ func main() {
 					if err != nil {
 						return err
 					}
-					plan := materia.NewPlan([]string{}, vollist)
+					plan := plan.NewPlan()
 					err = plan.Append(actions)
 					if err != nil {
+						return err
+					}
+					if err := planValidator.Validate(plan); err != nil {
 						return err
 					}
 					fmt.Println(plan.Pretty())
 					if dry {
 						return nil
 					}
-					steps, err := m.Execute(ctx, plan)
+					steps, err := executorObj.Execute(ctx, plan)
 					if err != nil {
 						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
 						return err
@@ -578,29 +597,32 @@ func main() {
 					if err != nil {
 						return err
 					}
-					hm, err := hostman.NewHostManager(ctx, c)
+					hmc := &hostman.HostmanConfig{
+						Hostname:            c.Hostname,
+						Timeout:             c.Timeout,
+						RemotePodman:        c.Remote,
+						PodmanSecretsPrefix: c.SecretsPrefix,
+						DataDir:             c.MateriaDir,
+						QuadletDir:          c.QuadletDir,
+						ScriptsDir:          c.ScriptsDir,
+						ServicesDir:         c.ServiceDir,
+					}
+					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {
 						return err
 					}
-
-					m := &materia.Materia{Host: hm}
+					plannerObj := planner.NewPlanner(planner.PlannerConfig{}, hm)
+					executorObj := executor.NewExecutor(executor.ExecutorConfig{}, hm, 0)
 					installedComp, err := createManifestComponent(r)
 					if err != nil {
 						return err
 					}
-					installedComp.State = components.StateNeedRemoval
-					currentVolumes, err := m.Host.ListVolumes(ctx)
-					if err != nil {
-						return err
-					}
-					vollist := make([]string, 0, len(currentVolumes))
-					for _, v := range currentVolumes {
-						vollist = append(vollist, v.Name)
-					}
 
-					actions, err := m.PlanRemovedComponent(
+					planValidator := plan.NewDefaultValidationPipeline([]string{installedComp.Name})
+					installedComp.State = components.StateNeedRemoval
+					actions, err := plannerObj.PlanRemovedComponent(
 						ctx,
-						&materia.ComponentTree{
+						&planner.ComponentTree{
 							Name:       installedComp.Name,
 							FinalState: components.StateNeedRemoval,
 							Source:     nil,
@@ -617,13 +639,16 @@ func main() {
 						}
 						return nil
 					}
-					plan := materia.NewPlan([]string{}, vollist)
+					plan := plan.NewPlan()
 					err = plan.Append(actions)
 					if err != nil {
 						return err
 					}
+					if err := planValidator.Validate(plan); err != nil {
+						return err
+					}
 					fmt.Println(plan.Pretty())
-					steps, err := m.Execute(ctx, plan)
+					steps, err := executorObj.Execute(ctx, plan)
 					if err != nil {
 						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
 						return err
