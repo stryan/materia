@@ -593,7 +593,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
 						Enabled: false,
@@ -606,7 +606,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			component: testComponents[1],
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
 						Enabled: false,
@@ -641,7 +641,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
 						Enabled: false,
@@ -683,7 +683,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
 				}, nil)
@@ -708,7 +708,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
 				}, nil)
@@ -745,7 +745,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
 				}, nil)
@@ -806,7 +806,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			component: testComponents[1],
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
 						Enabled: false,
@@ -827,7 +827,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			},
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
 						Enabled: false,
@@ -856,7 +856,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			},
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
 						Enabled: false,
@@ -878,7 +878,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			want: []actions.Action{},
 			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
 				for _, src := range comp.Services.List() {
-					sm.EXPECT().Get(mock.Anything, src.Service).Return(&services.Service{
+					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
 						Enabled: false,
@@ -905,7 +905,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "active",
 				}, nil)
@@ -930,7 +930,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "active",
 				}, nil)
@@ -967,11 +967,11 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 				},
 			},
 			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().Get(mock.Anything, "hello.image").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.image").Return(&services.Service{
 					Name:  "hello-image.service",
 					State: "inactive",
 				}, nil)
-				sm.EXPECT().Get(mock.Anything, "hello.service").Return(&services.Service{
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "active",
 				}, nil)

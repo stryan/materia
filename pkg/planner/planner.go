@@ -24,7 +24,7 @@ type HostStateManager interface {
 	ListImages(context.Context) ([]*containers.Image, error)
 	ListNetworks(context.Context) ([]*containers.Network, error)
 	GetVolume(context.Context, string) (*containers.Volume, error)
-	Get(context.Context, string) (*services.Service, error)
+	GetService(context.Context, string) (*services.Service, error)
 }
 
 type PlannerConfig struct {
@@ -632,7 +632,7 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 	} else {
 		name = res.Service()
 	}
-	liveService, err := mgr.Get(ctx, name)
+	liveService, err := mgr.GetService(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -853,7 +853,7 @@ func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp 
 
 	for _, r := range questionableResources {
 		found := false
-		serv, err := mgr.Get(ctx, r.Service())
+		serv, err := mgr.GetService(ctx, r.Service())
 		if err != nil {
 			return result, err
 		}
