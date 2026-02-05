@@ -4,9 +4,9 @@
 
 # Potential future goals
 - [ ] Remote components refinement
-- [ ] Support `.quadlets` files
+- [x] Support `.quadlets` files
 - [ ] Automatic rollback on failure
-- [ ] "manifest-only" mode as a compose style tool
+- [x] "manifest-only" mode as a compose style tool
 - [ ] Pre and post change steps
 - [ ] Slimmer container image
 - [ ] [X-Materia] option in Quadlet files to embed e.g. Service information in the resource instead of in the Manifest
