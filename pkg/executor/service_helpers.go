@@ -51,7 +51,7 @@ func modifyService(ctx context.Context, sm serviceman.ServiceManager, command ac
 	if err != nil {
 		return err
 	}
-	log.Debug("%v service", "unit", cmd, res.Service())
+	log.Debugf("%v service", "unit", cmd, res.Service())
 
 	return sm.Apply(ctx, res.Service(), cmd, timeout)
 }

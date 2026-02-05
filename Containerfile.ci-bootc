@@ -1,0 +1,18 @@
+FROM quay.io/fedora/fedora-bootc:41
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets"
+LABEL org.opencontainers.image.licenses=GPLv3
+
+WORKDIR /app
+
+
+RUN dnf install -y podman git openssh openssh-clients && dnf clean all
+
+
+RUN install -d -m 0700 /var/roothome/.ssh && \
+	touch /var/roothome/.ssh/known_hosts
+
+COPY ./bin/materia-${TARGETARCH} /app/materia
+
+ENTRYPOINT ["/app/materia"]
