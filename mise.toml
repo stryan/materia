@@ -43,7 +43,7 @@ usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''
 run = [
-  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./internal/... ",
+  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./internal/... ./pkg/...",
 ]
 
 [tasks.virter-age]

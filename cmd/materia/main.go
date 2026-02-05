@@ -9,12 +9,12 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v3"
-	"primamateria.systems/materia/internal/executor"
 	"primamateria.systems/materia/internal/materia"
-	"primamateria.systems/materia/internal/plan"
-	"primamateria.systems/materia/internal/planner"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/planner"
 )
 
 var Version string

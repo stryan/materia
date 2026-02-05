@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/plan"
+	"primamateria.systems/materia/pkg/plan"
 )
 
-func (m *Materia) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
+func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (int, error) {
 	defer func() {
 		if !m.Executor.CleanupComponents {
 			return
 		}
 		m.validatePostExecute(ctx)
 	}()
-	return m.Executor.Execute(ctx, plan)
+	return m.Executor.Execute(ctx, aplan)
 }
 
 func (m *Materia) validatePostExecute(ctx context.Context) {

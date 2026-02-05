@@ -20,13 +20,13 @@ import (
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
-	"primamateria.systems/materia/internal/executor"
-	"primamateria.systems/materia/internal/loader"
 	"primamateria.systems/materia/internal/macros"
-	"primamateria.systems/materia/internal/plan"
-	"primamateria.systems/materia/internal/planner"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/executor"
+	"primamateria.systems/materia/pkg/loader"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/planner"
 )
 
 // TODO ugly hack, remove

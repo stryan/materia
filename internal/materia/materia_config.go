@@ -12,8 +12,8 @@ import (
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
-	"primamateria.systems/materia/internal/executor"
-	"primamateria.systems/materia/internal/planner"
+	"primamateria.systems/materia/pkg/executor"
+	"primamateria.systems/materia/pkg/planner"
 )
 
 var (
