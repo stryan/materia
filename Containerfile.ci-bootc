@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora-bootc:41
+FROM quay.io/fedora/fedora-bootc:43
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets"
