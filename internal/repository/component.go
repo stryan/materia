@@ -74,8 +74,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		oldComp.Version = -1
 	}
 	log.Debug("loading component", "component", oldComp.Name, "version", oldComp.Version)
-	scripts := 0
-	secretResource := []components.Resource{}
 	manifestPath := filepath.Join(dataPath, manifests.ComponentManifestFile)
 	if _, err := os.Stat(manifestPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -132,15 +130,6 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		return nil, err
 	}
 
-	if scripts != 0 && scripts != 2 {
-		return nil, errors.New("scripted component is missing install or cleanup")
-	}
-	for _, s := range secretResource {
-		err := oldComp.Resources.Add(s)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return oldComp, nil
 }
 
@@ -252,13 +241,13 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 	}
 	defer func() {
 		closeErr := qFile.Close()
-		if err != nil {
-			if closeErr != nil {
-				log.Warnf("can't managed file: %v", err)
+		if closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				log.Warnf("can't close file while installing component %v: %v", c.Name, closeErr)
 			}
-			return
 		}
-		err = closeErr
 	}()
 	vd, err := c.VersonData()
 	if err != nil {
