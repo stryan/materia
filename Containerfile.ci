@@ -1,4 +1,4 @@
-FROM registry.opensuse.org/opensuse/tumbleweed-dnf:latest
+FROM registry.opensuse.org/opensuse/bci/bci-init:latest
 WORKDIR /app
 ARG TARGETARCH
 
@@ -11,10 +11,7 @@ RUN mkdir -p /root/.ssh && \
 	chmod 0700 /root/.ssh && \
 	touch /root/.ssh/known_hosts
 
-# Fix GPG signing
-RUN ln -s /etc/pki/rpm-gpg/RPM-GPG-KEY-openSUSE /etc/pki/rpm-gpg/RPM-GPG-KEY-openSUSE-2022
-
-RUN microdnf install -y podman git openssh openssh-clients && microdnf clean all
+RUN zypper in -y podman && zypper clean
 
 COPY ./bin/materia-${TARGETARCH} /app/materia
 

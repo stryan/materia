@@ -7,7 +7,7 @@ RUN curl https://mise.run | sh && /root/.local/bin/mise trust && /root/.local/bi
 RUN /root/.local/bin/mise build
 
 
-FROM registry.opensuse.org/opensuse/tumbleweed:latest as final
+FROM registry.opensuse.org/opensuse/bci/bci-init:latest
 
 LABEL org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets"
 LABEL org.opencontainers.image.licenses=GPLv3
@@ -20,7 +20,7 @@ RUN mkdir -p /root/.ssh && \
 	chmod 0700 /root/.ssh && \
 	touch /root/.ssh/known_hosts
 
-RUN zypper in -y podman git openssh openssh-clients
+RUN zypper in -y podman && zypper clean
 
 COPY --from=builder /go/src/app/materia/bin/materia-${TARGETARCH} /app/
 
