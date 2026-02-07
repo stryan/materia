@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,8 +24,8 @@ func NewFileRepository(prefix string) (*FileRepository, error) {
 	return &FileRepository{prefix}, nil
 }
 
-func (filerepository *FileRepository) Install(ctx context.Context, path string, data *bytes.Buffer) error {
-	err := os.WriteFile(filepath.Join(filerepository.Prefix, path), data.Bytes(), 0o755)
+func (filerepository *FileRepository) Install(ctx context.Context, path string, data []byte) error {
+	err := os.WriteFile(filepath.Join(filerepository.Prefix, path), data, 0o755)
 	if err != nil {
 		return err
 	}

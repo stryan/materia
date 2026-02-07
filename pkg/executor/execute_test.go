@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -94,9 +93,9 @@ func TestExecute(t *testing.T) {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
 	hm.EXPECT().InstallComponent(helloComp).Return(nil)
-	hm.EXPECT().InstallResource(containerResource, bytes.NewBufferString("[Container]")).Return(nil)
-	hm.EXPECT().InstallResource(dataResource, bytes.NewBufferString("FOO=BAR")).Return(nil)
-	hm.EXPECT().InstallResource(manifestResource, bytes.NewBufferString("")).Return(nil)
+	hm.EXPECT().InstallResource(containerResource, []byte("[Container]")).Return(nil)
+	hm.EXPECT().InstallResource(dataResource, []byte("FOO=BAR")).Return(nil)
+	hm.EXPECT().InstallResource(manifestResource, []byte("")).Return(nil)
 	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
 	e := &Executor{host: hm}
 

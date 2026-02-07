@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"context"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -13,11 +12,11 @@ func installOrUpdateUnit(ctx context.Context, e *Executor, v actions.Action) err
 	if err != nil {
 		return err
 	}
-	resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
-	if err := e.host.InstallResource(v.Target, resourceData); err != nil {
+	resourceData := diffmatchpatch.New().DiffText2(diffs)
+	if err := e.host.InstallResource(v.Target, []byte(resourceData)); err != nil {
 		return err
 	}
-	if err := e.host.InstallUnit(ctx, v.Target.Path, resourceData); err != nil {
+	if err := e.host.InstallUnit(ctx, v.Target.Path, []byte(resourceData)); err != nil {
 		return err
 	}
 	return nil

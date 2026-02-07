@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -17,11 +16,11 @@ func installOrUpdateScript(ctx context.Context, e *Executor, v actions.Action) e
 	if err != nil {
 		return err
 	}
-	resourceData := bytes.NewBufferString(diffmatchpatch.New().DiffText2(diffs))
-	if err := e.host.InstallResource(v.Target, resourceData); err != nil {
+	resourceData := diffmatchpatch.New().DiffText2(diffs)
+	if err := e.host.InstallResource(v.Target, []byte(resourceData)); err != nil {
 		return err
 	}
-	return e.host.InstallScript(ctx, v.Target.Path, resourceData)
+	return e.host.InstallScript(ctx, v.Target.Path, []byte(resourceData))
 }
 
 func removeScript(ctx context.Context, e *Executor, v actions.Action) error {

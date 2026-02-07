@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -382,12 +381,12 @@ func (r *HostComponentRepository) ReadResource(res components.Resource) (string,
 	return string(curFile), nil
 }
 
-func (r *HostComponentRepository) InstallResource(res components.Resource, data *bytes.Buffer) error {
+func (r *HostComponentRepository) InstallResource(res components.Resource, data []byte) error {
 	if err := res.Validate(); err != nil {
 		return fmt.Errorf("can't install invalid resource %v: %w", res.Path, err)
 	}
 	if res.IsQuadlet() {
-		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Path), data.Bytes(), 0o755)
+		return os.WriteFile(filepath.Join(r.QuadletPrefix, res.Parent, res.Path), data, 0o755)
 	}
 	// TODO probably doing something stupid here
 	prefix := filepath.Join(r.DataPrefix, res.Parent)
@@ -399,7 +398,7 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 		return nil
 	}
 	resPath := filepath.Join(prefix, res.Path)
-	err := os.WriteFile(resPath, data.Bytes(), 0o755)
+	err := os.WriteFile(resPath, data, 0o755)
 	return err
 }
 

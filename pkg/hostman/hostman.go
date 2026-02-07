@@ -1,7 +1,6 @@
 package hostman
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -101,11 +100,11 @@ func (h *HostManager) ListInstalledComponents() ([]string, error) {
 	return installedComponents, nil
 }
 
-func (h *HostManager) InstallScript(ctx context.Context, path string, data *bytes.Buffer) error {
+func (h *HostManager) InstallScript(ctx context.Context, path string, data []byte) error {
 	return h.Scripts.Install(ctx, path, data)
 }
 
-func (h *HostManager) InstallUnit(ctx context.Context, path string, data *bytes.Buffer) error {
+func (h *HostManager) InstallUnit(ctx context.Context, path string, data []byte) error {
 	return h.Units.Install(ctx, path, data)
 }
 

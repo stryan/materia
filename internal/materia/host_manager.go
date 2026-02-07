@@ -1,7 +1,6 @@
 package materia
 
 import (
-	"bytes"
 	"context"
 
 	"primamateria.systems/materia/internal/containers"
@@ -16,8 +15,8 @@ type HostManager interface {
 	components.ComponentWriter
 	FactsProvider
 	ListInstalledComponents() ([]string, error)
-	InstallScript(context.Context, string, *bytes.Buffer) error
+	InstallScript(context.Context, string, []byte) error
 	RemoveScript(context.Context, string) error
-	InstallUnit(context.Context, string, *bytes.Buffer) error
+	InstallUnit(context.Context, string, []byte) error
 	RemoveUnit(context.Context, string) error
 }

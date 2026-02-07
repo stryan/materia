@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"bytes"
 	"context"
 
 	"primamateria.systems/materia/internal/containers"
@@ -13,8 +12,8 @@ type Host interface {
 	serviceman.ServiceManager
 	containers.ContainerManager
 	components.ComponentWriter
-	InstallScript(context.Context, string, *bytes.Buffer) error
+	InstallScript(context.Context, string, []byte) error
 	RemoveScript(context.Context, string) error
-	InstallUnit(context.Context, string, *bytes.Buffer) error
+	InstallUnit(context.Context, string, []byte) error
 	RemoveUnit(context.Context, string) error
 }

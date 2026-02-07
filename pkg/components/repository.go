@@ -1,8 +1,6 @@
 package components
 
 import (
-	"bytes"
-
 	"primamateria.systems/materia/pkg/manifests"
 )
 
@@ -21,7 +19,7 @@ type ComponentWriter interface {
 	InstallComponent(*Component) error
 	RemoveComponent(*Component) error
 	UpdateComponent(*Component) error
-	InstallResource(Resource, *bytes.Buffer) error
+	InstallResource(Resource, []byte) error
 	RemoveResource(Resource) error
 	PurgeComponent(*Component) error
 	PurgeComponentByName(string) error
