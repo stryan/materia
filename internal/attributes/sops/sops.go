@@ -20,6 +20,7 @@ import (
 type SopsStore struct {
 	vaultfiles    []string
 	generalVaults []string
+	loadAllVaults bool
 }
 
 func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
@@ -28,6 +29,7 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 	}
 	var s SopsStore
 	s.generalVaults = c.GeneralVaults
+	s.loadAllVaults = c.LoadAllVaults
 	err := filepath.WalkDir(filepath.Join(sourceDir, c.BaseDir), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -62,7 +64,7 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 	files := []string{}
 
 	for _, v := range s.vaultfiles {
-		if strings.Contains(v, f.Hostname) || slices.Contains(s.generalVaults, filepath.Base(v)) {
+		if strings.Contains(v, f.Hostname) || slices.Contains(s.generalVaults, filepath.Base(v)) || s.loadAllVaults {
 			files = append(files, v)
 		}
 		for _, r := range f.Roles {

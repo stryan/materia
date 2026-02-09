@@ -10,6 +10,7 @@ type Config struct {
 	BaseDir       string   `toml:"base_dir"`
 	Suffix        string   `toml:"suffix"`
 	GeneralVaults []string `toml:"vaults"`
+	LoadAllVaults bool     `toml:"load_all_vaults"`
 }
 
 func (c Config) Validate() error {
@@ -28,6 +29,7 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 		c.BaseDir = "secrets"
 	}
 	c.GeneralVaults = k.Strings("sops.vaults")
+	c.LoadAllVaults = k.Bool("sops.load_all_vaults")
 	c.Suffix = k.String("sops.suffix")
 	if len(c.GeneralVaults) == 0 {
 		c.GeneralVaults = []string{"vault.yml", "attributes.yml"}
@@ -46,5 +48,5 @@ func (c *Config) Merge(other *Config) {
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("Base Path: %v\nSuffix: %v\nVaults: %v\n", c.BaseDir, c.Suffix, c.GeneralVaults)
+	return fmt.Sprintf("Base Path: %v\nSuffix: %v\nVaults: %v\nLoad all vaults: %v\n", c.BaseDir, c.Suffix, c.GeneralVaults, c.LoadAllVaults)
 }

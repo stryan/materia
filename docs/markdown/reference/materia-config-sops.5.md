@@ -34,6 +34,10 @@ Directory that contains attributes. Defaults to `secrets`.
 
 Files that are general attributes vaults. Defaults to "vault.yml" and "attributes.yml".
 
+#### **MATERIA_SOPS__LOAD_ALL_VAULTS**/**sops.load_all_vaults**
+
+Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
+
 #### **MATERIA_SOPS__SUFFIX**/**sops.suffix**
 
 Suffix that denotes an encrypted file and comes before the base file type. Use this if your base directory includes both encrypted and un-encrypted files.
