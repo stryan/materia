@@ -415,3 +415,22 @@ func TestOCISource(t *testing.T) {
 	require.True(t, fileExists("/var/lib/materia/source/components/freshrss/MANIFEST.toml"))
 	require.True(t, fileExists("/var/lib/materia/source/components/podman_exporter/MANIFEST.toml"))
 }
+
+func TestAllVaults(t *testing.T) {
+	ctx := context.Background()
+	repoPath := "/root/materia/virter/in/testrepo8"
+	goldenPath := "/root/materia/virter/out/testrepo8"
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_SOPS__SUFFIX", "enc"))
+	require.Nil(t, setEnv("MATERIA_SOPS__BASE_DIR", "secrets"))
+	require.Nil(t, setEnv("MATERIA_SOPS__LOAD_ALL_VAULTS", "true"))
+	require.Nil(t, setEnv("SOPS_AGE_KEY_FILE", "/var/lib/materia/source/test-key.txt"))
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err := runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")), "hello component not installed")
+}
