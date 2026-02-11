@@ -30,6 +30,10 @@ File that contains the Age private key to use. Defaults to `/etc/materia/key.txt
 
 Directory that contains attributes. Defaults to `secrets`.
 
+#### **MATERIA_AGE__LOAD_ALL_VAULTS**/**age.load_all_vaults**
+
+Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
+
 #### **MATERIA_AGE__VAULTS**/**age.vaults**
 
 Files that are general attribute vaults. Defaults to `vault.age` and `attributes.age`.

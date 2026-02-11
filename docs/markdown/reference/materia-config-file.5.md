@@ -32,6 +32,11 @@ Directory that contains attributes. Defaults to `secrets`.
 
 Files that are general attributes vaults. Defaults to `vault.toml`.
 
+#### **MATERIA_FILE__LOAD_ALL_VAULTS**/**file.load_all_vaults**
+
+Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
+
+
 ## File Format
 
 A file vault is a TOML file with one or more of the following tables:
