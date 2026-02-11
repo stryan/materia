@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"maps"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"filippo.io/age"
 	"github.com/BurntSushi/toml"
-	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/attributes"
 )
 
@@ -64,7 +64,7 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 	return &a, nil
 }
 
-func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (map[string]any, error) {
 	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
@@ -76,6 +76,11 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 		roleFiles := make([]string, 0, len(a.vaultfiles))
 		generalFiles := make([]string, 0, len(a.vaultfiles))
 		for _, v := range a.vaultfiles {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
 			if slices.Contains(a.generalVaults, filepath.Base(v)) {
 				generalFiles = append(generalFiles, v)
 			}
@@ -95,22 +100,27 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 	}
 
 	for _, v := range files {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		file, err := os.Open(v)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		decrypted, err := age.Decrypt(file, a.identities...)
 		if err != nil {
-			log.Fatal(err)
+			return nil, fmt.Errorf("unable to decrypt age file %v: %w", v, err)
 		}
 		buf := new(bytes.Buffer)
 		_, err = buf.ReadFrom(decrypted)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		err = toml.Unmarshal(buf.Bytes(), &attrs)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		maps.Copy(results, attrs.Globals)
@@ -127,5 +137,5 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 		}
 
 	}
-	return results
+	return results, nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 type AttributesEngine interface {
-	Lookup(context.Context, attributes.AttributesFilter) map[string]any
+	Lookup(context.Context, attributes.AttributesFilter) (map[string]any, error)
 }
 
 type MultiVaultEngine struct {
@@ -32,12 +32,15 @@ func (m *MultiVaultEngine) AddVault(vault AttributesEngine) error {
 	return nil
 }
 
-func (m *MultiVaultEngine) Lookup(ctx context.Context, filter attributes.AttributesFilter) map[string]any {
+func (m *MultiVaultEngine) Lookup(ctx context.Context, filter attributes.AttributesFilter) (map[string]any, error) {
 	results := make(map[string]any)
 	// TODO there's definitely a better way of doing this and we'll burn that bridge when we get to it
 	for _, v := range m.vaults {
-		vaultResult := v.Lookup(ctx, filter)
+		vaultResult, err := v.Lookup(ctx, filter)
+		if err != nil {
+			return nil, err
+		}
 		results = attributes.MergeAttributes(results, vaultResult)
 	}
-	return results
+	return results, nil
 }

@@ -25,8 +25,8 @@ func NewMemoryEngine() *MemoryEngine {
 	return &MemoryEngine{secrets}
 }
 
-func (m *MemoryEngine) Lookup(_ context.Context, _ attributes.AttributesFilter) map[string]any {
-	return m.secrets
+func (m *MemoryEngine) Lookup(_ context.Context, _ attributes.AttributesFilter) (map[string]any, error) {
+	return m.secrets, nil
 }
 
 func (m *MemoryEngine) Add(key, value string) {

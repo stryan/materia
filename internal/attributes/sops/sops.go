@@ -3,8 +3,8 @@ package sops
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/fs"
-	"log"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -57,7 +57,7 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 	return &s, nil
 }
 
-func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+func (s *SopsStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (map[string]any, error) {
 	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
@@ -69,6 +69,11 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		roleFiles := make([]string, 0, len(s.vaultfiles))
 		generalFiles := make([]string, 0, len(s.vaultfiles))
 		for _, v := range s.vaultfiles {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
 			if slices.Contains(s.generalVaults, filepath.Base(v)) {
 				generalFiles = append(generalFiles, v)
 			}
@@ -87,32 +92,37 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		files = append(files, hostFiles...)
 	}
 	for _, v := range files {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		decrypted, err := decrypt.File(v, filepath.Ext(v))
 		if err != nil {
-			log.Fatalf("error decrypting SOPS file %v: %v", v, err)
+			return nil, fmt.Errorf("error decrypting SOPS file %v: %v", v, err)
 		}
 		if formats.IsYAMLFile(v) {
 			err = yaml.Unmarshal(decrypted, &attrs)
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("error unmarshaling SOPS YAML %v: %v", v, err)
 			}
 		} else if formats.IsJSONFile(v) {
 			err = json.Unmarshal(decrypted, &attrs)
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("error unmarshaling SOPS JSON %v: %v", v, err)
 			}
 		} else if formats.IsIniFile(v) {
 			// TODO this probably doesn't work?
 			interformat, err := ini.Load(decrypted)
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("error unmarshaling SOPS INI %v: %v", v, err)
 			}
 			err = interformat.MapTo(attrs)
 			if err != nil {
-				log.Fatal(err)
+				return nil, fmt.Errorf("error mapping SOPS INI %v: %v", v, err)
 			}
 		} else {
-			log.Fatalf("invalid sops file: %v", v)
+			return nil, fmt.Errorf("invalid sops file: %v", v)
 		}
 		maps.Copy(results, attrs.Globals)
 		if len(f.Roles) != 0 {
@@ -127,5 +137,5 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 			maps.Copy(results, attrs.Hosts[f.Hostname])
 		}
 	}
-	return results
+	return results, nil
 }

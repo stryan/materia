@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io/fs"
-	"log"
 	"maps"
 	"os"
 	"path/filepath"
@@ -51,7 +50,7 @@ func NewFileStore(c Config, sourceDir string) (*FileStore, error) {
 	return &f, nil
 }
 
-func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[string]any {
+func (s *FileStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (map[string]any, error) {
 	secrets := attributes.AttributeVault{}
 
 	results := make(map[string]any)
@@ -63,6 +62,11 @@ func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		roleFiles := make([]string, 0, len(s.vaultfiles))
 		generalFiles := make([]string, 0, len(s.vaultfiles))
 		for _, v := range s.vaultfiles {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
 			if slices.Contains(s.generalVaults, filepath.Base(v)) {
 				generalFiles = append(generalFiles, v)
 			}
@@ -81,18 +85,23 @@ func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		files = append(files, hostFiles...)
 	}
 	for _, v := range files {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		file, err := os.Open(v)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		buf := new(bytes.Buffer)
 		_, err = buf.ReadFrom(file)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		err = toml.Unmarshal(buf.Bytes(), &secrets)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		maps.Copy(results, secrets.Globals)
@@ -110,5 +119,5 @@ func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		}
 
 	}
-	return results
+	return results, nil
 }

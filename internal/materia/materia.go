@@ -271,11 +271,14 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	}
 	assignedComponents := make([]*components.Component, 0, len(assignedNames))
 	for _, n := range assignedNames {
-		attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+		attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: n,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("unable to lookup attributes: %w", err)
+		}
 		overrides := make([]*manifests.ComponentManifest, 0)
 		override, err := m.Manifest.GetComponentOverride(hostname, n)
 		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
@@ -312,11 +315,14 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
 	hostname := m.Host.GetHostname()
-	attrs := m.Vault.Lookup(ctx, attributes.AttributesFilter{
+	attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 		Hostname:  hostname,
 		Roles:     roles,
 		Component: name,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup attributes: %w", err)
+	}
 	overrides := make([]*manifests.ComponentManifest, 0)
 	override, err := m.Manifest.GetComponentOverride(hostname, name)
 	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
