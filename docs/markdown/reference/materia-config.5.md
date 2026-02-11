@@ -61,6 +61,8 @@ Use these assigned roles instead of what's in the `materia-manifest(5)`
 
 #### *MATERIA_TIMEOUT*/**timeout**
 
+(Moved to services.timeout)
+
 How long to wait when starting/stopping systemd services when no service resource timeout is configured. Default 90 seconds.
 
 #### *MATERIA_NO_SYNC*/**no_sync**

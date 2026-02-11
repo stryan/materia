@@ -21,6 +21,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/macros"
+	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/loader"
@@ -144,7 +145,11 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if c.ExecutorConfig != nil {
 		ec = *c.ExecutorConfig
 	}
-	e := executor.NewExecutor(ec, hm, c.Timeout)
+	sc := services.ServicesConfig{}
+	if c.ServicesConfig != nil {
+		sc = *c.ServicesConfig
+	}
+	e := executor.NewExecutor(ec, hm, sc.Timeout)
 	p := planner.NewPlanner(pc, hm)
 
 	return &Materia{
@@ -153,7 +158,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Manifest:       man,
 		debug:          c.Debug,
 		onlyResources:  c.OnlyResources,
-		defaultTimeout: c.Timeout,
+		defaultTimeout: sc.Timeout,
 		Vault:          attributes,
 		OutputDir:      c.OutputDir,
 		snippets:       snips,

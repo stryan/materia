@@ -12,6 +12,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/planner"
 )
@@ -34,7 +35,6 @@ type MateriaConfig struct {
 	UseStdout      bool                     `toml:"use_stdout"`
 	Hostname       string                   `toml:"hostname"`
 	Roles          []string                 `toml:"roles"`
-	Timeout        int                      `toml:"timeout"`
 	MateriaDir     string                   `toml:"materia_dir"`
 	QuadletDir     string                   `toml:"quadlet_dir"`
 	ServiceDir     string                   `toml:"service_dir"`
@@ -57,6 +57,7 @@ type MateriaConfig struct {
 	SopsConfig     *sops.Config             `toml:"sops"`
 	PlannerConfig  *planner.PlannerConfig   `toml:"planner"`
 	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
+	ServicesConfig *services.ServicesConfig `toml:"services"`
 	User           *user.User
 	Remote         bool `toml:"remote"`
 	Rootless       bool `toml:"rootless"`
@@ -68,10 +69,6 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.SourceDir = k.String("source_dir")
 	c.Debug = k.Bool("debug")
 	c.Hostname = k.String("hostname")
-	c.Timeout = k.Int("timeout")
-	if c.Timeout == 0 {
-		c.Timeout = 90
-	}
 	c.Roles = k.Strings("roles")
 
 	c.Attributes = k.String("attributes")
@@ -105,6 +102,20 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 			return nil, err
 		}
 	}
+	var servicesCfg services.ServicesConfig
+	if k.Exists("services") {
+		servicesCfg.DryrunQuadlets = k.Bool("services.dryrun_quadlets")
+		servicesCfg.Timeout = k.Int("services.timeout")
+	} else {
+		// TODO remove in 0.7
+		servicesCfg = services.ServicesConfig{
+			Timeout: k.Int("timeout"),
+		}
+	}
+	if servicesCfg.Timeout == 0 {
+		servicesCfg.Timeout = 90
+	}
+	c.ServicesConfig = &servicesCfg
 	if k.Exists("planner") {
 		c.PlannerConfig, err = planner.NewPlannerConfig(k)
 		if err != nil {
@@ -254,12 +265,15 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Podman Secrets Prefix: %v\n", c.SecretsPrefix)
-	result += fmt.Sprintf("Default Service Timeout: %v\n", c.Timeout)
 	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
 	result += fmt.Sprintf("Quiet mode: %v\n", c.Quiet)
 	result += fmt.Sprintf("Resources Changes Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("Remote mode: %v\n", c.Remote)
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
+	if c.ServicesConfig != nil {
+		result += "\nServices Config: \n"
+		result += fmt.Sprintf("%v", c.ServicesConfig.String())
+	}
 	if c.PlannerConfig != nil {
 		result += "\nPlanner Config: \n"
 		result += fmt.Sprintf("%v", c.PlannerConfig.String())

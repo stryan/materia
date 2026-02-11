@@ -69,7 +69,8 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	}
 	hmc := &hostman.HostmanConfig{
 		Hostname:            c.Hostname,
-		Timeout:             c.Timeout,
+		Timeout:             c.ServicesConfig.Timeout,
+		DryrunQuadlets:      c.ServicesConfig.DryrunQuadlets,
 		RemotePodman:        c.Remote,
 		PodmanSecretsPrefix: c.SecretsPrefix,
 		DataDir:             c.MateriaDir,

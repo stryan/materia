@@ -12,7 +12,7 @@ materia-config-executor - Materia executor configuration settings
 
 ## Synopsis
 
-`/etc/materia/config.toml`, `$MATERIA_PLANNER_<option-name>`
+`/etc/materia/config.toml`, `$MATERIA_EXECUTOR_<option-name>`
 
 ## Options
 

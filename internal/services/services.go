@@ -12,7 +12,10 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
-var ErrServiceNotFound = errors.New("no service found")
+var (
+	ErrServiceNotFound   = errors.New("no service found")
+	ErrOperationTimedOut = errors.New("operation timeout")
+)
 
 type ServiceManager struct {
 	Conn           *dbus.Conn
@@ -32,11 +35,17 @@ func (s Service) Started() bool {
 }
 
 func (s *Service) fillFromProperties(props map[string]interface{}) error {
-	jobState := props["ActiveState"].(string)
-	fileState := props["UnitFileState"].(string)
+	jobState, ok := props["ActiveState"].(string)
+	if !ok {
+		return fmt.Errorf("invalid active state: %v", props["ActiveState"])
+	}
+	fileState, ok := props["UnitFileState"].(string)
+	if !ok {
+		return fmt.Errorf("invalid unit file state state: %v", props["UnitFileState"])
+	}
 	jobType, ok := props["Type"].(string)
 	if !ok {
-		jobType = "non-existant"
+		jobType = "non-existent"
 	}
 	s.State = jobState
 	s.Type = jobType
@@ -59,7 +68,11 @@ const (
 
 type ServicesConfig struct {
 	Timeout        int
-	DryrunQuadlets bool
+	DryrunQuadlets bool `toml:"dryrun_quadlets"`
+}
+
+func (c *ServicesConfig) String() string {
+	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
 }
 
 func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
@@ -83,6 +96,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 		}
 
 	}
+	sm.DryrunQuadlets = cfg.DryrunQuadlets
 	return &sm, nil
 }
 
@@ -123,19 +137,16 @@ func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceA
 	case ServiceStop:
 		_, err = s.Conn.StopUnitContext(ctx, name, "fail", callback)
 	default:
-		panic(fmt.Sprintf("unexpected services.ServiceAction: %#v", action))
+		return fmt.Errorf("unexpected services.ServiceAction: %#v", action)
 	}
 	if err != nil {
 		return fmt.Errorf("error applying service change: %w", err)
 	}
-	select {
-	case <-ctx.Done():
-		return errors.New("context cancelled while waiting for service")
-	case <-callback:
-		return nil
-	case <-time.After(time.Duration(timeout) * time.Second):
-		return fmt.Errorf("error applying service change for %v: %w", name, errors.New("timeout modifying unit"))
+	err = waitForCallback(ctx, callback, timeout)
+	if err != nil {
+		return fmt.Errorf("error applying service change for %v: %w", name, err)
 	}
+	return nil
 }
 
 func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service, error) {
@@ -216,17 +227,12 @@ func (s *ServiceManager) RunOneshotCommand(ctx context.Context, timeout int, nam
 	callback := make(chan string)
 	_, err := s.Conn.StartTransientUnitContext(ctx, name, "fail", props, callback)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("context canceled while waiting for one-shot command %v to finish", actions)
-	case e := <-callback:
-		if e != "done" {
-			return fmt.Errorf("one-shot command %v finished in not done state: %v", actions, e)
-		}
-	case <-time.After(time.Duration(timeout) * time.Second):
-		return fmt.Errorf("timeout while waiting for one-shot command %v to finish", actions)
+
+	err = waitForCallback(ctx, callback, timeout)
+	if err != nil {
+		return fmt.Errorf("error running oneshot operation: %w", err)
 	}
 	return nil
 }
@@ -242,17 +248,24 @@ func (s *ServiceManager) dryrunQuadlets(ctx context.Context) error {
 	} else {
 		cmd = exec.CommandContext(ctx, "/usr/lib/systemd/system-generators/podman-system-generator", "--user", "--dryrun")
 	}
-	_, err := cmd.Output()
+	res, err := cmd.Output()
 	if err != nil {
+		log.Debug(res)
 		return err
 	}
 	return nil
 }
 
-type PlannedServiceManager struct {
-	ServiceManager
-}
-
-func (p *PlannedServiceManager) Get(ctx context.Context, name string) (*Service, error) {
-	return nil, ErrServiceNotFound
+func waitForCallback(ctx context.Context, callback chan string, timeout int) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled during systemd operation")
+	case result := <-callback:
+		if result != "done" {
+			return fmt.Errorf("finished with status: %s", result)
+		}
+		return nil
+	case <-time.After(time.Duration(timeout) * time.Second):
+		return ErrOperationTimedOut
+	}
 }

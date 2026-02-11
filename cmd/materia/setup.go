@@ -166,7 +166,8 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	hmc := &hostman.HostmanConfig{
 		Hostname:            c.Hostname,
-		Timeout:             c.Timeout,
+		Timeout:             c.ServicesConfig.Timeout,
+		DryrunQuadlets:      c.ServicesConfig.DryrunQuadlets,
 		RemotePodman:        c.Remote,
 		PodmanSecretsPrefix: c.SecretsPrefix,
 		DataDir:             c.MateriaDir,

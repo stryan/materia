@@ -17,6 +17,7 @@ type HostmanConfig struct {
 	Hostname            string
 	Timeout             int
 	RemotePodman        bool
+	DryrunQuadlets      bool
 	PodmanSecretsPrefix string
 
 	DataDir     string
@@ -45,7 +46,7 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	}
 	sm, err := services.NewServices(ctx, &services.ServicesConfig{
 		Timeout:        c.Timeout,
-		DryrunQuadlets: true,
+		DryrunQuadlets: c.DryrunQuadlets,
 	})
 	if err != nil {
 		log.Fatal(err)
