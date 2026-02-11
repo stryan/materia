@@ -61,16 +61,29 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
-	files := []string{}
-
-	for _, v := range s.vaultfiles {
-		if strings.Contains(v, f.Hostname) || slices.Contains(s.generalVaults, filepath.Base(v)) || s.loadAllVaults {
-			files = append(files, v)
-		}
-		for _, r := range f.Roles {
-			if strings.Contains(v, r) {
-				files = append(files, v)
+	var files []string
+	if s.loadAllVaults {
+		files = s.vaultfiles
+	} else {
+		hostFiles := make([]string, 0, len(s.vaultfiles))
+		roleFiles := make([]string, 0, len(s.vaultfiles))
+		generalFiles := make([]string, 0, len(s.vaultfiles))
+		for _, v := range s.vaultfiles {
+			if slices.Contains(s.generalVaults, filepath.Base(v)) {
+				generalFiles = append(generalFiles, v)
 			}
+			if strings.Contains(v, f.Hostname) {
+				hostFiles = append(hostFiles, v)
+			}
+			for _, r := range f.Roles {
+				if strings.Contains(v, r) {
+					roleFiles = append(roleFiles, v)
+				}
+			}
+			// file list is in order of General Vaults, Role Vaults, Host Vaults
+			// So host file keys override role keys override general keys
+			files = append(generalFiles, roleFiles...)
+			files = append(files, hostFiles...)
 		}
 	}
 	for _, v := range files {
@@ -102,18 +115,17 @@ func (s *SopsStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 			log.Fatalf("invalid sops file: %v", v)
 		}
 		maps.Copy(results, attrs.Globals)
+		if len(f.Roles) != 0 {
+			for _, r := range f.Roles {
+				maps.Copy(results, attrs.Roles[r])
+			}
+		}
 		if f.Component != "" {
 			maps.Copy(results, attrs.Components[f.Component])
 		}
 		if f.Hostname != "" {
 			maps.Copy(results, attrs.Hosts[f.Hostname])
 		}
-		if len(f.Roles) != 0 {
-			for _, r := range f.Roles {
-				maps.Copy(results, attrs.Roles[r])
-			}
-		}
-
 	}
 	return results
 }

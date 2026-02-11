@@ -18,6 +18,7 @@ import (
 type FileStore struct {
 	vaultfiles    []string
 	generalVaults []string
+	loadAllVaults bool
 }
 
 func NewFileStore(c Config, sourceDir string) (*FileStore, error) {
@@ -46,6 +47,7 @@ func NewFileStore(c Config, sourceDir string) (*FileStore, error) {
 		c.GeneralVaults = []string{"vault.toml", "attributes.toml"}
 	}
 	f.generalVaults = c.GeneralVaults
+	f.loadAllVaults = c.LoadAllVaults
 	return &f, nil
 }
 
@@ -53,15 +55,29 @@ func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 	secrets := attributes.AttributeVault{}
 
 	results := make(map[string]any)
-	files := []string{}
-	for _, v := range s.vaultfiles {
-		if strings.Contains(v, f.Hostname) || slices.Contains(s.generalVaults, filepath.Base(v)) {
-			files = append(files, v)
-		}
-		for _, r := range f.Roles {
-			if strings.Contains(v, r) {
-				files = append(files, v)
+	var files []string
+	if s.loadAllVaults {
+		files = s.vaultfiles
+	} else {
+		hostFiles := make([]string, 0, len(s.vaultfiles))
+		roleFiles := make([]string, 0, len(s.vaultfiles))
+		generalFiles := make([]string, 0, len(s.vaultfiles))
+		for _, v := range s.vaultfiles {
+			if slices.Contains(s.generalVaults, filepath.Base(v)) {
+				generalFiles = append(generalFiles, v)
 			}
+			if strings.Contains(v, f.Hostname) {
+				hostFiles = append(hostFiles, v)
+			}
+			for _, r := range f.Roles {
+				if strings.Contains(v, r) {
+					roleFiles = append(roleFiles, v)
+				}
+			}
+			// file list is in order of General Vaults, Role Vaults, Host Vaults
+			// So host file keys override role keys override general keys
+			files = append(generalFiles, roleFiles...)
+			files = append(files, hostFiles...)
 		}
 	}
 	for _, v := range files {
@@ -80,16 +96,17 @@ func (s *FileStore) Lookup(_ context.Context, f attributes.AttributesFilter) map
 		}
 
 		maps.Copy(results, secrets.Globals)
+		if len(f.Roles) != 0 {
+			for _, r := range f.Roles {
+				maps.Copy(results, secrets.Roles[r])
+			}
+		}
+
 		if f.Component != "" {
 			maps.Copy(results, secrets.Components[f.Component])
 		}
 		if f.Hostname != "" {
 			maps.Copy(results, secrets.Hosts[f.Hostname])
-		}
-		if len(f.Roles) != 0 {
-			for _, r := range f.Roles {
-				maps.Copy(results, secrets.Roles[r])
-			}
 		}
 
 	}

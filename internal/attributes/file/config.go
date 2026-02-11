@@ -10,6 +10,7 @@ import (
 type Config struct {
 	BaseDir       string   `toml:"base_dir"`
 	GeneralVaults []string `toml:"vaults"`
+	LoadAllVaults bool     `toml:"load_all_vaults"`
 }
 
 func (c Config) Validate() error {
@@ -26,6 +27,7 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 		c.BaseDir = "secrets"
 	}
 	c.GeneralVaults = k.Strings("file.vaults")
+	c.LoadAllVaults = k.Bool("file.load_all_vaults")
 	if len(c.GeneralVaults) == 0 {
 		c.GeneralVaults = []string{"vault.toml"}
 	}

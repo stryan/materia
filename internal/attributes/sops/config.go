@@ -45,6 +45,13 @@ func (c *Config) Merge(other *Config) {
 	if len(other.GeneralVaults) > 0 {
 		c.GeneralVaults = append(c.GeneralVaults, other.GeneralVaults...)
 	}
+	if other.BaseDir != "" {
+		c.BaseDir = other.BaseDir
+	}
+	if other.Suffix != "" {
+		c.Suffix = other.Suffix
+	}
+	c.LoadAllVaults = other.LoadAllVaults
 }
 
 func (c Config) String() string {

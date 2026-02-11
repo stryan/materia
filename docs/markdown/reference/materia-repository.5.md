@@ -73,7 +73,7 @@ A Golang template variable. Usually defined as either an `attribute` or in the `
 
 #### **Attributes**
 
-A Golang template variable stored encrypted in the repository, like the default `age` encryption.
+A Golang template variable stored encrypted in the repository, like the default `sops` encryption.
 
    Attributes are usually stored in a subdirectory `materia-repo/attributes`. There are three main types of attributes files:
 

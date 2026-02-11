@@ -21,6 +21,7 @@ type AgeStore struct {
 	identities    []age.Identity
 	vaultfiles    []string
 	generalVaults []string
+	loadAllVaults bool
 }
 
 func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
@@ -67,17 +68,32 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 	attrs := attributes.AttributeVault{}
 
 	results := make(map[string]any)
-	files := []string{}
-	for _, v := range a.vaultfiles {
-		if strings.Contains(v, f.Hostname) || slices.Contains(a.generalVaults, filepath.Base(v)) {
-			files = append(files, v)
-		}
-		for _, r := range f.Roles {
-			if strings.Contains(v, r) {
-				files = append(files, v)
+	var files []string
+	if a.loadAllVaults {
+		files = a.vaultfiles
+	} else {
+		hostFiles := make([]string, 0, len(a.vaultfiles))
+		roleFiles := make([]string, 0, len(a.vaultfiles))
+		generalFiles := make([]string, 0, len(a.vaultfiles))
+		for _, v := range a.vaultfiles {
+			if slices.Contains(a.generalVaults, filepath.Base(v)) {
+				generalFiles = append(generalFiles, v)
 			}
+			if strings.Contains(v, f.Hostname) {
+				hostFiles = append(hostFiles, v)
+			}
+			for _, r := range f.Roles {
+				if strings.Contains(v, r) {
+					roleFiles = append(roleFiles, v)
+				}
+			}
+			// file list is in order of General Vaults, Role Vaults, Host Vaults
+			// So host file keys override role keys override general keys
+			files = append(generalFiles, roleFiles...)
+			files = append(files, hostFiles...)
 		}
 	}
+
 	for _, v := range files {
 		file, err := os.Open(v)
 		if err != nil {
@@ -98,16 +114,16 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 		}
 
 		maps.Copy(results, attrs.Globals)
+		if len(f.Roles) != 0 {
+			for _, r := range f.Roles {
+				maps.Copy(results, attrs.Roles[r])
+			}
+		}
 		if f.Component != "" {
 			maps.Copy(results, attrs.Components[f.Component])
 		}
 		if f.Hostname != "" {
 			maps.Copy(results, attrs.Hosts[f.Hostname])
-		}
-		if len(f.Roles) != 0 {
-			for _, r := range f.Roles {
-				maps.Copy(results, attrs.Roles[r])
-			}
 		}
 
 	}

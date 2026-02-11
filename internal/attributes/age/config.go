@@ -10,6 +10,7 @@ type Config struct {
 	IdentPath     string   `toml:"keyfile"`
 	BaseDir       string   `toml:"base_dir"`
 	GeneralVaults []string `toml:"vaults"`
+	LoadAllVaults bool     `tojml:"load_all_vaults"`
 }
 
 func (c Config) Validate() error {
@@ -35,6 +36,7 @@ func NewConfig(k *koanf.Koanf) (*Config, error) {
 		c.BaseDir = "secrets"
 	}
 	c.GeneralVaults = k.Strings("age.vaults")
+	c.LoadAllVaults = k.Bool("age.load_all_vaults")
 	if len(c.GeneralVaults) == 0 {
 		c.GeneralVaults = []string{"vault.age", "attributes.age"}
 	}
@@ -51,8 +53,9 @@ func (c *Config) Merge(other *Config) {
 	if len(other.GeneralVaults) > 0 {
 		c.GeneralVaults = append(c.GeneralVaults, other.GeneralVaults...)
 	}
+	c.LoadAllVaults = other.LoadAllVaults
 }
 
 func (c Config) String() string {
-	return fmt.Sprintf("Keyfile Path:%v\nBase Path: %v\nVaults: %v\n", c.IdentPath, c.BaseDir, c.GeneralVaults)
+	return fmt.Sprintf("Keyfile Path:%v\nBase Path: %v\nVaults: %v\nLoad all vaults: %v\n", c.IdentPath, c.BaseDir, c.GeneralVaults, c.LoadAllVaults)
 }
