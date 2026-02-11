@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/knadh/koanf/v2"
@@ -30,4 +31,23 @@ func NewExecutorConfig(k *koanf.Koanf) (*ExecutorConfig, error) {
 	}
 
 	return ec, nil
+}
+
+func (e *ExecutorConfig) Validate() error {
+	if e.MateriaDir == "" {
+		return errors.New("no materia directory set")
+	}
+	if e.QuadletDir == "" {
+		return errors.New("no quadlet directory set")
+	}
+	if e.ScriptsDir == "" {
+		return errors.New("no scripts directory set")
+	}
+	if e.ServiceDir == "" {
+		return errors.New("no service directory set")
+	}
+	if e.OutputDir == "" {
+		return errors.New("no output directory set")
+	}
+	return nil
 }

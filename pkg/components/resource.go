@@ -21,6 +21,8 @@ type Resource struct {
 //go:generate stringer -type ResourceType -trimprefix ResourceType
 type ResourceType uint
 
+var ErrInvalidResource = errors.New("invalid resource")
+
 const (
 	ResourceTypeUnknown ResourceType = iota
 
@@ -185,7 +187,7 @@ func hostObjectFromUnitFile(r Resource, unitfile *parser.UnitFile) (string, erro
 	if r.Kind == ResourceTypeImage {
 		name, ok := unitfile.Lookup(group, "Image")
 		if !ok {
-			return "", errors.New("something when horribly wrong with an image comp")
+			return "", fmt.Errorf("bad image resource %v: %w", r.Path, ErrInvalidResource)
 		}
 		return name, nil
 	}

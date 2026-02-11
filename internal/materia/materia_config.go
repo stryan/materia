@@ -222,6 +222,16 @@ func (c *MateriaConfig) Validate() error {
 	if c.SourceDir == "" {
 		return errors.New("need source directory")
 	}
+	if c.PlannerConfig != nil {
+		if err := c.PlannerConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid planner config: %w", err)
+		}
+	}
+	if c.ExecutorConfig != nil {
+		if err := c.ExecutorConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid executor config: %w", err)
+		}
+	}
 	return nil
 }
 

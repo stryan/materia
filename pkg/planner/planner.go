@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/containers/podman/v5/pkg/systemd/parser"
-	"github.com/knadh/koanf/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/containers"
@@ -25,32 +24,6 @@ type HostStateManager interface {
 	ListNetworks(context.Context) ([]*containers.Network, error)
 	GetVolume(context.Context, string) (*containers.Volume, error)
 	GetService(context.Context, string) (*services.Service, error)
-}
-
-type PlannerConfig struct {
-	OnlyResources   bool `toml:"only_resources"`
-	CleanupQuadlets bool `toml:"cleanup_quadlets"`
-	CleanupVolumes  bool `toml:"cleanup_volumes"`
-	BackupVolumes   bool `toml:"backup_volumes"`
-	MigrateVolumes  bool `toml:"migrate_volumes"`
-}
-
-func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
-	pc := &PlannerConfig{}
-	pc.CleanupQuadlets = k.Bool("planner.cleanup_quadlets")
-	pc.CleanupVolumes = k.Bool("planner.cleanup_volumes")
-	if k.Exists("planner.backup_volumes") {
-		pc.BackupVolumes = k.Bool("planner.backup_volumes")
-	} else {
-		pc.BackupVolumes = true
-	}
-	pc.MigrateVolumes = k.Bool("planner.migrate_volumes")
-
-	return pc, nil
-}
-
-func (p *PlannerConfig) String() string {
-	return fmt.Sprintf("Cleanup Quadlets: %v\nCleanup Volumes: %v\nBackup Volumes: %v\nMigrate Volumes: %v\n", p.CleanupQuadlets, p.CleanupVolumes, p.BackupVolumes, p.MigrateVolumes)
 }
 
 type Planner struct {

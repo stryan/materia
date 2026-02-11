@@ -87,11 +87,11 @@ func (a *AgeStore) Lookup(_ context.Context, f attributes.AttributesFilter) map[
 					roleFiles = append(roleFiles, v)
 				}
 			}
-			// file list is in order of General Vaults, Role Vaults, Host Vaults
-			// So host file keys override role keys override general keys
-			files = append(generalFiles, roleFiles...)
-			files = append(files, hostFiles...)
 		}
+		// file list is in order of General Vaults, Role Vaults, Host Vaults
+		// So host file keys override role keys override general keys
+		files = append(generalFiles, roleFiles...)
+		files = append(files, hostFiles...)
 	}
 
 	for _, v := range files {

@@ -148,7 +148,7 @@ func (c *Component) VersonData() (*bytes.Buffer, error) {
 	vd["Version"] = c.Version
 	buffer, err := toml.Parser().Marshal(vd)
 	if err != nil {
-		return nil, errors.New("can't create version data")
+		return nil, err
 	}
 	return bytes.NewBuffer(buffer), nil
 }
