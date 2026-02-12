@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"maps"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/getsops/sops/v3/cmd/sops/formats"
@@ -59,37 +57,16 @@ func NewSopsStore(c Config, sourceDir string) (*SopsStore, error) {
 
 func (s *SopsStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (map[string]any, error) {
 	attrs := attributes.AttributeVault{}
-
 	results := make(map[string]any)
 	var files []string
+	var err error
 	if s.loadAllVaults {
 		files = s.vaultfiles
 	} else {
-		hostFiles := make([]string, 0, len(s.vaultfiles))
-		roleFiles := make([]string, 0, len(s.vaultfiles))
-		generalFiles := make([]string, 0, len(s.vaultfiles))
-		for _, v := range s.vaultfiles {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			if slices.Contains(s.generalVaults, filepath.Base(v)) {
-				generalFiles = append(generalFiles, v)
-			}
-			if strings.Contains(v, f.Hostname) {
-				hostFiles = append(hostFiles, v)
-			}
-			for _, r := range f.Roles {
-				if strings.Contains(v, r) {
-					roleFiles = append(roleFiles, v)
-				}
-			}
+		files, err = attributes.SortedVaultFiles(ctx, f, s.vaultfiles, s.generalVaults)
+		if err != nil {
+			return nil, fmt.Errorf("can't prepare vault file list: %w", err)
 		}
-		// file list is in order of General Vaults, Role Vaults, Host Vaults
-		// So host file keys override role keys override general keys
-		files = append(generalFiles, roleFiles...)
-		files = append(files, hostFiles...)
 	}
 	for _, v := range files {
 		select {
@@ -124,18 +101,7 @@ func (s *SopsStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (
 		} else {
 			return nil, fmt.Errorf("invalid sops file: %v", v)
 		}
-		maps.Copy(results, attrs.Globals)
-		if len(f.Roles) != 0 {
-			for _, r := range f.Roles {
-				maps.Copy(results, attrs.Roles[r])
-			}
-		}
-		if f.Component != "" {
-			maps.Copy(results, attrs.Components[f.Component])
-		}
-		if f.Hostname != "" {
-			maps.Copy(results, attrs.Hosts[f.Hostname])
-		}
+		attributes.ExtractVaultAttributes(results, attrs, f)
 	}
 	return results, nil
 }

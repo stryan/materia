@@ -6,11 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"maps"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 
 	"filippo.io/age"
 	"github.com/BurntSushi/toml"
@@ -69,36 +66,15 @@ func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (m
 
 	results := make(map[string]any)
 	var files []string
+	var err error
 	if a.loadAllVaults {
 		files = a.vaultfiles
 	} else {
-		hostFiles := make([]string, 0, len(a.vaultfiles))
-		roleFiles := make([]string, 0, len(a.vaultfiles))
-		generalFiles := make([]string, 0, len(a.vaultfiles))
-		for _, v := range a.vaultfiles {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			if slices.Contains(a.generalVaults, filepath.Base(v)) {
-				generalFiles = append(generalFiles, v)
-			}
-			if strings.Contains(v, f.Hostname) {
-				hostFiles = append(hostFiles, v)
-			}
-			for _, r := range f.Roles {
-				if strings.Contains(v, r) {
-					roleFiles = append(roleFiles, v)
-				}
-			}
+		files, err = attributes.SortedVaultFiles(ctx, f, a.vaultfiles, a.generalVaults)
+		if err != nil {
+			return nil, fmt.Errorf("can't prepare vault file list: %w", err)
 		}
-		// file list is in order of General Vaults, Role Vaults, Host Vaults
-		// So host file keys override role keys override general keys
-		files = append(generalFiles, roleFiles...)
-		files = append(files, hostFiles...)
 	}
-
 	for _, v := range files {
 		select {
 		case <-ctx.Done():
@@ -122,20 +98,7 @@ func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (m
 		if err != nil {
 			return nil, err
 		}
-
-		maps.Copy(results, attrs.Globals)
-		if len(f.Roles) != 0 {
-			for _, r := range f.Roles {
-				maps.Copy(results, attrs.Roles[r])
-			}
-		}
-		if f.Component != "" {
-			maps.Copy(results, attrs.Components[f.Component])
-		}
-		if f.Hostname != "" {
-			maps.Copy(results, attrs.Hosts[f.Hostname])
-		}
-
+		attributes.ExtractVaultAttributes(results, attrs, f)
 	}
 	return results, nil
 }
