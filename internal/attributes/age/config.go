@@ -10,7 +10,7 @@ type Config struct {
 	IdentPath     string   `toml:"keyfile"`
 	BaseDir       string   `toml:"base_dir"`
 	GeneralVaults []string `toml:"vaults"`
-	LoadAllVaults bool     `tojml:"load_all_vaults"`
+	LoadAllVaults bool     `toml:"load_all_vaults"`
 }
 
 func (c Config) Validate() error {
