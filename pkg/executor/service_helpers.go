@@ -8,8 +8,11 @@ import (
 	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
-	"primamateria.systems/materia/pkg/serviceman"
 )
+
+type ServiceManager interface {
+	Apply(context.Context, string, services.ServiceAction, int) error
+}
 
 func getServiceType(a actions.Action) (services.ServiceAction, error) {
 	switch a.Todo {
@@ -33,7 +36,7 @@ func getServiceType(a actions.Action) (services.ServiceAction, error) {
 	}
 }
 
-func modifyService(ctx context.Context, sm serviceman.ServiceManager, command actions.Action, timeout int) error {
+func modifyService(ctx context.Context, sm ServiceManager, command actions.Action, timeout int) error {
 	if err := command.Validate(); err != nil {
 		return err
 	}
