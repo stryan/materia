@@ -1,6 +1,8 @@
 FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
 
 WORKDIR /go/src/app
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
 RUN curl https://mise.run | sh && /root/.local/bin/mise trust && /root/.local/bin/mise install
 
