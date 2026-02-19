@@ -1,4 +1,4 @@
-FROM registry.opensuse.org/opensuse/bci/golang:1.24 as builder
+FROM docker.io/golang:1.26 as builder
 
 WORKDIR /go/src/app
 COPY go.mod go.sum ./
