@@ -38,7 +38,7 @@ outputs = { auto = true }
 run = "golangci-lint run ./cmd/... ./internal/... ./pkg/..."
 
 [tasks.test]
-depends = ["fmt","lint"]
+depends = ["fmt", "lint"]
 usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''

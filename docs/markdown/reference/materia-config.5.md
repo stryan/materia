@@ -93,51 +93,6 @@ Directory where materia installs non-generated systemd unit files. Defaults to `
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
 
-#### *MATERIA_CLEANUP*/**cleanup**
-
-**Deprecated location, see planner config section for new setting location**
-
-Removes non-volume Quadlets when their associated resources are removed. Defaults to false.
-
-Example: If a resource `test.network` file is removed, materia will also run a `podman network rm systemd-test` command.
-
-The following quadlet types are supported by this:
-
-- Containers
-- Networks
-- Images
-- Build
-
-#### *MATERIA_CLEANUP_VOLUMES*/**cleanup_volumes**
-
-**Deprecated location, see planner config section for new setting location**
-
-When removing a `.volume` Quadlet resource, remove the volume from Podman as well. Defaults to false.
-
-This is separate from the above **cleanup_podman** option since volumes container user data. It is recommended to leave this to false or use this in conjunction with the **backupvolumes** option.
-
-#### *MATERIA_BACKUP_VOLUMES*/**backup_volumes**
-
-**Deprecated, see planner config section**
-
-If an action would delete a Podman volume, create a backup of it first using `podman volume export` and store it in **output_dir**. Defaults to true
-
-Note, this only occurs if a Podman volume is actually being deleted e.g. `podman volume rm`. This does NOT create a backup if just the Quadlet file is deleted.
-
-#### MATERIA_MIGRATE_VOLUMES/migrate_volumes
-
-(EXPERIMENTAL)
-**Deprecated location, see planner config section for new setting location**
-
-If a volume quadlet is updated, instead of just updating the Quadlet file perform a data migration. A migration consists of the following steps:
-
-    1. Stop services for the component
-    2. Dump the existing volume to a tarball
-    3. Delete the existing volume
-    4. Update the quadlet
-    5. Restart the updated service to create the new volume
-    6. Import the old volume tarball into the new volume
-
 #### MATERIA_SECRETS_MATERIA_DATA_DIR/secrets_prefix
 
 Sets the prefix Materia appends to Podman secrets it manages. Defaults to `materia-`

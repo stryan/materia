@@ -7,7 +7,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
@@ -122,20 +121,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 			return nil, err
 		}
 	} else {
-		// TODO remove in 0.6
-		pc := &planner.PlannerConfig{}
-		if k.Exists("cleanup") || k.Exists("cleanup_volumes") || k.Exists("backup_volumes") || k.Exists("migrate_volumes") {
-			log.Warn("configuring planner settings directly is deprecated and will be removed in 0.6")
-		}
-		pc.CleanupQuadlets = k.Bool("cleanup")
-		pc.CleanupVolumes = k.Bool("cleanup_volumes")
-		if k.Exists("backup_volumes") {
-			pc.BackupVolumes = k.Bool("backup_volumes")
-		} else {
-			pc.BackupVolumes = true
-		}
-		pc.MigrateVolumes = k.Bool("migrate_volumes")
-		c.PlannerConfig = pc
+		c.PlannerConfig = planner.DefaultPlannerConfig()
 	}
 	c.ExecutorConfig, err = executor.NewExecutorConfig(k)
 	if err != nil {

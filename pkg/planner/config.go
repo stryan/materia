@@ -28,6 +28,16 @@ func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
 	return pc, nil
 }
 
+func DefaultPlannerConfig() *PlannerConfig {
+	return &PlannerConfig{
+		OnlyResources:   false,
+		CleanupQuadlets: false,
+		CleanupVolumes:  false,
+		BackupVolumes:   true,
+		MigrateVolumes:  false,
+	}
+}
+
 func (p *PlannerConfig) String() string {
 	return fmt.Sprintf("Cleanup Quadlets: %v\nCleanup Volumes: %v\nBackup Volumes: %v\nMigrate Volumes: %v\n", p.CleanupQuadlets, p.CleanupVolumes, p.BackupVolumes, p.MigrateVolumes)
 }
