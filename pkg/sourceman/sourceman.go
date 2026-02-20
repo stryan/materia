@@ -71,7 +71,6 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO update to new source format?
 	for name, r := range man.Remotes {
 		var remoteSource source.Source
 		if r.GitSource != nil {
