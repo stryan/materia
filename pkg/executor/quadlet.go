@@ -48,7 +48,7 @@ func cleanupBuildArtifact(ctx context.Context, e *Executor, v actions.Action) er
 func ensureQuadlet(ctx context.Context, e *Executor, v actions.Action) error {
 	err := modifyService(ctx, e.host, actions.Action{
 		Todo:   actions.ActionReload,
-		Parent: components.NewComponent("root"),
+		Parent: components.NewRootComponent(),
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	}, e.defaultTimeout)
 	if err != nil {

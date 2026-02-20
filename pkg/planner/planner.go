@@ -103,7 +103,7 @@ func (m *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: components.NewComponent("root"),
+			Parent: components.NewRootComponent(),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
@@ -142,7 +142,7 @@ func (m *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	}
 	resourceActions = append(resourceActions, actions.Action{
 		Todo:   actions.ActionReload,
-		Parent: components.NewComponent("root"),
+		Parent: components.NewRootComponent(),
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
 	if currentTree.Host.CleanupScript != "" {
@@ -188,7 +188,7 @@ func (m *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: components.NewComponent("root"),
+			Parent: components.NewRootComponent(),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 		currentTree.Host.State = components.StateNeedUpdate

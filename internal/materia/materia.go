@@ -30,13 +30,6 @@ import (
 	"primamateria.systems/materia/pkg/planner"
 )
 
-// TODO ugly hack, remove
-var rootComponent = &components.Component{
-	Name:      "root",
-	Resources: components.NewResourceSet(),
-	Services:  components.NewServiceSet(),
-}
-
 type Materia struct {
 	Host           HostManager
 	Source         SourceManager
@@ -45,7 +38,6 @@ type Materia struct {
 	Executor       *executor.Executor
 	Planner        *planner.Planner
 	Vault          AttributesEngine
-	rootComponent  *components.Component
 	Roles          []string
 	macros         macros.MacroMap
 	snippets       map[string]*macros.Snippet
@@ -163,7 +155,6 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		OutputDir:      c.OutputDir,
 		snippets:       snips,
 		macros:         loadDefaultMacros(c, hm, snips),
-		rootComponent:  rootComponent,
 		plannerConfig:  pc,
 		Executor:       e,
 		Planner:        p,

@@ -7,6 +7,9 @@ import (
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	filesource "primamateria.systems/materia/internal/source/file"
+	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/oci"
 )
 
 var (
@@ -22,10 +25,9 @@ type SnippetConfig struct {
 }
 
 type RemoteComponentConfig struct {
-	URL      string `toml:"URL"`
-	Version  string `toml:"Version"`
-	Username string `toml:"Username"`
-	Password string `toml:"Password"`
+	GitSource  *git.Config        `toml:"git,omitempty"`
+	OciSource  *oci.Config        `toml:"oci,omitempty"`
+	FileSource *filesource.Config `toml:"file,omitempty"`
 }
 
 type MateriaManifest struct {

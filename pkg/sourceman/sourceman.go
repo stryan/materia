@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/repository"
@@ -74,48 +73,29 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 	}
 	// TODO update to new source format?
 	for name, r := range man.Remotes {
-		parsedPath := strings.Split(r.URL, "://")
 		var remoteSource source.Source
-		var err error
-		localpath := filepath.Join(s.remoteDir, "components", name)
-		switch parsedPath[0] {
-		case "git":
-			remoteSource, err = git.NewGitSource(&git.Config{
-				Branch:          r.Version,
-				PrivateKey:      "",
-				Username:        "",
-				Password:        "",
-				KnownHosts:      "",
-				Insecure:        false,
-				LocalRepository: localpath,
-				URL:             r.URL,
-			})
+		if r.GitSource != nil {
+			remoteSource, err = git.NewGitSource(r.GitSource)
 			if err != nil {
 				return fmt.Errorf("invalid git source: %w", err)
 			}
-		case "file":
-			remoteSource, err = file.NewFileSource(&file.Config{
-				SourcePath:  r.URL,
-				Destination: localpath,
-			})
+		}
+		if r.FileSource != nil {
+			remoteSource, err = file.NewFileSource(r.FileSource)
 			if err != nil {
 				return fmt.Errorf("invalid file source: %w", err)
 			}
-		case "oci":
-			remoteSource, err = oci.NewOCISource(&oci.Config{
-				URL:             r.URL,
-				Tag:             r.Version,
-				Username:        r.Username,
-				Password:        r.Password,
-				Insecure:        false,
-				LocalRepository: localpath,
-			})
-			if err != nil {
-				return fmt.Errorf("invalid OCI source: %w", err)
-			}
-		default:
-			return fmt.Errorf("invalid source: %v", parsedPath[0])
 		}
+		if r.OciSource != nil {
+			remoteSource, err = oci.NewOCISource(r.OciSource)
+			if err != nil {
+				return fmt.Errorf("invalid oci source: %w", err)
+			}
+		}
+		if remoteSource == nil {
+			return fmt.Errorf("remote %v has no valid source config", name)
+		}
+		localpath := filepath.Join(s.remoteDir, "components", name)
 		if err := remoteSource.Sync(ctx); err != nil {
 			return err
 		}

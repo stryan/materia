@@ -44,6 +44,7 @@ const (
 	StateNeedUpdate
 	StateNeedRemoval
 	StateRemoved
+	StateRoot
 )
 
 type ComponentVersion struct {
@@ -54,6 +55,16 @@ func NewComponent(name string) *Component {
 	return &Component{
 		Name:      name,
 		State:     StateStale,
+		Defaults:  make(map[string]any),
+		Services:  NewServiceSet(),
+		Resources: NewResourceSet(),
+	}
+}
+
+func NewRootComponent() *Component {
+	return &Component{
+		Name:      "root",
+		State:     StateRoot,
 		Defaults:  make(map[string]any),
 		Services:  NewServiceSet(),
 		Resources: NewResourceSet(),

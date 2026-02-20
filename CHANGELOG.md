@@ -4,9 +4,9 @@ Best effort list of major changes and bugfixes
 
 ## Deprecations
 ### v0.6
-- `autoUpdate` snippet
 - `cleanup`, `cleanup_volumes`, `backup_volumes`, `migrate_volumes` settings are now in the `planner` section.
 ### v0.7
+- `autoUpdate` snippet
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 - `timeout` setting is now in the `services` section
 
@@ -20,6 +20,7 @@ Best effort list of major changes and bugfixes
 - experimental feature: `manifest` and `banish` commands for using `.quadlets` files like compose files. These will most likely be moved to a separate project once internal API's have stabilized.
 - feat: LoadAllAttributes config setting for attributes engine to ignore host/role filtering
 - feat: new `services` config block
+- feat/refactor: remote components use new source format
 
 ## 0.5.1
 - bugfix: fixed some typos around volume importing
