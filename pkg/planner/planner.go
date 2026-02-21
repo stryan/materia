@@ -87,17 +87,17 @@ func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents
 	return actionPlan, nil
 }
 
-func (m *Planner) PlanFreshComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
 	resourceActions, err := generateFreshComponentResources(currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.Source)
+	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
 	resourceActions = append(resourceActions, ensureActions...)
-	if m.OnlyResources {
+	if p.OnlyResources {
 		return resourceActions, nil
 	}
 	if len(resourceActions) > 0 {
@@ -107,7 +107,7 @@ func (m *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
-	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.Source)
+	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, p.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
@@ -128,15 +128,15 @@ func (m *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Planner) PlanRemovedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
-	resourceActions, err := generateRemovedComponentResources(ctx, m.Host, m.PlannerConfig, currentTree.Host)
+func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+	resourceActions, err := generateRemovedComponentResources(ctx, p.Host, p.PlannerConfig, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
-	if m.OnlyResources {
+	if p.OnlyResources {
 		return resourceActions, nil
 	}
-	serviceActions, err := processRemovedComponentServices(ctx, m.Host, currentTree.Host)
+	serviceActions, err := processRemovedComponentServices(ctx, p.Host, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan removed services for %v: %w", currentTree.Name, err)
 	}
@@ -162,8 +162,8 @@ func (m *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	return append(resourceActions, serviceActions...), nil
 }
 
-func (m *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
-	resourceActions, err := generateUpdatedComponentResources(ctx, m.Host, m.PlannerConfig, currentTree.Host, currentTree.Source)
+func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+	resourceActions, err := generateUpdatedComponentResources(ctx, p.Host, p.PlannerConfig, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
@@ -176,10 +176,10 @@ func (m *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 		})
 	}
 
-	if m.OnlyResources {
+	if p.OnlyResources {
 		return resourceActions, nil
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, m.Host, currentTree.Host)
+	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
@@ -196,14 +196,14 @@ func (m *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 		if err != nil {
 			return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 		}
-		if !m.OnlyResources {
-			serviceActions, err = processUpdatedComponentServices(ctx, m.Host, currentTree.Host, currentTree.Source, resourceActions, triggeredActions)
+		if !p.OnlyResources {
+			serviceActions, err = processUpdatedComponentServices(ctx, p.Host, currentTree.Host, currentTree.Source, resourceActions, triggeredActions)
 			if err != nil {
 				return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
 			}
 		}
-	} else if !m.OnlyResources {
-		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, m.Host, currentTree.Host)
+	} else if !p.OnlyResources {
+		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, p.Host, currentTree.Host)
 		if err != nil {
 			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
 		}

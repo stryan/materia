@@ -42,13 +42,9 @@ type MateriaConfig struct {
 	OutputDir      string                   `toml:"output_dir"`
 	RemoteDir      string                   `toml:"remote_dir"`
 	NoSync         bool                     `toml:"nosync"`
-	OnlyResources  bool                     `toml:"only_resources"`
-	Quiet          bool                     `toml:"quiet"`
 	AppMode        bool                     `toml:"appmode"`
-	Cleanup        bool                     `toml:"cleanup"`
-	CleanupVolumes bool                     `toml:"cleanup_volumes"`
-	BackupVolumes  bool                     `toml:"backup_volumes"`
-	MigrateVolumes bool                     `toml:"migrate_volumes"`
+	Remote         bool                     `toml:"remote"`
+	Rootless       bool                     `toml:"rootless"`
 	Attributes     string                   `toml:"attributes"`
 	CompressionCmd string                   `toml:"compression_cmd"`
 	SecretsPrefix  string                   `toml:"secrets_prefix"`
@@ -59,8 +55,6 @@ type MateriaConfig struct {
 	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
 	ServicesConfig *services.ServicesConfig `toml:"services"`
 	User           *user.User
-	Remote         bool `toml:"remote"`
-	Rootless       bool `toml:"rootless"`
 }
 
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
@@ -254,8 +248,6 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Podman Secrets Prefix: %v\n", c.SecretsPrefix)
 	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
-	result += fmt.Sprintf("Quiet mode: %v\n", c.Quiet)
-	result += fmt.Sprintf("Resources Changes Only: %v\n", c.OnlyResources)
 	result += fmt.Sprintf("Remote mode: %v\n", c.Remote)
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
 	if c.ServicesConfig != nil {

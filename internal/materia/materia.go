@@ -121,11 +121,12 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		}
 		snips[s.Name] = s
 	}
-	var roles []string
-
-	roles, err = getRolesFromManifest(man, hm.GetHostname())
-	if err != nil {
-		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
+	roles := c.Roles
+	if len(roles) == 0 {
+		roles, err = getRolesFromManifest(man, hm.GetHostname())
+		if err != nil {
+			return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
+		}
 	}
 	pc := planner.PlannerConfig{
 		BackupVolumes: true,
@@ -172,11 +173,7 @@ func (m *Materia) GetAssignedComponents() ([]string, error) {
 	if ok {
 		assignedComponents = append(assignedComponents, hostComps.Components...)
 	}
-	roles, err := getRolesFromManifest(m.Manifest, m.Host.GetHostname())
-	if err != nil {
-		return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
-	}
-	for _, v := range roles {
+	for _, v := range m.Roles {
 		if len(m.Manifest.Roles[v].Components) != 0 {
 			assignedComponents = append(assignedComponents, m.Manifest.Roles[v].Components...)
 		}
