@@ -82,7 +82,8 @@ run = '''
 usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''
-run = "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./virter"
+dir = "virter"
+run = "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %}"
 
 [tasks.virter-explore]
 depends = ["build-amd64", "lint", "test", "virter-age"]
