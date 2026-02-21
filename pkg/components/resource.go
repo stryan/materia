@@ -214,24 +214,40 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 	return hostObjectFromUnitFile(r, unitfile)
 }
 
+func parseQuadletChunk(data string) (string, string, error) {
+	filename := ""
+	lines := strings.Split(data, "\n")
+	var cleanLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if filename == "" {
+			if strings.HasPrefix(line, "# FileName") {
+				name := strings.Split(line, "=")
+				if len(name) < 2 || name[1] == "" {
+					return "", "", errors.New("bad filename")
+				}
+				filename = name[1]
+			}
+			continue
+		}
+		cleanLines = append(cleanLines, line)
+	}
+
+	return filename, strings.Join(cleanLines, "\n"), nil
+}
+
 func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error) {
 	var result []Resource
 	chunks := strings.Split(quadletData, "---\n")
 	for _, quadlet := range chunks {
 		res := Resource{}
-		filename := ""
-		firstLineIndex := strings.Index(quadlet, "\n")
-		if firstLineIndex == -1 {
-			return result, errors.New("something has gone horrible wrong")
+		filename, content, err := parseQuadletChunk(quadlet)
+		if err != nil {
+			return result, err
 		}
-		firstLine := quadlet[:firstLineIndex]
-		if strings.HasPrefix(firstLine, "# FileName") {
-			name := strings.Split(firstLine, "=")
-			if len(name) < 2 || name[1] == "" {
-				return result, errors.New("bad filename")
-			}
-			filename = name[1]
-		}
+
 		if filename == "MANIFEST.toml" {
 			res = Resource{
 				Path:       "MANIFEST.toml",
@@ -245,7 +261,7 @@ func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error
 		}
 
 		unitfile := parser.NewUnitFile()
-		err := unitfile.Parse(quadlet)
+		err = unitfile.Parse(content)
 		if err != nil {
 			return result, fmt.Errorf("error parsing systemd unit file: %w", err)
 		}
@@ -274,17 +290,17 @@ func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error
 			// it's a valid systemd unit file but not a quadlet, treat it as a service
 			res.Kind = ResourceTypeService
 		}
-		res.Content = quadlet[firstLineIndex:]
-		res.HostObject, err = hostObjectFromUnitFile(res, unitfile)
-		if err != nil {
-			return result, err
-		}
+		res.Content = content
 		res.Parent = parent
 		ext, err := res.Kind.toExt()
 		if err != nil {
 			return result, err
 		}
 		res.Path = fmt.Sprintf("%v.%v", filename, ext)
+		res.HostObject, err = hostObjectFromUnitFile(res, unitfile)
+		if err != nil {
+			return result, err
+		}
 
 		result = append(result, res)
 	}
