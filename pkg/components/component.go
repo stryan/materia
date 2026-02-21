@@ -172,6 +172,17 @@ func (c *Component) ToResource() Resource {
 	}
 }
 
+func (c *Component) ToAppfile() []byte {
+	appfiles := []string{}
+	for _, r := range c.Resources.List() {
+		if r.IsQuadlet() {
+			appfiles = append(appfiles, r.Path)
+		}
+	}
+	appfile := strings.Join(appfiles, "\n")
+	return []byte(appfile)
+}
+
 func FindResourceType(file string) ResourceType {
 	filename := strings.TrimSuffix(file, ".gotmpl")
 	switch filepath.Ext(filename) {
@@ -189,6 +200,8 @@ func FindResourceType(file string) ResourceType {
 		return ResourceTypeImage
 	case ".kube":
 		return ResourceTypeKube
+	case ".app":
+		return ResourceTypeAppFile
 	case ".quadlets":
 		return ResourceTypeCombined
 	case ".toml":

@@ -17,6 +17,11 @@ type ComponentLoadStage interface {
 	Process(ctx context.Context, comp *components.Component) error
 }
 
+func (p *ComponentLoadPipeline) AddStage(stage ComponentLoadStage) error {
+	p.stages = append(p.stages, stage)
+	return nil
+}
+
 func NewHostComponentPipeline(mgr components.ComponentReader, cont containers.ContainerManager) *ComponentLoadPipeline {
 	return &ComponentLoadPipeline{
 		stages: []ComponentLoadStage{

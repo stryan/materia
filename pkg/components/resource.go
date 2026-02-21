@@ -36,6 +36,7 @@ const (
 	ResourceTypeKube
 	ResourceTypeBuild
 	ResourceTypeImage
+	ResourceTypeAppFile
 
 	ResourceTypeCombined
 
@@ -70,6 +71,8 @@ func (t ResourceType) toExt() (string, error) {
 		return "sh", nil
 	case ResourceTypeVolume:
 		return "volume", nil
+	case ResourceTypeAppFile:
+		return "app", nil
 	default:
 		return "", fmt.Errorf("resource type wouldn't have file extension: %v", t)
 	}
@@ -138,7 +141,7 @@ func (r *Resource) Service() string {
 
 func (r Resource) IsQuadlet() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage:
+	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage, ResourceTypeAppFile:
 		return true
 	default:
 		return false
@@ -199,6 +202,9 @@ func hostObjectFromUnitFile(r Resource, unitfile *parser.UnitFile) (string, erro
 func (r Resource) GetHostObject(unitData string) (string, error) {
 	if !r.IsQuadlet() {
 		return "", errors.New("can't get host object for non-quadlet")
+	}
+	if r.Kind == ResourceTypeAppFile {
+		return "", nil
 	}
 	unitfile := parser.NewUnitFile()
 	err := unitfile.Parse(unitData)

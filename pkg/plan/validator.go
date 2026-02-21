@@ -83,7 +83,7 @@ func (s *QuadletValidator) Validate(steps []actions.Action) error {
 	currentStep := 1
 	maxSteps := len(steps)
 	for _, a := range steps {
-		if a.Target.IsQuadlet() && a.Target.HostObject == "" {
+		if a.Target.IsQuadlet() && a.Target.HostObject == "" && a.Target.Kind != components.ResourceTypeAppFile {
 			return fmt.Errorf("%v/%v: tried to operate on a quadlet without a backing podman object: %v", currentStep, maxSteps, a.Target)
 		}
 		currentStep++

@@ -827,6 +827,9 @@ func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp 
 	for _, r := range questionableResources {
 		found := false
 		serv, err := mgr.GetService(ctx, r.Service())
+		if errors.Is(err, services.ErrServiceNotFound) {
+			continue
+		}
 		if err != nil {
 			return result, err
 		}

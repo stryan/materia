@@ -434,3 +434,32 @@ func TestAllVaults(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, componentInstalled("hello", filepath.Join(goldenPath, "hello")), "hello component not installed")
 }
+
+func TestRepo1_AppMode(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", "file:///root/materia/virter/in/testrepo1"))
+	require.Nil(t, setEnv("MATERIA_APPMODE", "true"))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", "/root/materia/virter/in/testrepo1/test-key.txt"))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	planCmd := exec.Command("materia", "plan")
+	planCmd.Stdout = os.Stdout
+	planCmd.Stderr = os.Stderr
+	err := planCmd.Run()
+	require.NoError(t, err)
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello", "/root/materia/virter/out/testrepo1/hello"))
+	require.True(t, fileExists("/etc/containers/systemd/hello/.hello.app"))
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "noname"))
+	runCmd = exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentRemoved("hello"))
+}

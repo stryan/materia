@@ -21,6 +21,7 @@ Best effort list of major changes and bugfixes
 - feat: LoadAllAttributes config setting for attributes engine to ignore host/role filtering
 - feat: new `services` config block
 - feat/refactor: remote components use new source format
+- feat: `appMode` config option to generate `podman quadlet` compatible app files
 
 ## 0.5.1
 - bugfix: fixed some typos around volume importing

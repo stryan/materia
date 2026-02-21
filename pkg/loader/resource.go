@@ -41,3 +41,16 @@ func (s *ResourceDiscoveryStage) Process(ctx context.Context, comp *components.C
 
 	return nil
 }
+
+type AppCompatibilityStage struct{}
+
+func (s *AppCompatibilityStage) Process(ctx context.Context, comp *components.Component) error {
+	appfileData := comp.ToAppfile()
+	appFile := components.Resource{
+		Path:    fmt.Sprintf(".%v.app", comp.Name),
+		Parent:  comp.Name,
+		Kind:    components.ResourceTypeAppFile,
+		Content: string(appfileData),
+	}
+	return comp.Resources.Add(appFile)
+}

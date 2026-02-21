@@ -43,7 +43,7 @@ type Materia struct {
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
 	defaultTimeout int
-	onlyResources  bool
+	appMode        bool
 	debug          bool
 }
 
@@ -149,10 +149,10 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Source:         srcman,
 		Manifest:       man,
 		debug:          c.Debug,
-		onlyResources:  c.OnlyResources,
 		defaultTimeout: sc.Timeout,
 		Vault:          attributes,
 		OutputDir:      c.OutputDir,
+		appMode:        c.AppMode,
 		snippets:       snips,
 		macros:         loadDefaultMacros(c, hm, snips),
 		plannerConfig:  pc,
@@ -293,6 +293,12 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 		}
 
 		sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
+		if m.appMode {
+			err = sourcePipeline.AddStage(&loader.AppCompatibilityStage{})
+			if err != nil {
+				return nil, err
+			}
+		}
 		sourceComponent := components.NewComponent(n)
 		err = sourcePipeline.Load(ctx, sourceComponent)
 		if err != nil {

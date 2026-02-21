@@ -44,6 +44,7 @@ type MateriaConfig struct {
 	NoSync         bool                     `toml:"nosync"`
 	OnlyResources  bool                     `toml:"only_resources"`
 	Quiet          bool                     `toml:"quiet"`
+	AppMode        bool                     `toml:"appmode"`
 	Cleanup        bool                     `toml:"cleanup"`
 	CleanupVolumes bool                     `toml:"cleanup_volumes"`
 	BackupVolumes  bool                     `toml:"backup_volumes"`
@@ -80,6 +81,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.RemoteDir = k.String("remote_dir")
 	c.NoSync = k.Bool("nosync")
 	c.SecretsPrefix = k.String("secrets_prefix")
+	c.AppMode = k.Bool("appmode")
 	if c.SecretsPrefix == "" {
 		c.SecretsPrefix = "materia-"
 	}

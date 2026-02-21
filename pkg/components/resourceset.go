@@ -2,6 +2,7 @@ package components
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/emirpasic/gods/maps"
 	"github.com/emirpasic/gods/maps/linkedhashmap"
@@ -21,7 +22,7 @@ func NewResourceSet() *ResourceSet {
 
 func (r *ResourceSet) Add(res Resource) error {
 	if _, ok := r.newSet.Get(res.Path); ok {
-		return errors.New("resource already in set")
+		return fmt.Errorf("resource already in set: %v", res.Path)
 	}
 	r.newSet.Put(res.Path, res)
 	return nil
