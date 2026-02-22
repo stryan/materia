@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/mocks"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/services"
 )
 
 func newResSet(resources ...components.Resource) *components.ResourceSet {

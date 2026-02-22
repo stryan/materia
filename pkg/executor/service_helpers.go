@@ -6,12 +6,15 @@ import (
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/services"
 )
 
 type ServiceManager interface {
-	Apply(context.Context, string, services.ServiceAction, int) error
+	ApplyService(context.Context, string, services.ServiceAction, int) error
+	GetService(context.Context, string) (*services.Service, error)
+	RunOneshotCommand(context.Context, int, string, []string) error
+	WaitUntilState(context.Context, string, string, int) error
 }
 
 func getServiceType(a actions.Action) (services.ServiceAction, error) {
@@ -56,5 +59,5 @@ func modifyService(ctx context.Context, sm ServiceManager, command actions.Actio
 	}
 	log.Debugf("%v service %v", cmd, res.Service())
 
-	return sm.Apply(ctx, res.Service(), cmd, timeout)
+	return sm.ApplyService(ctx, res.Service(), cmd, timeout)
 }

@@ -10,11 +10,11 @@ import (
 	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/containers"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/services"
 )
 
 type HostStateManager interface {

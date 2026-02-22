@@ -3,13 +3,12 @@ package executor
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/pkg/components"
-	"primamateria.systems/materia/pkg/serviceman"
+	"primamateria.systems/materia/pkg/containers"
 )
 
 type Host interface {
-	serviceman.ServiceManager
+	ServiceManager
 	containers.ContainerManager
 	components.ComponentWriter
 	InstallScript(context.Context, string, []byte) error

@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
 )
 
 func Test_CleanupVolume(t *testing.T) {

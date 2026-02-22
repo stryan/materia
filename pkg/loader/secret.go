@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
 )
 
 type SecretInjectorStage struct {

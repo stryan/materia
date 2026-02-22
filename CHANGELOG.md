@@ -11,13 +11,12 @@ Best effort list of major changes and bugfixes
 - `timeout` setting is now in the `services` section
 
 ## Upcoming
-- refactor: planner,plan,executor, and component loading modules have been publicized and refactored.
+- refactor: planner,plan,containers,services, executor, and component loading modules have been publicized and refactored.
 - feat: Component scripts are no longer a separate resource type. They are instead normal script resources that, when specified in the component manifest, are run in a transient systemd unit on installation/removal.
 - bugfix: component removal ignores non-existent services
 - bugfix/feat: `Overrides` now properly overrides manifests, new `Extensions` manifest option
 - feat: add support for OCI images as repository sources.
 - feat: experimental support for `.quadlets` files
-- experimental feature: `manifest` and `banish` commands for using `.quadlets` files like compose files. These will most likely be moved to a separate project once internal API's have stabilized.
 - feat: LoadAllAttributes config setting for attributes engine to ignore host/role filtering
 - feat: new `services` config block
 - feat/refactor: remote components use new source format

@@ -7,10 +7,10 @@ import (
 	"slices"
 
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/services"
 )
 
 type HostmanConfig struct {

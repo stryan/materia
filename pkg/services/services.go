@@ -100,7 +100,7 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	return &sm, nil
 }
 
-func (s *ServiceManager) Apply(ctx context.Context, name string, action ServiceAction, timeout int) error {
+func (s *ServiceManager) ApplyService(ctx context.Context, name string, action ServiceAction, timeout int) error {
 	if action == ServiceReloadUnits {
 		if s.DryrunQuadlets {
 			err := s.dryrunQuadlets(ctx)

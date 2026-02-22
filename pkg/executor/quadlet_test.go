@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/mocks"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/services"
 )
 
 func Test_CleanupNetwork(t *testing.T) {
@@ -180,8 +180,8 @@ func TestEnsureQuadlet(t *testing.T) {
 		defaultTimeout: 30,
 	}
 
-	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 30).Return(nil)
-	hm.EXPECT().Apply(ctx, "hello.service", services.ServiceRestart, 30).Return(nil)
+	hm.EXPECT().ApplyService(ctx, "", services.ServiceReloadUnits, 30).Return(nil)
+	hm.EXPECT().ApplyService(ctx, "hello.service", services.ServiceRestart, 30).Return(nil)
 
 	assert.NoError(t, ensureQuadlet(ctx, e, action))
 }

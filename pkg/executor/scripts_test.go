@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/mocks"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/services"
 )
 
 func TestSetupScript(t *testing.T) {
@@ -40,7 +40,7 @@ func TestSetupScript(t *testing.T) {
 	}
 
 	hm.EXPECT().RunOneshotCommand(ctx, 30, "test-materia-setup.service", []string{"/usr/local/bin/setup.sh"}).Return(nil)
-	hm.EXPECT().Apply(ctx, "test-materia-cleanup.service", services.ServiceStop, 30).Return(nil)
+	hm.EXPECT().ApplyService(ctx, "test-materia-cleanup.service", services.ServiceStop, 30).Return(nil)
 
 	assert.NoError(t, setupScript(ctx, e, action))
 }
@@ -74,7 +74,7 @@ func TestCleanupScript(t *testing.T) {
 	}
 
 	hm.EXPECT().RunOneshotCommand(ctx, 30, "test-materia-cleanup.service", []string{"/usr/local/bin/cleanup.sh"}).Return(nil)
-	hm.EXPECT().Apply(ctx, "test-materia-setup.service", services.ServiceStop, 30).Return(nil)
+	hm.EXPECT().ApplyService(ctx, "test-materia-setup.service", services.ServiceStop, 30).Return(nil)
 
 	assert.NoError(t, cleanupScript(ctx, e, action))
 }

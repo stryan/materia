@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"primamateria.systems/materia/internal/actions"
 	"primamateria.systems/materia/internal/mocks"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/services"
 )
 
 func newResSet(resources ...components.Resource) *components.ResourceSet {
@@ -96,7 +96,7 @@ func TestExecute(t *testing.T) {
 	hm.EXPECT().InstallResource(containerResource, []byte("[Container]")).Return(nil)
 	hm.EXPECT().InstallResource(dataResource, []byte("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, []byte("")).Return(nil)
-	hm.EXPECT().Apply(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
+	hm.EXPECT().ApplyService(ctx, "", services.ServiceReloadUnits, 0).Return(nil)
 	e := &Executor{host: hm}
 
 	steps, err := e.Execute(ctx, plan)

@@ -21,13 +21,13 @@ import (
 	"primamateria.systems/materia/internal/attributes/mem"
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/internal/macros"
-	"primamateria.systems/materia/internal/services"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/loader"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/planner"
+	"primamateria.systems/materia/pkg/services"
 )
 
 type Materia struct {

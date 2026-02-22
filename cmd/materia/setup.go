@@ -15,8 +15,8 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/containers"
 	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/hostman"
 	"primamateria.systems/materia/pkg/source"
 

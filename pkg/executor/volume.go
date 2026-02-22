@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/containers"
+	"primamateria.systems/materia/pkg/containers"
 )
 
 func cleanupVolume(ctx context.Context, e *Executor, v actions.Action) error {

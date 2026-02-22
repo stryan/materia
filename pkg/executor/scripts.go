@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/actions"
-	"primamateria.systems/materia/internal/services"
+	"primamateria.systems/materia/pkg/services"
 )
 
 func installOrUpdateScript(ctx context.Context, e *Executor, v actions.Action) error {
@@ -41,7 +41,7 @@ func setupScript(ctx context.Context, e *Executor, v actions.Action) error {
 		return err
 	}
 	// we succesfully setup, remove any cleanup script instances
-	if err := e.host.Apply(ctx, cleanupName, services.ServiceStop, e.defaultTimeout); err != nil {
+	if err := e.host.ApplyService(ctx, cleanupName, services.ServiceStop, e.defaultTimeout); err != nil {
 		log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
 	}
 	return nil
@@ -55,7 +55,7 @@ func cleanupScript(ctx context.Context, e *Executor, v actions.Action) error {
 		return err
 	}
 	// we succesfully setup, remove any setup script instances
-	if err := e.host.Apply(ctx, setupName, services.ServiceStop, e.defaultTimeout); err != nil {
+	if err := e.host.ApplyService(ctx, setupName, services.ServiceStop, e.defaultTimeout); err != nil {
 		log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
 	}
 	return nil
