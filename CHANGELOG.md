@@ -3,14 +3,14 @@
 Best effort list of major changes and bugfixes
 
 ## Deprecations
-### v0.6
-- `cleanup`, `cleanup_volumes`, `backup_volumes`, `migrate_volumes` settings are now in the `planner` section.
 ### v0.7
 - `autoUpdate` snippet
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 - `timeout` setting is now in the `services` section
 
 ## Upcoming
+
+## 0.6.0
 - refactor: planner,plan,containers,services, executor, and component loading modules have been publicized and refactored.
 - feat: Component scripts are no longer a separate resource type. They are instead normal script resources that, when specified in the component manifest, are run in a transient systemd unit on installation/removal.
 - bugfix: component removal ignores non-existent services
@@ -21,6 +21,8 @@ Best effort list of major changes and bugfixes
 - feat: new `services` config block
 - feat/refactor: remote components use new source format
 - feat: `appMode` config option to generate `podman quadlet` compatible app files
+#   ## Deprecations
+- `cleanup`, `cleanup_volumes`, `backup_volumes`, `migrate_volumes` settings are now in the `planner` section.
 
 ## 0.5.1
 - bugfix: fixed some typos around volume importing

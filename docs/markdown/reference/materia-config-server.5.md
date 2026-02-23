@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVER
 section: 5
 header: User Manual
-footer: materia 0.5.0
-date: January 2026
+footer: materia 0.6.0
+date: February 2026
 author: stryan
 ---
 

@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG
 section: 5
 header: User Manual
-footer: materia 0.5.0
-date: January 2026
+footer: materia 0.6.0
+date: February 2026
 author: stryan
 ---
 
@@ -102,3 +102,9 @@ Sets the prefix Materia appends to Podman secrets it manages. Defaults to `mater
 (EXPERIMENTAL)
 
 Enables `rootless` mode for Materia in a container. Causes materia to parse its own container's bind mounts to determine where on the host machine directories are. Use when you're running materia in a rootless container and are bind-mounting the user directories to the normal materia root directories in the container i.e. `-v /home/user/.config/containers/systemd:/etc/containers/systemd`.
+
+#### MATERIA_APPMODE/materia.appmode
+
+(EXPERIMENTAL)
+
+Generate `.app` files with when installing quadlets to keep them compatibile with `podman quadlet commands`.

@@ -165,3 +165,7 @@ run = [
   "mise task run release-tar ${usage_version?}",
   "gh release create ${usage_version?} --generate-notes ./materia-${usage_version?}-amd64.tar.gz ./materia-${usage_version?}-arm64.tar.gz ./bin/materia*",
 ]
+
+[tasks.vulncheck]
+tools = { "go:golang.org/x/vuln/cmd/govulncheck" = "latest" }
+run = "govulncheck ./..."
