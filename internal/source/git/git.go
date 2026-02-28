@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	xssh "golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type GitSource struct {
@@ -71,10 +72,11 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		hostsfile := c.KnownHosts
 		if hostsfile == "" {
 			hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
-		}
-		_, err = os.Stat(hostsfile)
-		if err != nil {
-			return nil, err
+			_, err = os.Stat(hostsfile)
+			if err != nil {
+				return nil, err
+			}
+
 		}
 		_, err = os.Stat(c.PrivateKey)
 		if err != nil {
@@ -86,6 +88,12 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		}
 		if c.Insecure {
 			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+		}
+		if hostsfile != "" {
+			publicKeys.HostKeyCallback, err = knownhosts.New(hostsfile)
+			if err != nil {
+				return nil, fmt.Errorf("can't use knownhosts %v: %w", hostsfile, err)
+			}
 		}
 
 		g.auth = publicKeys
