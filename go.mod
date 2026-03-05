@@ -20,7 +20,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.2
 	github.com/sergi/go-diff v1.4.0
 	github.com/stretchr/testify v1.11.1
-	github.com/urfave/cli/v3 v3.6.2
+	github.com/urfave/cli/v3 v3.7.0
 	golang.org/x/crypto v0.48.0
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1

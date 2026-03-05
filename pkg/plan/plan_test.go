@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 )
 

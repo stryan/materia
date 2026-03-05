@@ -2,12 +2,11 @@ package executor
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/charmbracelet/log"
-	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/plan"
 )
@@ -70,7 +69,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 			}
 		case actions.ActionEnable, actions.ActionDisable:
 		default:
-			return steps, errors.New("unknown service action state")
+			return steps, fmt.Errorf("unknown service action state: %v", v)
 		}
 	}
 	var servWG sync.WaitGroup

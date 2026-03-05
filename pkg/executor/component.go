@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/pkg/actions"
 )
 
 func installComponent(ctx context.Context, e *Executor, v actions.Action) error {

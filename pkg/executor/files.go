@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/pkg/actions"
 )
 
 func installOrUpdateFile(ctx context.Context, e *Executor, v actions.Action) error {

@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/actions"
+	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/services"
 )
 
