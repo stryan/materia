@@ -61,3 +61,30 @@ func modifyService(ctx context.Context, sm ServiceManager, command actions.Actio
 
 	return sm.ApplyService(ctx, res.Service(), cmd, timeout)
 }
+
+func waitService(ctx context.Context, sm ServiceManager, command actions.Action, timeout int) error {
+	if err := command.Validate(); err != nil {
+		return err
+	}
+	if command.Metadata == nil {
+		return nil
+	}
+	if command.Metadata.ServiceUntilState == nil {
+		return nil
+	}
+	res := command.Target
+	if !res.IsQuadlet() && (res.Kind != components.ResourceTypeService && res.Kind != components.ResourceTypeHost) {
+		return fmt.Errorf("tried to wait on resource %v as a service", res)
+	}
+	if command.Metadata.ServiceTimeout != nil {
+		timeout = *command.Metadata.ServiceTimeout
+	}
+	endState := *command.Metadata.ServiceUntilState
+
+	if err := res.Validate(); err != nil {
+		return fmt.Errorf("invalid resource when modifying service: %w", err)
+	}
+	log.Debugf("service %v waiting for %v", res.Service(), endState)
+
+	return sm.WaitUntilState(ctx, res.Service(), endState, timeout)
+}

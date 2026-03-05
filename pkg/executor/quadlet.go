@@ -74,5 +74,10 @@ func serviceAction(ctx context.Context, e *Executor, v actions.Action) error {
 	if err != nil {
 		return err
 	}
+	err = waitService(ctx, e.host, v, e.defaultTimeout)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
