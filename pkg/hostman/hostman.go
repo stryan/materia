@@ -15,10 +15,13 @@ import (
 
 type HostmanConfig struct {
 	Hostname            string
-	Timeout             int
 	RemotePodman        bool
 	DryrunQuadlets      bool
 	PodmanSecretsPrefix string
+	CompressionCommand  string
+	CompressionSuffix   string
+	*containers.ContainersConfig
+	*services.ServicesConfig
 
 	DataDir     string
 	QuadletDir  string
@@ -44,14 +47,11 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
-	sm, err := services.NewServices(ctx, &services.ServicesConfig{
-		Timeout:        c.Timeout,
-		DryrunQuadlets: c.DryrunQuadlets,
-	})
+	sm, err := services.NewServices(ctx, c.ServicesConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := containers.NewPodmanManager(c.RemotePodman, c.PodmanSecretsPrefix)
+	cm, err := containers.NewPodmanManager(c.ContainersConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

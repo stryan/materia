@@ -11,6 +11,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/age"
 	fileattrs "primamateria.systems/materia/internal/attributes/file"
 	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/planner"
 	"primamateria.systems/materia/pkg/services"
@@ -30,31 +31,29 @@ var (
 )
 
 type MateriaConfig struct {
-	Debug          bool                     `toml:"debug"`
-	UseStdout      bool                     `toml:"use_stdout"`
-	Hostname       string                   `toml:"hostname"`
-	Roles          []string                 `toml:"roles"`
-	MateriaDir     string                   `toml:"materia_dir"`
-	QuadletDir     string                   `toml:"quadlet_dir"`
-	ServiceDir     string                   `toml:"service_dir"`
-	ScriptsDir     string                   `toml:"scripts_dir"`
-	SourceDir      string                   `toml:"source_dir"`
-	OutputDir      string                   `toml:"output_dir"`
-	RemoteDir      string                   `toml:"remote_dir"`
-	NoSync         bool                     `toml:"nosync"`
-	AppMode        bool                     `toml:"appmode"`
-	Remote         bool                     `toml:"remote"`
-	Rootless       bool                     `toml:"rootless"`
-	Attributes     string                   `toml:"attributes"`
-	CompressionCmd string                   `toml:"compression_cmd"`
-	SecretsPrefix  string                   `toml:"secrets_prefix"`
-	AgeConfig      *age.Config              `toml:"age"`
-	FileConfig     *fileattrs.Config        `toml:"file"`
-	SopsConfig     *sops.Config             `toml:"sops"`
-	PlannerConfig  *planner.PlannerConfig   `toml:"planner"`
-	ExecutorConfig *executor.ExecutorConfig `toml:"executor"`
-	ServicesConfig *services.ServicesConfig `toml:"services"`
-	User           *user.User
+	Debug            bool                         `toml:"debug"`
+	UseStdout        bool                         `toml:"use_stdout"`
+	Hostname         string                       `toml:"hostname"`
+	Roles            []string                     `toml:"roles"`
+	MateriaDir       string                       `toml:"materia_dir"`
+	QuadletDir       string                       `toml:"quadlet_dir"`
+	ServiceDir       string                       `toml:"service_dir"`
+	ScriptsDir       string                       `toml:"scripts_dir"`
+	SourceDir        string                       `toml:"source_dir"`
+	OutputDir        string                       `toml:"output_dir"`
+	RemoteDir        string                       `toml:"remote_dir"`
+	NoSync           bool                         `toml:"nosync"`
+	AppMode          bool                         `toml:"appmode"`
+	Rootless         bool                         `toml:"rootless"`
+	Attributes       string                       `toml:"attributes"`
+	AgeConfig        *age.Config                  `toml:"age"`
+	FileConfig       *fileattrs.Config            `toml:"file"`
+	SopsConfig       *sops.Config                 `toml:"sops"`
+	PlannerConfig    *planner.PlannerConfig       `toml:"planner"`
+	ExecutorConfig   *executor.ExecutorConfig     `toml:"executor"`
+	ServicesConfig   *services.ServicesConfig     `toml:"services"`
+	ContainersConfig *containers.ContainersConfig `toml:"containers"`
+	User             *user.User
 }
 
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
@@ -74,11 +73,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.OutputDir = k.String("output_dir")
 	c.RemoteDir = k.String("remote_dir")
 	c.NoSync = k.Bool("nosync")
-	c.SecretsPrefix = k.String("secrets_prefix")
 	c.AppMode = k.Bool("appmode")
-	if c.SecretsPrefix == "" {
-		c.SecretsPrefix = "materia-"
-	}
 	if k.Exists("age") || c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
@@ -97,20 +92,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 			return nil, err
 		}
 	}
-	var servicesCfg services.ServicesConfig
-	if k.Exists("services") {
-		servicesCfg.DryrunQuadlets = k.Bool("services.dryrun_quadlets")
-		servicesCfg.Timeout = k.Int("services.timeout")
-	} else {
-		// TODO remove in 0.7
-		servicesCfg = services.ServicesConfig{
-			Timeout: k.Int("timeout"),
-		}
+	c.ServicesConfig, err = services.NewServicesConfig(k)
+	if err != nil {
+		return nil, err
 	}
-	if servicesCfg.Timeout == 0 {
-		servicesCfg.Timeout = 90
-	}
-	c.ServicesConfig = &servicesCfg
 	if k.Exists("planner") {
 		c.PlannerConfig, err = planner.NewPlannerConfig(k)
 		if err != nil {
@@ -118,6 +103,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		}
 	} else {
 		c.PlannerConfig = planner.DefaultPlannerConfig()
+	}
+	c.ContainersConfig, err = containers.NewContainersConfig(k)
+	if err != nil {
+		return nil, err
 	}
 	c.ExecutorConfig, err = executor.NewExecutorConfig(k)
 	if err != nil {
@@ -128,16 +117,6 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		return nil, err
 	}
 	c.User = currentUser
-	if k.Exists("compression_cmd") {
-		c.CompressionCmd = k.String("compression_cmd")
-	} else {
-		c.CompressionCmd = "zstd"
-	}
-	if k.Exists("remote") {
-		c.Remote = k.Bool("remote")
-	} else {
-		c.Remote = (os.Getenv("container") == "podman")
-	}
 	c.Rootless = k.Bool("rootless")
 
 	dataPath := DefaultDataDir
@@ -246,10 +225,12 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("User: %v\n", c.User.Username)
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
-	result += fmt.Sprintf("Podman Secrets Prefix: %v\n", c.SecretsPrefix)
 	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
-	result += fmt.Sprintf("Remote mode: %v\n", c.Remote)
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
+	if c.ContainersConfig != nil {
+		result += "\nContainers Config: \n"
+		result += fmt.Sprintf("%v", c.ContainersConfig.String())
+	}
 	if c.ServicesConfig != nil {
 		result += "\nServices Config: \n"
 		result += fmt.Sprintf("%v", c.ServicesConfig.String())

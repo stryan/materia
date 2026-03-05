@@ -55,13 +55,12 @@ func (p *PodmanManager) ListVolumes(ctx context.Context) ([]*Volume, error) {
 	return volumes, nil
 }
 
-func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDir string, compressed bool) error {
+func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDir string) error {
 	exportCmd := genCmd(ctx, p.remote, "volume", "export", volume.Name)
-	compressCmd := exec.CommandContext(ctx, "zstd")
 	outputFilename := filepath.Join(outputDir, volume.Name)
 	outputFilename = fmt.Sprintf("%v.tar", outputFilename)
-	if compressed {
-		outputFilename = fmt.Sprintf("%v.zstd", outputFilename)
+	if p.compressionCommand != "" {
+		outputFilename = fmt.Sprintf("%v.%v", outputFilename, p.compressionSuffix)
 	}
 	log.Debugf("dumping volume %v to path %v", volume.Name, outputFilename)
 	outfile, err := os.Create(outputFilename)
@@ -69,7 +68,9 @@ func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDi
 		return fmt.Errorf("error creating output file name: %w", err)
 	}
 	defer func() { _ = outfile.Close() }()
-	if compressed {
+	if p.compressionCommand != "" {
+
+		compressCmd := exec.CommandContext(ctx, "zstd")
 		compressCmd.Stdin, err = exportCmd.StdoutPipe()
 		if err != nil {
 			return err

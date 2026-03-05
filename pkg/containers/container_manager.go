@@ -11,7 +11,7 @@ type ContainerManager interface {
 	ListContainers(context.Context, ContainerListFilter) ([]*Container, error)
 	PauseContainer(context.Context, string) error
 	UnpauseContainer(context.Context, string) error
-	DumpVolume(context.Context, *Volume, string, bool) error
+	DumpVolume(context.Context, *Volume, string) error
 	ImportVolume(context.Context, *Volume, string) error
 	MountVolume(context.Context, *Volume) error
 	RemoveVolume(context.Context, *Volume) error

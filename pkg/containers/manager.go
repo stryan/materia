@@ -14,14 +14,18 @@ import (
 var ErrPodmanObjectNotFound error = errors.New("no such object")
 
 type PodmanManager struct {
-	secretsPrefix string
-	remote        bool
+	secretsPrefix      string
+	compressionCommand string
+	compressionSuffix  string
+	remote             bool
 }
 
-func NewPodmanManager(remote bool, prefix string) (*PodmanManager, error) {
+func NewPodmanManager(cfg *ContainersConfig) (*PodmanManager, error) {
 	p := &PodmanManager{
-		secretsPrefix: prefix,
-		remote:        remote,
+		secretsPrefix:      cfg.SecretsPrefix,
+		remote:             cfg.Remote,
+		compressionCommand: cfg.CompressionCommand,
+		compressionSuffix:  cfg.CompressionSuffix,
 	}
 	return p, nil
 }

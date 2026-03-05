@@ -6,9 +6,19 @@ Best effort list of major changes and bugfixes
 ### v0.7
 - `autoUpdate` snippet
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
-- `timeout` setting is now in the `services` section
 
 ## Upcoming
+- refactor: actions package is now public
+- change: the following config settings have been moved:
+    - `secrets_prefix -> containers.secrets_prefix`
+    - `timeout -> services.timeout`
+    - `compression_cmd -> containers.compression_command`
+    - `remote -> containers.remote`
+- feat: new config settings:
+    - `containers.compression_suffix`: what suffix to append to compressed volume dumps
+
+## 0.6.1
+- bugfix: use git.knownhosts
 
 ## 0.6.0
 - refactor: planner,plan,containers,services, executor, and component loading modules have been publicized and refactored.

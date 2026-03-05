@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/coreos/go-systemd/v22/dbus"
+	"github.com/knadh/koanf/v2"
 )
 
 var (
@@ -69,6 +70,16 @@ const (
 type ServicesConfig struct {
 	Timeout        int
 	DryrunQuadlets bool `toml:"dryrun_quadlets"`
+}
+
+func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
+	c := &ServicesConfig{}
+	c.Timeout = k.Int("services.timeout")
+	c.DryrunQuadlets = k.Bool("dryrun_quadlets")
+	if c.Timeout == 0 {
+		c.Timeout = 90
+	}
+	return c, nil
 }
 
 func (c *ServicesConfig) String() string {

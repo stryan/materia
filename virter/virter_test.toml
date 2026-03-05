@@ -39,6 +39,7 @@ dest = "/root/materia"
 [steps.shell]
 script = """
 cd /root/materia/
+rm -f go.work go.work.sum
 if ! command -v mise >/dev/null 2>&1
 then
 	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh

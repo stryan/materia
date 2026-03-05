@@ -165,15 +165,13 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, err
 	}
 	hmc := &hostman.HostmanConfig{
-		Hostname:            c.Hostname,
-		Timeout:             c.ServicesConfig.Timeout,
-		DryrunQuadlets:      c.ServicesConfig.DryrunQuadlets,
-		RemotePodman:        c.Remote,
-		PodmanSecretsPrefix: c.SecretsPrefix,
-		DataDir:             c.MateriaDir,
-		QuadletDir:          c.QuadletDir,
-		ScriptsDir:          c.ScriptsDir,
-		ServicesDir:         c.ServiceDir,
+		Hostname:         c.Hostname,
+		DataDir:          c.MateriaDir,
+		QuadletDir:       c.QuadletDir,
+		ScriptsDir:       c.ScriptsDir,
+		ServicesDir:      c.ServiceDir,
+		ContainersConfig: c.ContainersConfig,
+		ServicesConfig:   c.ServicesConfig,
 	}
 	smc := &sourceman.SourceManConfig{
 		SourceDir: c.SourceDir,

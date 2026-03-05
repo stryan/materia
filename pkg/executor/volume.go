@@ -38,7 +38,7 @@ func importVolume(ctx context.Context, e *Executor, v actions.Action) error {
 }
 
 func dumpVolume(ctx context.Context, e *Executor, v actions.Action) error {
-	err := e.host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, e.OutputDir, false)
+	err := e.host.DumpVolume(ctx, &containers.Volume{Name: v.Target.HostObject}, e.OutputDir)
 	if err != nil {
 		return fmt.Errorf("error dumping volume %v:%w", v.Target.Path, err)
 	}
