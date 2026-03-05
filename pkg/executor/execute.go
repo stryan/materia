@@ -29,7 +29,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 	if plan.Empty() {
 		return -1, nil
 	}
-	serviceActions := []actions.Action{}
+	lastAction := make(map[string]actions.ActionType)
 	steps := 0
 	// Execute actions
 	for _, v := range plan.Steps() {
@@ -39,20 +39,21 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		}
 
 		if v.Todo.IsServiceAction() && v.Target.Kind != components.ResourceTypeHost {
-			serviceActions = append(serviceActions, v)
+			lastAction[v.Target.Service()] = v.Todo
 		}
 
 		steps++
 	}
 
-	// verify services
+	// verify services are in their expected end state (i.e. the result of the last service change command)
+
 	servicesResultMap := make(map[string]string)
-	for _, v := range serviceActions {
-		serv, err := e.host.GetService(ctx, v.Target.Service())
+	for k, v := range lastAction {
+		serv, err := e.host.GetService(ctx, k)
 		if err != nil {
-			return steps, err
+			return steps, fmt.Errorf("unable to get service %v for final check: %w", k, err)
 		}
-		switch v.Todo {
+		switch v {
 		case actions.ActionRestart, actions.ActionStart, actions.ActionReload:
 			switch serv.State {
 			case "activating", "reloading":
@@ -77,7 +78,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		servWG.Add(1)
 		go func(serv, state string) {
 			defer servWG.Done()
-			err := e.host.WaitUntilState(ctx, serv, state, e.defaultTimeout)
+			err := e.host.WaitUntilState(ctx, serv, state, e.defaultTimeout) // TODO dynamically adjust timeout
 			if err != nil {
 				log.Warn(err)
 			}
