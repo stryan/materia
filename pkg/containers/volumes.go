@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/charmbracelet/log"
 )
@@ -88,9 +90,17 @@ func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDi
 		return nil
 	}
 	exportCmd.Stdout = outfile
+	errorout := bytes.NewBuffer([]byte{})
+	exportCmd.Stderr = errorout
+
 	err = exportCmd.Run()
 	if err != nil {
-		return fmt.Errorf("error starting export command: %w", err)
+		errString := errorout.String()
+		if realErr, found := strings.CutPrefix(errString, "Error: "); found {
+			return fmt.Errorf("err %w: error from podman command: %v", err, realErr)
+		} else {
+			return fmt.Errorf("error starting export command: %w", err)
+		}
 	}
 	return nil
 }
