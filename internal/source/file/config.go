@@ -7,8 +7,8 @@ import (
 )
 
 type Config struct {
-	SourcePath  string
-	Destination string
+	SourcePath  string `toml:"source_path" koanf:"source_path"`
+	Destination string `toml:"destination" koanf:"destination"`
 }
 
 func NewConfig(_ *koanf.Koanf, destination, path string) (*Config, error) {

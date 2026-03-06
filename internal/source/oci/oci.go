@@ -30,6 +30,10 @@ func NewOCISource(c *Config) (*OCISource, error) {
 		return nil, errors.New("need OCI config")
 	}
 
+	if err := c.ParseURL(); err != nil {
+		return nil, fmt.Errorf("error parsing OCI URL: %w", err)
+	}
+
 	o := &OCISource{
 		registry:        c.Registry,
 		repository:      c.Repository,

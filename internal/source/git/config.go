@@ -7,16 +7,16 @@ import (
 )
 
 type Config struct {
-	URL             string `toml:"URL" json:"URL" yaml:"URL"`
-	Branch          string `toml:"branch" json:"branch" yaml:"branch"`
+	URL             string `toml:"URL" json:"URL" yaml:"URL" koanf:"URL"`
+	Branch          string `toml:"branch" json:"branch" yaml:"branch" koanf:"branch"`
 	PrivateKey      string `koanf:"private_key" toml:"private_key" json:"private_key" yaml:"private_key"`
-	Username        string `toml:"username" json:"username" yaml:"username"`
-	Password        string `toml:"password" json:"password" yaml:"password"`
-	KnownHosts      string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts"`
+	Username        string `toml:"username" json:"username" yaml:"username" koanf:"username"`
+	Password        string `toml:"password" json:"password" yaml:"password" koanf:"password"`
+	KnownHosts      string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts" koanf:"known_hosts"`
 	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
-	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
-	Careful         bool   `toml:"careful" json:"careful" yaml:"careful"`
-	DefaultBranch   string `yaml:"default_branch" toml:"default_branch" json:"default_branch"`
+	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository" koanf:"local_repository"`
+	Careful         bool   `toml:"careful" json:"careful" yaml:"careful" koanf:"careful"`
+	DefaultBranch   string `yaml:"default_branch" toml:"default_branch" json:"default_branch" koanf:"default_branch"`
 }
 
 func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {

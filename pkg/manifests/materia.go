@@ -25,9 +25,9 @@ type SnippetConfig struct {
 }
 
 type RemoteComponentConfig struct {
-	GitSource  *git.Config        `toml:"git,omitempty"`
-	OciSource  *oci.Config        `toml:"oci,omitempty"`
-	FileSource *filesource.Config `toml:"file,omitempty"`
+	GitSource  *git.Config        `toml:"git,omitempty" koanf:"git"`
+	OciSource  *oci.Config        `toml:"oci,omitempty" koanf:"oci"`
+	FileSource *filesource.Config `toml:"file,omitempty" koanf:"file"`
 }
 
 type MateriaManifest struct {

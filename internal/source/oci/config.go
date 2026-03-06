@@ -8,12 +8,12 @@ import (
 )
 
 type Config struct {
-	URL             string `toml:"url" json:"url" yaml:"url"`
-	Tag             string `toml:"tag" json:"tag" yaml:"tag"`
-	Username        string `toml:"username" json:"username" yaml:"username"`
-	Password        string `toml:"password" json:"password" yaml:"password"`
-	Insecure        bool   `toml:"insecure" json:"insecure" yaml:"insecure"`
-	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
+	URL             string `toml:"url" json:"url" yaml:"url" koanf:"url"`
+	Tag             string `toml:"tag" json:"tag" yaml:"tag" koanf:"tag"`
+	Username        string `toml:"username" json:"username" yaml:"username" koanf:"username"`
+	Password        string `toml:"password" json:"password" yaml:"password" koanf:"password"`
+	Insecure        bool   `toml:"insecure" json:"insecure" yaml:"insecure" koanf:"insecure"`
+	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository" koanf:"local_repository"`
 
 	// Parsed fields
 	Registry   string
@@ -30,14 +30,14 @@ func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	c.LocalRepository = localDir
 	c.URL = remoteURL
 
-	if err := c.parseURL(); err != nil {
+	if err := c.ParseURL(); err != nil {
 		return nil, err
 	}
 
 	return &c, nil
 }
 
-func (c *Config) parseURL() error {
+func (c *Config) ParseURL() error {
 	// Expected format: oci://registry.example.com/namespace/repository:tag
 	// or: oci://registry.example.com/namespace/repository@sha256:digest
 	url := c.URL
