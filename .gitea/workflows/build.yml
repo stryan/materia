@@ -4,7 +4,15 @@ on:
   push:
     branches: [master]
     tags-ignore: ['**']
-    paths: [internal/**, cmd/**, scripts/**, pkg/**, go.mod, go.sum]
+    paths:
+      - internal/**
+      - cmd/**
+      - scripts/**
+      - pkg/**
+      - .gitea/workflows/build.yml
+      - mise.toml
+      - go.mod
+      - go.sum
   pull_request:
     branches: [master]
 env:
