@@ -93,6 +93,9 @@ func NewPlan() *Plan {
 }
 
 func (p *Plan) Add(a actions.Action) error {
+	if err := a.Validate(); err != nil {
+		return fmt.Errorf("invalid action %v to add: %w", a, err)
+	}
 	if a.Priority == 0 {
 		priority, err := getDefaultPriority(a)
 		if err != nil {

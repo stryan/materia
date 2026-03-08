@@ -34,6 +34,7 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionRestart: serviceAction,
 		actions.ActionEnable:  serviceAction,
 		actions.ActionDisable: serviceAction,
+		actions.ActionExecute: executeInContainer,
 	},
 	components.ResourceTypePod: {
 		actions.ActionInstall: installOrUpdateFile,
@@ -114,6 +115,7 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionRemove:  removeScript,
 		actions.ActionSetup:   setupScript,
 		actions.ActionCleanup: cleanupScript,
+		actions.ActionExecute: executeScript,
 	},
 	components.ResourceTypeDirectory: {
 		actions.ActionInstall: installDir,

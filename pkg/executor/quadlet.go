@@ -81,3 +81,18 @@ func serviceAction(ctx context.Context, e *Executor, v actions.Action) error {
 
 	return nil
 }
+
+func executeInContainer(ctx context.Context, e *Executor, v actions.Action) error {
+	cmd := ""
+	if v.Metadata != nil && v.Metadata.Command != nil {
+		cmd = *v.Metadata.Command
+	}
+	if cmd == "" {
+		return fmt.Errorf("action %v has no command metadata", v)
+	}
+	err := e.host.ExecContainer(ctx, v.Target.Name(), *v.Metadata.Command)
+	if err != nil {
+		return fmt.Errorf("could not execute in container: %w", err)
+	}
+	return nil
+}

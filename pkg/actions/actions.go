@@ -32,6 +32,8 @@ const (
 	ActionMount
 	ActionImport
 	ActionDump
+
+	ActionExecute
 )
 
 func (t ActionType) IsServiceAction() bool {
@@ -58,6 +60,7 @@ type Action struct {
 type ActionMetadata struct {
 	ServiceTimeout    *int    `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
 	ServiceUntilState *string `json:"service_until_state,omitempty" toml:"service_until_state,omitempty"`
+	Command           *string `json:"command,omitempty" toml:"command,omitempty"`
 }
 
 func (a Action) Validate() error {

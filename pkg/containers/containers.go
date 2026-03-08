@@ -17,6 +17,7 @@ type Container struct {
 
 type ContainerMount struct {
 	Type        string   `json:"Type"`
+	Name        string   `json:"Name"`
 	Source      string   `json:"Source"`
 	Destination string   `json:"Destination"`
 	Driver      string   `json:"Driver"`
@@ -112,8 +113,19 @@ func loadContainer(ctx context.Context, remote bool, name string) (*Container, e
 		return nil, fmt.Errorf("unusual amount of container details: %v", len(inspectOutput))
 	}
 	for _, m := range inspectOutput[0].Mounts {
-		result.BindMounts[m.Destination] = m
+		switch m.Type {
+		case "bind":
+			result.BindMounts[m.Destination] = m
+		case "volume":
+			result.Volumes[m.Name] = Volume{
+				Name:       m.Name,
+				Mountpoint: m.Source,
+				Driver:     m.Driver,
+			}
+		default:
+		}
 	}
+	result.Name = name
 	result.Hostname = inspectOutput[0].Config.Hostname
 	return &result, nil
 }
@@ -158,6 +170,15 @@ func (p *PodmanManager) UnpauseContainer(ctx context.Context, name string) error
 	_, err := runCmd(cmd)
 	if err != nil {
 		return fmt.Errorf("error unpausing container: %w", err)
+	}
+	return nil
+}
+
+func (p *PodmanManager) ExecContainer(ctx context.Context, name string, command string) error {
+	cmd := genCmd(ctx, p.remote, "exec", name, command)
+	_, err := runCmd(cmd)
+	if err != nil {
+		return fmt.Errorf("error running command in container: %w", err)
 	}
 	return nil
 }
