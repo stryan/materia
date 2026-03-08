@@ -1,8 +1,10 @@
 package plan
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
@@ -27,7 +29,6 @@ func reload() actions.Action {
 		Parent: c,
 		Todo:   actions.ActionReload,
 		Target: components.Resource{
-			Path: "root",
 			Kind: components.ResourceTypeHost,
 		},
 	}
@@ -53,12 +54,18 @@ func act(compname string, todo actions.ActionType, resName string, prio int) act
 			Parent: compname,
 		}
 	}
-	return actions.Action{
+	result := actions.Action{
 		Todo:     todo,
 		Parent:   c,
 		Target:   res,
 		Priority: prio,
 	}
+
+	// fake a diff for updates
+	if res.IsFile() && todo == actions.ActionUpdate {
+		result.DiffContent = diffmatchpatch.New().DiffMain("hello", "goodbye", false)
+	}
+	return result
 }
 
 func Test_Plan(t *testing.T) {
@@ -107,6 +114,21 @@ func Test_Plan(t *testing.T) {
 				act("hello", actions.ActionInstall, "", 0),
 				act("hello", actions.ActionInstall, "data.volume", 0),
 				act("hello", actions.ActionInstall, "app.network", 0),
+				act("hello", actions.ActionInstall, "hello.container", 0),
+			},
+		},
+		{
+			name: "install multiple components",
+			input: []actions.Action{
+				act("hello", actions.ActionInstall, "", 0),
+				act("hello", actions.ActionInstall, "hello.container", 0),
+				act("goodbye", actions.ActionInstall, "", 0),
+				act("goodbye", actions.ActionInstall, "goodbye.container", 0),
+			},
+			output: []actions.Action{
+				act("goodbye", actions.ActionInstall, "", 0),
+				act("goodbye", actions.ActionInstall, "goodbye.container", 0),
+				act("hello", actions.ActionInstall, "", 0),
 				act("hello", actions.ActionInstall, "hello.container", 0),
 			},
 		},
@@ -187,8 +209,8 @@ func Test_Plan(t *testing.T) {
 			},
 			output: []actions.Action{
 				act("old", actions.ActionStop, "old.container", 0),
-				act("fresh", actions.ActionInstall, "", 0),
 				act("existing", actions.ActionUpdate, "world.container", 0),
+				act("fresh", actions.ActionInstall, "", 0),
 				act("fresh", actions.ActionInstall, "hello.container", 0),
 				act("old", actions.ActionRemove, "old.container", 0),
 				reload(),
@@ -218,6 +240,9 @@ func Test_Plan(t *testing.T) {
 			p := NewPlan()
 			assert.Nil(t, p.Append(tt.input))
 			result := p.Steps()
+			for _, r := range result {
+				fmt.Printf("%v %v/%v p: %v\n", r.Todo, r.Parent.Name, r.Target.Path, r.Priority)
+			}
 			assert.Equal(t, len(tt.output), len(result), "plan is incorrect size: %v != %v", len(tt.output), len(result))
 			for k, expectedStep := range tt.output {
 				actualStep := result[k]

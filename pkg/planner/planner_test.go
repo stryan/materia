@@ -1037,17 +1037,20 @@ func TestPlan(t *testing.T) {
 	ctx := context.Background()
 	p := &Planner{}
 	containerResource := components.Resource{
+		Parent:     "hello",
 		Path:       "hello.container",
 		Kind:       components.ResourceTypeContainer,
 		HostObject: "systemd-hello",
 	}
 	dataResource := components.Resource{
-		Path: "hello.env",
-		Kind: components.ResourceTypeFile,
+		Parent: "hello",
+		Path:   "hello.env",
+		Kind:   components.ResourceTypeFile,
 	}
 	manifestResource := components.Resource{
-		Path: manifests.MateriaManifestFile,
-		Kind: components.ResourceTypeManifest,
+		Parent: "hello",
+		Path:   manifests.MateriaManifestFile,
+		Kind:   components.ResourceTypeManifest,
 	}
 	helloComp := &components.Component{
 		Name:      "hello",

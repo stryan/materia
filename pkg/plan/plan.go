@@ -21,6 +21,23 @@ func prioritizeActions(a, b actions.Action) int {
 	return cmp.Compare(a.Priority, b.Priority)
 }
 
+func mergeStepsIntoPlan(resourceSteps, serviceSteps []actions.Action) []actions.Action {
+	result := make([]actions.Action, 0, len(resourceSteps)+len(serviceSteps))
+	si := 0
+
+	for _, step := range resourceSteps {
+		for si < len(serviceSteps) && serviceSteps[si].Priority <= step.Priority {
+			result = append(result, serviceSteps[si])
+			si++
+		}
+		result = append(result, step)
+	}
+	// dont forget the rest
+	result = append(result, serviceSteps[si:]...)
+
+	return result
+}
+
 type Plan struct {
 	size       int
 	changesMap maps.Map
@@ -106,7 +123,7 @@ func (p *Plan) Add(a actions.Action) error {
 		if a.Target.Kind == components.ResourceTypeHost && a.Todo == actions.ActionReload {
 			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
 			if !p.hasComponent("root") {
-				p.addServiceChange(a)
+				p.addResourceChange(a)
 			}
 		} else if a.Todo.IsServiceAction() {
 			p.addServiceChange(a)
@@ -151,8 +168,7 @@ func (p *Plan) Steps() []actions.Action {
 		serviceSteps = append(serviceSteps, combinedServiceActions...)
 	}
 	slices.SortStableFunc(serviceSteps, prioritizeActions)
-	steps = append(steps, serviceSteps...)
-	slices.SortStableFunc(steps, prioritizeActions)
+	steps = mergeStepsIntoPlan(steps, serviceSteps)
 
 	return steps
 }
