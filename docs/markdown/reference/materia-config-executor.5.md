@@ -18,25 +18,25 @@ materia-config-executor - Materia executor configuration settings
 
 Presented in *environmental variable*/**TOML config line option** format.
 
-#### *MATERIA_EXECUTOR__CLEANUP_COMPONENTS*/**cleanup_components**
+#### *MATERIA_EXECUTOR__CLEANUP_COMPONENTS*/**executor.cleanup_components**
 
 Defaults to `false`.
 
 If an error occurs while installing a component resulting in an execution failure, purge the failed component.
 
-#### MATERIA_EXECUTOR__MATERIA_DIR/materia_dir
+#### *MATERIA_EXECUTOR__MATERIA_DIR*/**executor.materia_dir**
 
 Overrides the executor's configured materia data directory.
 
-#### MATERIA_EXECUTOR__QUADLET_DIR/quadlet_dir
+#### *MATERIA_EXECUTOR__QUADLET_DIR/**executor.quadlet_dir**
 
 Overrides the executor's configured quadlet directory.
 
-#### MATERIA_EXECUTOR__SCRIPTS_DIR/scripts_dir
+#### *MATERIA_EXECUTOR__SCRIPTS_DIR*/executor.scripts_dir*
 
 Overrides the executor's configured scripts directory.
 
-#### MATERIA_EXECUTOR__SERVICE_DIR/service_dir
+#### *MATERIA_EXECUTOR__SERVICE_DIR*/executor.service_dir*
 
 Overrides the executor's configured service directory.
 

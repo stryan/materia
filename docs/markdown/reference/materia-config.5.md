@@ -93,17 +93,13 @@ Directory where materia installs non-generated systemd unit files. Defaults to `
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
 
-#### MATERIA_SECRETS_MATERIA_DATA_DIR/secrets_prefix
-
-Sets the prefix Materia appends to Podman secrets it manages. Defaults to `materia-`
-
-#### MATERIA_ROOTLESS/materia.rootless
+#### *MATERIA_ROOTLESS*/**materia.rootless**
 
 (EXPERIMENTAL)
 
 Enables `rootless` mode for Materia in a container. Causes materia to parse its own container's bind mounts to determine where on the host machine directories are. Use when you're running materia in a rootless container and are bind-mounting the user directories to the normal materia root directories in the container i.e. `-v /home/user/.config/containers/systemd:/etc/containers/systemd`.
 
-#### MATERIA_APPMODE/materia.appmode
+#### *MATERIA_APPMODE*/**materia.appmode**
 
 (EXPERIMENTAL)
 

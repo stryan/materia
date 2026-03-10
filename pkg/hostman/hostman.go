@@ -14,12 +14,7 @@ import (
 )
 
 type HostmanConfig struct {
-	Hostname            string
-	RemotePodman        bool
-	DryrunQuadlets      bool
-	PodmanSecretsPrefix string
-	CompressionCommand  string
-	CompressionSuffix   string
+	Hostname string
 	*containers.ContainersConfig
 	*services.ServicesConfig
 

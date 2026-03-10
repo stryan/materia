@@ -8,7 +8,13 @@ Best effort list of major changes and bugfixes
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 
 ## Upcoming
+
+## 0.6.2
 - refactor: actions package is now public
+- bugfix: better volume export error messages
+- feat: add exec actions
+- change: final service checks now only check for the services last state in the plan
+- change: component actions are done in internal order again; i.e. all resource changes for a component will be done one after another
 - change: the following config settings have been moved:
     - `secrets_prefix -> containers.secrets_prefix`
     - `timeout -> services.timeout`

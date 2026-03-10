@@ -23,6 +23,10 @@ Work in progress online docs for the Materia Project.
 
 [Materia Executor config options](materia-config-executor.5.md)
 
+[Materia Services config options](materia-config-services.5.md)
+
+[Materia Containers config options](materia-config-containers.5.md)
+
 [Source config](materia-source.5.md)
 
 ## Attributes Engines

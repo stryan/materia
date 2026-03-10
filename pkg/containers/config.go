@@ -29,7 +29,16 @@ func NewContainersConfig(k *koanf.Koanf) (*ContainersConfig, error) {
 		c.SecretsPrefix = "materia-"
 	}
 	if c.CompressionSuffix == "" {
-		c.CompressionSuffix = "compressed"
+		switch c.CompressionCommand {
+		case "zstd":
+			c.CompressionSuffix = "zstd"
+		case "gzip":
+			c.CompressionSuffix = "gz"
+		case "zip":
+			c.CompressionSuffix = "zip"
+		default:
+			c.CompressionSuffix = "compressed"
+		}
 	}
 	return c, nil
 }

@@ -495,6 +495,8 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 			return diffActions, err
 		}
 		stopAction.Priority = 1
+		stopState := "inactive"
+		stopAction.Metadata.ServiceUntilState = &stopState
 		diffActions = append(diffActions, stopAction)
 		stoppedServiceActions = append(stoppedServiceActions, stopAction)
 	}
@@ -526,6 +528,8 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 		startAction := s
 		startAction.Todo = actions.ActionStart
 		startAction.Priority = 5
+		startState := "active"
+		startAction.Metadata.ServiceUntilState = &startState
 		diffActions = append(diffActions, startAction)
 	}
 	return diffActions, nil
