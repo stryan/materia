@@ -6,6 +6,7 @@ import (
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
@@ -102,6 +103,213 @@ func TestExecute(t *testing.T) {
 	steps, err := e.Execute(ctx, plan)
 	assert.NoError(t, err)
 	assert.Equal(t, plan.Size(), steps, "Missed steps: %v != %v", steps, plan.Size())
+}
+
+func TestExecute_Services(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    actions.Action
+		expected func(t *testing.T, hm *mocks.MockHostManager)
+	}{
+		{
+			name: "start - service",
+			input: actions.Action{
+				Todo:   actions.ActionStart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.service",
+					HostObject: "hello.service",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeService,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceStart, 0).Return(nil)
+			},
+		},
+		{
+			name: "stop - service",
+			input: actions.Action{
+				Todo:   actions.ActionStop,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.service",
+					HostObject: "hello.service",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeService,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceStop, 0).Return(nil)
+			},
+		},
+		{
+			name: "restart - service",
+			input: actions.Action{
+				Todo:   actions.ActionRestart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.service",
+					HostObject: "hello.service",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeService,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceRestart, 0).Return(nil)
+			},
+		},
+		{
+			name: "reload - service",
+			input: actions.Action{
+				Todo:   actions.ActionReload,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.service",
+					HostObject: "hello.service",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeService,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceReloadService, 0).Return(nil)
+			},
+		},
+		{
+			name: "start - container",
+			input: actions.Action{
+				Todo:   actions.ActionStart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.container",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeContainer,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceStart, 0).Return(nil)
+			},
+		},
+		{
+			name: "stop - container",
+			input: actions.Action{
+				Todo:   actions.ActionStop,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.container",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeContainer,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceStop, 0).Return(nil)
+			},
+		},
+		{
+			name: "restart - container",
+			input: actions.Action{
+				Todo:   actions.ActionRestart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.container",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeContainer,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceRestart, 0).Return(nil)
+			},
+		},
+		{
+			name: "reload - container",
+			input: actions.Action{
+				Todo:   actions.ActionReload,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.container",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypeContainer,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello.service", services.ServiceReloadService, 0).Return(nil)
+			},
+		},
+		{
+			name: "start - pod",
+			input: actions.Action{
+				Todo:   actions.ActionStart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.pod",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypePod,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello-pod.service", services.ServiceStart, 0).Return(nil)
+			},
+		},
+		{
+			name: "stop - pod",
+			input: actions.Action{
+				Todo:   actions.ActionStop,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.pod",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypePod,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello-pod.service", services.ServiceStop, 0).Return(nil)
+			},
+		},
+		{
+			name: "restart - pod",
+			input: actions.Action{
+				Todo:   actions.ActionRestart,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.pod",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypePod,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello-pod.service", services.ServiceRestart, 0).Return(nil)
+			},
+		},
+		{
+			name: "reload - pod",
+			input: actions.Action{
+				Todo:   actions.ActionReload,
+				Parent: &components.Component{},
+				Target: components.Resource{
+					Path:       "hello.pod",
+					HostObject: "systemd-hello",
+					Parent:     "hello",
+					Kind:       components.ResourceTypePod,
+				},
+			},
+			expected: func(t *testing.T, hm *mocks.MockHostManager) {
+				hm.EXPECT().ApplyService(mock.Anything, "hello-pod.service", services.ServiceReloadService, 0).Return(nil)
+			},
+		},
+	}
+	for _, tt := range tests {
+		mhm := mocks.NewMockHostManager(t)
+		tt.expected(t, mhm)
+		e := Executor{host: mhm}
+		assert.Nil(t, e.executeAction(context.Background(), tt.input))
+	}
 }
 
 func getDiffs(res1, res2 string) []diffmatchpatch.Diff {
