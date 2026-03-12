@@ -174,8 +174,9 @@ func (p *PodmanManager) UnpauseContainer(ctx context.Context, name string) error
 	return nil
 }
 
-func (p *PodmanManager) ExecContainer(ctx context.Context, name string, command string) error {
-	cmd := genCmd(ctx, p.remote, "exec", name, command)
+func (p *PodmanManager) ExecContainer(ctx context.Context, name string, command ...string) error {
+	combined := append([]string{"exec", name}, command...)
+	cmd := genCmd(ctx, p.remote, combined...)
 	_, err := runCmd(cmd)
 	if err != nil {
 		return fmt.Errorf("error running command in container: %w", err)

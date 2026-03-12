@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"primamateria.systems/materia/pkg/actions"
@@ -90,7 +91,8 @@ func executeInContainer(ctx context.Context, e *Executor, v actions.Action) erro
 	if cmd == "" {
 		return fmt.Errorf("action %v has no command metadata", v)
 	}
-	err := e.host.ExecContainer(ctx, v.Target.Name(), *v.Metadata.Command)
+	parsedCommand := strings.Split(*v.Metadata.Command, " ")
+	err := e.host.ExecContainer(ctx, v.Target.HostObject, parsedCommand...)
 	if err != nil {
 		return fmt.Errorf("could not execute in container: %w", err)
 	}
