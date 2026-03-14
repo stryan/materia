@@ -3,6 +3,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"primamateria.systems/materia/pkg/components"
 )
@@ -12,11 +13,17 @@ type ComponentInitStage struct {
 }
 
 func (s *ComponentInitStage) Process(ctx context.Context, comp *components.Component) error {
-	newcomp, err := s.manager.GetComponent(comp.Name)
+	newcomp, err := s.manager.GetComponent(comp.InstanceName())
 	if err != nil {
-		return fmt.Errorf("can't load host component: %w", err)
+		return fmt.Errorf("can't load component: %w", err)
 	}
-	*comp = *newcomp
+	if strings.Contains(comp.Name, "@") {
+		split := strings.Split(comp.Name, "@")
+		comp.Name = split[0]
+		comp.Instance = split[1]
+	}
+	comp.Resources = newcomp.Resources
+	comp.Version = newcomp.Version
 	return nil
 }
 
@@ -27,15 +34,20 @@ type ResourceDiscoveryStage struct {
 func (s *ResourceDiscoveryStage) Process(ctx context.Context, comp *components.Component) error {
 	for _, r := range comp.Resources.List() {
 		if r.Kind == components.ResourceTypePodmanSecret {
+			r.Path = comp.Instantiate(r.Path)
 			r.Content = "<UNFILLED_SECRET>"
 			comp.Resources.Set(r)
 			continue
 		}
 		bodyTemplate, err := s.manager.ReadResource(r)
 		if err != nil {
-			return fmt.Errorf("can't read source resource %v/%v: %w", comp.Name, r.Name(), err)
+			return fmt.Errorf("can't read resource %v/%v: %w", comp.Name, r.Name(), err)
 		}
 		r.Content = bodyTemplate
+		if comp.IsInstanced() {
+			comp.Resources.Delete(r.Path)
+			r = comp.InstantiateResource(r)
+		}
 		comp.Resources.Set(r)
 	}
 
@@ -46,8 +58,12 @@ type AppCompatibilityStage struct{}
 
 func (s *AppCompatibilityStage) Process(ctx context.Context, comp *components.Component) error {
 	appfileData := comp.ToAppfile()
+	name := comp.Name
+	if comp.IsInstanced() {
+		name = fmt.Sprintf("%v_%v", comp.Name, comp.Instance)
+	}
 	appFile := components.Resource{
-		Path:    fmt.Sprintf(".%v.app", comp.Name),
+		Path:    fmt.Sprintf(".%v.app", name),
 		Parent:  comp.Name,
 		Kind:    components.ResourceTypeAppFile,
 		Content: string(appfileData),

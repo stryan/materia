@@ -69,8 +69,12 @@ func BuildComponentGraph(ctx context.Context, installedComponents, assignedCompo
 
 	log.Debug("loading host components")
 	for _, v := range installedComponents {
+		name := v.Name
+		if v.IsInstanced() {
+			name = v.InstanceName()
+		}
 		err := componentGraph.Add(&ComponentTree{
-			Name: v.Name,
+			Name: name,
 			Host: v,
 		})
 		if err != nil {
@@ -80,10 +84,11 @@ func BuildComponentGraph(ctx context.Context, installedComponents, assignedCompo
 	}
 	log.Debug("loading source components")
 	for _, v := range assignedComponents {
-		tree, err := componentGraph.Get(v.Name)
+		name := v.InstanceName()
+		tree, err := componentGraph.Get(name)
 		if errors.Is(err, ErrTreeNotFound) {
 			tree = &ComponentTree{
-				Name: v.Name,
+				Name: name,
 			}
 		} else if err != nil {
 			return nil, err

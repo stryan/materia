@@ -22,6 +22,7 @@ var (
 
 type Component struct {
 	Name          string
+	Instance      string
 	Settings      manifests.Settings
 	Resources     *ResourceSet
 	State         ComponentLifecycle
@@ -52,8 +53,15 @@ type ComponentVersion struct {
 }
 
 func NewComponent(name string) *Component {
+	instance := ""
+	if strings.Contains(name, "@") {
+		split := strings.Split(name, "@")
+		name = split[0]
+		instance = split[1]
+	}
 	return &Component{
 		Name:      name,
+		Instance:  instance,
 		State:     StateStale,
 		Defaults:  make(map[string]any),
 		Services:  NewServiceSet(),
@@ -69,6 +77,34 @@ func NewRootComponent() *Component {
 		Services:  NewServiceSet(),
 		Resources: NewResourceSet(),
 	}
+}
+
+func (c *Component) IsInstanced() bool {
+	return c.Instance != ""
+}
+
+func (c *Component) Instantiate(template string) string {
+	if c.Instance != "" && strings.Contains(template, "@.") {
+		return strings.ReplaceAll(template, "@", fmt.Sprintf("@%v", c.Instance))
+	}
+	return template
+}
+
+func (c *Component) InstantiateResource(template Resource) Resource {
+	if c.Instance != "" {
+		template.Parent = c.InstanceName()
+		if strings.Contains(template.Path, "@.") {
+			template.Path = strings.ReplaceAll(template.Path, "@", fmt.Sprintf("@%v", c.Instance))
+		}
+	}
+	return template
+}
+
+func (c *Component) InstanceName() string {
+	if c.Instance == "" {
+		return c.Name
+	}
+	return fmt.Sprintf("%v@%v", c.Name, c.Instance)
 }
 
 func (c *Component) GetManifest() (*manifests.ComponentManifest, error) {
@@ -129,7 +165,11 @@ func (c *Component) String() string {
 	if c.Services != nil {
 		numServes = c.Services.Size()
 	}
-	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", c.Name, c.State, numRes, numServes, c.Defaults)
+	name := c.Name
+	if c.Instance != "" {
+		name = fmt.Sprintf("%v@%v", name, c.Instance)
+	}
+	return fmt.Sprintf("{c %v %v Rs: %v Ss: %v D: [%v]}", name, c.State, numRes, numServes, c.Defaults)
 }
 
 func (c Component) Validate() error {

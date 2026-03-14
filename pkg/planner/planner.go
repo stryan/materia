@@ -579,13 +579,13 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		// For now we don't need metadata on Enable/Disable actions since they should be effectively instant
 		res := components.Resource{
 			Parent: comp.Name,
-			Path:   osrc.Service,
+			Path:   comp.Instantiate(osrc.Service),
 			Kind:   components.ResourceTypeService,
 		}
 		result = append(result, actions.Action{
 			Todo:   actions.ActionEnable,
 			Parent: comp,
-			Target: res,
+			Target: comp.InstantiateResource(res),
 		})
 	}
 	if !liveService.Started() {
@@ -603,13 +603,13 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 		return nil, errors.New("tried to get empty live service")
 	}
 	name := ""
-	res, err := parent.Resources.Get(src.Service)
+	res, err := parent.Resources.Get(parent.Instantiate(src.Service))
 	if err != nil {
 		name = src.Service
 	} else {
 		name = res.Service()
 	}
-	liveService, err := mgr.GetService(ctx, name)
+	liveService, err := mgr.GetService(ctx, parent.Instantiate(name))
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +681,7 @@ func processUpdatedComponentServices(ctx context.Context, host HostStateManager,
 				return nil, fmt.Errorf("can't get live service for %v:%w", d.Target, err)
 			}
 			if liveService.State == "active" {
-				restartAction, err := resourceActionWithMetadata(d.Target, newComponent, actions.ActionRestart)
+				restartAction, err := resourceActionWithMetadata(newComponent.InstantiateResource(d.Target), newComponent, actions.ActionRestart)
 				if err != nil {
 					return result, fmt.Errorf("error generating auto-restart option for resource %v: %w", d.Target.Path, err)
 				}
@@ -728,12 +728,12 @@ func shouldEnableService(s manifests.ServiceResourceConfig, liveService *service
 }
 
 func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a actions.ActionType) (actions.Action, error) {
-	res, err := parent.Resources.Get(src.Service)
+	res, err := parent.Resources.Get(parent.Instantiate(src.Service))
 	if err != nil {
 		// No resource for component, treat it like an arbitary systemd unit
 		res = components.Resource{
 			Parent: parent.Name,
-			Path:   src.Service,
+			Path:   parent.Instantiate(src.Service),
 			Kind:   components.ResourceTypeService,
 		}
 		return serviceActionWithMetadata(parent, res, src, a), nil
@@ -755,7 +755,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		return actions.Action{
 			Todo:   a,
 			Parent: parent,
-			Target: res,
+			Target: parent.InstantiateResource(res),
 		}, nil
 	}
 
@@ -765,7 +765,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		return actions.Action{
 			Todo:   a,
 			Parent: parent,
-			Target: res,
+			Target: parent.InstantiateResource(res),
 			Metadata: &actions.ActionMetadata{
 				ServiceTimeout: &timeout,
 			},
@@ -788,7 +788,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 			return actions.Action{
 				Todo:   a,
 				Parent: parent,
-				Target: res,
+				Target: parent.InstantiateResource(res),
 				Metadata: &actions.ActionMetadata{
 					ServiceTimeout: &timeout,
 				},
@@ -800,7 +800,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		return actions.Action{
 			Todo:   a,
 			Parent: parent,
-			Target: res,
+			Target: parent.InstantiateResource(res),
 			Metadata: &actions.ActionMetadata{
 				ServiceTimeout: &timeout,
 			},
@@ -809,7 +809,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 	return actions.Action{
 		Todo:   a,
 		Parent: parent,
-		Target: res,
+		Target: parent.InstantiateResource(res),
 	}, nil
 }
 

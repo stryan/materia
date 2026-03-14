@@ -97,6 +97,9 @@ func (s *SourceComponentRepository) Clean() error {
 }
 
 func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
+	if strings.Contains(name, "@") {
+		name = strings.Split(name, "@")[0]
+	}
 	path, err := s.getPrefix(name)
 	if err != nil {
 		return nil, err

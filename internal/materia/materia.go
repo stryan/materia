@@ -264,10 +264,12 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	}
 	assignedComponents := make([]*components.Component, 0, len(assignedNames))
 	for _, n := range assignedNames {
+		// TODO handle instanced names in attributes lookup
+		sourceComponent := components.NewComponent(n)
 		attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
-			Component: n,
+			Component: sourceComponent.Name,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("unable to lookup attributes for %v:, %w", n, err)
@@ -296,7 +298,6 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 				return nil, fmt.Errorf("unable to enable quadlet appfile compatibility mode: %w", err)
 			}
 		}
-		sourceComponent := components.NewComponent(n)
 		err = sourcePipeline.Load(ctx, sourceComponent)
 		if err != nil {
 			return nil, fmt.Errorf("error loading source component %v: %w", n, err)

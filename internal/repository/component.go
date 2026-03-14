@@ -46,8 +46,8 @@ func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponen
 
 func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {
 	oldComp := components.NewComponent(name)
-	dataPath := filepath.Join(r.DataPrefix, name)
-	quadletPath := filepath.Join(r.QuadletPrefix, name)
+	dataPath := filepath.Join(r.DataPrefix, oldComp.InstanceName())
+	quadletPath := filepath.Join(r.QuadletPrefix, oldComp.InstanceName())
 	// load resources
 	versionFileExists := true
 	_, err := os.Stat(filepath.Join(dataPath, ".component_version"))
@@ -73,7 +73,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	} else {
 		oldComp.Version = -1
 	}
-	log.Debug("loading component", "component", oldComp.Name, "version", oldComp.Version)
+	log.Debug("loading component", "component", oldComp.InstanceName(), "version", oldComp.Version)
 	manifestPath := filepath.Join(dataPath, manifests.ComponentManifestFile)
 	if _, err := os.Stat(manifestPath); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -94,7 +94,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if d.Name() == oldComp.Name || d.Name() == ".component_version" || d.Name() == manifests.ComponentManifestFile {
+		if d.Name() == oldComp.InstanceName() || d.Name() == ".component_version" || d.Name() == manifests.ComponentManifestFile {
 			return nil
 		}
 		newRes, err := r.NewResource(oldComp, fullPath)
@@ -115,7 +115,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if d.Name() == oldComp.Name || d.Name() == ".materia_managed" {
+		if d.Name() == oldComp.InstanceName() || d.Name() == ".materia_managed" {
 			return nil
 		}
 
@@ -134,15 +134,15 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 }
 
 func (r *HostComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifestFromFile(filepath.Join(r.DataPrefix, parent.Name, manifests.ComponentManifestFile))
+	return manifests.LoadComponentManifestFromFile(filepath.Join(r.DataPrefix, parent.InstanceName(), manifests.ComponentManifestFile))
 }
 
 func (r *HostComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
 	if parent == nil || name == "" {
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
-	dataPath := filepath.Join(r.DataPrefix, parent.Name)
-	quadletPath := filepath.Join(r.QuadletPrefix, parent.Name)
+	dataPath := filepath.Join(r.DataPrefix, parent.InstanceName())
+	quadletPath := filepath.Join(r.QuadletPrefix, parent.InstanceName())
 	resourcePath := filepath.Join(dataPath, name)
 	_, err := os.Stat(resourcePath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -166,8 +166,8 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 		return []components.Resource{}, errors.New("invalid parent or resource")
 	}
 	resources := []components.Resource{}
-	dataPath := filepath.Join(r.DataPrefix, c.Name)
-	quadletPath := filepath.Join(r.QuadletPrefix, c.Name)
+	dataPath := filepath.Join(r.DataPrefix, c.InstanceName())
+	quadletPath := filepath.Join(r.QuadletPrefix, c.InstanceName())
 	searchFunc := func(prefix string) fs.WalkDirFunc {
 		return func(fullPath string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -182,7 +182,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 				return err
 			}
 			newRes := components.Resource{
-				Parent:   c.Name,
+				Parent:   c.InstanceName(),
 				Path:     resName,
 				Kind:     components.FindResourceType(resName),
 				Template: components.IsTemplate(resName),
@@ -225,11 +225,11 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 	if c == nil {
 		return errors.New("invalid component")
 	}
-	err := os.Mkdir(filepath.Join(r.DataPrefix, c.Name), 0o755)
+	err := os.Mkdir(filepath.Join(r.DataPrefix, c.InstanceName()), 0o755)
 	if err != nil {
-		return fmt.Errorf("error installing component %v: %w", c.Name, err)
+		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
 	}
-	qpath := filepath.Join(r.QuadletPrefix, c.Name)
+	qpath := filepath.Join(r.QuadletPrefix, c.InstanceName())
 	err = os.Mkdir(qpath, 0o755)
 	if err != nil {
 		return fmt.Errorf("error installing component: %w", err)
@@ -245,7 +245,7 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 			if err == nil {
 				err = closeErr
 			} else {
-				log.Warnf("can't close file while installing component %v: %v", c.Name, closeErr)
+				log.Warnf("can't close file while installing component %v: %v", c.InstanceName(), closeErr)
 			}
 		}
 	}()
@@ -253,7 +253,7 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) erro
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(filepath.Join(r.DataPrefix, c.Name, ".component_version"), vd.Bytes(), 0o755)
+	err = os.WriteFile(filepath.Join(r.DataPrefix, c.InstanceName(), ".component_version"), vd.Bytes(), 0o755)
 	if err != nil {
 		return err
 	}
@@ -265,7 +265,7 @@ func (r *HostComponentRepository) UpdateComponent(c *components.Component) error
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(filepath.Join(r.DataPrefix, c.Name, ".component_version"), vd.Bytes(), 0o755)
+	err = os.WriteFile(filepath.Join(r.DataPrefix, c.InstanceName(), ".component_version"), vd.Bytes(), 0o755)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	if c == nil {
 		return errors.New("invalid component")
 	}
-	compName := c.Name
+	compName := c.InstanceName()
 	err := os.Remove(filepath.Join(r.DataPrefix, compName, ".component_version"))
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 	}
 	res := components.Resource{
 		Path:     path,
-		Parent:   parent.Name,
+		Parent:   parent.InstanceName(),
 		Template: false,
 	}
 	if fileInfo.IsDir() {
@@ -326,7 +326,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		res.Kind = components.FindResourceType(path)
 	}
 	if res.IsQuadlet() {
-		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.Name), path)
+		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.InstanceName()), path)
 		if err != nil {
 			return res, err
 		}
@@ -340,11 +340,13 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		}
 		res.HostObject = hostObject
 	} else {
-
-		res.Path, err = filepath.Rel(filepath.Join(r.DataPrefix, parent.Name), path)
+		fp := filepath.Join(r.DataPrefix, parent.InstanceName())
+		rel, err := filepath.Rel(fp, path)
 		if err != nil {
 			return res, err
 		}
+		res.Path = rel
+
 	}
 	return res, nil
 }
@@ -421,7 +423,7 @@ func (r *HostComponentRepository) PurgeComponent(c *components.Component) error 
 	if c == nil {
 		return errors.New("no component specified")
 	}
-	compName := c.Name
+	compName := c.InstanceName()
 	err := os.RemoveAll(filepath.Join(r.DataPrefix, compName))
 	if err != nil {
 		return err

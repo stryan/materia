@@ -3,6 +3,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"primamateria.systems/materia/pkg/components"
 )
@@ -15,6 +16,9 @@ func (s *QuadletObjectExtractorStage) Process(ctx context.Context, comp *compone
 			hostObject, err := r.GetHostObject(r.Content)
 			if err != nil {
 				return err
+			}
+			if comp.IsInstanced() {
+				hostObject = strings.ReplaceAll(hostObject, "@", "_")
 			}
 			r.HostObject = hostObject
 			comp.Resources.Set(r)

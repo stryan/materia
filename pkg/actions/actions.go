@@ -86,7 +86,7 @@ func (a Action) Validate() error {
 func (a *Action) String() string {
 	name := "<parent>"
 	if a.Parent != nil {
-		name = a.Parent.Name
+		name = a.Parent.InstanceName()
 	}
 	return fmt.Sprintf("{a %v %v %v }", a.Todo, name, a.Target.Path)
 }
@@ -94,7 +94,7 @@ func (a *Action) String() string {
 func (a *Action) Pretty() string {
 	name := "<parent>"
 	if a.Parent != nil {
-		name = a.Parent.Name
+		name = a.Parent.InstanceName()
 	}
 	return fmt.Sprintf("(%v) %v %v %v", name, a.Todo, a.Target.Kind, a.Target.Path)
 }
