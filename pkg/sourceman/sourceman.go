@@ -73,19 +73,23 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 	}
 	for name, r := range man.Remotes {
 		var remoteSource source.Source
+		localpath := filepath.Join(s.remoteDir, "components", name)
 		if r.GitSource != nil {
+			r.GitSource.LocalRepository = localpath
 			remoteSource, err = git.NewGitSource(r.GitSource)
 			if err != nil {
 				return fmt.Errorf("invalid git source: %w", err)
 			}
 		}
 		if r.FileSource != nil {
+			r.FileSource.Destination = localpath
 			remoteSource, err = file.NewFileSource(r.FileSource)
 			if err != nil {
 				return fmt.Errorf("invalid file source: %w", err)
 			}
 		}
 		if r.OciSource != nil {
+			r.OciSource.LocalRepository = localpath
 			remoteSource, err = oci.NewOCISource(r.OciSource)
 			if err != nil {
 				return fmt.Errorf("invalid oci source: %w", err)
@@ -94,7 +98,6 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		if remoteSource == nil {
 			return fmt.Errorf("remote %v has no valid source config", name)
 		}
-		localpath := filepath.Join(s.remoteDir, "components", name)
 		if err := remoteSource.Sync(ctx); err != nil {
 			return err
 		}
