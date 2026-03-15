@@ -45,7 +45,7 @@ then
 	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 	mise trust .
 fi
-rm -f mise.local.toml
+rm -f mise.local.toml mise.local.lock
 systemctl enable --now podman.socket
 mise task run virter-testsuite
 """
