@@ -4,9 +4,7 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
+	"github.com/BurntSushi/toml"
 	filesource "primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
 	"primamateria.systems/materia/internal/source/oci"
@@ -50,13 +48,8 @@ type Role struct {
 }
 
 func LoadMateriaManifest(path string) (*MateriaManifest, error) {
-	k := koanf.New(".")
-	err := k.Load(file.Provider(path), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
 	var m MateriaManifest
-	err = k.Unmarshal("", &m)
+	_, err := toml.DecodeFile(path, &m)
 	if err != nil {
 		return nil, err
 	}

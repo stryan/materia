@@ -5,10 +5,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/providers/rawbytes"
-	"github.com/knadh/koanf/v2"
+	"github.com/BurntSushi/toml"
 )
 
 var ComponentManifestFile = "MANIFEST.toml"
@@ -52,13 +49,8 @@ type ComponentManifest struct {
 }
 
 func LoadComponentManifestFromContent(buffer []byte) (*ComponentManifest, error) {
-	k := koanf.New(".")
-	err := k.Load(rawbytes.Provider(buffer), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
 	var c ComponentManifest
-	err = k.Unmarshal("", &c)
+	_, err := toml.Decode(string(buffer), &c)
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +58,8 @@ func LoadComponentManifestFromContent(buffer []byte) (*ComponentManifest, error)
 }
 
 func LoadComponentManifestFromFile(path string) (*ComponentManifest, error) {
-	k := koanf.New(".")
-	err := k.Load(file.Provider(path), toml.Parser())
-	if err != nil {
-		return nil, err
-	}
 	var c ComponentManifest
-	err = k.Unmarshal("", &c)
+	_, err := toml.DecodeFile(path, &c)
 	if err != nil {
 		return nil, err
 	}
