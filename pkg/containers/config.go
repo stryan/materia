@@ -16,7 +16,6 @@ type ContainersConfig struct {
 
 func NewContainersConfig(k *koanf.Koanf) (*ContainersConfig, error) {
 	c := &ContainersConfig{}
-	c.Remote = k.Bool("containers.remote")
 	c.SecretsPrefix = k.String("containers.secrets_prefix")
 	c.CompressionCommand = k.String("containers.compression_command")
 	c.CompressionSuffix = k.String("containers.compression_suffix")
