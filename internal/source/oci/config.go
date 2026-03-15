@@ -30,10 +30,6 @@ func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	c.LocalRepository = localDir
 	c.URL = remoteURL
 
-	if err := c.parseURL(); err != nil {
-		return nil, err
-	}
-
 	return &c, nil
 }
 
