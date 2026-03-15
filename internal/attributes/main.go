@@ -2,6 +2,7 @@ package attributes
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -12,6 +13,7 @@ type AttributesFilter struct {
 	Hostname  string
 	Roles     []string
 	Component string
+	Instance  string
 }
 
 type AttributeVault struct {
@@ -42,6 +44,11 @@ func ExtractVaultAttributes(results map[string]any, vault AttributeVault, filter
 	if filter.Component != "" {
 		if attrs, ok := vault.Components[filter.Component]; ok {
 			maps.Copy(results, attrs)
+		}
+		if filter.Instance != "" {
+			if attrs, ok := vault.Components[fmt.Sprintf("%v@%v", filter.Component, filter.Instance)]; ok {
+				maps.Copy(results, attrs)
+			}
 		}
 	}
 

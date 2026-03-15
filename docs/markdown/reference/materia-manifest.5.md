@@ -29,8 +29,31 @@ Manifest files are required for a repository or component to be considered valid
 A TOML table containing hosts entries of the following format:
 
       [Hosts.localhost]
-      Components = ["caddy","openldap"]
+      Components = ["caddy","openldap","caddy@siteb"]
       Roles = ["base"]
+
+##### Component instances
+
+Component assignments can be instanced in the same way as systemd templates: `Components = ["componentname@instancename"]`. This is useful for components that use systemd templating to provide multiple installations e.g. video game servers. This will cause Materia to perform the following resource path substitutions:
+
+Example component `server@site1`
+~~~default
+     server/ -> server@site1/
+     server@.container -> server@site1.container
+~~~
+
+Similarly, Materia will substitue `@` signs in `[[Services]]` definitions as well with the instance name:
+~~~
+[[Services]]
+Service = "server@.container"
+~~~
+
+becomes
+
+~~~
+[[Services]]
+Service = "server@site1.container"
+~~~
 
 ##### hosts.Overrides
 The table can also contain an `Overrides` table that contains keys mapped to component manifests. This can be used to override the MANIFEST.toml included with a component on a per-host basis. Note that this will replace entire tables; if you just want to add an element to a manifest use the `Extensions` table.

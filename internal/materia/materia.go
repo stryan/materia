@@ -264,12 +264,12 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	}
 	assignedComponents := make([]*components.Component, 0, len(assignedNames))
 	for _, n := range assignedNames {
-		// TODO handle instanced names in attributes lookup
 		sourceComponent := components.NewComponent(n)
 		attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  hostname,
 			Roles:     m.Roles,
 			Component: sourceComponent.Name,
+			Instance:  sourceComponent.Instance,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("unable to lookup attributes for %v:, %w", n, err)

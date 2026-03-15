@@ -91,11 +91,12 @@ func (c *Component) Instantiate(template string) string {
 }
 
 func (c *Component) InstantiateResource(template Resource) Resource {
-	if c.Instance != "" {
-		template.Parent = c.InstanceName()
-		if strings.Contains(template.Path, "@.") {
-			template.Path = strings.ReplaceAll(template.Path, "@", fmt.Sprintf("@%v", c.Instance))
-		}
+	if c.Instance == "" {
+		return template
+	}
+	template.Parent = c.InstanceName()
+	if strings.Contains(template.Path, "@.") {
+		template.Path = strings.ReplaceAll(template.Path, "@", fmt.Sprintf("@%v", c.Instance))
 	}
 	return template
 }

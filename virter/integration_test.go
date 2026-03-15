@@ -463,3 +463,26 @@ func TestRepo1_AppMode(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, componentRemoved("hello"))
 }
+
+func TestInstancedComponents(t *testing.T) {
+	ctx := context.Background()
+
+	repoPath := "/root/materia/virter/in/testrepo_instance"
+	goldenPath := "/root/materia/virter/out/testrepo_instance"
+	conn, err := connectSystemd(ctx, false)
+	require.NoError(t, err)
+	require.NoError(t, clearMateria(ctx), "unable to clean up before test")
+	require.Nil(t, setEnv("MATERIA_HOSTNAME", "localhost"))
+	require.Nil(t, setEnv("MATERIA_SOURCE__URL", fmt.Sprintf("file://%v", repoPath)))
+	require.Nil(t, setEnv("MATERIA_AGE__KEYFILE", filepath.Join(repoPath, "test-key.txt")))
+	require.Nil(t, setEnv("MATERIA_AGE__BASE_DIR", "secrets"))
+	runCmd := exec.Command("materia", "update")
+	runCmd.Stdout = os.Stdout
+	runCmd.Stderr = os.Stderr
+	err = runCmd.Run()
+	require.NoError(t, err)
+	require.True(t, componentInstalled("hello@foo", filepath.Join(goldenPath, "hello@foo")))
+	require.True(t, componentInstalled("hello@bar", filepath.Join(goldenPath, "hello@bar")))
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello@foo")), "foo services not running")
+	require.True(t, servicesRunning(ctx, conn, filepath.Join(goldenPath, "hello@bar")), "bar services not running")
+}

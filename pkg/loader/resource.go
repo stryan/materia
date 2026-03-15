@@ -34,7 +34,6 @@ type ResourceDiscoveryStage struct {
 func (s *ResourceDiscoveryStage) Process(ctx context.Context, comp *components.Component) error {
 	for _, r := range comp.Resources.List() {
 		if r.Kind == components.ResourceTypePodmanSecret {
-			r.Path = comp.Instantiate(r.Path)
 			r.Content = "<UNFILLED_SECRET>"
 			comp.Resources.Set(r)
 			continue
@@ -44,10 +43,6 @@ func (s *ResourceDiscoveryStage) Process(ctx context.Context, comp *components.C
 			return fmt.Errorf("can't read resource %v/%v: %w", comp.Name, r.Name(), err)
 		}
 		r.Content = bodyTemplate
-		if comp.IsInstanced() {
-			comp.Resources.Delete(r.Path)
-			r = comp.InstantiateResource(r)
-		}
 		comp.Resources.Set(r)
 	}
 
@@ -69,4 +64,24 @@ func (s *AppCompatibilityStage) Process(ctx context.Context, comp *components.Co
 		Content: string(appfileData),
 	}
 	return comp.Resources.Add(appFile)
+}
+
+type ComponentInstanceStage struct{}
+
+func (s *ComponentInstanceStage) Process(ctx context.Context, comp *components.Component) error {
+	if comp.Instance == "" {
+		return nil
+	}
+	for _, r := range comp.Resources.List() {
+		comp.Resources.Delete(r.Path)
+		if r.Kind == components.ResourceTypePodmanSecret {
+			r.Path = comp.Instantiate(r.Path)
+			comp.Resources.Set(r)
+			continue
+		}
+		r = comp.InstantiateResource(r)
+		comp.Resources.Set(r)
+	}
+
+	return nil
 }

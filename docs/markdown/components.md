@@ -59,3 +59,30 @@ When the "hello.container" resource is updated, the "hello.service" unit will be
 When the "conf/config.toml" resource is updated, the "hello.service" unit will be reloaded. Note the resource is given by its relative path to the component root.
 
 See the [Manifests reference](./reference/materia-manifest.5.md) for more details.
+
+## Component Instances
+
+Component assignments can be instanced in the same way as systemd templates: `component@instance`. This allows Materia to install multile instances of the same source component.
+
+This is useful for components that use systemd templating to provide multiple installations e.g. video game servers. Materia will perform the following resource path substitutions:
+
+Example component `server@site1`
+~~~default
+     server/ -> server@site1/
+     server@.container -> server@site1.container
+~~~
+
+Similarly, Materia will substitue `@` signs in `[[Services]]` definitions as well with the instance name:
+~~~
+[[Services]]
+Service = "server@.container"
+~~~
+
+becomes
+
+~~~
+[[Services]]
+Service = "server@site1.container"
+~~~
+
+Attribute templating for this component is likewise extended: attributes assigned to the `server` component are available to both `server@site1` and `server@site2`, but attributes assigned to `server@site1` are only available to `server@site1` and will override attributes assigned to `server`.

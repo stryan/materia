@@ -1,0 +1,12 @@
+[Unit]
+Description=Hello Service
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=docker.io/busybox:{{.containerTag}}
+Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Hello World; sleep 1; done"
+Volume=hello.volume:/{{.mountPoint}}
+
+[Install]
+WantedBy=multi-user.target
