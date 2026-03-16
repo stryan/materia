@@ -676,11 +676,17 @@ func processUpdatedComponentServices(ctx context.Context, host HostStateManager,
 				triggeredServices = append(triggeredServices, a.Target.Path)
 			}
 		} else if (d.Target.Kind == components.ResourceTypeContainer || d.Target.Kind == components.ResourceTypePod) && d.Todo == actions.ActionUpdate && !newComponent.Settings.NoRestart {
-			restartAction, err := resourceActionWithMetadata(d.Target, newComponent, actions.ActionRestart)
+			liveService, err := host.GetService(ctx, d.Target.Service())
 			if err != nil {
-				return result, fmt.Errorf("error generating auto-restart option for resource %v: %w", d.Target.Path, err)
+				return nil, fmt.Errorf("can't get live service for %v:%w", d.Target, err)
 			}
-			result = append(result, restartAction)
+			if liveService.State == "active" {
+				restartAction, err := resourceActionWithMetadata(d.Target, newComponent, actions.ActionRestart)
+				if err != nil {
+					return result, fmt.Errorf("error generating auto-restart option for resource %v: %w", d.Target.Path, err)
+				}
+				result = append(result, restartAction)
+			}
 		}
 	}
 
