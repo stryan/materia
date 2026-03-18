@@ -9,6 +9,13 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## 0.6.3
+- bugfix: Remote components are downloaded correctly
+- bugfix/refactor: Manifests are now loaded with `BurntSushi/toml` instead of koanf
+- refactor: Updated containers are only automatically restarted when the container was running
+- feat: better `podman exec` parsing
+- bugfix: missing reload handler
+
 ## 0.6.2
 - refactor: actions package is now public
 - bugfix: better volume export error messages
