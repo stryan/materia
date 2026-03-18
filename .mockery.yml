@@ -12,16 +12,16 @@ packages:
   primamateria.systems/materia/internal/materia:
     config:
       all: true
-      dir: internal/mocks
+      dir: pkg/mocks
   primamateria.systems/materia/internal/attributes:
     config:
       all: true
-      dir: internal/mocks
+      dir: pkg/mocks
   primamateria.systems/materia/pkg/hostman:
     config:
       all: true
-      dir: internal/mocks
+      dir: pkg/mocks
   primamateria.systems/materia/pkg/sourceman:
     config:
       all: true
-      dir: internal/mocks
+      dir: pkg/mocks

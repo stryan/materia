@@ -9,6 +9,9 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## 0.6.4
+- No user facing changes
+
 ## 0.6.3
 - bugfix: Remote components are downloaded correctly
 - bugfix/refactor: Manifests are now loaded with `BurntSushi/toml` instead of koanf

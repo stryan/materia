@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/mocks"
 )
 
 func TestNew(t *testing.T) {

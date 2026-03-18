@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/mocks"
 	"primamateria.systems/materia/pkg/services"
 )
 

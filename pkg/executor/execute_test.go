@@ -7,10 +7,10 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"primamateria.systems/materia/internal/mocks"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/mocks"
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/services"
 )
