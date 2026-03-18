@@ -87,6 +87,6 @@ See [install](./install/) for example Quadlets.
 
 # Contributing
 
- Questions or bug reports are welcome! Please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions or ask questions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
+Questions or bug reports are welcome! Please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions or ask questions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
 
 For submitting features/bugfixes/code-in general via merge requests, please see the [Contribution guide](CONTRIBUTING.md).
