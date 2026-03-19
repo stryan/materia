@@ -8,6 +8,7 @@ Best effort list of major changes and bugfixes
 - `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 
 ## Upcoming
+- feat: Components with instanced systemd units (i.e. `unit@.service`) can now be instanced at the component level
 
 ## 0.6.4
 - No user facing changes
