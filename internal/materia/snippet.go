@@ -28,9 +28,12 @@ func configToSnippet(c manifests.SnippetConfig) (*macros.Snippet, error) {
 func loadDefaultSnippets() []*macros.Snippet {
 	return []*macros.Snippet{
 		{
-			Name:       "autoUpdate",
-			Parameters: []string{"source"},
-			Body:       template.Must(template.New("autoUpdate").Parse("Label=io.containers.autoupdate={{ .source }}")),
+			Name: "onBoot",
+			Body: template.Must(template.New("onBoot").Parse("[Install]\nWantedBy=default.target")),
+		},
+		{
+			Name: "harden",
+			Body: template.Must(template.New("harden").Parse("DropCapability=ALL\nReadOnly=true\n\nNoNewPrivileges=true")),
 		},
 	}
 }
@@ -40,6 +43,18 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 		return template.FuncMap{
 			"m_dataDir": func(arg string) (string, error) {
 				return filepath.Join(filepath.Join(c.ExecutorConfig.MateriaDir, "components"), arg), nil
+			},
+			"m_quadletDir": func(arg string) (string, error) {
+				return filepath.Join(filepath.Join(c.ExecutorConfig.QuadletDir, "components"), arg), nil
+			},
+			"m_outputDir": func(arg string) (string, error) {
+				return c.ExecutorConfig.OutputDir, nil
+			},
+			"m_scriptsDir": func(_ string) (string, error) {
+				return c.ExecutorConfig.ScriptsDir, nil
+			},
+			"m_serviceDir": func(_ string) (string, error) {
+				return c.ExecutorConfig.ServiceDir, nil
 			},
 			"m_facts": func(arg string) (any, error) {
 				return host.Lookup(arg)
@@ -72,9 +87,6 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 					return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[0])
 				}
 				return fmt.Sprintf("Secret=%v,type=env,%s", host.SecretName(args[0]), args[1])
-			},
-			"autoUpdate": func(arg string) string {
-				return fmt.Sprintf("Label=io.containers.autoupdate=%v", arg)
 			},
 			"snippet": func(name string, args ...string) (string, error) {
 				s, ok := snippets[name]

@@ -9,6 +9,8 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 - feat: Components with instanced systemd units (i.e. `unit@.service`) can now be instanced at the component level
+- refactor: removed `autoUpdate` snippet, added `onBoot` and `harden` snippets.
+- feat: Added `m_quadletDir`, `m_outputDir`, `m_scriptsDir`, `m_serviceDir` macros
 
 ## 0.6.4
 - No user facing changes
