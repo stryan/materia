@@ -2,7 +2,6 @@
 bin/
 .envrc
 key.txt
-*_string.go
 *recipient
 test_repo/
 **/*.age
