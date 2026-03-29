@@ -11,6 +11,8 @@ Best effort list of major changes and bugfixes
 - feat: Components with instanced systemd units (i.e. `unit@.service`) can now be instanced at the component level
 - refactor: removed `autoUpdate` snippet, added `onBoot` and `harden` snippets.
 - feat: Added `m_quadletDir`, `m_outputDir`, `m_scriptsDir`, `m_serviceDir` macros
+- feat: simplified volume compression. `containers.compression_command` and `containers.compression_suffix` have been simplified into one `containers.compression` setting that can be blank, `gzip`, or `zstd`
+- refactor/note: volume dump file are now in the format `volumename-volume.tar(.gz/zst)`.
 
 ## 0.6.4
 - No user facing changes

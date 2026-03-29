@@ -61,6 +61,7 @@ type ActionMetadata struct {
 	ServiceTimeout    *int    `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
 	ServiceUntilState *string `json:"service_until_state,omitempty" toml:"service_until_state,omitempty"`
 	Command           *string `json:"command,omitempty" toml:"command,omitempty"`
+	VolumeName        *string `json:"volume_name,omitempty" toml:"volume_name,omitempty"`
 }
 
 func (a Action) Validate() error {

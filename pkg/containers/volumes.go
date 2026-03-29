@@ -15,7 +15,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".tgz", ".bzip", ".tar.xz", ".txz"}
+var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".zst", ".zstd", ".gz"}
 
 type Volume struct {
 	Name       string `json:"Name"`
@@ -58,9 +58,13 @@ func (p *PodmanManager) ListVolumes(ctx context.Context) ([]*Volume, error) {
 func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDir string) error {
 	exportCmd := genCmd(ctx, p.remote, "volume", "export", volume.Name)
 	outputFilename := filepath.Join(outputDir, volume.Name)
-	outputFilename = fmt.Sprintf("%v.tar", outputFilename)
-	if p.compressionCommand != "" {
-		outputFilename = fmt.Sprintf("%v.%v", outputFilename, p.compressionSuffix)
+	outputFilename = fmt.Sprintf("%v-volume.tar", outputFilename)
+	if p.compression != "" {
+		suffix := "gz"
+		if p.compression == "zstd" {
+			suffix = "zst"
+		}
+		outputFilename = fmt.Sprintf("%v.%v", outputFilename, suffix)
 	}
 	log.Debugf("dumping volume %v to path %v", volume.Name, outputFilename)
 	outfile, err := os.Create(outputFilename)
@@ -68,9 +72,12 @@ func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDi
 		return fmt.Errorf("error creating output file name: %w", err)
 	}
 	defer func() { _ = outfile.Close() }()
-	if p.compressionCommand != "" {
-
-		compressCmd := exec.CommandContext(ctx, "zstd")
+	if p.compression != "" {
+		cmd := "gz"
+		if p.compression == "zstd" {
+			cmd = "zstd"
+		}
+		compressCmd := exec.CommandContext(ctx, cmd)
 		compressCmd.Stdin, err = exportCmd.StdoutPipe()
 		if err != nil {
 			return err
@@ -117,18 +124,60 @@ func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
 }
 
 func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, sourcePath string) error {
-	if !slices.Contains(supportedVolumeDumpExts, filepath.Ext(sourcePath)) {
-		return fmt.Errorf("unsupported volume dump type %v for import", filepath.Ext(sourcePath))
+	ext := filepath.Ext(sourcePath)
+	if !slices.Contains(supportedVolumeDumpExts, ext) {
+		return fmt.Errorf("unsupported volume dump type %v for import. Supported types: %v", filepath.Ext(sourcePath), supportedVolumeDumpExts)
 	}
 	if volume.Driver != "local" && volume.Driver != "" {
 		return errors.New("can only import into local volume")
 	}
-	cmd := genCmd(ctx, p.remote, "volume", "import", volume.Name, sourcePath)
-	_, err := runCmd(cmd)
-	if err != nil {
-		return fmt.Errorf("error importing volume: %v", err)
+	if ext == ".tar" {
+		cmd := genCmd(ctx, p.remote, "volume", "import", volume.Name, sourcePath)
+		_, err := runCmd(cmd)
+		if err != nil {
+			return fmt.Errorf("error importing volume: %v", err)
+		}
+		return nil
+	}
+	var dcmd string
+	switch ext {
+	case ".zstd", ".zst":
+		dcmd = "zstd"
+	case ".gz", "tar.gz":
+		dcmd = "gzip"
+	default:
+		return fmt.Errorf("unsupported volume backup extension: %v", ext)
 	}
 
+	decompressCmd := exec.CommandContext(ctx, dcmd, "-c", "-d", sourcePath)
+	decerrorout := bytes.NewBuffer([]byte{})
+	decompressCmd.Stderr = decerrorout
+	// TODO need to catch decompressCmd errors
+	importCommand := genCmd(ctx, p.remote, "volume", "import", volume.Name, "-")
+	var err error
+	importCommand.Stdin, err = decompressCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("unable to pipe import decompression command: %w", err)
+	}
+	errorout := bytes.NewBuffer([]byte{})
+	importCommand.Stderr = errorout
+	err = importCommand.Start()
+	if err != nil {
+		return fmt.Errorf("unable to start import: %w", err)
+	}
+	err = decompressCmd.Run()
+	if err != nil {
+		return fmt.Errorf("unable to start volume decompression: %w", err)
+	}
+	err = importCommand.Wait()
+	if err != nil {
+		errString := errorout.String()
+		if realErr, found := strings.CutPrefix(errString, "Error: "); found {
+			return fmt.Errorf("err %w: error from podman command: %v", err, realErr)
+		} else {
+			return fmt.Errorf("error starting import command: %w", err)
+		}
+	}
 	return nil
 }
 

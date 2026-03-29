@@ -8,17 +8,15 @@ import (
 )
 
 type ContainersConfig struct {
-	Remote             bool   `toml:"remote"`
-	SecretsPrefix      string `toml:"secrets_prefix"`
-	CompressionCommand string `toml:"compression_command"`
-	CompressionSuffix  string `toml:"compression_suffix"`
+	Remote        bool   `toml:"remote"`
+	SecretsPrefix string `toml:"secrets_prefix"`
+	Compression   string `toml:"compression"`
 }
 
 func NewContainersConfig(k *koanf.Koanf) (*ContainersConfig, error) {
 	c := &ContainersConfig{}
 	c.SecretsPrefix = k.String("containers.secrets_prefix")
-	c.CompressionCommand = k.String("containers.compression_command")
-	c.CompressionSuffix = k.String("containers.compression_suffix")
+	c.Compression = k.String("containers.compression")
 	if k.Exists("containers.remote") {
 		c.Remote = k.Bool("containers.remote")
 	} else {
@@ -27,21 +25,12 @@ func NewContainersConfig(k *koanf.Koanf) (*ContainersConfig, error) {
 	if c.SecretsPrefix == "" {
 		c.SecretsPrefix = "materia-"
 	}
-	if c.CompressionSuffix == "" {
-		switch c.CompressionCommand {
-		case "zstd":
-			c.CompressionSuffix = "zstd"
-		case "gzip":
-			c.CompressionSuffix = "gz"
-		case "zip":
-			c.CompressionSuffix = "zip"
-		default:
-			c.CompressionSuffix = "compressed"
-		}
+	if c.Compression != "" && (c.Compression != "zstd" && c.Compression != "gz" && c.Compression != "gzip") {
+		return nil, fmt.Errorf("invalid compression type: %v", c.Compression)
 	}
 	return c, nil
 }
 
 func (c *ContainersConfig) String() string {
-	return fmt.Sprintf("Remote: %v\n Secrets Prefix: %v\n CompressionCommand: %v\n CompressionSuffix: %v\n", c.Remote, c.SecretsPrefix, c.CompressionCommand, c.CompressionSuffix)
+	return fmt.Sprintf("Remote: %v\n Secrets Prefix: %v\n Compression: %v\n", c.Remote, c.SecretsPrefix, c.Compression)
 }

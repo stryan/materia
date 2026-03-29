@@ -30,7 +30,11 @@ func cleanupVolume(ctx context.Context, e *Executor, v actions.Action) error {
 }
 
 func importVolume(ctx context.Context, e *Executor, v actions.Action) error {
-	err := e.host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, filepath.Join(e.OutputDir, fmt.Sprintf("%v.tar", v.Target.HostObject)))
+	importName := filepath.Join(e.OutputDir, fmt.Sprintf("%v-volume.tar", v.Target.HostObject))
+	if v.Metadata != nil && v.Metadata.VolumeName != nil {
+		importName = *v.Metadata.VolumeName
+	}
+	err := e.host.ImportVolume(ctx, &containers.Volume{Name: v.Target.HostObject, Driver: "local"}, importName)
 	if err != nil {
 		return fmt.Errorf("error importing volume %v: %w", v.Target.HostObject, err)
 	}
