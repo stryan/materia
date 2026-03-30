@@ -86,7 +86,7 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 				if len(args) == 1 {
 					return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[0])
 				}
-				return fmt.Sprintf("Secret=%v,type=env,%s", host.SecretName(args[0]), args[1])
+				return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[1])
 			},
 			"snippet": func(name string, args ...string) (string, error) {
 				s, ok := snippets[name]
