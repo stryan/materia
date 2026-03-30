@@ -17,7 +17,6 @@ Environment=LISTEN="{{m_facts "interface.tailscale0.ip4.0"}}:{{.port}}"
 Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
 Volume=beszel-data.volume:/beszel_data
 PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}
-{{ snippet "autoUpdate" "registry"}}
 
 [Install]
 # Start by default on boot

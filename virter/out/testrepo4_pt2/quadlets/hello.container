@@ -7,7 +7,6 @@ After=network-online.target
 ContainerName=busybox1
 Image=docker.io/busybox:stable
 Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Hello World; sleep 1; done"
-Label=io.containers.autoupdate=registry
 
 [Install]
 WantedBy=multi-user.target

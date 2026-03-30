@@ -17,7 +17,7 @@ Volume=freshrss-data.volume:/var/www/FreshRSS/data
 Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
 PublishPort={{ .Port }}:80
 {{ secretEnv "domain" "SERVER_DNS" }}
-{{snippet "autoUpdate" "registry" }}
+
 [Install]
 # Start by default on boot
 WantedBy=multi-user.target default.target

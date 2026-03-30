@@ -13,7 +13,6 @@ Image=docker.io/peeley/carpal:{{.containerTag}}
 ContainerName=carpal
 Volume={{ m_dataDir "carpal" }}/conf:/etc/carpal:Z
 PublishPort={{.port}}:8008
-{{ snippet "autoUpdate" "registry" }}
 
 [Install]
 # Start by default on boot

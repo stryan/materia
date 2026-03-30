@@ -20,7 +20,6 @@ Environment=KEY="{{.hostkey}}"
 Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
 SecurityLabelDisable=true
 Network=host
-{{ snippet "autoUpdate" "registry"}}
 
 [Install]
 # Start by default on boot

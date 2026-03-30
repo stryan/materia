@@ -8,7 +8,6 @@ ContainerName=busybox1
 Image=docker.io/busybox:{{.containerTag}}
 Exec=/bin/sh -c "trap 'exit 0' INT TERM; while true; do echo Hello World; sleep 1; done"
 Volume=hello.volume:/hello
-{{snippet "autoUpdate" "registry" }}
 
 [Install]
 WantedBy=multi-user.target
