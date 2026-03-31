@@ -9,5 +9,4 @@
 - [ ] Automatic rollback on failure
 - [ ] Slimmer container image
 - [ ] [X-Materia] option in Quadlet files to embed e.g. Service information in the resource instead of in the Manifest
-- [ ] [fnox](https://github.com/jdx/fnox) as a Secrets backend
 - [ ] Better `.kube` handling
