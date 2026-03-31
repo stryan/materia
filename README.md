@@ -39,6 +39,8 @@ Materia will not work with Podman versions lower than 4.4, as that is the versio
 
 Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
 
+Note: When running in a container Materia uses the Podman remote API; therefore some features may be limited by the host's Podman API version (i.e. the container may have Podman 5.8 but if the host is 5.3 you can't use volume backups).
+
 ## From source
 Build from source using `mise build`. By default this will generate binaries for amd64 and arm64.
 
