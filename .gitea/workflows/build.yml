@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@v4
         with:
           # version: "latest"  # [default: latest] mise version to install
           install: true  # [default: true] run `mise install`
@@ -51,6 +51,7 @@ jobs:
           password: ${{ secrets.GH_TOKEN }}
       - name: Build container
         run: |
+          mise ls
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "TAG=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
             export TAG=${{ github.event.pull_request.number }}
