@@ -21,7 +21,12 @@ type Resource struct {
 //go:generate stringer -type ResourceType -trimprefix ResourceType
 type ResourceType uint
 
-var ErrInvalidResource = errors.New("invalid resource")
+var (
+	ErrInvalidResource = errors.New("invalid resource")
+
+	ErrQuadletNoGroup = errors.New("group not found")
+	ErrQuadletNoKey   = errors.New("key not found")
+)
 
 const (
 	ResourceTypeUnknown ResourceType = iota
@@ -157,30 +162,44 @@ func (r Resource) IsFile() bool {
 	}
 }
 
+func groupForKind(t ResourceType) string {
+	switch t {
+	case ResourceTypeContainer:
+		return "Container"
+	case ResourceTypeVolume:
+		return "Volume"
+	case ResourceTypeNetwork:
+		return "Network"
+	case ResourceTypePod:
+		return "Pod"
+	case ResourceTypeBuild:
+		return "Build"
+	case ResourceTypeImage:
+		return "Image"
+	case ResourceTypeKube:
+		return "Kube"
+	default:
+		return "INVALID"
+	}
+}
+
 func hostObjectFromUnitFile(r Resource, unitfile *parser.UnitFile) (string, error) {
 	nameOption := ""
-	group := ""
+	group := groupForKind(r.Kind)
 	switch r.Kind {
 	case ResourceTypeContainer:
-		group = "Container"
 		nameOption = "ContainerName"
 	case ResourceTypeVolume:
-		group = "Volume"
 		nameOption = "VolumeName"
 	case ResourceTypeNetwork:
-		group = "Network"
 		nameOption = "NetworkName"
 	case ResourceTypePod:
-		group = "Pod"
 		nameOption = "PodName"
 	case ResourceTypeBuild:
-		group = "Build"
 		nameOption = "ImageTag"
 	case ResourceTypeImage:
-		group = "Image"
 		nameOption = "ImageTag"
 	case ResourceTypeKube:
-		group = "Kube"
 		nameOption = "Yaml"
 	}
 	name, foundName := unitfile.Lookup(group, nameOption)
@@ -212,6 +231,27 @@ func (r Resource) GetHostObject(unitData string) (string, error) {
 		return "", fmt.Errorf("error parsing systemd unit file: %w", err)
 	}
 	return hostObjectFromUnitFile(r, unitfile)
+}
+
+func (r Resource) QueryQuadletData(key string) ([]string, error) {
+	result := []string{}
+	if !r.IsQuadlet() {
+		return result, errors.New("not a quadlet")
+	}
+	unitfile := parser.NewUnitFile()
+	err := unitfile.Parse(r.Content)
+	if err != nil {
+		return result, fmt.Errorf("unable to parse quadlet %v unit data: %w", r.Name(), err)
+	}
+	group := groupForKind(r.Kind)
+	if !unitfile.HasGroup(group) {
+		return result, fmt.Errorf("%w: %v", ErrQuadletNoGroup, group)
+	}
+	if !unitfile.HasKey(group, key) {
+		return result, fmt.Errorf("%w: quadlet group %v:%v", ErrQuadletNoKey, group, key)
+	}
+
+	return unitfile.LookupAll(group, key), nil
 }
 
 func parseQuadletChunk(data string) (string, string, error) {
