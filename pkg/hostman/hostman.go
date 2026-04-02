@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/pkg/containers"

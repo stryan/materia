@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/containers"
 )

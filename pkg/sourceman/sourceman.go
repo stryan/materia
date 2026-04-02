@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"

@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 )
 
 var ErrPodmanObjectNotFound error = errors.New("no such object")

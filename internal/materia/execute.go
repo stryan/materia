@@ -3,7 +3,7 @@ package materia
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/plan"
 )
 

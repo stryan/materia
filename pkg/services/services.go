@@ -8,7 +8,7 @@ import (
 	"os/user"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/knadh/koanf/v2"
 )

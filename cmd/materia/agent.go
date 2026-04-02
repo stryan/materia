@@ -10,7 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 )
 
 func defaultSocket() (string, error) {

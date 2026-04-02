@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )

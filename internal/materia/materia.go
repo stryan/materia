@@ -11,8 +11,8 @@ import (
 	"slices"
 	"time"
 
+	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
-	"github.com/charmbracelet/log"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/internal/attributes"
 	"primamateria.systems/materia/internal/attributes/age"

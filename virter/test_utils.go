@@ -12,7 +12,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )

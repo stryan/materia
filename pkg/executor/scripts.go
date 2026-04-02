@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/services"

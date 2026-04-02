@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/hostman"

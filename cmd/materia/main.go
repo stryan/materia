@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/components"
