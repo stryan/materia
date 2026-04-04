@@ -164,7 +164,12 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 
 func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
 	var steps []actions.Action
-	if currentTree.Source.Settings.PreScript != "" {
+
+	resourceActions, err := generateUpdatedComponentResources(ctx, p.Host, p.PlannerConfig, currentTree.Host, currentTree.Source)
+	if err != nil {
+		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
+	}
+	if len(resourceActions) > 0 && currentTree.Source.Settings.PreScript != "" {
 		c := currentTree.Source
 		preResource, err := c.Resources.Get(c.Settings.PreScript)
 		if err != nil {
@@ -180,10 +185,6 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 				OneshotName: &cmdName,
 			},
 		})
-	}
-	resourceActions, err := generateUpdatedComponentResources(ctx, p.Host, p.PlannerConfig, currentTree.Host, currentTree.Source)
-	if err != nil {
-		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
 	if currentTree.Host.Version != components.DefaultComponentVersion {
 		currentTree.Host.Version = components.DefaultComponentVersion
@@ -234,7 +235,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			currentTree.FinalState = components.StateOK
 		}
 	}
-	if currentTree.Source.Settings.PostScript != "" {
+	if len(resourceActions) > 0 && currentTree.Source.Settings.PostScript != "" {
 		c := currentTree.Source
 		postResource, err := c.Resources.Get(c.Settings.PostScript)
 		if err != nil {
