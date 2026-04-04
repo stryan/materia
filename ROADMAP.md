@@ -1,7 +1,7 @@
 # Goals being worked on
 - [ ] Increasing test coverage
 - [ ] Investigate using native podman bindings (in lieu of CLI to get around https://github.com/containers/podman/issues/12548)
-- [ ] Pre and post change steps
+- [x] Pre and post change steps
 
 # Potential future goals
 - [ ] Add rootless integration tests

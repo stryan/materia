@@ -3,6 +3,7 @@ package planner
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -420,6 +421,194 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 			assert.Equal(t, len(tt.expectedPlan), len(actions))
 			if tt.validatePlan != nil {
 				tt.validatePlan(t, actions)
+			}
+		})
+	}
+}
+
+func TestPlanUpdatedComponent(t *testing.T) {
+	tests := []struct {
+		name         string
+		stale, fresh *components.Component
+		opts         PlannerConfig
+		setup        func(host *mocks.MockHostManager, stale, fresh *components.Component)
+		want         []actions.Action
+		wantErr      bool
+	}{
+		{
+			name: "happy-path/one-diffs",
+			stale: &components.Component{
+				Name:    "hello",
+				State:   components.StateMayNeedUpdate,
+				Version: components.DefaultComponentVersion,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+				),
+				Services: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+			want: []actions.Action{
+				planHelper(actions.ActionUpdate, "hello", "hello.container"),
+				planHelper(actions.ActionReload, "root", ""),
+				planHelper(actions.ActionRestart, "hello", "hello.container"),
+			},
+		},
+		{
+			name: "happy-path/one-diff-only-resources",
+			opts: PlannerConfig{OnlyResources: true},
+			stale: &components.Component{
+				Name:    "hello",
+				State:   components.StateMayNeedUpdate,
+				Version: components.DefaultComponentVersion,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+				),
+				Services: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want: []actions.Action{
+				planHelper(actions.ActionUpdate, "hello", "hello.container"),
+			},
+		},
+		{
+			name: "happy-path/pre-script",
+			stale: &components.Component{
+				Name:    "hello",
+				State:   components.StateMayNeedUpdate,
+				Version: components.DefaultComponentVersion,
+				Settings: manifests.Settings{
+					PreScript: "pre-sync-hook.sh",
+				},
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+					resourceHelper("pre-sync-hook.sh", "hello", "echo 'hi mom!'"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Settings: manifests.Settings{
+					PreScript: "pre-sync-hook.sh",
+				},
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+					resourceHelper("pre-sync-hook.sh", "hello", "echo 'hi mom!'"),
+				),
+				Services: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+			want: []actions.Action{
+				planHelper(actions.ActionExecute, "hello", "pre-sync-hook.sh"),
+				planHelper(actions.ActionUpdate, "hello", "hello.container"),
+				planHelper(actions.ActionReload, "root", ""),
+				planHelper(actions.ActionRestart, "hello", "hello.container"),
+			},
+		},
+		{
+			name: "happy-path/post-script",
+			stale: &components.Component{
+				Name:    "hello",
+				State:   components.StateMayNeedUpdate,
+				Version: components.DefaultComponentVersion,
+				Settings: manifests.Settings{
+					PostScript: "post-sync-hook.sh",
+				},
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+					resourceHelper("post-sync-hook.sh", "hello", "echo 'hi mom!'"),
+				),
+				Services: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Settings: manifests.Settings{
+					PostScript: "post-sync-hook.sh",
+				},
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
+					resourceHelper("post-sync-hook.sh", "hello", "echo 'hi mom!'"),
+				),
+				Services: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
+					Name:  "hello.service",
+					State: "active",
+				}, nil)
+			},
+			want: []actions.Action{
+				planHelper(actions.ActionUpdate, "hello", "hello.container"),
+				planHelper(actions.ActionReload, "root", ""),
+				planHelper(actions.ActionExecute, "hello", "post-sync-hook.sh"),
+				planHelper(actions.ActionRestart, "hello", "hello.container"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hm := mocks.NewMockHostManager(t)
+			tt.setup(hm, tt.stale, tt.fresh)
+			p := NewPlanner(tt.opts, hm)
+			got, gotErr := p.PlanUpdatedComponent(context.Background(), &ComponentTree{
+				Source: tt.fresh,
+				Host:   tt.stale,
+			})
+			if gotErr != nil {
+				if !tt.wantErr {
+					t.Errorf("PlanUpdatedComponent() failed: %v", gotErr)
+				}
+				return
+			}
+			if tt.wantErr {
+				t.Fatal("PlanUpdatedComponent() succeeded unexpectedly")
+			}
+
+			fmt.Fprintf(os.Stderr, "FBLTHP[3]: planner_test.go:608: got=%+v\n", got)
+			for k, v := range tt.want {
+				if k >= len(got) {
+					t.Log(got)
+					t.Errorf("Missing step #%v: %v", k, v)
+				}
+				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Target.Path, got[k].Target.Path)
 			}
 		})
 	}

@@ -62,6 +62,7 @@ type ActionMetadata struct {
 	ServiceUntilState *string `json:"service_until_state,omitempty" toml:"service_until_state,omitempty"`
 	Command           *string `json:"command,omitempty" toml:"command,omitempty"`
 	VolumeName        *string `json:"volume_name,omitempty" toml:"volume_name,omitempty"`
+	OneshotName       *string `json:"oneshot_name,omitempty" toml:"oneshot_name,omitempty"`
 }
 
 func (a Action) Validate() error {

@@ -2,8 +2,8 @@
 title: MATERIA-MANIFEST
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: April 2026
 author: stryan
 ---
 
@@ -137,13 +137,33 @@ By default, materia will restart services belonging to `.container` and `.pod` r
 
 (EXPERIMENTAL)
 
-A script resource to run on component installation. It will be run as a `one-shot` transient systemd unit after resources have been installed and the host reloaded, but before services are modified.
+A script resource to run on component installation.
+
+It will be run as a `one-shot` transient systemd unit after resources have been installed and the host reloaded, but before services are modified.
 
 ##### CleanupScript
 
 (EXPERIMENTAL)
 
-A script resource to run on component removal. It will be run as a `one-shot` transient systemd unit after services are stopped but before anything is removed.
+A script resource to run on component removal.
+
+It will be run as a `one-shot` transient systemd unit after services are stopped but before anything is removed.
+
+##### PreScript
+
+(EXPERIMENTAL)
+
+A script resource to run before component update. Does not run on install or removal.
+
+It will be run as a `one-shot` transient systemd unit before resources are updated. Note this means if you update the resource used by `PreScript` it won't use the updated resource until the next run.
+
+##### PostScript
+
+(EXPERIMENTAL)
+
+A script resource to run after component update. Does not run on install or removal.
+
+It will be run as a `one-shot` transient systemd unit after resources installed/updated and the host is reloaded, but before services are changed.
 
 #### *Defaults*
 

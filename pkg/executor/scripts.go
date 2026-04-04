@@ -64,6 +64,9 @@ func cleanupScript(ctx context.Context, e *Executor, v actions.Action) error {
 func executeScript(ctx context.Context, e *Executor, v actions.Action) error {
 	scriptPath := filepath.Join(e.ScriptsDir, v.Target.Path)
 	cmdName := fmt.Sprintf("%v-materia-execute.service", v.Parent.Name)
+	if v.Metadata != nil && v.Metadata.OneshotName != nil {
+		cmdName = *v.Metadata.OneshotName
+	}
 	if err := e.host.RunOneshotCommand(ctx, e.defaultTimeout, cmdName, []string{scriptPath}); err != nil {
 		return err
 	}

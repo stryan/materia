@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/emirpasic/gods/maps"
 	"github.com/emirpasic/gods/maps/treemap"
@@ -222,13 +223,13 @@ func (p *Plan) Pretty() string {
 	if p.Empty() {
 		return "Nothing to do"
 	}
-	var result string
+	var result strings.Builder
 	steps := p.Steps()
-	result += "Plan: \n"
+	result.WriteString("Plan: \n")
 	for i, a := range steps {
-		result += fmt.Sprintf("%v. %v\n", i+1, a.Pretty())
+		fmt.Fprintf(&result, "%v. %v\n", i+1, a.Pretty())
 	}
-	return result
+	return result.String()
 }
 
 func (p *Plan) ToJson() ([]byte, error) {
@@ -299,7 +300,7 @@ func getDefaultPriority(a actions.Action) (int, error) {
 		},
 		components.ResourceTypeScript: {
 			actions.ActionInstall: 3, actions.ActionUpdate: 3, actions.ActionRemove: 3,
-			actions.ActionCleanup: 7, actions.ActionDump: 2,
+			actions.ActionCleanup: 7, actions.ActionDump: 2, actions.ActionExecute: 3,
 		},
 		components.ResourceTypePodmanSecret: {
 			actions.ActionInstall: 3, actions.ActionUpdate: 3, actions.ActionRemove: 3,

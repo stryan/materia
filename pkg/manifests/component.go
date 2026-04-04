@@ -24,6 +24,8 @@ type Settings struct {
 	NoRestart     bool   `toml:"NoRestart"`
 	SetupScript   string `toml:"SetupScript"`
 	CleanupScript string `toml:"CleanupScript"`
+	PreScript     string `toml:"PreScript"`
+	PostScript    string `toml:"PostScript"`
 }
 
 func (s *Settings) Merge(o Settings) {

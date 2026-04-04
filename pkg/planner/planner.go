@@ -111,11 +111,11 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
-	if currentTree.Source.SetupScript != "" {
+	if currentTree.Source.Settings.SetupScript != "" {
 		c := currentTree.Source
-		setupResource, err := c.Resources.Get(c.SetupScript)
+		setupResource, err := c.Resources.Get(c.Settings.SetupScript)
 		if err != nil {
-			return nil, fmt.Errorf("setup resource %v not found: %w", c.SetupScript, err)
+			return nil, fmt.Errorf("setup resource %v not found: %w", c.Settings.SetupScript, err)
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionSetup,
@@ -145,11 +145,11 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 		Parent: components.NewRootComponent(),
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
-	if currentTree.Host.CleanupScript != "" {
+	if currentTree.Host.Settings.CleanupScript != "" {
 		c := currentTree.Host
-		setupResource, err := c.Resources.Get(c.CleanupScript)
+		setupResource, err := c.Resources.Get(c.Settings.CleanupScript)
 		if err != nil {
-			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.CleanupScript, err)
+			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.Settings.CleanupScript, err)
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionCleanup,
@@ -163,6 +163,24 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 }
 
 func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *ComponentTree) ([]actions.Action, error) {
+	var steps []actions.Action
+	if currentTree.Source.Settings.PreScript != "" {
+		c := currentTree.Source
+		preResource, err := c.Resources.Get(c.Settings.PreScript)
+		if err != nil {
+			return nil, fmt.Errorf("pre-update resource %v not found: %w", c.Settings.PreScript, err)
+		}
+		cmdName := fmt.Sprintf("%v-materia-pre-update.service", c.Name)
+		steps = append(steps, actions.Action{
+			Todo:     actions.ActionExecute,
+			Parent:   c,
+			Target:   preResource,
+			Priority: 1,
+			Metadata: &actions.ActionMetadata{
+				OneshotName: &cmdName,
+			},
+		})
+	}
 	resourceActions, err := generateUpdatedComponentResources(ctx, p.Host, p.PlannerConfig, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
@@ -175,18 +193,19 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			Target: components.Resource{Parent: currentTree.Source.Name, Kind: components.ResourceTypeComponent, Path: currentTree.Source.Name},
 		})
 	}
+	steps = append(steps, resourceActions...)
 
 	if p.OnlyResources {
-		return resourceActions, nil
+		return steps, nil
 	}
 	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
-	resourceActions = append(resourceActions, ensureActions...)
+	steps = append(steps, ensureActions...)
 	var serviceActions []actions.Action
 	if len(resourceActions) > 0 {
-		resourceActions = append(resourceActions, actions.Action{
+		steps = append(steps, actions.Action{
 			Todo:   actions.ActionReload,
 			Parent: components.NewRootComponent(),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
@@ -215,8 +234,25 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			currentTree.FinalState = components.StateOK
 		}
 	}
-
-	return append(resourceActions, serviceActions...), nil
+	if currentTree.Source.Settings.PostScript != "" {
+		c := currentTree.Source
+		postResource, err := c.Resources.Get(c.Settings.PostScript)
+		if err != nil {
+			return nil, fmt.Errorf("post-update resource %v not found: %w", c.Settings.PostScript, err)
+		}
+		cmdName := fmt.Sprintf("%v-materia-post-update.service", c.Name)
+		steps = append(steps, actions.Action{
+			Todo:     actions.ActionExecute,
+			Parent:   c,
+			Target:   postResource,
+			Priority: 4, // TODO should this run pre or post service updates?
+			Metadata: &actions.ActionMetadata{
+				OneshotName: &cmdName,
+			},
+		})
+	}
+	steps = append(steps, serviceActions...)
+	return steps, nil
 }
 
 func generateFreshComponentResources(comp *components.Component) ([]actions.Action, error) {

@@ -18,6 +18,14 @@ materia - a tool for deploying Quadlets and associated files
 
 **materia** is a tool designed for GitOps style management of services deployed via Podman Quadlets. It takes a URL pointing to a *repository* containing *manifests* and *components*, determines which components are assigned to the current host, and installs them while removing components that are no longer needed.
 
+**materia** works using a plan-execute pattern. It will generate a plan that includes all resources that need to be installed/removed/updated, all services that need to be started/stopped/restarted/enabled/disabled, and any other tasks required such as ensuring all needed Podman volumes are created. Executing the plan is broken up into roughly two stages:
+   1. (Resource phase) Install/Update/Remove resources
+   2. (Services phase) Start/Stop/Restart/Reload/Enable/Disable services
+
+These two stages are usually separated by a "host reload" where **materia** executes a `systemctl daemon-reload`
+
+Note that some service actions can take place during the Resource phase if required. For example, migrating data between volume resources on a volume quadlet update requires several systemd services to be started and stopped during the resources phase.
+
 ## Configuration
 
 Materia can be configured via either environmental variables or a TOML config file. The most common environmental variables are documented below:

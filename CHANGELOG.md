@@ -13,6 +13,7 @@ Best effort list of major changes and bugfixes
 - feat: Added `m_quadletDir`, `m_outputDir`, `m_scriptsDir`, `m_serviceDir` macros
 - feat: simplified volume compression. `containers.compression_command` and `containers.compression_suffix` have been simplified into one `containers.compression` setting that can be blank, `gzip`, or `zstd`
 - refactor/note: volume dump file are now in the format `volumename-volume.tar(.gz/zst)`.
+- feat: `PreCommand` and `PostCommand` component manifest settings for running scripts before or after an update. Experimental.
 
 ## 0.6.4
 - No user facing changes
