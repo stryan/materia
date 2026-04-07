@@ -96,6 +96,11 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionDisable: serviceAction,
 		actions.ActionCleanup: cleanupBuildArtifact,
 	},
+	components.ResourceTypeCombined: {
+		actions.ActionInstall: installOrUpdateFile,
+		actions.ActionUpdate:  installOrUpdateFile,
+		actions.ActionRemove:  removeFile,
+	},
 	components.ResourceTypeAppFile: {
 		actions.ActionInstall: installOrUpdateFile,
 		actions.ActionUpdate:  installOrUpdateFile,
