@@ -22,6 +22,7 @@ type ServiceResourceConfig struct {
 
 type Settings struct {
 	NoRestart     bool   `toml:"NoRestart"`
+	NoExpansion   bool   `toml:"NoExpansion"`
 	SetupScript   string `toml:"SetupScript"`
 	CleanupScript string `toml:"CleanupScript"`
 	PreScript     string `toml:"PreScript"`

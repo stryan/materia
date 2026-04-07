@@ -31,7 +31,7 @@ type QuadletExpanderStage struct{}
 
 func (s *QuadletExpanderStage) Process(ctx context.Context, comp *components.Component) error {
 	for _, r := range comp.Resources.List() {
-		if r.Kind == components.ResourceTypeCombined {
+		if r.Kind == components.ResourceTypeCombined && !comp.Settings.NoExpansion {
 			expandedResources, err := components.GetResourcesFromQuadletsFile(r.Parent, r.Content)
 			if err != nil {
 				return fmt.Errorf("can't expand combined resource %v: %w", r.Path, err)

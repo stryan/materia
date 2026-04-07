@@ -133,6 +133,10 @@ Key-value pairs for component settings. Contains the following options:
 
 By default, materia will restart services belonging to `.container` and `.pod` resources when they are updated. Set to `true` to disable this behaviour.
 
+##### NoExpansion
+
+By default, materia will expand `.quadlets` files into multiple quadlets. Set to `true` to disable this behaviour.
+
 ##### SetupScript
 
 (EXPERIMENTAL)
