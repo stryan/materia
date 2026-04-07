@@ -23,6 +23,7 @@ func reload() actions.Action {
 	c, ok := compRegistry["root"]
 	if !ok {
 		c = components.NewComponent("root")
+		c.State = components.StateRoot
 		compRegistry["root"] = c
 	}
 	return actions.Action{
@@ -246,7 +247,7 @@ func Test_Plan(t *testing.T) {
 			assert.Equal(t, len(tt.output), len(result), "plan is incorrect size: %v != %v", len(tt.output), len(result))
 			for k, expectedStep := range tt.output {
 				actualStep := result[k]
-				assert.Equal(t, expectedStep.Parent, actualStep.Parent, "%v wrong parent %v!=%v", k, expectedStep.Parent, actualStep.Parent)
+				assert.Equal(t, expectedStep.Parent.Name, actualStep.Parent.Name, "%v wrong parent %v!=%v", k, expectedStep.Parent, actualStep.Parent)
 				assert.Equal(t, expectedStep.Todo, actualStep.Todo, "%v wrong action %v!=%v", k, expectedStep.Todo, actualStep.Todo)
 				assert.Equal(t, expectedStep.Target, actualStep.Target, "%v wrong target %v!=%v", k, expectedStep.Target, actualStep.Target)
 				if expectedStep.Priority != 0 {

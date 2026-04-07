@@ -42,6 +42,7 @@ func mergeStepsIntoPlan(resourceSteps, serviceSteps []actions.Action) []actions.
 type Plan struct {
 	size       int
 	changesMap maps.Map
+	needReload bool
 }
 
 func (p *Plan) addResourceChange(a actions.Action) {
@@ -93,16 +94,18 @@ func (p *Plan) getResourceChanges(name string) []actions.Action {
 func (p *Plan) listComponents() []string {
 	results := make([]string, 0, p.changesMap.Size())
 	for _, v := range p.changesMap.Keys() {
-		results = append(results, v.(string))
+		if v != "root" {
+			results = append(results, v.(string))
+		}
 	}
 
 	return results
 }
 
-func (p *Plan) hasComponent(name string) bool {
-	_, ok := p.changesMap.Get(name)
-	return ok
-}
+// func (p *Plan) hasComponent(name string) bool {
+// 	_, ok := p.changesMap.Get(name)
+// 	return ok
+// }
 
 func NewPlan() *Plan {
 	return &Plan{
@@ -122,10 +125,7 @@ func (p *Plan) Add(a actions.Action) error {
 		a.Priority = priority
 
 		if a.Target.Kind == components.ResourceTypeHost && a.Todo == actions.ActionReload {
-			// only add an automatically prioritized Host Reload to the services phase if we don't have one at the start already
-			if !p.hasComponent("root") {
-				p.addResourceChange(a)
-			}
+			p.needReload = true
 		} else if a.Todo.IsServiceAction() {
 			p.addServiceChange(a)
 		} else {
@@ -169,6 +169,14 @@ func (p *Plan) Steps() []actions.Action {
 		serviceSteps = append(serviceSteps, combinedServiceActions...)
 	}
 	slices.SortStableFunc(serviceSteps, prioritizeActions)
+	if p.needReload {
+		reload := actions.Action{
+			Todo:   actions.ActionReload,
+			Parent: components.NewRootComponent(),
+			Target: components.Resource{Kind: components.ResourceTypeHost},
+		}
+		steps = append(steps, reload)
+	}
 	steps = mergeStepsIntoPlan(steps, serviceSteps)
 
 	return steps

@@ -169,7 +169,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
-	if len(resourceActions) > 0 && currentTree.Source.Settings.PreScript != "" {
+	if len(resourceActions) > 0 && currentTree.Source.Settings.PreScript != "" && !p.OnlyResources {
 		c := currentTree.Source
 		preResource, err := c.Resources.Get(c.Settings.PreScript)
 		if err != nil {
@@ -222,7 +222,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 				return nil, fmt.Errorf("can't process updated services for component %v: %w", currentTree.Name, err)
 			}
 		}
-	} else if !p.OnlyResources {
+	} else {
 		serviceActions, err = processFreshOrUnchangedComponentServices(ctx, p.Host, currentTree.Host)
 		if err != nil {
 			return nil, fmt.Errorf("can't plan unchanged services for %v: %w", currentTree.Name, err)
