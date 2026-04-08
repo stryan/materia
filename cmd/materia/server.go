@@ -22,13 +22,13 @@ import (
 )
 
 type ServerConfig struct {
-	PlanInterval, UpdateInterval int
-	Webhook                      string
-	Socket                       string
+	PlanInterval, UpdateInterval int    `koanf:"plan_interval" toml:"plan_interval"`
+	Hostname                     string `koanf:"hostname" toml:"hostname"`
+	Webhook                      string `koanf:"webhook" toml:"webhook"`
+	Socket                       string `koanf:"socket" toml:"socket"`
 }
 
 type Server struct {
-	hostname                     string
 	Webhook                      string
 	Socket                       string
 	UpdateInterval, PlanInterval int
@@ -134,7 +134,6 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		Socket:         conf.Socket,
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
-		hostname:       m.Host.GetHostname(),
 		quit:           make(chan any),
 		materia:        m,
 	}
@@ -280,7 +279,7 @@ func (s *Server) notify(ctx context.Context, msg string) error {
 	if s.Webhook == "" {
 		return nil
 	}
-	marshaledPayload, err := json.Marshal(hookPayload{fmt.Sprintf("%v: %v", s.hostname, msg)})
+	marshaledPayload, err := json.Marshal(hookPayload{fmt.Sprintf("%v: %v", s.materia.Hostname, msg)})
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload to JSON: %v", err)
 	}

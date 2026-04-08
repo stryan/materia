@@ -38,6 +38,7 @@ type Materia struct {
 	Executor       *executor.Executor
 	Planner        *planner.Planner
 	Vault          AttributesEngine
+	Hostname       string
 	Roles          []string
 	macros         macros.MacroMap
 	snippets       map[string]*macros.Snippet
@@ -121,9 +122,13 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		}
 		snips[s.Name] = s
 	}
+	name := c.Hostname
+	if name == "" {
+		name = hm.GetHostname()
+	}
 	roles := c.Roles
 	if len(roles) == 0 {
-		roles, err = getRolesFromManifest(man, hm.GetHostname())
+		roles, err = getRolesFromManifest(man, name)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load roles form manifest: %w", err)
 		}
@@ -159,6 +164,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		plannerConfig:  pc,
 		Executor:       e,
 		Planner:        p,
+		Hostname:       name,
 		Roles:          roles,
 	}, nil
 }
@@ -169,7 +175,7 @@ func (m *Materia) GetAssignedComponents() ([]string, error) {
 	if ok {
 		assignedComponents = append(assignedComponents, hostComps.Components...)
 	}
-	hostComps, ok = m.Manifest.Hosts[m.Host.GetHostname()]
+	hostComps, ok = m.Manifest.Hosts[m.Hostname]
 	if ok {
 		assignedComponents = append(assignedComponents, hostComps.Components...)
 	}
@@ -251,7 +257,6 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine assigned component names: %w", err)
 	}
-	hostname := m.Host.GetHostname()
 	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
 	installedComponents := make([]*components.Component, 0, len(installedNames))
 	for _, n := range installedNames {
@@ -266,7 +271,7 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	for _, n := range assignedNames {
 		sourceComponent := components.NewComponent(n)
 		attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-			Hostname:  hostname,
+			Hostname:  m.Hostname,
 			Roles:     m.Roles,
 			Component: sourceComponent.Name,
 			Instance:  sourceComponent.Instance,
@@ -275,7 +280,7 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 			return nil, fmt.Errorf("unable to lookup attributes for %v:, %w", n, err)
 		}
 		overrides := make([]*manifests.ComponentManifest, 0)
-		override, err := m.Manifest.GetComponentOverride(hostname, n)
+		override, err := m.Manifest.GetComponentOverride(m.Hostname, n)
 		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 			return nil, fmt.Errorf("unable to get component overrides: %w", err)
 		}
@@ -283,7 +288,7 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 			overrides = append(overrides, override)
 		}
 		extensions := make([]*manifests.ComponentManifest, 0)
-		extension, err := m.Manifest.GetComponentExtension(hostname, n)
+		extension, err := m.Manifest.GetComponentExtension(m.Hostname, n)
 		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 			return nil, fmt.Errorf("unable to get component extensions: %w", err)
 		}
@@ -305,7 +310,7 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 		assignedComponents = append(assignedComponents, sourceComponent)
 	}
 
-	actionPlan, err := m.Planner.Plan(ctx, hostname, installedComponents, assignedComponents)
+	actionPlan, err := m.Planner.Plan(ctx, m.Hostname, installedComponents, assignedComponents)
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate plan: %w", err)
 	}
@@ -314,9 +319,8 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 }
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
-	hostname := m.Host.GetHostname()
 	attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  hostname,
+		Hostname:  m.Hostname,
 		Roles:     roles,
 		Component: name,
 	})
@@ -324,7 +328,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 		return nil, fmt.Errorf("unable to lookup attributes: %w", err)
 	}
 	overrides := make([]*manifests.ComponentManifest, 0)
-	override, err := m.Manifest.GetComponentOverride(hostname, name)
+	override, err := m.Manifest.GetComponentOverride(m.Hostname, name)
 	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 		return nil, fmt.Errorf("unable to get component overrides: %w", err)
 	}
@@ -332,7 +336,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 		overrides = append(overrides, override)
 	}
 	extensions := make([]*manifests.ComponentManifest, 0)
-	extension, err := m.Manifest.GetComponentExtension(hostname, name)
+	extension, err := m.Manifest.GetComponentExtension(m.Hostname, name)
 	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 		return nil, fmt.Errorf("unable to get component extensions: %w", err)
 	}
@@ -345,7 +349,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	if err != nil {
 		return nil, fmt.Errorf("can't load host component: %w", err)
 	}
-	return m.Planner.Plan(ctx, hostname, []*components.Component{}, []*components.Component{sourceComponent})
+	return m.Planner.Plan(ctx, m.Hostname, []*components.Component{}, []*components.Component{sourceComponent})
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {

@@ -38,7 +38,7 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-	factsm, err := facts.NewHostFacts(c.Hostname)
+	factsm, err := facts.NewHostFacts()
 	if err != nil {
 		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
