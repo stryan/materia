@@ -70,6 +70,9 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 				_, ok := vars[arg]
 				return ok
 			},
+			"isRoot": func(_ string) bool {
+				return c.User.Username == "root" || !c.Rootless
+			},
 			"secretEnv": func(args ...string) string {
 				if len(args) == 0 {
 					return ""
