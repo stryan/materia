@@ -10,6 +10,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/coreos/go-systemd/v22/dbus"
+	godbus "github.com/godbus/dbus/v5"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -68,8 +69,9 @@ const (
 )
 
 type ServicesConfig struct {
-	Timeout        int
-	DryrunQuadlets bool `toml:"dryrun_quadlets"`
+	Timeout        int    `toml:"timeout" koanf:"timeout"`
+	DryrunQuadlets bool   `toml:"dryrun_quadlets" koanf:"dryrun_quadlets"`
+	DbusSocket     string `toml:"dbus_socket" koanf:"dbus_socket"`
 }
 
 func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
@@ -78,6 +80,9 @@ func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
 	c.DryrunQuadlets = k.Bool("dryrun_quadlets")
 	if c.Timeout == 0 {
 		c.Timeout = 90
+	}
+	if k.Exists("services.dbus_socket") {
+		c.DbusSocket = k.String("services.dbus_socket")
 	}
 	return c, nil
 }
@@ -93,21 +98,28 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	if err != nil {
 		return nil, err
 	}
+	sm.DryrunQuadlets = cfg.DryrunQuadlets
+	sm.isRoot = currentUser.Username == "root"
 
-	if currentUser.Username != "root" {
-		sm.Conn, err = dbus.NewUserConnectionContext(ctx)
-		if err != nil {
-			return nil, err
+	if cfg.DbusSocket != "" {
+		if sm.isRoot {
+			sm.Conn, err = dbus.NewUserConnectionContext(ctx)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			sm.Conn, err = dbus.NewSystemConnectionContext(ctx)
+			if err != nil {
+				return nil, err
+			}
+
 		}
 	} else {
-		sm.isRoot = true
-		sm.Conn, err = dbus.NewSystemConnectionContext(ctx)
+		sm.Conn, err = NewSystemdConnection(cfg.DbusSocket)
 		if err != nil {
 			return nil, err
 		}
-
 	}
-	sm.DryrunQuadlets = cfg.DryrunQuadlets
 	return &sm, nil
 }
 
@@ -279,4 +291,22 @@ func waitForCallback(ctx context.Context, callback chan string, timeout int) err
 	case <-time.After(time.Duration(timeout) * time.Second):
 		return ErrOperationTimedOut
 	}
+}
+
+func NewSystemdConnection(socketPath string) (*dbus.Conn, error) {
+	return dbus.NewConnection(func() (*godbus.Conn, error) {
+		conn, err := godbus.Dial(fmt.Sprintf("unix:path=%s", socketPath))
+		if err != nil {
+			return nil, err
+		}
+		if err := conn.Auth(nil); err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		if err := conn.Hello(); err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		return conn, nil
+	})
 }
