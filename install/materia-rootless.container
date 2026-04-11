@@ -26,4 +26,4 @@ Volume=%D/materia:/var/lib/materia
 Volume=%E/containers/systemd:/etc/containers/systemd
 Volume=%h/.local/bin:/usr/local/bin
 Volume=%D/systemd/user:/etc/systemd/system
-Label=io.containers.autoupdate=registry
+AutoUpdate=registry
