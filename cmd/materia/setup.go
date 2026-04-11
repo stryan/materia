@@ -73,7 +73,6 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 		return nil, err
 	}
 	var source source.Source
-
 	switch sourceConfig.Kind {
 	case "git":
 		config, err := git.NewConfig(k, sourceDir, sourceConfig.URL)

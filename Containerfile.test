@@ -1,0 +1,31 @@
+FROM registry.opensuse.org/opensuse/bci/bci-init:latest
+
+RUN zypper in -y \
+        podman \
+        git \
+        golang \
+        gawk \
+    && zypper clean all
+
+# remove some units that end up always crashing
+RUN systemctl mask \
+        systemd-remount-fs.service \
+        dev-hugepages.mount \
+        sys-fs-fuse-connections.mount \
+        systemd-logind.service \
+        getty.target \
+        console-getty.service
+
+RUN mkdir -p /etc/containers/systemd \
+ && mkdir -p /var/lib/materia/components \
+ && mkdir -p /usr/local/bin
+
+# module cache
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+RUN systemctl enable podman.socket
+
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

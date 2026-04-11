@@ -169,3 +169,21 @@ run = [
 [tasks.vulncheck]
 tools = { "go:golang.org/x/vuln/cmd/govulncheck" = "latest" }
 run = "govulncheck ./..."
+
+[tasks.integration]
+depends = [ "build" ]
+env.DOCKER_HOST="unix://{{env.XDG_RUNTIME_DIR}}/podman/podman.sock"
+usage = '''
+  arg "[test]" help="Test to run" 
+  flag "-k --keep" <keep> help="Keep container after running" default=#false
+'''
+raw = true
+run = '''
+  export TESTCONTAINERS_RYUK_DISABLED=${usage_keep}
+  gotestsum --format standard-verbose -- \
+  {%- if usage.test != "" -%} -run {{usage.test}} \ {%- endif -%}
+  -v \
+  -failfast \
+  -count=1 \
+  ./scripts/integration-tests/...
+'''

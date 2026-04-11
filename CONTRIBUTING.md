@@ -25,7 +25,7 @@ Basic contribution overview:
 
 1. Build your changes with `mise r build`
 2. Lint and run unit tests with `mist r test`
-3. If possible, run the integration tests with `mise r virter-test`
+3. If possible, run the integration tests with `mise r integration`
 4. Submit your merge request or patchset.
 
 ### Building and testing the project.
@@ -36,7 +36,7 @@ Basic contribution overview:
 
 3. `mise r test` will run the formatter, linter, and unit tests for the project. All tests should pass.
 
-4. Materia has a series of integrations tests in `./virter/integration_test.go` that are designed to be run in a VM. The officially supported and automated way of doing this is with the [virter](https://github.com/LINBIT/virter) tool and the `mise r virter-test` task. If you are having issues setting up virter please see the [setting up virter](#setting-up-virter) section. `virter-test` will automatically build materia, create the virter VM, copy the latest build and test files into the vm, and run `mise r virter-testsuite`. If you are just making a small code change you do not need to do this, however these tests will be run on any merge requests or patches submitted before acceptance.
+4. Materia has a series of integration tests in `./scripts/integration-tests/` that run in a [testcontainers](https://golang.testcontainers.org/) based setup. Run them using the `mise r integration` command. These tests require privileged user namespace support.
 
 5. Submit your changes with descriptive commit message. The [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) standard is recommended.
 
@@ -48,8 +48,18 @@ If your changes are contributing a new feature, please include documentation and
 
 If you plan on contributing more to your PR before review but after opening it, please mark it as a draft.
 
+## Verifying you can run testcontainers
+
+Integration tests require privileged user namespace support. Some older kernels (pre 6.1) will not support this.
+
+You can check the status of the `kernel.unprivileged_userns_clone` flag, but otherwise verify your system supports it with the following:
+
+    podman run --privileged --pid=host fedora true
+
 
 ## Setting up virter
+
+Virter-based integration testing is being phased out. These instructions are kept around for running materia in a virtual machine for non-automated testing.
 
 Virter is a tool for creating libvirt VMs quickly and automatically. It will be auto-installed by mise when you run the `mise r virter-test` command. Otherwise, you can install it directly from the [virter repository](https://github.com/LINBIT/virter).
 

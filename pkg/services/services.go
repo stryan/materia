@@ -101,14 +101,14 @@ func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, err
 	sm.DryrunQuadlets = cfg.DryrunQuadlets
 	sm.isRoot = currentUser.Username == "root"
 
-	if cfg.DbusSocket != "" {
+	if cfg.DbusSocket == "" {
 		if sm.isRoot {
-			sm.Conn, err = dbus.NewUserConnectionContext(ctx)
+			sm.Conn, err = dbus.NewSystemConnectionContext(ctx)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			sm.Conn, err = dbus.NewSystemConnectionContext(ctx)
+			sm.Conn, err = dbus.NewUserConnectionContext(ctx)
 			if err != nil {
 				return nil, err
 			}
