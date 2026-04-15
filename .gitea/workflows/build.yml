@@ -30,10 +30,9 @@ jobs:
         uses: actions/checkout@v4
       - uses: jdx/mise-action@v4
         with:
-          # version: "latest"  # [default: latest] mise version to install
-          install: true  # [default: true] run `mise install`
-          cache: true  # [default: true] cache mise using GitHub's cache
-          experimental: true  # [default: false] enable experimental features
+          install: true  
+          cache: false  
+          experimental: true  
           github_token: ${{ secrets.GH_TOKEN }}
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
