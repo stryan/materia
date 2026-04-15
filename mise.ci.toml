@@ -10,7 +10,7 @@ run = "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd6
 [tasks.ci-release]
 env = { CGO_ENABLE = 0 }
 tools.gh = "latest"
-depends = ["build", "test"]
+depends = ["build", "test", "integration"]
 run = [
   "git remote add mirror git@github.com:stryan/materia",
   "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:stable --push .",
