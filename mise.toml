@@ -177,11 +177,11 @@ run = "govulncheck ./..."
 depends = [ "build" ]
 usage = '''
   arg "[test]" help="Test to run" 
-  flag "-k --keep" <keep> help="Keep container after running" default=#false
+  flag "-k --keep" help="Keep container after running" default=#false
 '''
 raw = true
 run = '''
-  export TESTCONTAINERS_RYUK_DISABLED=${usage_keep}
+  export TESTCONTAINERS_RYUK_DISABLED={{usage.keep}}
   gotestsum --format standard-verbose -- \
   {%- if usage.test != "" -%} -run {{usage.test}} \ {%- endif -%}
   -v \

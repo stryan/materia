@@ -7,13 +7,13 @@ image_registry = "${IMAGE_REGISTRY}"
 
 [tasks.ci]
 env = { CGO_ENABLE = 0 }
-depends = ["build", "test", "integration"]
+depends = ["build", "test", "integration -k"]
 run = "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:{{vars.container_tag}} ."
 
 [tasks.ci-release]
 env = { CGO_ENABLE = 0 }
 tools.gh = "latest"
-depends = ["build", "test", "integration"]
+depends = ["build", "test", "integration -k"]
 run = [
   "git remote add mirror git@github.com:stryan/materia",
   "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:stable --push .",
