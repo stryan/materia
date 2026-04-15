@@ -4,7 +4,7 @@ image_registry = "${IMAGE_REGISTRY}"
 
 [tasks.ci]
 env = { CGO_ENABLE = 0 }
-depends = ["build", "test"]
+depends = ["build", "test", "integration"]
 run = "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:{{vars.container_tag}} ."
 
 [tasks.ci-release]
