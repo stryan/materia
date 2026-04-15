@@ -11,7 +11,7 @@ sops = "latest"
 experimental = true
 
 [env]
-DOCKER_HOST="unix://{{env.XDG_RUNTIME_DIR}}/podman/podman.sock"
+DOCKER_HOST="unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
 
 [vars]
 CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
