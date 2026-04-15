@@ -17,6 +17,7 @@ func startTestContainer(ctx context.Context, bin string) (testcontainers.Contain
 		},
 		// needs privliedged for podman in podman
 		Privileged: true,
+		Networks:   []string{"podman"},
 	}
 
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
