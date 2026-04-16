@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
 )
 
@@ -15,9 +16,13 @@ func startTestContainer(ctx context.Context, bin string) (testcontainers.Contain
 			Dockerfile: "Containerfile.test",
 			KeepImage:  true,
 		},
-		// needs privliedged for podman in podman
+		// needs privileged for podman in podman
 		Privileged: true,
-		Networks:   []string{"podman"},
+		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.DNS = []string{"1.1.1.1", "1.0.0.1"}
+		},
+
+		Networks: []string{"podman"},
 	}
 
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

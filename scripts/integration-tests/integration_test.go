@@ -27,11 +27,15 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("failed to start test container: %v\n", err)
 	}
-	defer func() { _ = tc.Terminate(context.Background()) }()
 	if tc == nil {
 		log.Fatal("no test container")
 	}
-	os.Exit(m.Run())
+	ec := m.Run()
+	err = tc.Terminate(ctx)
+	if err != nil {
+		log.Fatalf("error terminating test container: %v", err)
+	}
+	os.Exit(ec)
 }
 
 func TestVersion(t *testing.T) {
