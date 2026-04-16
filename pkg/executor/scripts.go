@@ -41,8 +41,10 @@ func setupScript(ctx context.Context, e *Executor, v actions.Action) error {
 		return err
 	}
 	// we succesfully setup, remove any cleanup script instances
-	if err := e.host.ApplyService(ctx, cleanupName, services.ServiceStop, e.defaultTimeout); err != nil {
-		log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
+	if srv, err := e.host.GetService(ctx, cleanupName); err == nil && srv.State == "active" {
+		if err := e.host.ApplyService(ctx, cleanupName, services.ServiceStop, e.defaultTimeout); err != nil {
+			log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
+		}
 	}
 	return nil
 }
@@ -55,8 +57,10 @@ func cleanupScript(ctx context.Context, e *Executor, v actions.Action) error {
 		return err
 	}
 	// we succesfully setup, remove any setup script instances
-	if err := e.host.ApplyService(ctx, setupName, services.ServiceStop, e.defaultTimeout); err != nil {
-		log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
+	if srv, err := e.host.GetService(ctx, setupName); err == nil && srv.State == "active" {
+		if err := e.host.ApplyService(ctx, setupName, services.ServiceStop, e.defaultTimeout); err != nil {
+			log.Warnf("couldn't remove old setup script instance for %v: %v", v.Parent.Name, err)
+		}
 	}
 	return nil
 }

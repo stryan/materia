@@ -524,12 +524,15 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 		if err != nil {
 			return diffActions, fmt.Errorf("can't get service %v when generating volume migration: %w", s.Service, err)
 		}
-		if currentServ.State != "active" {
+		if !currentServ.Started() {
 			continue
 		}
 		stopAction, err := getServiceAction(s, parent, actions.ActionStop)
 		if err != nil {
 			return diffActions, err
+		}
+		if stopAction.Metadata == nil {
+			stopAction.Metadata = &actions.ActionMetadata{}
 		}
 		stopAction.Priority = 1
 		stopState := "inactive"
@@ -562,11 +565,16 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 		Priority: 4,
 	})
 	for _, s := range stoppedServiceActions {
-		startAction := s
+		startAction := actions.Action{
+			Target: s.Target,
+		}
 		startAction.Todo = actions.ActionStart
+		startAction.Parent = parent
 		startAction.Priority = 5
 		startState := "active"
-		startAction.Metadata.ServiceUntilState = &startState
+		startAction.Metadata = &actions.ActionMetadata{
+			ServiceUntilState: &startState,
+		}
 		diffActions = append(diffActions, startAction)
 	}
 	return diffActions, nil
@@ -647,8 +655,14 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 		name = res.Service()
 	}
 	liveService, err := mgr.GetService(ctx, parent.Instantiate(name))
-	if err != nil {
+	if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
 		return nil, err
+	}
+	if errors.Is(err, services.ErrServiceNotFound) {
+		liveService = &services.Service{
+			Name:  parent.Instantiate(name),
+			State: "non-existent",
+		}
 	}
 	return liveService, nil
 }

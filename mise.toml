@@ -10,6 +10,9 @@ sops = "latest"
 [settings]
 experimental = true
 
+[env]
+DOCKER_HOST="unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
+
 [vars]
 CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
@@ -169,3 +172,21 @@ run = [
 [tasks.vulncheck]
 tools = { "go:golang.org/x/vuln/cmd/govulncheck" = "latest" }
 run = "govulncheck ./..."
+
+[tasks.integration]
+depends = [ "build" ]
+usage = '''
+  arg "[test]" help="Test to run" 
+  flag "-k --keep" help="Keep container after running" default=#false
+'''
+raw = true
+run = '''
+  export TESTCONTAINERS_RYUK_DISABLED={{usage.keep}}
+  export MATERIA_KEEP_TEST_CONTAINER={{usage.keep}}
+  gotestsum --format standard-verbose -- \
+  {%- if usage.test != "" -%} -run {{usage.test}} \ {%- endif -%}
+  -v \
+  -failfast \
+  -count=1 \
+  ./scripts/integration-tests/...
+'''

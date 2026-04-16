@@ -3,7 +3,6 @@ package planner
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -601,7 +600,6 @@ func TestPlanUpdatedComponent(t *testing.T) {
 				t.Fatal("PlanUpdatedComponent() succeeded unexpectedly")
 			}
 
-			fmt.Fprintf(os.Stderr, "FBLTHP[3]: planner_test.go:608: got=%+v\n", got)
 			for k, v := range tt.want {
 				if k >= len(got) {
 					t.Log(got)
