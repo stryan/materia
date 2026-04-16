@@ -18,7 +18,6 @@ func clearEnv(ctx context.Context, tc testcontainers.Container) {
 			"sh", "-c",
 			fmt.Sprintf("sed -i '/^export %s=/d' /tmp/materia-test-env.sh", k),
 		})
-		_, _, _ = tc.Exec(ctx, []string{"unset", k})
 	}
 	materiaEnv = nil
 }
