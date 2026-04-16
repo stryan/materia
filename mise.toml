@@ -182,6 +182,7 @@ usage = '''
 raw = true
 run = '''
   export TESTCONTAINERS_RYUK_DISABLED={{usage.keep}}
+  export MATERIA_KEEP_TEST_CONTAINER={{usage.keep}}
   gotestsum --format standard-verbose -- \
   {%- if usage.test != "" -%} -run {{usage.test}} \ {%- endif -%}
   -v \

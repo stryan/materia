@@ -31,6 +31,9 @@ func TestMain(m *testing.M) {
 		log.Fatal("no test container")
 	}
 	ec := m.Run()
+	if keep := os.Getenv("MATERIA_KEEP_TEST_CONTAINER"); keep == "true" {
+		os.Exit(ec)
+	}
 	err = tc.Terminate(ctx)
 	if err != nil {
 		log.Fatalf("error terminating test container: %v", err)

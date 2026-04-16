@@ -16,10 +16,9 @@ func startTestContainer(ctx context.Context, bin string) (testcontainers.Contain
 			Dockerfile: "Containerfile.test",
 			KeepImage:  true,
 		},
-		// needs privileged for podman in podman
-		Privileged: true,
 		HostConfigModifier: func(hc *container.HostConfig) {
 			hc.DNS = []string{"1.1.1.1", "1.0.0.1"}
+			hc.Privileged = true // for podman in podman
 		},
 
 		Networks: []string{"podman"},
