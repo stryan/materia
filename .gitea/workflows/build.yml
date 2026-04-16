@@ -21,6 +21,7 @@ env:
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  RYUK_CONTAINER_PRIVILEGED: true
 jobs:
   # Build job
   build:
@@ -58,6 +59,9 @@ jobs:
             export TAG=latest
           fi
           mise ci
+      - name: Cleanup leftover containers
+        if: always()
+        run: docker ps -aq --filter "label=org.testcontainers=true" | xargs -r docker rm -f
       - name: Logout registry
         run: docker logout $(IMAGE_REGISTRY)
       - name: Logout registry
