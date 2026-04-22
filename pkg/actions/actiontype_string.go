@@ -32,8 +32,9 @@ const _ActionType_name = "UnknownInstallRemoveUpdateStartStopRestartReloadEnable
 var _ActionType_index = [...]uint8{0, 7, 14, 20, 26, 31, 35, 42, 48, 54, 61, 67, 72, 79, 84, 90, 94, 101}
 
 func (i ActionType) String() string {
-	if i < 0 || i >= ActionType(len(_ActionType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ActionType_index)-1 {
 		return "ActionType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ActionType_name[_ActionType_index[i]:_ActionType_index[i+1]]
+	return _ActionType_name[_ActionType_index[idx]:_ActionType_index[idx+1]]
 }

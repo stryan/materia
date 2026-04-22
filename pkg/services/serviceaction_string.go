@@ -22,8 +22,9 @@ const _ServiceAction_name = "StartStopRestartReloadUnitsEnableDisableReloadServi
 var _ServiceAction_index = [...]uint8{0, 5, 9, 16, 27, 33, 40, 53}
 
 func (i ServiceAction) String() string {
-	if i < 0 || i >= ServiceAction(len(_ServiceAction_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ServiceAction_index)-1 {
 		return "ServiceAction(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ServiceAction_name[_ServiceAction_index[i]:_ServiceAction_index[i+1]]
+	return _ServiceAction_name[_ServiceAction_index[idx]:_ServiceAction_index[idx+1]]
 }

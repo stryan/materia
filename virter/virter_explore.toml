@@ -1,14 +1,20 @@
 version = 1
 
+[values]
+RemoteHost = "github.com"
+AgeKeyLocation = "./virter/explore_repo/test-key.txt"
 
 [env]
 MATERIA_DEBUG = "true"
 MATERIA_DIFFS = "true"
+MATERIA_GIT_PRIVATE_KEY = ".ssh/materia_key"
+MATERIA_HOSTNAME = "localhost"
+REMOTEHOST = "{{ .RemoteHost }}"
 
 [[steps]]
 [steps.shell]
 script = """
-yum install -y make rsync podman git go
+yum install -y make rsync podman git go vim
 mkdir -p /var/lib/materia
 mkdir -p /etc/materia
 rm -rf /root/materia
@@ -27,8 +33,13 @@ dest = "/root/.ssh/"
 
 [[steps]]
 [steps.rsync]
-source = "virter/out/"
-dest = "/tmp/out/"
+source = "virter/config.toml"
+dest = "/etc/materia/config.toml"
+
+[[steps]]
+[steps.rsync]
+source = "./virter/explore-repo/test-key.txt"
+dest = "/etc/materia/key.txt"
 
 [[steps]]
 [steps.rsync]
@@ -38,14 +49,14 @@ dest = "/root/materia"
 [[steps]]
 [steps.shell]
 script = """
+ssh-keyscan $REMOTEHOST >> ~/.ssh/known_hosts
 cd /root/materia/
-rm -f go.work go.work.sum
 if ! command -v mise >/dev/null 2>&1
 then
 	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 	mise trust .
+	mise install
+	echo 'eval "$(usr/local/bin/mise activate bash)"' >> ~/.bashrc
 fi
-rm -f mise.local.toml mise.local.lock
-systemctl enable --now podman.socket
-mise task run virter-testsuite
+systemctl enable podman.socket
 """

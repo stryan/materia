@@ -1,4 +1,0 @@
-driver: file
-file:
-  directory: /etc/carpal/resources/
-

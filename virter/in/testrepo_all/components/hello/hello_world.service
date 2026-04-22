@@ -1,6 +1,0 @@
-[Unit]
-Description=Hello world script
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/hello.sh

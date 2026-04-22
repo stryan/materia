@@ -1,9 +1,0 @@
-[hosts.localhost]
-components = ["hello", "freshrss"]
-roles = ["base", "double"]
-
-[roles.base]
-components = ["carpal"]
-
-[roles.double]
-components = ["double"]

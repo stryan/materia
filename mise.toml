@@ -49,52 +49,18 @@ run = [
   "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./internal/... ./pkg/...",
 ]
 
-[tasks.virter-age]
-dir = "virter"
-run = """
-  for file in $(find . -path "./in/*/secrets/*.toml"); do
-    echo "encrypting $file"
-    age -r {{vars.AGEKEY}} -o $(dirname $file)/$(basename $file .toml).age $file;
-  done
-"""
-
-[tasks.virter-sops]
-dir = "virter"
-run = """
-  for file in $(find . -path "*/secrets/*.yml" ! -name "*.enc.yml"); do
-    echo "encrypting $file"
-    sops encrypt --age {{vars.AGEKEY}} $file > $(dirname $file)/$(basename $file .yml).enc.yml
-  done
-"""
-
-[tasks.virter-test]
+[tasks.virter]
+depends = ["build-amd64"]
 tools."github:LINBIT/virter" = "latest"
-usage = '''
-flag "-k --keep" help="Keep VM after running tests" default=#false
-flag "-v --verbose" help="Run tests with verbose enabled" default=#false
-'''
-depends = ["build", "test", "virter-age", "virter-sops"]
-run = '''
+usage = """
+  flag "-f --fresh" help="Create a new VM if one is currently running" default=#false
+"""
+run = """
   #!/usr/bin/env bash
-  if ! virter vm exists materia-test-alma-9; then virter vm run --name materia-test-alma-9 --id 102 --wait-ssh alma-9; fi
-  virter vm exec materia-test-alma-9 --provision ./virter/virter_test.toml
-  [[ "${usage_keep?}" == "false" ]] && virter vm rm materia-test-alma-9 || echo "keeping vm"
-'''
-
-[tasks.virter-testsuite]
-usage = '''
-flag "-v --verbose" help="Verbose gotestum output" default=#false
-'''
-dir = "virter"
-run = "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %}"
-
-[tasks.virter-explore]
-depends = ["build-amd64", "lint", "test", "virter-age"]
-run = [
-  "if virter vm exists materia-explore-alma-9; then virter vm rm materia-explore-alma-9; fi",
-  "virter vm run --name materia-explore-alma-9 --id 0 --wait-ssh alma-9",
-  "virter vm exec materia-explore-alma-9 --provision ./scripts/virter_provision_explore.toml --set values.RemoteHost=$MATERIA_TEST_REPO_HOST",
-]
+  [[ "${usage_fresh}" == "true" ]] && if virter vm exists materia-explore-alma-9; then virter vm rm materia-explore-alma-9; fi
+  if ! virter vm exists materia-explore-alma-9; then virter vm run --name materia-explore-alma-9 --id 102 --wait-ssh alma-9; fi
+  virter vm exec materia-explore-alma-9 --provision virter/virter_explore.toml
+"""
 
 [tasks.generate]
 description = "Run go:generate"

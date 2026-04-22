@@ -24,8 +24,9 @@ const _ComponentLifecycle_name = "UnknownStaleFreshOKMayNeedUpdateNeedUpdateNeed
 var _ComponentLifecycle_index = [...]uint8{0, 7, 12, 17, 19, 32, 42, 53, 60, 64}
 
 func (i ComponentLifecycle) String() string {
-	if i < 0 || i >= ComponentLifecycle(len(_ComponentLifecycle_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_ComponentLifecycle_index)-1 {
 		return "ComponentLifecycle(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ComponentLifecycle_name[_ComponentLifecycle_index[i]:_ComponentLifecycle_index[i+1]]
+	return _ComponentLifecycle_name[_ComponentLifecycle_index[idx]:_ComponentLifecycle_index[idx+1]]
 }

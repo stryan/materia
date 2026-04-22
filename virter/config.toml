@@ -1,0 +1,11 @@
+debug = true
+diffs = true
+hostname = "localhost"
+
+[source]
+kind = "file"
+url = "/root/materia/virter/explore-repo"
+
+[age]
+keyfile = "/etc/materia/key.txt"
+basedir = "secrets"

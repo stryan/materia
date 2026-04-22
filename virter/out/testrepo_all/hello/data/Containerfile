@@ -1,2 +1,0 @@
-FROM busybox
-COPY /var/lib/materia/components/hello/test.env /test.env

@@ -57,11 +57,15 @@ You can check the status of the `kernel.unprivileged_userns_clone` flag, but oth
     podman run --privileged --pid=host fedora true
 
 
-## Setting up virter
+## Using virter for testing
 
-Virter-based integration testing is being phased out. These instructions are kept around for running materia in a virtual machine for non-automated testing.
+Virter is a tool for creating libvirt VMs quickly and automatically. It will be auto-installed by mise when you run the `mise r virter` command. Otherwise, you can install it directly from the [virter repository](https://github.com/LINBIT/virter).
 
-Virter is a tool for creating libvirt VMs quickly and automatically. It will be auto-installed by mise when you run the `mise r virter-test` command. Otherwise, you can install it directly from the [virter repository](https://github.com/LINBIT/virter).
+The `mise r virter` command will spin up an Alma-9 based VM with materia installed and an example repository ready for use. You can ssh to this VM with `virter vm ssh materia-explore-alma9`. By default it installs a config file to `/etc/materia/config.toml`.
+
+This config file sets the source repository to `./virter/explore-repo/` and the hostname to `localhost`.
+
+### Setting up virter
 
 If you have not used libvirt virtual machines before, you may need to set it up and create a `default` storage pool.
 
