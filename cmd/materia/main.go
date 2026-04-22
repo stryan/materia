@@ -54,6 +54,12 @@ func main() {
 				},
 			},
 		},
+		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
+			if _, err := os.Stat("/etc/materia/config.toml"); err == nil {
+				configFile = "/etc/materia/config.toml"
+			}
+			return ctx, nil
+		},
 		Commands: []*cli.Command{
 			{
 				Name:  "config",
