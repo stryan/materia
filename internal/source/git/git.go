@@ -18,6 +18,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	xssh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+	"primamateria.systems/materia/pkg/source"
 )
 
 type GitSource struct {
@@ -127,7 +128,7 @@ func NewGitSource(c *Config) (*GitSource, error) {
 	return g, nil
 }
 
-func (g *GitSource) Sync(ctx context.Context) error {
+func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) error {
 	localPath := g.localRepository
 	localBranch := g.activeBranch
 	repoURL := g.remoteRepository
@@ -186,7 +187,7 @@ func (g *GitSource) Sync(ctx context.Context) error {
 
 		// If we're already on the target branch, skip checkout
 		if currentBranch != expectedBranchRef {
-			err = g.checkoutBranch(ctx, r, g.activeBranch)
+			err = g.checkoutBranch(ctx, r, g.activeBranch, opts.Subpath)
 			if err != nil {
 				return fmt.Errorf("error checking out requested branch: %w", err)
 			}
@@ -205,7 +206,7 @@ func (g *GitSource) Sync(ctx context.Context) error {
 			return fmt.Errorf("error getting current branch: %w", err)
 		}
 		if currentBranch != defaultBranch {
-			err = g.checkoutBranch(ctx, r, defaultBranch)
+			err = g.checkoutBranch(ctx, r, defaultBranch, opts.Subpath)
 			if err != nil {
 				return fmt.Errorf("error reverting to default branch: %w", err)
 			}
@@ -237,6 +238,11 @@ func (g *GitSource) Sync(ctx context.Context) error {
 					return fmt.Errorf("failed to pull after hard reseting: %w", err)
 				}
 			}
+		}
+	}
+	if opts.Revision != "" {
+		if err := g.checkoutRevision(ctx, r, opts.Revision); err != nil {
+			return fmt.Errorf("failed to checkout revision %v: %w", opts.Revision, err)
 		}
 	}
 	return nil
@@ -337,17 +343,20 @@ func (g *GitSource) fetchOrigin(ctx context.Context, repo *git.Repository, refSp
 	return nil
 }
 
-func (g *GitSource) checkoutBranch(ctx context.Context, r *git.Repository, branch string) error {
+func (g *GitSource) checkoutBranch(ctx context.Context, r *git.Repository, branch, subpath string) error {
 	w, err := r.Worktree()
 	if err != nil {
 		return err
 	}
 
-	// ... checking out branch
 	branchRefName := plumbing.NewBranchReferenceName(branch)
 	branchCoOpts := git.CheckoutOptions{
 		Branch: plumbing.ReferenceName(branchRefName),
 		Force:  true,
+	}
+
+	if subpath != "" {
+		branchCoOpts.SparseCheckoutDirectories = []string{subpath}
 	}
 	if err := w.Checkout(&branchCoOpts); err != nil {
 		mirrorRemoteBranchRefSpec := fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch)
@@ -362,4 +371,21 @@ func (g *GitSource) checkoutBranch(ctx context.Context, r *git.Repository, branc
 		}
 	}
 	return nil
+}
+
+func (g *GitSource) checkoutRevision(_ context.Context, r *git.Repository, revision string) error {
+	w, err := r.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	hash, err := r.ResolveRevision(plumbing.Revision(revision))
+	if err != nil {
+		return fmt.Errorf("failed to resolve revision %q: %w", revision, err)
+	}
+
+	return w.Checkout(&git.CheckoutOptions{
+		Hash:  *hash,
+		Force: g.resetIfNeeded,
+	})
 }

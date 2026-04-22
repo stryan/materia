@@ -26,6 +26,7 @@ type RemoteComponentConfig struct {
 	GitSource  *git.Config        `toml:"git,omitempty"`
 	OciSource  *oci.Config        `toml:"oci,omitempty"`
 	FileSource *filesource.Config `toml:"file,omitempty"`
+	Subpath    string             `toml:"subpath"`
 }
 
 type MateriaManifest struct {

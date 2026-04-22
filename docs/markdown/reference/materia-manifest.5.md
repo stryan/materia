@@ -97,9 +97,14 @@ A TOML table of containing roles entries of the following format:
 A TOML table containing Remote Component entries of the following format:
 
       [Remote.COMPONENT_LOCAL_NAME]
-      URL = "git://github.com/example/component_name"
-      Version = "v1" # optional
+      Revision = "v1" # optional
+      Subpath = "component" # optional
+      [Remote.COMPONENT_LOCAL_NAME.git]
+      URL = "https://github.com/example/component_name"
 
+Remote components use the same source format as the normal repository sources in *materia-source(5)*.
+
+For most cases, the main table can be skipped and only a source is needed.
 
 #### **Snippets**
 

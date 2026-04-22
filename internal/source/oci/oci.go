@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"primamateria.systems/materia/pkg/source"
 )
 
 type OCISource struct {
@@ -52,8 +53,13 @@ func NewOCISource(c *Config) (*OCISource, error) {
 	return o, nil
 }
 
-func (o *OCISource) Sync(ctx context.Context) error {
-	imageRef := fmt.Sprintf("%s/%s:%s", o.registry, o.repository, o.tag)
+func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
+	revision := o.tag
+	if opts.Revision != "" {
+		// Debatable whether OCI should support a seperate revision here
+		revision = opts.Revision
+	}
+	imageRef := fmt.Sprintf("%s/%s:%s", o.registry, o.repository, revision)
 	log.Infof("Pulling OCI image %s", imageRef)
 
 	ref, err := name.ParseReference(imageRef)
@@ -61,16 +67,16 @@ func (o *OCISource) Sync(ctx context.Context) error {
 		return fmt.Errorf("failed to parse image reference: %w", err)
 	}
 
-	opts := []remote.Option{
+	remoteOpts := []remote.Option{
 		remote.WithAuth(o.auth),
 		remote.WithContext(ctx),
 	}
 
 	if o.insecure {
-		opts = append(opts, remote.WithTransport(remote.DefaultTransport))
+		remoteOpts = append(remoteOpts, remote.WithTransport(remote.DefaultTransport))
 	}
 
-	img, err := remote.Image(ref, opts...)
+	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}

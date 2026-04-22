@@ -42,7 +42,7 @@ func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 
 func (s *SourceManager) Sync(ctx context.Context) error {
 	for _, src := range s.sources {
-		err := src.Sync(ctx)
+		err := src.Sync(ctx, source.SyncOpts{})
 		if err != nil {
 			return fmt.Errorf("error syncing source: %w", err)
 		}
@@ -98,8 +98,13 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		if remoteSource == nil {
 			return fmt.Errorf("remote %v has no valid source config", name)
 		}
-		if err := remoteSource.Sync(ctx); err != nil {
+		if err := remoteSource.Sync(ctx, source.SyncOpts{
+			Subpath: r.Subpath,
+		}); err != nil {
 			return err
+		}
+		if r.Subpath != "" {
+			localpath = filepath.Join(localpath, r.Subpath)
 		}
 		if _, err := os.Stat(filepath.Join(localpath, manifests.ComponentManifestFile)); err != nil {
 			if errors.Is(err, os.ErrNotExist) {

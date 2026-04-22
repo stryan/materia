@@ -33,9 +33,8 @@ const _ResourceType_name = "UnknownComponentHostContainerVolumePodNetworkKubeBui
 var _ResourceType_index = [...]uint8{0, 7, 16, 20, 29, 35, 38, 45, 49, 54, 59, 66, 74, 78, 86, 92, 101, 108, 120}
 
 func (i ResourceType) String() string {
-	idx := int(i) - 0
-	if i < 0 || idx >= len(_ResourceType_index)-1 {
+	if i >= ResourceType(len(_ResourceType_index)-1) {
 		return "ResourceType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ResourceType_name[_ResourceType_index[idx]:_ResourceType_index[idx+1]]
+	return _ResourceType_name[_ResourceType_index[i]:_ResourceType_index[i+1]]
 }
