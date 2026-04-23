@@ -210,7 +210,32 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 	return roles, nil
 }
 
-func (m *Materia) Clean(ctx context.Context) error {
+func (m *Materia) Clean(ctx context.Context, force bool) error {
+	if !force {
+		installedComps, err := m.Host.ListComponentNames()
+		if err != nil {
+			return err
+		}
+		hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
+		comps := make([]*components.Component, 0, len(installedComps))
+		for _, name := range installedComps {
+			hostComponent := components.NewComponent(name)
+			err = hostPipeline.Load(ctx, hostComponent)
+			if err != nil {
+				return fmt.Errorf("can't load host component %v: %w", name, err)
+			}
+			comps = append(comps, hostComponent)
+		}
+
+		removalPlan, err := m.Planner.Plan(ctx, "local", comps, []*components.Component{})
+		if err != nil {
+			return err
+		}
+		_, err = m.Executor.Execute(ctx, removalPlan)
+		if err != nil {
+			return err
+		}
+	}
 	err := m.Host.Clean()
 	if err != nil {
 		return err

@@ -445,12 +445,19 @@ func main() {
 			{
 				Name:  "clean",
 				Usage: "remove all related file paths",
-				Action: func(_ context.Context, _ *cli.Command) error {
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "force",
+						Aliases: []string{"f"},
+						Usage:   "Don't try to remove components gracefully before cleaning",
+					},
+				},
+				Action: func(_ context.Context, cCtx *cli.Command) error {
 					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					return m.Clean(ctx)
+					return m.Clean(ctx, cCtx.Bool("force"))
 				},
 			},
 			{

@@ -132,8 +132,12 @@ Detect and optionally remove corrupted installed components.
 
 **--remove, -r**: Actually remove corrupted components (default is dry run)
 
-#### clean
-Remove all related file paths and cleanup
+#### clean [flags]
+Remove all related file paths and cleanup. Attempts to plan and execute removals for all installed components first.
+
+##### Flags
+
+**--force, -f**: Do not attempt to gracefully remove components before cleaning up filepaths.
 
 #### version
 Display version information

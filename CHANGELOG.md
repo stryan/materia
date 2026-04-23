@@ -15,6 +15,8 @@ Best effort list of major changes and bugfixes
 - refactor/note: volume dump file are now in the format `volumename-volume.tar(.gz/zst)`.
 - feat: `PreCommand` and `PostCommand` component manifest settings for running scripts before or after an update. Experimental.
 - feat: Remote components can specify a `subpath` to use.
+- tests: new testcontainers based setup to replace virter tests
+- feat: `clean` command now attempts to gracefully remove components. Skippable with `--force`.
 
 ## 0.6.4
 - No user facing changes
