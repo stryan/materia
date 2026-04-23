@@ -56,7 +56,7 @@ then
 	curl https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh
 	mise trust .
 	mise install
-	echo 'eval "$(usr/local/bin/mise activate bash)"' >> ~/.bashrc
+	echo 'eval "$(/usr/local/bin/mise activate bash)"' >> ~/.bashrc
 fi
 systemctl enable podman.socket
 """
