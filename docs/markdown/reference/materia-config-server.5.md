@@ -24,9 +24,29 @@ How long (in seconds) for `materia server` to wait before running a `materia upd
 
 How long (in seconds) for `materia server` to wait before running a `materia plan`.
 
-#### MATERIA_SERVER__WEBHOOK/server.webhook
+#### MATERIA_SERVER__NOTIFY_WEBHOOK/server.notify_webhook
 
 Where to send webhook notifications on plan/update failure
+
+#### MATERIA_SERVER__SYNC_WEBHOOK/server.sync_webhook
+
+True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON payloads in the following format:
+
+```json
+{
+    "revision": "optional: revision to sync to",
+    "update": true|false,
+    "secret": "pre-shared secret: server.secret"
+}
+```
+
+#### MATERIA_SERVER__SYNC_SECRET/server.sync_secret
+
+Pre-shared secret for basic security on sync webhook
+
+#### MATERIA_SERVER__SYNC_URL/server.sync_url
+
+What URL the sync webhook listens on. Defaults to `:6284/webhook`
 
 #### MATERIA_SERVER__SOCKET/server.socket
 

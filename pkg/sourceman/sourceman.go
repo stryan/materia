@@ -21,11 +21,16 @@ type SourceManConfig struct {
 	SourceDir, RemoteDir string
 }
 
+type sourcePlan struct {
+	source.Source
+	Opts source.SyncOpts
+}
+
 type SourceManager struct {
 	components.ComponentReader
 	sourceDir string
 	remoteDir string
-	sources   []source.Source
+	sources   []sourcePlan
 }
 
 func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
@@ -40,9 +45,13 @@ func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 	}, nil
 }
 
-func (s *SourceManager) Sync(ctx context.Context) error {
+func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 	for _, src := range s.sources {
-		err := src.Sync(ctx, source.SyncOpts{})
+		o := src.Opts
+		if opts != nil {
+			o = *opts
+		}
+		err := src.Sync(ctx, o)
 		if err != nil {
 			return fmt.Errorf("error syncing source: %w", err)
 		}
@@ -50,9 +59,12 @@ func (s *SourceManager) Sync(ctx context.Context) error {
 	return nil
 }
 
-func (s *SourceManager) AddSource(newSource source.Source) error {
-	s.sources = append(s.sources, newSource)
-
+func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts) error {
+	if opts != nil {
+		s.sources = append(s.sources, sourcePlan{newSource, *opts})
+	} else {
+		s.sources = append(s.sources, sourcePlan{newSource, source.SyncOpts{}})
+	}
 	return nil
 }
 
@@ -65,7 +77,7 @@ func (s *SourceManager) LoadManifest(filename string) (*manifests.MateriaManifes
 	return man, nil
 }
 
-func (s *SourceManager) SyncRemotes(ctx context.Context) error {
+func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 	manifestLocation := filepath.Join(s.sourceDir, manifests.MateriaManifestFile)
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
@@ -98,6 +110,8 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 		if remoteSource == nil {
 			return fmt.Errorf("remote %v has no valid source config", name)
 		}
+		// Do initial sync here since we need the repository manifest downloaded before loading the remotes
+		// and will thus miss the initial Sync() call
 		if err := remoteSource.Sync(ctx, source.SyncOpts{
 			Subpath: r.Subpath,
 		}); err != nil {
@@ -111,6 +125,11 @@ func (s *SourceManager) SyncRemotes(ctx context.Context) error {
 				return fmt.Errorf("invalid remote component %v", err)
 			}
 			return fmt.Errorf("cannot determine remote component validity: %w", err)
+		}
+		if err := s.AddSource(remoteSource, &source.SyncOpts{
+			Subpath: r.Subpath,
+		}); err != nil {
+			return fmt.Errorf("unable to add remote component source %v: %w", name, err)
 		}
 
 	}

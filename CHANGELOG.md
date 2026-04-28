@@ -17,6 +17,11 @@ Best effort list of major changes and bugfixes
 - feat: Remote components can specify a `subpath` to use.
 - tests: new testcontainers based setup to replace virter tests
 - feat: `clean` command now attempts to gracefully remove components. Skippable with `--force`.
+- feat: server mode can now listen on a webhook for sync/update requests.
+    - `server.webhook` is now `server.notify_webhook`
+    - `server.sync_webhook` = true|false
+    - `server.sync_secret` = "shared secret"
+    - `server.sync_url` = URL to listen on. Default `:6284/webhook`
 
 ## 0.6.4
 - No user facing changes

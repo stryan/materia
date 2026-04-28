@@ -18,18 +18,23 @@ import (
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/source"
 	"primamateria.systems/materia/pkg/sourceman"
 )
 
 type ServerConfig struct {
 	PlanInterval, UpdateInterval int    `koanf:"plan_interval" toml:"plan_interval"`
 	Hostname                     string `koanf:"hostname" toml:"hostname"`
-	Webhook                      string `koanf:"webhook" toml:"webhook"`
+	NotifyWebhook                string `koanf:"outgoing_webhook" toml:"outgoing_webhook"`
+	SyncWebhook                  bool   `koanf:"sync_webhook" toml:"sync_webhook"`
+	SyncUrl                      string `koanf:"sync_url" toml:"sync_url"`
+	SyncSecret                   string `koanf:"sync_secret" toml:"sync_secret"`
 	Socket                       string `koanf:"socket" toml:"socket"`
 }
 
 type Server struct {
-	Webhook                      string
+	NotifyWebhook                string
+	syncSecret                   string
 	Socket                       string
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
@@ -45,7 +50,10 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	var c ServerConfig
 	c.UpdateInterval = k.Int("server.update_interval")
 	c.PlanInterval = k.Int("server.plan_interval")
-	c.Webhook = k.String("server.webhook")
+	c.NotifyWebhook = k.String("server.notify_webhook")
+	c.SyncWebhook = k.Bool("server.sync_webhook")
+	c.SyncSecret = k.String("server.sync_secret")
+	c.SyncUrl = k.String("server.sync_url")
 	c.Socket = k.String("server.socket")
 	return &c, nil
 }
@@ -84,15 +92,15 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, err
 	}
-	err = sm.AddSource(mainRepo)
+	err = sm.AddSource(mainRepo, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = sm.Sync(ctx)
+	err = sm.Sync(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error with initial repo sync: %w", err)
 	}
-	err = sm.SyncRemotes(ctx)
+	err = sm.LoadRemotes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
 	}
@@ -119,8 +127,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if err := conf.Validate(); err != nil {
 		return err
 	}
-	if conf.Webhook != "" {
-		log.Infof("Starting up with webhook %v", conf.Webhook)
+	if conf.NotifyWebhook != "" {
+		log.Infof("starting up with notify webhook %v", conf.NotifyWebhook)
 	}
 
 	m, err := serverMateria(ctx, k)
@@ -130,7 +138,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 
 	log.Info("Materia instance created")
 	serv := &Server{
-		Webhook:        conf.Webhook,
+		NotifyWebhook:  conf.NotifyWebhook,
+		syncSecret:     conf.SyncSecret,
 		Socket:         conf.Socket,
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
@@ -196,6 +205,21 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
 	}
+	if conf.SyncWebhook {
+		url := conf.SyncUrl
+		if url == "" {
+			url = ":6284"
+		}
+		wg.Add(1)
+		go func() {
+			log.Info("starting with sync webhook")
+			http.HandleFunc("/webhook", serv.syncHookHandler)
+			err := http.ListenAndServe(url, nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 	wg.Wait()
 
 	return nil
@@ -209,6 +233,16 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
+			err := s.materia.Source.Sync(ctx, nil)
+			if err != nil {
+				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to sync sources: %v", err)); nerr != nil {
+					return fmt.Errorf("execution failed to sync sources %w; plus the notification failed: %w", err, nerr)
+				}
+				if s.QuitOnError {
+					return err
+				}
+				break
+			}
 			plan, err := s.materia.Plan(ctx)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
@@ -276,7 +310,7 @@ type hookPayload struct {
 }
 
 func (s *Server) notify(ctx context.Context, msg string) error {
-	if s.Webhook == "" {
+	if s.NotifyWebhook == "" {
 		return nil
 	}
 	marshaledPayload, err := json.Marshal(hookPayload{fmt.Sprintf("%v: %v", s.materia.Hostname, msg)})
@@ -284,7 +318,7 @@ func (s *Server) notify(ctx context.Context, msg string) error {
 		return fmt.Errorf("failed to marshal payload to JSON: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Webhook, bytes.NewBuffer(marshaledPayload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.NotifyWebhook, bytes.NewBuffer(marshaledPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %v", err)
 	}
@@ -403,12 +437,86 @@ func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
 		return SocketMessage{Name: "result", Data: "success"}, nil
 	case "sync":
 		log.Info("syncing local source on request")
-		err := s.materia.Source.Sync(ctx)
+		err := s.materia.Source.Sync(ctx, nil)
 		if err != nil {
 			return errToMsg(err), nil
 		}
 		return SocketMessage{Name: "result", Data: "success"}, nil
 	default:
 		return SocketMessage{Name: "result", Data: "command not found"}, nil
+	}
+}
+
+type SyncPayload struct {
+	Revision string
+	Update   bool
+	Secret   string
+}
+
+func (s *Server) syncHookHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload SyncPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid payload json", http.StatusBadRequest)
+		return
+	}
+	if s.syncSecret != "" && s.syncSecret != payload.Secret {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	opts := &source.SyncOpts{
+		Revision: payload.Revision,
+	}
+	w.WriteHeader(http.StatusOK)
+	ctx := context.Background()
+	err := s.materia.Source.Sync(ctx, opts)
+	if err != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to sync sources: %v", err)); nerr != nil {
+			log.Warnf("execution failed to sync sources %v; plus the notification failed: %v", err, nerr)
+		}
+		if s.QuitOnError {
+			log.Fatal("quitting...")
+		}
+		return
+	}
+	plan, err := s.materia.Plan(ctx)
+	if err != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
+			log.Warnf("execution failed to generate plan %v; plus the notification failed: %v", err, nerr)
+		}
+		if s.QuitOnError {
+			log.Fatal("quitting...")
+		}
+		return
+	}
+	steps, err := s.materia.Execute(ctx, plan)
+	if err != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, len(plan.Steps()))); nerr != nil {
+			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
+		}
+		if s.QuitOnError {
+			log.Fatal("quitting...")
+		}
+		return
+	}
+	err = s.materia.SavePlan(plan, "lastrun.toml")
+	if err != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("failed to save lastrun: %v", err)); nerr != nil {
+			log.Warnf("last run saving failed %v; plus the notification failed: %v", err, nerr)
+		}
+		if s.QuitOnError {
+			log.Fatal("quitting...")
+		}
+		return
+	}
+	if steps == -1 {
+		log.Info("Sync ran; no changes made")
+	} else {
+		log.Infof("Sync ran; Steps completed: %v", steps)
 	}
 }

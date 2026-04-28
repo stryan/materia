@@ -181,20 +181,20 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, err
 	}
 	log.Debug("adding source", "source", mainRepo)
-	err = sm.AddSource(mainRepo)
+	err = sm.AddSource(mainRepo, nil)
 	if err != nil {
 		return nil, err
 	}
 	if !c.NoSync {
 		log.Debug("syncing source")
-		err = sm.Sync(ctx)
+		err = sm.Sync(ctx, nil)
 		if err != nil {
 			return nil, fmt.Errorf("error with initial repo sync: %w", err)
 		}
-		log.Debug("syncing remotes")
-		err = sm.SyncRemotes(ctx)
+		log.Debug("loading remotes")
+		err = sm.LoadRemotes(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error with repo remotes sync: %w", err)
+			return nil, fmt.Errorf("error with repo remotes load: %w", err)
 		}
 	}
 	hm, err := hostman.NewHostManager(ctx, hmc)

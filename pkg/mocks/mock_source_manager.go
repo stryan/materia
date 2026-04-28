@@ -41,16 +41,16 @@ func (_m *MockSourceManager) EXPECT() *MockSourceManager_Expecter {
 }
 
 // AddSource provides a mock function for the type MockSourceManager
-func (_mock *MockSourceManager) AddSource(source1 source.Source) error {
-	ret := _mock.Called(source1)
+func (_mock *MockSourceManager) AddSource(source1 source.Source, syncOpts *source.SyncOpts) error {
+	ret := _mock.Called(source1, syncOpts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddSource")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(source.Source) error); ok {
-		r0 = returnFunc(source1)
+	if returnFunc, ok := ret.Get(0).(func(source.Source, *source.SyncOpts) error); ok {
+		r0 = returnFunc(source1, syncOpts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -64,18 +64,24 @@ type MockSourceManager_AddSource_Call struct {
 
 // AddSource is a helper method to define mock.On call
 //   - source1 source.Source
-func (_e *MockSourceManager_Expecter) AddSource(source1 interface{}) *MockSourceManager_AddSource_Call {
-	return &MockSourceManager_AddSource_Call{Call: _e.mock.On("AddSource", source1)}
+//   - syncOpts *source.SyncOpts
+func (_e *MockSourceManager_Expecter) AddSource(source1 interface{}, syncOpts interface{}) *MockSourceManager_AddSource_Call {
+	return &MockSourceManager_AddSource_Call{Call: _e.mock.On("AddSource", source1, syncOpts)}
 }
 
-func (_c *MockSourceManager_AddSource_Call) Run(run func(source1 source.Source)) *MockSourceManager_AddSource_Call {
+func (_c *MockSourceManager_AddSource_Call) Run(run func(source1 source.Source, syncOpts *source.SyncOpts)) *MockSourceManager_AddSource_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 source.Source
 		if args[0] != nil {
 			arg0 = args[0].(source.Source)
 		}
+		var arg1 *source.SyncOpts
+		if args[1] != nil {
+			arg1 = args[1].(*source.SyncOpts)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -86,7 +92,7 @@ func (_c *MockSourceManager_AddSource_Call) Return(err error) *MockSourceManager
 	return _c
 }
 
-func (_c *MockSourceManager_AddSource_Call) RunAndReturn(run func(source1 source.Source) error) *MockSourceManager_AddSource_Call {
+func (_c *MockSourceManager_AddSource_Call) RunAndReturn(run func(source1 source.Source, syncOpts *source.SyncOpts) error) *MockSourceManager_AddSource_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -625,16 +631,16 @@ func (_c *MockSourceManager_ReadResource_Call) RunAndReturn(run func(resource co
 }
 
 // Sync provides a mock function for the type MockSourceManager
-func (_mock *MockSourceManager) Sync(context1 context.Context) error {
-	ret := _mock.Called(context1)
+func (_mock *MockSourceManager) Sync(context1 context.Context, syncOpts *source.SyncOpts) error {
+	ret := _mock.Called(context1, syncOpts)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Sync")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
-		r0 = returnFunc(context1)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *source.SyncOpts) error); ok {
+		r0 = returnFunc(context1, syncOpts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -648,18 +654,24 @@ type MockSourceManager_Sync_Call struct {
 
 // Sync is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockSourceManager_Expecter) Sync(context1 interface{}) *MockSourceManager_Sync_Call {
-	return &MockSourceManager_Sync_Call{Call: _e.mock.On("Sync", context1)}
+//   - syncOpts *source.SyncOpts
+func (_e *MockSourceManager_Expecter) Sync(context1 interface{}, syncOpts interface{}) *MockSourceManager_Sync_Call {
+	return &MockSourceManager_Sync_Call{Call: _e.mock.On("Sync", context1, syncOpts)}
 }
 
-func (_c *MockSourceManager_Sync_Call) Run(run func(context1 context.Context)) *MockSourceManager_Sync_Call {
+func (_c *MockSourceManager_Sync_Call) Run(run func(context1 context.Context, syncOpts *source.SyncOpts)) *MockSourceManager_Sync_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 *source.SyncOpts
+		if args[1] != nil {
+			arg1 = args[1].(*source.SyncOpts)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -670,7 +682,7 @@ func (_c *MockSourceManager_Sync_Call) Return(err error) *MockSourceManager_Sync
 	return _c
 }
 
-func (_c *MockSourceManager_Sync_Call) RunAndReturn(run func(context1 context.Context) error) *MockSourceManager_Sync_Call {
+func (_c *MockSourceManager_Sync_Call) RunAndReturn(run func(context1 context.Context, syncOpts *source.SyncOpts) error) *MockSourceManager_Sync_Call {
 	_c.Call.Return(run)
 	return _c
 }
