@@ -15,4 +15,7 @@ RUN zypper in -y podman && zypper clean
 
 COPY ./bin/materia-${TARGETARCH} /app/materia
 
+# Install dbus policy file
+COPY install/systems.primamateria.materia.conf /etc/dbus-1/system.d/systems.primamateria.materia.conf
+
 ENTRYPOINT ["/app/materia"]

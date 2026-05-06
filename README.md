@@ -41,6 +41,8 @@ Materia supports running both root-full and rootless quadlets, however currently
 
 Note: When running in a container Materia uses the Podman remote API; therefore some features may be limited by the host's Podman API version (i.e. the container may have Podman 5.8 but if the host is 5.3 you can't use volume backups).
 
+If you are using dbus locking with `dbus-broker`, you will need to install the ./install/systems.primamateria.materia.conf config file.
+
 ## From source
 Build from source using `mise build`. By default this will generate binaries for amd64 and arm64.
 
