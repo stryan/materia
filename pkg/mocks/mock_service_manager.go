@@ -107,6 +107,50 @@ func (_c *MockServiceManager_ApplyService_Call) RunAndReturn(run func(context1 c
 	return _c
 }
 
+// Close provides a mock function for the type MockServiceManager
+func (_mock *MockServiceManager) Close() error {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Close")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func() error); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockServiceManager_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type MockServiceManager_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *MockServiceManager_Expecter) Close() *MockServiceManager_Close_Call {
+	return &MockServiceManager_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *MockServiceManager_Close_Call) Run(run func()) *MockServiceManager_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockServiceManager_Close_Call) Return(err error) *MockServiceManager_Close_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockServiceManager_Close_Call) RunAndReturn(run func() error) *MockServiceManager_Close_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetService provides a mock function for the type MockServiceManager
 func (_mock *MockServiceManager) GetService(context1 context.Context, s string) (*services.Service, error) {
 	ret := _mock.Called(context1, s)

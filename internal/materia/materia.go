@@ -24,6 +24,7 @@ import (
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/loader"
+	"primamateria.systems/materia/pkg/lock"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/planner"
@@ -40,6 +41,7 @@ type Materia struct {
 	Vault          AttributesEngine
 	Hostname       string
 	Roles          []string
+	Lock           *lock.Locker
 	macros         macros.MacroMap
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
@@ -144,11 +146,22 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		ec = *c.ExecutorConfig
 	}
 	sc := services.ServicesConfig{}
+	socketpath := ""
 	if c.ServicesConfig != nil {
 		sc = *c.ServicesConfig
+		socketpath = sc.DbusSocket
+
 	}
 	e := executor.NewExecutor(ec, hm, sc.Timeout)
 	p := planner.NewPlanner(pc, hm)
+
+	var l *lock.Locker
+	if c.LockMode {
+		l, err = lock.NewLocker(socketpath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create dbus locker: %w", err)
+		}
+	}
 
 	return &Materia{
 		Host:           hm,
@@ -166,7 +179,27 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Planner:        p,
 		Hostname:       name,
 		Roles:          roles,
+		Lock:           l,
 	}, nil
+}
+
+func (m *Materia) lock(ctx context.Context) error {
+	if m.Lock == nil {
+		return nil
+	}
+	if err := m.Lock.LockOrWait(ctx); err != nil {
+		return fmt.Errorf("unable to get materia dbus lock: %v", err)
+	}
+	return nil
+}
+
+func (m *Materia) unlock() {
+	if m.Lock == nil {
+		return
+	}
+	if err := m.Lock.Unlock(); err != nil {
+		log.Warn("error unlocking after execute: %w", err)
+	}
 }
 
 func (m *Materia) GetAssignedComponents() ([]string, error) {
@@ -272,6 +305,10 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 }
 
 func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
+	if err := m.lock(ctx); err != nil {
+		return nil, fmt.Errorf("unable to get materia dbus lock: %v", err)
+	}
+	defer m.unlock()
 	log.Debug("determining installed components")
 	installedNames, err := m.Host.ListInstalledComponents()
 	if err != nil {
@@ -441,6 +478,19 @@ func (m *Materia) SavePlan(p *plan.Plan, outputfile string) error {
 	err = toml.NewEncoder(file).Encode(planOutput)
 	if err != nil {
 		return fmt.Errorf("failed to encode plan to TOML: %w", err)
+	}
+	return nil
+}
+
+func (m *Materia) Close() error {
+	if m.Lock != nil {
+		if err := m.Lock.Close(); err != nil {
+			log.Warn("error closing dbus lock connection: %w", err)
+		}
+	}
+
+	if err := m.Host.Close(); err != nil {
+		log.Warn("error closing host manager: %w", err)
 	}
 	return nil
 }

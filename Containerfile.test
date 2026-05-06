@@ -20,6 +20,9 @@ RUN mkdir -p /etc/containers/systemd \
  && mkdir -p /var/lib/materia/components \
  && mkdir -p /usr/local/bin
 
+# Install dbus policy file
+COPY scripts/dbus-policy.conf /etc/dbus-1/system.d/systems.primamateria.materia.conf
+
 # module cache
 WORKDIR /src
 COPY go.mod go.sum ./

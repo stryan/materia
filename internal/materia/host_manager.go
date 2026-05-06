@@ -13,6 +13,7 @@ type ServiceManager interface {
 	GetService(context.Context, string) (*services.Service, error)
 	RunOneshotCommand(context.Context, int, string, []string) error
 	WaitUntilState(context.Context, string, string, int) error
+	Close() error
 }
 
 type HostManager interface {

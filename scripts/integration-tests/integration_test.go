@@ -1127,6 +1127,7 @@ func defaultConfig(t *testing.T, name string) *koanf.Koanf {
 		"file.base_dir": "attributes",
 		"source.kind":   "file",
 		"source.url":    fmt.Sprintf("file:///root/tests/%v/source", name),
+		"lock":          "true",
 	})
 }
 

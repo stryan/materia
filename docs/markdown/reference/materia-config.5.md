@@ -104,3 +104,9 @@ Enables `rootless` mode for Materia in a container. Causes materia to parse its 
 (EXPERIMENTAL)
 
 Generate `.app` files with when installing quadlets to keep them compatibile with `podman quadlet commands`.
+
+#### MATERIA_LOCK/materia.lock
+
+(EXPERIMENTAL)
+
+Uses dbus to prevent other materia services from performing destructive actions.

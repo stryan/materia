@@ -22,6 +22,7 @@ Best effort list of major changes and bugfixes
     - `server.sync_webhook` = true|false
     - `server.sync_secret` = "shared secret"
     - `server.sync_url` = URL to listen on. Default `:6284/webhook`
+- feat: `lock` option causes materia to create a dbus lock, preventing multiple instances from running destructive actions.
 
 ## 0.6.4
 - No user facing changes

@@ -135,6 +135,11 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := m.Close(); err != nil {
+			log.Warn("error closing materia server: %w", err)
+		}
+	}()
 
 	log.Info("Materia instance created")
 	serv := &Server{
@@ -153,6 +158,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	defer func() {
 		_ = socket.Close()
 	}()
+
 	var wg sync.WaitGroup
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)

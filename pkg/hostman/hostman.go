@@ -111,3 +111,9 @@ func (h *HostManager) RemoveScript(ctx context.Context, path string) error {
 func (h *HostManager) RemoveUnit(ctx context.Context, path string) error {
 	return h.Units.Remove(ctx, path)
 }
+
+func (h *HostManager) Close() error {
+	h.ServiceManager.Close()
+	h.PodmanManager.Close()
+	return nil
+}

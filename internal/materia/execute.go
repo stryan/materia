@@ -2,6 +2,7 @@ package materia
 
 import (
 	"context"
+	"fmt"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/plan"
@@ -14,6 +15,12 @@ func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (int, error) {
 		}
 		m.validatePostExecute(ctx)
 	}()
+
+	if err := m.lock(ctx); err != nil {
+		return -1, fmt.Errorf("unable to get materia dbus lock: %v", err)
+	}
+	defer m.unlock()
+
 	return m.Executor.Execute(ctx, aplan)
 }
 

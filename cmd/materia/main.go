@@ -98,6 +98,11 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
 					if arg != "" {
 						fact, err := m.Host.Lookup(arg)
 						if err != nil {
@@ -147,6 +152,11 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
 					plan, err := m.Plan(ctx)
 					if err != nil {
 						return fmt.Errorf("error planning actions: %w", err)
@@ -205,6 +215,11 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
 					plan, err := m.Plan(ctx)
 					if err != nil {
 						return err
@@ -237,6 +252,12 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
+
 					err = m.CleanComponent(ctx, comp)
 					if err != nil {
 						if errors.Is(err, components.ErrCorruptComponent) {
@@ -298,6 +319,12 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
+
 					plan, err := m.PlanComponent(ctx, comp, roles)
 					if err != nil {
 						return err
@@ -457,6 +484,12 @@ func main() {
 					if err != nil {
 						return err
 					}
+					defer func() {
+						if err := m.Close(); err != nil {
+							log.Warn("error closing materia: %w", err)
+						}
+					}()
+
 					return m.Clean(ctx, cCtx.Bool("force"))
 				},
 			},
