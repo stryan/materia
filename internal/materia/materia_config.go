@@ -43,7 +43,7 @@ type MateriaConfig struct {
 	OutputDir        string                       `toml:"output_dir"`
 	RemoteDir        string                       `toml:"remote_dir"`
 	NoSync           bool                         `toml:"nosync"`
-	LockMode         bool                         `toml:"nolock"`
+	Lock             string                       `toml:"lock"`
 	AppMode          bool                         `toml:"appmode"`
 	Rootless         bool                         `toml:"rootless"`
 	Attributes       string                       `toml:"attributes"`
@@ -74,7 +74,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.OutputDir = k.String("output_dir")
 	c.RemoteDir = k.String("remote_dir")
 	c.NoSync = k.Bool("nosync")
-	c.LockMode = k.Bool("lock")
+	c.Lock = k.String("lock")
 	c.AppMode = k.Bool("appmode")
 	if k.Exists("age") || c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)
@@ -228,7 +228,11 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
-	result += fmt.Sprintf("Lock mode: %v\n", c.LockMode)
+	if c.Lock != "" {
+		result += fmt.Sprintf("Lock mode: %v\n", c.Lock)
+	} else {
+		result += "Lock mode: None\n"
+	}
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
 	if c.ContainersConfig != nil {
 		result += "\nContainers Config: \n"

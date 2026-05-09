@@ -12,20 +12,18 @@ import (
 
 const MateriaBusName = "systems.primamateria.materia"
 
-var ErrLockInUse = errors.New("lock in use")
-
-type Locker struct {
+type DbusLock struct {
 	conn   *dbus.Conn
 	locked bool
 }
 
-func NewLocker(path string) (*Locker, error) {
+func NewDbusLocker(path string) (*DbusLock, error) {
 	currentUser, err := user.Current()
 	if err != nil {
 		return nil, err
 	}
 	isRoot := currentUser.Username == "root"
-	l := &Locker{}
+	l := &DbusLock{}
 	if path == "" {
 		if isRoot {
 			l.conn, err = dbus.ConnectSystemBus()
@@ -56,7 +54,7 @@ func NewLocker(path string) (*Locker, error) {
 	return l, nil
 }
 
-func (l *Locker) Lock() error {
+func (l *DbusLock) Lock() error {
 	if l.locked {
 		return nil
 	}
@@ -71,7 +69,7 @@ func (l *Locker) Lock() error {
 	return nil
 }
 
-func (l *Locker) LockOrWait(ctx context.Context) error {
+func (l *DbusLock) LockOrWait(ctx context.Context) error {
 	if l.locked {
 		return nil
 	}
@@ -148,7 +146,10 @@ func (l *Locker) LockOrWait(ctx context.Context) error {
 	}
 }
 
-func (l *Locker) Unlock() error {
+func (l *DbusLock) Unlock() error {
+	if !l.locked {
+		return nil
+	}
 	_, err := l.conn.ReleaseName(MateriaBusName)
 	if err != nil {
 		return err
@@ -157,7 +158,7 @@ func (l *Locker) Unlock() error {
 	return nil
 }
 
-func (l *Locker) Close() error {
+func (l *DbusLock) Close() error {
 	// auto releases names
 	l.locked = false
 	return l.conn.Close()

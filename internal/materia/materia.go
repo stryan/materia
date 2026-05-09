@@ -41,7 +41,7 @@ type Materia struct {
 	Vault          AttributesEngine
 	Hostname       string
 	Roles          []string
-	Lock           *lock.Locker
+	Lock           Locker
 	macros         macros.MacroMap
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
@@ -154,13 +154,22 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	}
 	e := executor.NewExecutor(ec, hm, sc.Timeout)
 	p := planner.NewPlanner(pc, hm)
-
-	var l *lock.Locker
-	if c.LockMode {
-		l, err = lock.NewLocker(socketpath)
+	var l Locker
+	switch c.Lock {
+	case "dbus":
+		l, err = lock.NewDbusLocker(socketpath)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create dbus locker: %w", err)
 		}
+
+	case "file":
+		l, err = lock.NewFileLock(filepath.Join(c.MateriaDir, "lockfile"))
+		if err != nil {
+			return nil, fmt.Errorf("unable to create file locker: %w", err)
+		}
+	default:
+		// maybe make a dummy lock
+		l = nil
 	}
 
 	return &Materia{

@@ -109,4 +109,6 @@ Generate `.app` files with when installing quadlets to keep them compatibile wit
 
 (EXPERIMENTAL)
 
-Uses dbus to prevent other materia services from performing destructive actions.
+Enable locking to prevent multiple Materia or Materia related processes from interfering with each other.
+
+Valid options are `dbus` or `file`. Dbus based locking may require a dbus policy to be installed.
