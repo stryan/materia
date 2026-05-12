@@ -19,10 +19,12 @@ Best effort list of major changes and bugfixes
 - feat: `clean` command now attempts to gracefully remove components. Skippable with `--force`.
 - feat: server mode can now listen on a webhook for sync/update requests.
     - `server.webhook` is now `server.notify_webhook`
-    - `server.sync_webhook` = true|false
-    - `server.sync_secret` = "shared secret"
-    - `server.sync_url` = URL to listen on. Default `:6284/webhook`
+    - `server.update_webhook` = true|false
+    - `server.update_secret` = "shared secret"
+    - `server.update_url` = URL to listen on. Default `:6284/webhook`
 - feat: `lock` setting causes materia to create a dbus or file lock, preventing multiple instances from running destructive actions.
+- feat: `materia server` now exposes a varlink api over its socket
+- feat: `materia agent` now uses new varlink api
 
 ## 0.6.4
 - No user facing changes

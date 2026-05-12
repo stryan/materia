@@ -1,0 +1,18 @@
+interface systems.primamateria.materia
+
+# Returns host facts. Use hostOnly to ignore facts related to role
+method Facts(hostOnly: bool) -> (facts: string)
+
+# Returns the current plan. empty=true means no changes pending.
+method Plan() -> (plan: string, len: int)
+
+# Syncs the local source repo to the latest revision.
+# Pass revision to pin to a specific ref, leave empty for latest.
+method Sync(revision: ?string) -> ()
+
+# Plans and executes an update. Returns number of steps completed.
+method Update() -> (steps: int)
+
+error SyncFailed(message: string)
+error PlanFailed(message: string)
+error ExecutionFailed(message: string, stepsCompleted: int, totalSteps: int)

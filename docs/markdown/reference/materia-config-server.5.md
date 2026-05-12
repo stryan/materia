@@ -28,7 +28,7 @@ How long (in seconds) for `materia server` to wait before running a `materia pla
 
 Where to send webhook notifications on plan/update failure
 
-#### MATERIA_SERVER__SYNC_WEBHOOK/server.sync_webhook
+#### MATERIA_SERVER__UPDATE_WEBHOOK/server.sync_webhook
 
 True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON payloads in the following format:
 
@@ -40,15 +40,15 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
 }
 ```
 
-#### MATERIA_SERVER__SYNC_SECRET/server.sync_secret
+#### MATERIA_SERVER__UPDATE_SECRET/server.sync_secret
 
-Pre-shared secret for basic security on sync webhook
+Pre-shared secret for basic security on update webhook
 
-#### MATERIA_SERVER__SYNC_URL/server.sync_url
+#### MATERIA_SERVER__UPDATE_URL/server.sync_url
 
-What URL the sync webhook listens on. Defaults to `:6284/webhook`
+What URL the update webhook listens on. Defaults to `:6284/webhook`
 
 #### MATERIA_SERVER__SOCKET/server.socket
 
-What Unix socket to listen on. Defaults to `/run/materia/materia.sock` for root and `/run/UID/materia/materia.sock` for rootless.
+What Unix socket to listen on. Defaults to `unix:/run/materia/materia.sock` for root and `unix:/run/UID/materia/materia.sock` for rootless.
 

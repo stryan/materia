@@ -5,12 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"os/user"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -25,10 +22,10 @@ import (
 type ServerConfig struct {
 	PlanInterval, UpdateInterval int    `koanf:"plan_interval" toml:"plan_interval"`
 	Hostname                     string `koanf:"hostname" toml:"hostname"`
-	NotifyWebhook                string `koanf:"outgoing_webhook" toml:"outgoing_webhook"`
-	SyncWebhook                  bool   `koanf:"sync_webhook" toml:"sync_webhook"`
-	SyncUrl                      string `koanf:"sync_url" toml:"sync_url"`
-	SyncSecret                   string `koanf:"sync_secret" toml:"sync_secret"`
+	NotifyWebhook                string `koanf:"notify_webhook" toml:"notify_webhook"`
+	UpdateWebhook                bool   `koanf:"update_webhook" toml:"update_webhook"`
+	UpdateUrl                    string `koanf:"sync_url" toml:"sync_url"`
+	UpdateSecret                 string `koanf:"sync_secret" toml:"sync_secret"`
 	Socket                       string `koanf:"socket" toml:"socket"`
 }
 
@@ -38,7 +35,6 @@ type Server struct {
 	Socket                       string
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
-	quit                         chan any
 	materia                      *materia.Materia
 }
 
@@ -51,9 +47,9 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	c.UpdateInterval = k.Int("server.update_interval")
 	c.PlanInterval = k.Int("server.plan_interval")
 	c.NotifyWebhook = k.String("server.notify_webhook")
-	c.SyncWebhook = k.Bool("server.sync_webhook")
-	c.SyncSecret = k.String("server.sync_secret")
-	c.SyncUrl = k.String("server.sync_url")
+	c.UpdateWebhook = k.Bool("server.sync_webhook")
+	c.UpdateSecret = k.String("server.sync_secret")
+	c.UpdateUrl = k.String("server.sync_url")
 	c.Socket = k.String("server.socket")
 	return &c, nil
 }
@@ -144,20 +140,24 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	log.Info("Materia instance created")
 	serv := &Server{
 		NotifyWebhook:  conf.NotifyWebhook,
-		syncSecret:     conf.SyncSecret,
+		syncSecret:     conf.UpdateSecret,
 		Socket:         conf.Socket,
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
-		quit:           make(chan any),
 		materia:        m,
 	}
-	socket, path, err := serv.setupSocket()
-	if err != nil {
-		return fmt.Errorf("error setting up socket: %w", err)
+	spath := serv.Socket
+	if spath == "" {
+		spath, err = socketPath()
+		if err != nil {
+			return err
+		}
+		spath = "unix:" + spath
 	}
-	defer func() {
-		_ = socket.Close()
-	}()
+	vserv, err := newVarlinkServer(ctx, m)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var wg sync.WaitGroup
 	c := make(chan os.Signal, 1)
@@ -166,8 +166,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		<-c
 		log.Info("trying to shutdown cleanly")
 		serverClose()
-		close(serv.quit)
-		err = socket.Close()
+		err = vserv.Shutdown()
 		if err != nil {
 			log.Warn("error closing socket", "error", err)
 		}
@@ -181,6 +180,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 			if err != nil {
 				log.Fatal(err)
 			}
+			log.Debug("shutdown background update")
 		}()
 	} else {
 		log.Info("skipping background update since no timer is configured")
@@ -194,6 +194,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 			if err != nil {
 				log.Fatal(err)
 			}
+			log.Debug("shutdown background plan")
 		}()
 
 	} else {
@@ -202,24 +203,24 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		log.Infof("starting to listen on socket %v", path)
-		err := serv.listenForCommands(socket)
-		if err != nil {
+		log.Infof("starting to listen on socket %v", spath)
+		if err := vserv.Listen(ctx, spath, 0); err != nil {
 			log.Fatal(err)
 		}
+		log.Debug("shutdown socket")
 	}()
 	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
 	}
-	if conf.SyncWebhook {
-		url := conf.SyncUrl
+	if conf.UpdateWebhook {
+		url := conf.UpdateUrl
 		if url == "" {
 			url = ":6284"
 		}
 		wg.Add(1)
 		go func() {
-			log.Info("starting with sync webhook")
-			http.HandleFunc("/webhook", serv.syncHookHandler)
+			log.Info("starting with update webhook")
+			http.HandleFunc("/webhook", serv.updateHookHandler)
 			err := http.ListenAndServe(url, nil)
 			if err != nil {
 				log.Fatal(err)
@@ -261,7 +262,7 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 			}
 			steps, err := s.materia.Execute(ctx, plan)
 			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, len(plan.Steps()))); nerr != nil {
+				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, plan.Size())); nerr != nil {
 					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
 				}
 				if s.QuitOnError {
@@ -337,135 +338,19 @@ func (s *Server) notify(ctx context.Context, msg string) error {
 	return nil
 }
 
-func (s *Server) setupSocket() (net.Listener, string, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		return nil, "", err
-	}
-	socketDir := ""
-	socketPath := ""
-	if s.Socket == "" {
-		if currentUser.Name != "root" {
-			uid := currentUser.Uid
-			socketDir = filepath.Join("/run/user", uid, "materia")
-		} else {
-			socketDir = filepath.Join("/run/materia")
-		}
-		err = os.MkdirAll(socketDir, 0o700)
-		if err != nil {
-			return nil, "", err
-		}
-		socketPath = filepath.Join(socketDir, "materia.sock")
-	}
-	sock, err := net.Listen("unix", socketPath)
-	return sock, socketPath, err
-}
-
-func (s *Server) listenForCommands(sock net.Listener) error {
-	for {
-		conn, err := sock.Accept()
-		if err != nil {
-			select {
-			case <-s.quit:
-				return nil
-			default:
-				log.Fatal(err)
-			}
-		}
-
-		go func() {
-			log.Debug("parsing command")
-			err := func(conn net.Conn) error {
-				defer func() {
-					err := conn.Close()
-					if err != nil {
-						log.Warn("err closing command socket ", "error", err)
-					}
-				}()
-
-				var msg SocketMessage
-				if err := json.NewDecoder(conn).Decode(&msg); err != nil {
-					return err
-				}
-
-				resp, err := s.parseCommand(msg)
-				if err != nil {
-					return err
-				}
-				jsonBytes, err := json.Marshal(resp)
-				if err != nil {
-					return err
-				}
-				_, err = conn.Write(jsonBytes)
-				if err != nil {
-					return err
-				}
-				return nil
-			}(conn)
-			if err != nil {
-				log.Warn(err)
-			}
-		}()
-	}
-}
-
-func (s *Server) parseCommand(cmd SocketMessage) (SocketMessage, error) {
-	ctx := context.Background()
-	switch cmd.Name {
-	case "facts":
-		log.Info("generating facts on request")
-		return SocketMessage{Name: "result", Data: s.materia.GetFacts(false)}, nil
-	case "plan":
-		log.Info("generating a plan on request")
-		plan, err := s.materia.Plan(context.Background())
-		if err != nil {
-			return errToMsg(err), nil
-		}
-		resp := "no changes made"
-		if plan.Size() != 0 {
-			data, err := plan.ToJson()
-			if err != nil {
-				return errToMsg(err), nil
-			}
-			resp = string(data)
-		}
-		return SocketMessage{Name: "result", Data: resp}, nil
-	case "update":
-		log.Info("running update on request")
-		plan, err := s.materia.Plan(ctx)
-		if err != nil {
-			return errToMsg(err), nil
-		}
-		_, err = s.materia.Execute(ctx, plan)
-		if err != nil {
-			return errToMsg(err), nil
-		}
-		return SocketMessage{Name: "result", Data: "success"}, nil
-	case "sync":
-		log.Info("syncing local source on request")
-		err := s.materia.Source.Sync(ctx, nil)
-		if err != nil {
-			return errToMsg(err), nil
-		}
-		return SocketMessage{Name: "result", Data: "success"}, nil
-	default:
-		return SocketMessage{Name: "result", Data: "command not found"}, nil
-	}
-}
-
-type SyncPayload struct {
+type UpdatePayload struct {
 	Revision string
 	Update   bool
 	Secret   string
 }
 
-func (s *Server) syncHookHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var payload SyncPayload
+	var payload UpdatePayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "invalid payload json", http.StatusBadRequest)
 		return
@@ -502,7 +387,7 @@ func (s *Server) syncHookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	steps, err := s.materia.Execute(ctx, plan)
 	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, len(plan.Steps()))); nerr != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, plan.Size())); nerr != nil {
 			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
 		}
 		if s.QuitOnError {
@@ -521,8 +406,8 @@ func (s *Server) syncHookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if steps == -1 {
-		log.Info("Sync ran; no changes made")
+		log.Info("Update ran; no changes made")
 	} else {
-		log.Infof("Sync ran; Steps completed: %v", steps)
+		log.Infof("Update ran; Steps completed: %v", steps)
 	}
 }

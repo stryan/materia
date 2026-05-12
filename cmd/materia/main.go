@@ -415,56 +415,76 @@ func main() {
 						Name:  "facts",
 						Usage: "Request facts",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := defaultSocket()
+							socketPath, err := socketPath()
 							if err != nil {
 								return err
 							}
 							if cCtx.String("socket") != "" {
 								socketPath = cCtx.String("socket")
 							}
-							return factsCommand(ctx, socketPath)
+							agent := Agent{socketPath}
+							return agent.Facts(ctx)
 						},
 					},
 					{
 						Name:  "sync",
 						Usage: "Sync local repo",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:     "revision",
+								Usage:    "Revision to sync to",
+								Required: false,
+								Aliases:  []string{"r"},
+							},
+						},
+
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := defaultSocket()
+							socketPath, err := socketPath()
 							if err != nil {
 								return err
 							}
 							if cCtx.String("socket") != "" {
 								socketPath = cCtx.String("socket")
 							}
-							return syncCommand(ctx, socketPath)
+							var rev *string
+							if cCtx.String("revision") != "" {
+								revarg := cCtx.String("revision")
+								rev = &revarg
+							}
+							agent := Agent{socketPath}
+							return agent.Sync(ctx, rev)
 						},
 					},
 					{
 						Name:  "plan",
 						Usage: "Generate a plan",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := defaultSocket()
+							socketPath, err := socketPath()
 							if err != nil {
 								return err
 							}
 							if cCtx.String("socket") != "" {
 								socketPath = cCtx.String("socket")
 							}
-							return planCommand(ctx, socketPath)
+
+							agent := Agent{socketPath}
+							return agent.Plan(ctx)
 						},
 					},
 					{
 						Name:  "update",
 						Usage: "Run update",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := defaultSocket()
+							socketPath, err := socketPath()
 							if err != nil {
 								return err
 							}
 							if cCtx.String("socket") != "" {
 								socketPath = cCtx.String("socket")
 							}
-							return updateCommand(ctx, socketPath)
+
+							agent := Agent{socketPath}
+							return agent.Update(ctx)
 						},
 					},
 				},

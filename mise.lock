@@ -66,6 +66,10 @@ url = "https://dl.google.com/go/go1.26.0.darwin-amd64.tar.gz"
 checksum = "sha256:9bbe0fc64236b2b51f6255c05c4232532b8ecc0e6d2e00950bd3021d8a4d07d4"
 url = "https://dl.google.com/go/go1.26.0.windows-amd64.zip"
 
+[[tools."go:github.com/varlink/go/cmd/varlink-go-interface-generator"]]
+version = "latest"
+backend = "go:github.com/varlink/go/cmd/varlink-go-interface-generator"
+
 [[tools."go:golang.org/x/tools/cmd/stringer"]]
 version = "0.42.0"
 backend = "go:golang.org/x/tools/cmd/stringer"

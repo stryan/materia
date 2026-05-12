@@ -2,6 +2,7 @@
 go = "1.26"
 age = "latest"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
+"go:github.com/varlink/go/cmd/varlink-go-interface-generator" = "latest"
 golangci-lint = "2.10.1"
 gotestsum = "latest"
 mockery = "latest"
@@ -64,10 +65,11 @@ run = """
 
 [tasks.generate]
 description = "Run go:generate"
-sources = ["go.mod", "go.sum", "**/*.go", ".mockery.yml"]
+sources = ["go.mod", "go.sum", "**/*.go", ".mockery.yml","pkg/api/systems.primamateria.materia.varlink"]
 outputs = { auto = true }
 run = [
   "go generate ./...",
+  "varlink-go-interface-generator pkg/api/systems.primamateria.materia.varlink",
   "mockery",
 ]
 
