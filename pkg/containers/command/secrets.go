@@ -1,4 +1,4 @@
-package containers
+package command
 
 import (
 	"bytes"
@@ -6,12 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-)
 
-type PodmanSecret struct {
-	Name  string
-	Value string
-}
+	"primamateria.systems/materia/pkg/containers"
+)
 
 type SecretInfo struct {
 	ID        string `json:"ID"`
@@ -30,7 +27,7 @@ type SecretInfo struct {
 	SecretData string `json:"SecretData"`
 }
 
-func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
+func (p *CommandManager) ListSecrets(ctx context.Context) ([]string, error) {
 	cmd := genCmd(ctx, p.remote, "secret", "ls", "--noheading", "--format", "\"{{ range . }}{{.Name}}\\n{{end -}}\"", "--filter", fmt.Sprintf("name=%v*", p.secretsPrefix))
 	output, err := runCmd(cmd)
 	if err != nil {
@@ -47,7 +44,7 @@ func (p *PodmanManager) ListSecrets(ctx context.Context) ([]string, error) {
 	return result, nil
 }
 
-func (p *PodmanManager) GetSecret(ctx context.Context, secretName string) (*PodmanSecret, error) {
+func (p *CommandManager) GetSecret(ctx context.Context, secretName string) (*containers.PodmanSecret, error) {
 	cmd := genCmd(ctx, p.remote, "secret", "inspect", "--showsecret", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
 	output, err := runCmd(cmd)
 	if err != nil {
@@ -57,10 +54,10 @@ func (p *PodmanManager) GetSecret(ctx context.Context, secretName string) (*Podm
 	if err := json.Unmarshal(output.Bytes(), &infos); err != nil {
 		return nil, err
 	}
-	return &PodmanSecret{Name: secretName, Value: infos[0].SecretData}, nil
+	return &containers.PodmanSecret{Name: secretName, Value: infos[0].SecretData}, nil
 }
 
-func (p *PodmanManager) WriteSecret(ctx context.Context, secretName, secretValue string) error {
+func (p *CommandManager) WriteSecret(ctx context.Context, secretName, secretValue string) error {
 	cmd := genCmd(ctx, p.remote, "secret", "create", "--replace", fmt.Sprintf("%v%v", p.secretsPrefix, secretName), "-")
 	var valBuf bytes.Buffer
 	valBuf.Write([]byte(secretValue))
@@ -72,7 +69,7 @@ func (p *PodmanManager) WriteSecret(ctx context.Context, secretName, secretValue
 	return nil
 }
 
-func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) error {
+func (p *CommandManager) RemoveSecret(ctx context.Context, secretName string) error {
 	cmd := genCmd(ctx, p.remote, "secret", "rm", fmt.Sprintf("%v%v", p.secretsPrefix, secretName))
 	_, err := runCmd(cmd)
 	if err != nil {
@@ -81,6 +78,6 @@ func (p *PodmanManager) RemoveSecret(ctx context.Context, secretName string) err
 	return nil
 }
 
-func (p *PodmanManager) SecretName(name string) string {
+func (p *CommandManager) SecretName(name string) string {
 	return fmt.Sprintf("%v%v", p.secretsPrefix, name)
 }

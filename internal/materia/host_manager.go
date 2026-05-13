@@ -16,8 +16,33 @@ type ServiceManager interface {
 	Close() error
 }
 
+type ContainerManager interface {
+	ListNetworks(context.Context) ([]*containers.Network, error)
+	GetNetwork(context.Context, string) (*containers.Network, error)
+	RemoveNetwork(context.Context, *containers.Network) error
+
+	ListVolumes(context.Context) ([]*containers.Volume, error)
+	ImportVolume(context.Context, *containers.Volume, string) error
+	DumpVolume(context.Context, *containers.Volume, string) error
+	GetVolume(context.Context, string) (*containers.Volume, error)
+	RemoveVolume(context.Context, *containers.Volume) error
+
+	ListImages(context.Context) ([]*containers.Image, error)
+	RemoveImage(context.Context, string) error
+
+	GetContainer(context.Context, string) (*containers.Container, error)
+	ListContainers(context.Context, containers.ContainerListFilter) ([]*containers.Container, error)
+	ExecContainer(context.Context, string, ...string) error
+
+	ListSecrets(context.Context) ([]string, error)
+	GetSecret(context.Context, string) (*containers.PodmanSecret, error)
+	WriteSecret(context.Context, string, string) error
+	RemoveSecret(context.Context, string) error
+	SecretName(string) string
+}
+
 type HostManager interface {
-	containers.ContainerManager
+	ContainerManager
 	components.ComponentReader
 	components.ComponentWriter
 	FactsProvider

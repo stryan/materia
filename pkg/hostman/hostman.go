@@ -10,6 +10,7 @@ import (
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/containers/command"
 	"primamateria.systems/materia/pkg/services"
 )
 
@@ -25,7 +26,7 @@ type HostmanConfig struct {
 }
 
 type HostManager struct {
-	*containers.PodmanManager
+	*command.CommandManager
 	*services.ServiceManager
 	*facts.HostFactsManager
 	*repository.HostComponentRepository
@@ -46,7 +47,7 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := containers.NewPodmanManager(c.ContainersConfig)
+	cm, err := command.NewCommandManager(c.ContainersConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -114,6 +115,6 @@ func (h *HostManager) RemoveUnit(ctx context.Context, path string) error {
 
 func (h *HostManager) Close() error {
 	h.ServiceManager.Close()
-	h.PodmanManager.Close()
+	h.CommandManager.Close()
 	return nil
 }

@@ -1,4 +1,4 @@
-package containers
+package command
 
 import (
 	"bytes"
@@ -13,49 +13,44 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
+	"primamateria.systems/materia/pkg/containers"
 )
 
 var supportedVolumeDumpExts = []string{".tar", ".tar.gz", ".zst", ".zstd", ".gz"}
 
-type Volume struct {
-	Name       string `json:"Name"`
-	Mountpoint string `json:"Mountpoint"`
-	Driver     string `json:"Driver"`
-}
-
-func (p *PodmanManager) GetVolume(ctx context.Context, name string) (*Volume, error) {
+func (p *CommandManager) GetVolume(ctx context.Context, name string) (*containers.Volume, error) {
 	cmd := genCmd(ctx, p.remote, "volume", "inspect", "--format", "json", name)
 	output, err := runCmd(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("error inspecting volume %w", err)
 	}
 
-	var volume []Volume
+	var volume []containers.Volume
 
 	if err := json.Unmarshal(output.Bytes(), &volume); err != nil {
 		return nil, err
 	}
 	if len(volume) != 1 {
-		return nil, ErrPodmanObjectNotFound
+		return nil, containers.ErrPodmanObjectNotFound
 	}
 
 	return &volume[0], nil
 }
 
-func (p *PodmanManager) ListVolumes(ctx context.Context) ([]*Volume, error) {
+func (p *CommandManager) ListVolumes(ctx context.Context) ([]*containers.Volume, error) {
 	cmd := genCmd(ctx, p.remote, "volume", "ls", "--format", "json")
 	output, err := runCmd(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("error listing volumes: %v", err)
 	}
-	var volumes []*Volume
+	var volumes []*containers.Volume
 	if err := json.Unmarshal(output.Bytes(), &volumes); err != nil {
 		return nil, err
 	}
 	return volumes, nil
 }
 
-func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDir string) error {
+func (p *CommandManager) DumpVolume(ctx context.Context, volume *containers.Volume, outputDir string) error {
 	exportCmd := genCmd(ctx, p.remote, "volume", "export", volume.Name)
 	outputFilename := filepath.Join(outputDir, volume.Name)
 	outputFilename = fmt.Sprintf("%v-volume.tar", outputFilename)
@@ -113,7 +108,7 @@ func (p *PodmanManager) DumpVolume(ctx context.Context, volume *Volume, outputDi
 	return nil
 }
 
-func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
+func (p *CommandManager) MountVolume(ctx context.Context, volume *containers.Volume) error {
 	cmd := genCmd(ctx, p.remote, "volume", "mount", volume.Name)
 	_, err := runCmd(cmd)
 	if err != nil {
@@ -123,7 +118,7 @@ func (p *PodmanManager) MountVolume(ctx context.Context, volume *Volume) error {
 	return nil
 }
 
-func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, sourcePath string) error {
+func (p *CommandManager) ImportVolume(ctx context.Context, volume *containers.Volume, sourcePath string) error {
 	ext := filepath.Ext(sourcePath)
 	if !slices.Contains(supportedVolumeDumpExts, ext) {
 		return fmt.Errorf("unsupported volume dump type %v for import. Supported types: %v", filepath.Ext(sourcePath), supportedVolumeDumpExts)
@@ -181,7 +176,7 @@ func (p *PodmanManager) ImportVolume(ctx context.Context, volume *Volume, source
 	return nil
 }
 
-func (p *PodmanManager) RemoveVolume(ctx context.Context, volume *Volume) error {
+func (p *CommandManager) RemoveVolume(ctx context.Context, volume *containers.Volume) error {
 	cmd := genCmd(ctx, p.remote, "volume", "rm", volume.Name)
 	_, err := runCmd(cmd)
 	if err != nil {

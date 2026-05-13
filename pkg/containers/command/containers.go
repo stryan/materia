@@ -1,31 +1,13 @@
-package containers
+package command
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"primamateria.systems/materia/pkg/containers"
 )
-
-type Container struct {
-	Name       string
-	Id         string
-	Hostname   string
-	Volumes    map[string]Volume
-	BindMounts map[string]ContainerMount
-}
-
-type ContainerMount struct {
-	Type        string   `json:"Type"`
-	Name        string   `json:"Name"`
-	Source      string   `json:"Source"`
-	Destination string   `json:"Destination"`
-	Driver      string   `json:"Driver"`
-	Mode        string   `json:"Mode"`
-	Options     []string `json:"Options"`
-	Rw          bool     `json:"RW"`
-	Propagation string   `json:"Propagation"`
-}
 
 type ContainerDetails struct {
 	ID      string   `json:"Id"`
@@ -51,25 +33,56 @@ type ContainerDetails struct {
 		Domainname string `json:"Domainname"`
 		User       string `json:"User"`
 	} `json:"Config"`
-	Image                   string           `json:"Image"`
-	Pod                     string           `json:"Pod"`
-	Name                    string           `json:"Name"`
-	Driver                  string           `json:"Driver"`
-	Mounts                  []ContainerMount `json:"Mounts"`
-	IsInfra                 bool             `json:"IsInfra"`
-	IsService               bool             `json:"IsService"`
-	KubeExitCodePropagation string           `json:"KubeExitCodePropagation"`
+	Image                   string                      `json:"Image"`
+	Pod                     string                      `json:"Pod"`
+	Name                    string                      `json:"Name"`
+	Driver                  string                      `json:"Driver"`
+	Mounts                  []containers.ContainerMount `json:"Mounts"`
+	IsInfra                 bool                        `json:"IsInfra"`
+	IsService               bool                        `json:"IsService"`
+	KubeExitCodePropagation string                      `json:"KubeExitCodePropagation"`
 }
 
-type ContainerListFilter struct {
-	Image   string
-	Volume  string
-	Network string
-	Pod     string
-	All     bool
+func loadContainer(ctx context.Context, remote bool, name string) (*containers.Container, error) {
+	var result containers.Container
+	result.BindMounts = make(map[string]containers.ContainerMount)
+	result.Volumes = make(map[string]containers.Volume)
+	inspectCmd := genCmd(ctx, remote, "inspect", "--format", "json", name)
+	output, err := runCmd(inspectCmd)
+	if err != nil {
+		return nil, fmt.Errorf("can't inspect podman container: %w", err)
+	}
+
+	var inspectOutput []ContainerDetails
+	if err := json.Unmarshal(output.Bytes(), &inspectOutput); err != nil {
+		return nil, fmt.Errorf("can't decode podman container details: %w", err)
+	}
+	if len(inspectOutput) != 1 {
+		return nil, fmt.Errorf("unusual amount of container details: %v", len(inspectOutput))
+	}
+	for _, m := range inspectOutput[0].Mounts {
+		switch m.Type {
+		case "bind":
+			result.BindMounts[m.Destination] = m
+		case "volume":
+			result.Volumes[m.Name] = containers.Volume{
+				Name:       m.Name,
+				Mountpoint: m.Source,
+				Driver:     m.Driver,
+			}
+		default:
+		}
+	}
+	result.Name = name
+	result.Hostname = inspectOutput[0].Config.Hostname
+	return &result, nil
 }
 
-func (c ContainerListFilter) ToArgs() []string {
+func (p *CommandManager) GetContainer(ctx context.Context, name string) (*containers.Container, error) {
+	return loadContainer(ctx, p.remote, name)
+}
+
+func filterToArgs(c containers.ContainerListFilter) []string {
 	result := []string{"ps", "--format", "json"}
 	if c.All {
 		result = append(result, "-a")
@@ -95,58 +108,19 @@ func (c ContainerListFilter) ToArgs() []string {
 	return result
 }
 
-func loadContainer(ctx context.Context, remote bool, name string) (*Container, error) {
-	var result Container
-	result.BindMounts = make(map[string]ContainerMount)
-	result.Volumes = make(map[string]Volume)
-	inspectCmd := genCmd(ctx, remote, "inspect", "--format", "json", name)
-	output, err := runCmd(inspectCmd)
-	if err != nil {
-		return nil, fmt.Errorf("can't inspect podman container: %w", err)
-	}
-
-	var inspectOutput []ContainerDetails
-	if err := json.Unmarshal(output.Bytes(), &inspectOutput); err != nil {
-		return nil, fmt.Errorf("can't decode podman container details: %w", err)
-	}
-	if len(inspectOutput) != 1 {
-		return nil, fmt.Errorf("unusual amount of container details: %v", len(inspectOutput))
-	}
-	for _, m := range inspectOutput[0].Mounts {
-		switch m.Type {
-		case "bind":
-			result.BindMounts[m.Destination] = m
-		case "volume":
-			result.Volumes[m.Name] = Volume{
-				Name:       m.Name,
-				Mountpoint: m.Source,
-				Driver:     m.Driver,
-			}
-		default:
-		}
-	}
-	result.Name = name
-	result.Hostname = inspectOutput[0].Config.Hostname
-	return &result, nil
-}
-
-func (p *PodmanManager) GetContainer(ctx context.Context, name string) (*Container, error) {
-	return loadContainer(ctx, p.remote, name)
-}
-
-func (p *PodmanManager) ListContainers(ctx context.Context, filter ContainerListFilter) ([]*Container, error) {
-	args := filter.ToArgs()
+func (p *CommandManager) ListContainers(ctx context.Context, filter containers.ContainerListFilter) ([]*containers.Container, error) {
+	args := filterToArgs(filter)
 	cmd := genCmd(ctx, p.remote, args...)
 	output, err := runCmd(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("can't list containers: %w", err)
 	}
-	var containers []*Container
-	if err := json.Unmarshal(output.Bytes(), &containers); err != nil {
+	var containerList []*containers.Container
+	if err := json.Unmarshal(output.Bytes(), &containerList); err != nil {
 		return nil, err
 	}
-	var results []*Container
-	for _, c := range containers {
+	var results []*containers.Container
+	for _, c := range containerList {
 		loaded, err := loadContainer(ctx, p.remote, c.Id)
 		if err != nil {
 			return results, err
@@ -156,7 +130,7 @@ func (p *PodmanManager) ListContainers(ctx context.Context, filter ContainerList
 	return results, nil
 }
 
-func (p *PodmanManager) PauseContainer(ctx context.Context, name string) error {
+func (p *CommandManager) PauseContainer(ctx context.Context, name string) error {
 	cmd := genCmd(ctx, p.remote, "pause", name)
 	_, err := runCmd(cmd)
 	if err != nil {
@@ -165,7 +139,7 @@ func (p *PodmanManager) PauseContainer(ctx context.Context, name string) error {
 	return nil
 }
 
-func (p *PodmanManager) UnpauseContainer(ctx context.Context, name string) error {
+func (p *CommandManager) UnpauseContainer(ctx context.Context, name string) error {
 	cmd := genCmd(ctx, p.remote, "unpause", name)
 	_, err := runCmd(cmd)
 	if err != nil {
@@ -174,7 +148,7 @@ func (p *PodmanManager) UnpauseContainer(ctx context.Context, name string) error
 	return nil
 }
 
-func (p *PodmanManager) ExecContainer(ctx context.Context, name string, command ...string) error {
+func (p *CommandManager) ExecContainer(ctx context.Context, name string, command ...string) error {
 	combined := append([]string{"exec", name}, command...)
 	cmd := genCmd(ctx, p.remote, combined...)
 	_, err := runCmd(cmd)

@@ -1,26 +1,24 @@
-package containers
+package command
 
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 
 	"charm.land/log/v2"
+	"primamateria.systems/materia/pkg/containers"
 )
 
-var ErrPodmanObjectNotFound error = errors.New("no such object")
-
-type PodmanManager struct {
+type CommandManager struct {
 	secretsPrefix string
 	compression   string
 	remote        bool
 }
 
-func NewPodmanManager(cfg *ContainersConfig) (*PodmanManager, error) {
-	p := &PodmanManager{
+func NewCommandManager(cfg *containers.ContainersConfig) (*CommandManager, error) {
+	p := &CommandManager{
 		secretsPrefix: cfg.SecretsPrefix,
 		remote:        cfg.Remote,
 		compression:   cfg.Compression,
@@ -28,7 +26,7 @@ func NewPodmanManager(cfg *ContainersConfig) (*PodmanManager, error) {
 	return p, nil
 }
 
-func (p *PodmanManager) Close() {
+func (p *CommandManager) Close() {
 }
 
 func genCmd(ctx context.Context, remote bool, args ...string) *exec.Cmd {

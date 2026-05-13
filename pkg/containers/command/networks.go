@@ -1,4 +1,4 @@
-package containers
+package command
 
 import (
 	"bufio"
@@ -6,28 +6,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"primamateria.systems/materia/pkg/containers"
 )
 
-type Network struct {
-	Name       string
-	Containers []NetworkContainer
-}
-
-type NetworkContainer struct {
-	Name string `json:"name"`
-}
-
 type NetworkDetails struct {
-	Name             string                      `json:"name"`
-	ID               string                      `json:"id"`
-	Driver           string                      `json:"driver"`
-	NetworkInterface string                      `json:"network_interface"`
-	Created          string                      `json:"created"`
-	Containers       map[string]NetworkContainer `json:"containers"`
+	Name             string                                 `json:"name"`
+	ID               string                                 `json:"id"`
+	Driver           string                                 `json:"driver"`
+	NetworkInterface string                                 `json:"network_interface"`
+	Created          string                                 `json:"created"`
+	Containers       map[string]containers.NetworkContainer `json:"containers"`
 }
 
-func loadNetwork(ctx context.Context, remote bool, name string) (*Network, error) {
-	var result Network
+func loadNetwork(ctx context.Context, remote bool, name string) (*containers.Network, error) {
+	var result containers.Network
 	inspectCmd := genCmd(ctx, remote, "network", "inspect", "--format", "json", name)
 	output, err := runCmd(inspectCmd)
 	if err != nil {
@@ -48,18 +41,18 @@ func loadNetwork(ctx context.Context, remote bool, name string) (*Network, error
 	return &result, nil
 }
 
-func (p *PodmanManager) GetNetwork(ctx context.Context, name string) (*Network, error) {
+func (p *CommandManager) GetNetwork(ctx context.Context, name string) (*containers.Network, error) {
 	return loadNetwork(ctx, p.remote, name)
 }
 
-func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
+func (p *CommandManager) ListNetworks(ctx context.Context) ([]*containers.Network, error) {
 	cmd := genCmd(ctx, p.remote, "network", "ls", "--format", "{{ .Name }}")
 	output, err := runCmd(cmd)
 	if err != nil {
 		return nil, fmt.Errorf("error listing networks: %w", err)
 	}
 
-	var networks []*Network
+	var networks []*containers.Network
 	var names []string
 	scanner := bufio.NewScanner(bytes.NewReader(output.Bytes()))
 	for scanner.Scan() {
@@ -80,7 +73,7 @@ func (p *PodmanManager) ListNetworks(ctx context.Context) ([]*Network, error) {
 	return networks, nil
 }
 
-func (p *PodmanManager) RemoveNetwork(ctx context.Context, n *Network) error {
+func (p *CommandManager) RemoveNetwork(ctx context.Context, n *containers.Network) error {
 	cmd := genCmd(ctx, p.remote, "network", "rm", n.Name)
 	_, err := runCmd(cmd)
 	if err != nil {
