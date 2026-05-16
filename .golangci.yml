@@ -1,6 +1,13 @@
 ---
 # See the dedicated "version" documentation section.
 version: '2'
+run:
+  build-tags:
+    - remote
+    - exclude_graphdriver_btrfs
+    - btrfs_noversion
+    - exclude_graphdriver_devicemapper
+    - containers_image_openpgp
 formatters:
   enable: [gofumpt, goimports]
 linters:

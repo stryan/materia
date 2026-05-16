@@ -1,7 +1,0 @@
-run:
-  build-tags:
-    - remote
-    - exclude_graphdriver_btrfs
-    - btrfs_noversion
-    - exclude_graphdriver_devicemapper
-    - containers_image_openpgp
