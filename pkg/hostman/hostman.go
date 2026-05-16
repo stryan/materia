@@ -10,6 +10,8 @@ import (
 	"primamateria.systems/materia/internal/facts"
 	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/containers/command"
+	"primamateria.systems/materia/pkg/containers/native"
 	"primamateria.systems/materia/pkg/services"
 )
 
@@ -18,14 +20,15 @@ type HostmanConfig struct {
 	*containers.ContainersConfig
 	*services.ServicesConfig
 
-	DataDir     string
-	QuadletDir  string
-	ScriptsDir  string
-	ServicesDir string
+	DataDir       string
+	QuadletDir    string
+	ScriptsDir    string
+	ServicesDir   string
+	CommandPodman bool
 }
 
 type HostManager struct {
-	*containers.PodmanManager
+	containers.ContainerManager
 	*services.ServiceManager
 	*facts.HostFactsManager
 	*repository.HostComponentRepository
@@ -46,9 +49,17 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if err != nil {
 		log.Fatal(err)
 	}
-	cm, err := containers.NewPodmanManager(c.ContainersConfig)
-	if err != nil {
-		log.Fatal(err)
+	var cm containers.ContainerManager
+	if c.CommandPodman {
+		cm, err = command.NewCommandManager(c.ContainersConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create podman command manager: %w", err)
+		}
+	} else {
+		cm, err = native.NewNativeManager(ctx, c.ContainersConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create native podman manager: %w", err)
+		}
 	}
 	scriptRepo, err := repository.NewFileRepository(c.ScriptsDir)
 	if err != nil {
@@ -114,6 +125,6 @@ func (h *HostManager) RemoveUnit(ctx context.Context, path string) error {
 
 func (h *HostManager) Close() error {
 	h.ServiceManager.Close()
-	h.PodmanManager.Close()
+	h.ContainerManager.Close()
 	return nil
 }

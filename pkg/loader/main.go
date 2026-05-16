@@ -5,7 +5,6 @@ import (
 
 	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/pkg/components"
-	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
@@ -22,7 +21,7 @@ func (p *ComponentLoadPipeline) AddStage(stage ComponentLoadStage) error {
 	return nil
 }
 
-func NewHostComponentPipeline(mgr components.ComponentReader, cont containers.ContainerManager) *ComponentLoadPipeline {
+func NewHostComponentPipeline(mgr components.ComponentReader, cont SecretsManager) *ComponentLoadPipeline {
 	return &ComponentLoadPipeline{
 		stages: []ComponentLoadStage{
 			&ComponentInitStage{manager: mgr},

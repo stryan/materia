@@ -1,8 +1,6 @@
 package containers
 
-import (
-	"context"
-)
+import "context"
 
 type ContainerManager interface {
 	GetContainer(context.Context, string) (*Container, error)
@@ -15,7 +13,6 @@ type ContainerManager interface {
 	ListVolumes(context.Context) ([]*Volume, error)
 	DumpVolume(context.Context, *Volume, string) error
 	ImportVolume(context.Context, *Volume, string) error
-	MountVolume(context.Context, *Volume) error
 	RemoveVolume(context.Context, *Volume) error
 
 	ListNetworks(context.Context) ([]*Network, error)
@@ -30,4 +27,6 @@ type ContainerManager interface {
 
 	ListImages(context.Context) ([]*Image, error)
 	RemoveImage(context.Context, string) error
+
+	Close()
 }

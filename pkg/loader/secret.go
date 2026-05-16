@@ -13,6 +13,11 @@ type SecretInjectorStage struct {
 	attrs map[string]any
 }
 
+type SecretsManager interface {
+	ListSecrets(context.Context) ([]string, error)
+	GetSecret(context.Context, string) (*containers.PodmanSecret, error)
+}
+
 func (s *SecretInjectorStage) Process(ctx context.Context, comp *components.Component) error {
 	for _, r := range comp.Resources.List() {
 		if r.Kind == components.ResourceTypePodmanSecret {
@@ -32,7 +37,7 @@ func (s *SecretInjectorStage) Process(ctx context.Context, comp *components.Comp
 }
 
 type SecretDiscoveryStage struct {
-	manager containers.ContainerManager
+	manager SecretsManager
 }
 
 func (s *SecretDiscoveryStage) Process(ctx context.Context, comp *components.Component) error {

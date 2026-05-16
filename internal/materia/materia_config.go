@@ -47,6 +47,7 @@ type MateriaConfig struct {
 	AppMode          bool                         `toml:"appmode"`
 	Rootless         bool                         `toml:"rootless"`
 	Attributes       string                       `toml:"attributes"`
+	CommandPodman    bool                         `toml:"podman_command"`
 	AgeConfig        *age.Config                  `toml:"age"`
 	FileConfig       *fileattrs.Config            `toml:"file"`
 	SopsConfig       *sops.Config                 `toml:"sops"`
@@ -120,6 +121,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	}
 	c.User = currentUser
 	c.Rootless = k.Bool("rootless")
+	c.CommandPodman = k.Bool("podman_command")
 
 	dataPath := DefaultDataDir
 	quadletPath := DefaultQuadletDir
