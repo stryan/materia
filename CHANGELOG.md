@@ -25,6 +25,7 @@ Best effort list of major changes and bugfixes
 - feat: `lock` setting causes materia to create a dbus or file lock, preventing multiple instances from running destructive actions.
 - feat: `materia server` now exposes a varlink api over its socket
 - feat: `materia agent` now uses new varlink api
+- refactor: materia now uses native podman bindings instead of wrapping the `podman` command. If you experience issues with this, use the `MATERIA_PODMAN_COMMAND` flag to restore the old behaviour.
 
 ## 0.6.4
 - No user facing changes

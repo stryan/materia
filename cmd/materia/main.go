@@ -363,6 +363,7 @@ func main() {
 						ServicesDir:      c.ServiceDir,
 						ServicesConfig:   c.ServicesConfig,
 						ContainersConfig: c.ContainersConfig,
+						CommandPodman:    c.CommandPodman,
 					}
 					hm, err := hostman.NewHostManager(ctx, hmc)
 					if err != nil {

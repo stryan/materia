@@ -55,4 +55,7 @@ type Volume struct {
 	Driver     string `json:"Driver"`
 }
 
-var ErrPodmanObjectNotFound error = errors.New("no such object")
+var (
+	ErrPodmanObjectNotFound error = errors.New("no such object")
+	ErrPodmanExecFailure    error = errors.New("podman exec failed")
+)

@@ -99,16 +99,22 @@ Directory where materia installs scripts resources. Defaults to `/usr/local/bin/
 
 Enables `rootless` mode for Materia in a container. Causes materia to parse its own container's bind mounts to determine where on the host machine directories are. Use when you're running materia in a rootless container and are bind-mounting the user directories to the normal materia root directories in the container i.e. `-v /home/user/.config/containers/systemd:/etc/containers/systemd`.
 
-#### *MATERIA_APPMODE*/**materia.appmode**
+#### *MATERIA_APPMODE*/**appmode**
 
 (EXPERIMENTAL)
 
 Generate `.app` files with when installing quadlets to keep them compatibile with `podman quadlet commands`.
 
-#### MATERIA_LOCK/materia.lock
+#### *MATERIA_LOCK*/**lock**
 
 (EXPERIMENTAL)
 
 Enable locking to prevent multiple Materia or Materia related processes from interfering with each other.
 
 Valid options are `dbus` or `file`. Dbus based locking may require a dbus policy to be installed.
+
+#### *MATERIA_PODMAN_COMMAND*/**podman_command**
+
+Fallback to using the old system of wrapping the `podman` command for container operations. Use if you're seeing errors accessing podman containers/secrets/volumes/etc.
+
+Will be removed in 0.8.

@@ -71,6 +71,7 @@ func loadContainer(ctx context.Context, remote bool, name string) (*containers.C
 				Driver:     m.Driver,
 			}
 		default:
+			continue
 		}
 	}
 	result.Name = name
@@ -121,6 +122,7 @@ func (p *CommandManager) ListContainers(ctx context.Context, filter containers.C
 	}
 	var results []*containers.Container
 	for _, c := range containerList {
+
 		loaded, err := loadContainer(ctx, p.remote, c.Id)
 		if err != nil {
 			return results, err

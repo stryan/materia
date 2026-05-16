@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
 )
 
@@ -17,7 +18,7 @@ func startTestContainer(ctx context.Context, bin string) (testcontainers.Contain
 			KeepImage:  true,
 		},
 		HostConfigModifier: func(hc *container.HostConfig) {
-			hc.DNS = []string{"1.1.1.1", "1.0.0.1"}
+			hc.DNS = []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("1.0.0.1")}
 			hc.Privileged = true // for podman in podman
 		},
 
