@@ -19,7 +19,7 @@ CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
 LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
 AGEKEY = "age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606"
-NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp "
+NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 releasedir = "./release"
 
 [tasks.container]
@@ -48,7 +48,7 @@ usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''
 run = [
-  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} ./internal/... ./pkg/...",
+  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} -- -tags '{{ vars.NOCGO }}' ./internal/... ./pkg/...",
 ]
 
 [tasks.virter]
