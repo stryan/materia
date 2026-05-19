@@ -16,14 +16,14 @@ type Config struct {
 	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
 	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
 	Careful         bool   `toml:"careful" json:"careful" yaml:"careful"`
-	DefaultBranch   string `yaml:"default_branch" toml:"default_branch" json:"default_branch"`
+	Default         string `yaml:"default" toml:"default" json:"default"`
 }
 
 func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	var c Config
 
 	c.Branch = k.String("git.branch")
-	c.DefaultBranch = k.String("git.default")
+	c.Default = k.String("git.default")
 	c.PrivateKey = k.String("git.private_key")
 	c.Insecure = k.Bool("git.insecure")
 	c.Username = k.String("git.username")

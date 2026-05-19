@@ -37,10 +37,9 @@ func NewGitSource(c *Config) (*GitSource, error) {
 	g := &GitSource{
 		localRepository: c.LocalRepository,
 		resetIfNeeded:   !c.Careful,
-		defaultBranch:   "master",
 	}
-	if c.DefaultBranch != "" {
-		g.defaultBranch = c.DefaultBranch
+	if c.Default != "" {
+		g.defaultBranch = c.Default
 	}
 	proto := ""
 	splitURL := strings.Split(c.URL, "://")
