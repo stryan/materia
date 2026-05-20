@@ -390,6 +390,10 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 }
 
 func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
+	if name == "" && len(roles) == 0 {
+		return nil, errors.New("need component name or roles to plan")
+	}
+
 	attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 		Hostname:  m.Hostname,
 		Roles:     roles,
@@ -398,6 +402,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup attributes: %w", err)
 	}
+
 	overrides := make([]*manifests.ComponentManifest, 0)
 	override, err := m.Manifest.GetComponentOverride(m.Hostname, name)
 	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
@@ -418,7 +423,7 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 	sourceComponent := components.NewComponent(name)
 	err = sourcePipeline.Load(ctx, sourceComponent)
 	if err != nil {
-		return nil, fmt.Errorf("can't load host component: %w", err)
+		return nil, fmt.Errorf("can't load source component %v : %w", name, err)
 	}
 	return m.Planner.Plan(ctx, m.Hostname, []*components.Component{}, []*components.Component{sourceComponent})
 }

@@ -16,7 +16,7 @@ func (n *NativeManager) GetSecret(_ context.Context, name string) (*containers.P
 		ShowSecret: &getSecret,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to get secret %v: %w", name, err)
 	}
 	return &containers.PodmanSecret{
 		Name:  name,
@@ -31,7 +31,7 @@ func (n *NativeManager) ListSecrets(_ context.Context) ([]string, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to list secrets: %w", err)
 	}
 	result := make([]string, 0, len(secrets))
 	for _, s := range secrets {
@@ -51,7 +51,10 @@ func (n *NativeManager) WriteSecret(_ context.Context, name, value string) error
 		Name:    &sname,
 		Replace: &replace,
 	})
-	return err
+	if err != nil {
+		return fmt.Errorf("unable to write secret %v: %w", name, err)
+	}
+	return nil
 }
 
 func (n *NativeManager) SecretName(name string) string {

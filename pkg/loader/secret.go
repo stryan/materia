@@ -23,7 +23,10 @@ func (s *SecretInjectorStage) Process(ctx context.Context, comp *components.Comp
 		if r.Kind == components.ResourceTypePodmanSecret {
 			newSecret, ok := s.attrs[r.Path]
 			if !ok {
-				newSecret = ""
+				// no attribute, no secret
+				// not an error since some attributes may be conditional
+				comp.Resources.Delete(r.Path)
+				continue
 			}
 			newSecretString, isString := newSecret.(string)
 			if !isString {
