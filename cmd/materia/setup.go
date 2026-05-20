@@ -103,6 +103,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 		}
 	default:
 		// try to guess from URL
+		log.Warn("guessing source type via URL is deprecated and will be removed in 0.7 . Please provide a source.kind setting")
 		parsedPath := strings.Split(sourceConfig.URL, "://")
 		switch parsedPath[0] {
 		case "git":
