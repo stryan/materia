@@ -98,6 +98,7 @@ func (l *DbusLock) LockOrWait(ctx context.Context) error {
 	}
 	switch reply {
 	case dbus.RequestNameReplyPrimaryOwner:
+		l.locked = true
 		return nil
 	case dbus.RequestNameReplyInQueue:
 		log.Infof("waiting for materia lock: %v", MateriaBusName)
