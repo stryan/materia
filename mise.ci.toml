@@ -2,21 +2,32 @@
 DOCKER_HOST="unix:///var/run/docker.sock"
 
 [vars]
-container_tag = "${TAG}"
 image_registry = "${IMAGE_REGISTRY}"
 
 [tasks.ci]
 env = { CGO_ENABLE = 0 }
-depends = ["build", "test", "integration -k"]
-run = "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:{{vars.container_tag}} ."
+usage = '''
+  arg "[tag]" help = "Tag to push"
+'''
+# depends = ["build", "test", "integration -k"]
+run = '''
+  if [[ $usage_tag != "" ]]; then
+    docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:"$usage_tag" -t ghcr.io/stryan/materia:"$usage_tag" .
+  else
+    docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 .
+  fi
+'''
 
 [tasks.ci-release]
 env = { CGO_ENABLE = 0 }
 tools.gh = "latest"
+usage = '''
+  arg "<tag>" help = "Tag to push"
+'''
 depends = ["build", "test", "integration -k"]
 run = [
   "git remote add mirror git@github.com:stryan/materia",
-  "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:{{vars.container_tag}} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:{{vars.container_tag}} -t ghcr.io/stryan/materia:stable --push .",
-  "gh release create {{vars.container_tag}} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
+  "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:${usage_tag?} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:${usage_tag?} -t ghcr.io/stryan/materia:stable --push .",
+  "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]

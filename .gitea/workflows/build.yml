@@ -53,12 +53,10 @@ jobs:
         run: |
           mise ls
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "TAG=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
-            export TAG=${{ github.event.pull_request.number }}
+            mise ci
           else
-            export TAG=latest
+            mise ci latest
           fi
-          mise ci
       - name: Cleanup leftover containers
         if: always()
         run: docker ps -aq --filter "label=org.testcontainers=true" | xargs -r docker rm -f

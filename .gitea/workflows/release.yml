@@ -39,7 +39,6 @@ jobs:
           password: ${{ secrets.GH_TOKEN }}
       - name: Build and run release
         run: |
-          export TAG=${{ github.ref_name }}
-          mise ci-release
+          mise ci-release ${{ github.ref_name }}
       - name: Logout registry
         run: docker logout ghcr.io
