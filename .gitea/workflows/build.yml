@@ -51,7 +51,6 @@ jobs:
           password: ${{ secrets.GH_TOKEN }}
       - name: Build container
         run: |
-          mise ls
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             mise ci
           else

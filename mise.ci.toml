@@ -11,7 +11,7 @@ usage = '''
 '''
 # depends = ["build", "test", "integration -k"]
 run = '''
-  if [[ $usage_tag != "" ]]; then
+  if [ -n "$usage_tag" ]; then
     docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:"$usage_tag" -t ghcr.io/stryan/materia:"$usage_tag" .
   else
     docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 .
