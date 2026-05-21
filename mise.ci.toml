@@ -9,7 +9,7 @@ env = { CGO_ENABLE = 0 }
 usage = '''
   arg "[tag]" help = "Tag to push"
 '''
-# depends = ["build", "test", "integration -k"]
+depends = ["build", "test", "integration -k"]
 run = '''
   if [ -n "$usage_tag" ]; then
     docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:"$usage_tag" -t ghcr.io/stryan/materia:"$usage_tag" .
