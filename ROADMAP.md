@@ -1,9 +1,10 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [ ] Remote components refinement
 - [ ] Automatic rollback on failure
+- [ ] quadlet.d override directory support
 
 # Potential future goals
+- [ ] Remote components refinement
 - [ ] Add rootless integration tests
 - [ ] Slimmer container image
 - [ ] [X-Materia] option in Quadlet files to embed e.g. Service information in the resource instead of in the Manifest
