@@ -92,7 +92,7 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	if err != nil {
 		return nil, fmt.Errorf("can't generate fresh resources for %v: %w", currentTree.Name, err)
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Source)
+	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Source, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
@@ -199,7 +199,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if p.OnlyResources {
 		return steps, nil
 	}
-	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host)
+	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
@@ -300,6 +300,10 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 	potentialUpdates := host.Resources.Intersection(source.Resources)
 
 	for _, v := range toRemove.List() {
+		if v.Kind == components.ResourceTypeDropin || v.Kind == components.ResourceTypeDropinDir {
+			// Drop-ins are handled by user, ignore them
+			continue
+		}
 		diffActions = append(diffActions, actions.Action{
 			Todo:        actions.ActionRemove,
 			Parent:      host,
@@ -864,11 +868,11 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 	}, nil
 }
 
-func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp *components.Component) ([]actions.Action, error) {
+func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp, newComp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	var questionableResources []components.Resource
 	for _, r := range comp.Resources.List() {
-		if r.Kind == components.ResourceTypeNetwork || r.Kind == components.ResourceTypeVolume {
+		if (r.Kind == components.ResourceTypeNetwork || r.Kind == components.ResourceTypeVolume) && newComp.Resources.Contains(r.Name()) {
 			questionableResources = append(questionableResources, r)
 		}
 	}

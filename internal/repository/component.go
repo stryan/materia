@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/parsers/toml"
@@ -321,15 +322,26 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		Template: false,
 	}
 	if fileInfo.IsDir() {
-		res.Kind = components.ResourceTypeDirectory
-	} else {
-		res.Kind = components.FindResourceType(path)
+		if strings.Contains(path, r.QuadletPrefix) {
+			relPath, err := filepath.Rel(filepath.Join(r.QuadletPrefix, parent.InstanceName()), path)
+			if err != nil {
+				return res, err
+			}
+			res.Path = relPath
+			if components.IsDropinDir(relPath) {
+				res.Kind = components.ResourceTypeDropinDir
+			}
+		} else {
+			res.Kind = components.ResourceTypeDirectory
+		}
+		return res, nil
 	}
-	if res.IsQuadlet() {
+	if strings.Contains(path, r.QuadletPrefix) {
 		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.InstanceName()), path)
 		if err != nil {
 			return res, err
 		}
+		res.Kind = components.FindResourceType(res.Path)
 		unitData, err := r.ReadResource(res)
 		if err != nil {
 			return res, err
@@ -340,6 +352,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 		}
 		res.HostObject = hostObject
 	} else {
+		res.Kind = components.FindResourceType(path)
 		fp := filepath.Join(r.DataPrefix, parent.InstanceName())
 		rel, err := filepath.Rel(fp, path)
 		if err != nil {
@@ -353,7 +366,7 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 
 func (r *HostComponentRepository) ReadResource(res components.Resource) (string, error) {
 	resPath := ""
-	if res.Kind == components.ResourceTypeDirectory {
+	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
 		return "", nil
 	}
 	if res.Kind == components.ResourceTypePodmanSecret {

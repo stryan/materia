@@ -183,6 +183,10 @@ func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service,
 	if len(us) == 0 {
 		return nil, ErrServiceNotFound
 	}
+	// FIXME use something more robust
+	if us[0].LoadState == "not-found" {
+		return nil, ErrServiceNotFound
+	}
 	props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 	if err != nil {
 		return nil, err

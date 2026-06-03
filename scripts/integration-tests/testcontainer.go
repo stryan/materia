@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/netip"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/testcontainers/testcontainers-go"
 )
@@ -56,8 +58,17 @@ func runInContainer(ctx context.Context, tc testcontainers.Container, env map[st
 	if err != nil {
 		return code, "", err
 	}
-	out, _ := io.ReadAll(reader)
-	return code, string(out), nil
+	var out, errout bytes.Buffer
+	// use Stdcopy to clean up testcontainer output
+	if _, err := stdcopy.StdCopy(&out, &errout, reader); err != nil {
+		raw, _ := io.ReadAll(reader)
+		return code, string(raw), nil
+	}
+	result := out.String()
+	if errout.String() != "" {
+		result = fmt.Sprintf("%v\nErr: %v", out.String(), errout.String())
+	}
+	return code, result, nil
 }
 
 func copyDirToContainer(ctx context.Context, c testcontainers.Container, hostDir, containerDir string) error {

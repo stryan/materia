@@ -1003,6 +1003,56 @@ func Test_AppMode(t *testing.T) {
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
 }
 
+func Test_QuadletDropins(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc))
+	testcase := TestCase{
+		Name: "quadlet-dropins",
+		Config: newConfig(t, map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"file.base_dir": "attributes",
+			"source.kind":   "file",
+			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "quadlet-dropins"),
+		}),
+		Source: TestRepo{
+			Manifest:   defaultManifest("hello"),
+			Components: []TestComponent{helloQuadlets},
+		},
+		Output: TestOutput{
+			ActiveServices:   []string{"hello.service"},
+			InactiveServices: []string{},
+			Components:       []string{"hello"},
+			Files:            helloQuadlets.Output,
+		},
+	}
+	trackServices(testcase)
+	require.NoError(t, installTestCase(ctx, tc, testcase))
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	require.NoError(t, writeFile(ctx, tc, "/etc/containers/systemd/hello/hello.container.d/override.conf", "[Container]\nImage=docker.io/busybox:stable\n"))
+	require.NoError(t, reloadServices(ctx, tc))
+	require.NoError(t, applyService(ctx, tc, "hello", "restart"))
+
+	info, err := queryContainer(ctx, tc, "busybox1", "{{ .ImageName }}")
+	require.Nil(t, err, "couldn't get container info ", err)
+	require.Equal(t, "docker.io/library/busybox:stable", info, "image not equal: ", info)
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	// second reload+restart to make sure if it *did* remove the override, we see it
+	require.NoError(t, reloadServices(ctx, tc))
+	require.NoError(t, applyService(ctx, tc, "hello", "restart"))
+
+	info, err = queryContainer(ctx, tc, "busybox1", "{{ .ImageName }}")
+	require.Nil(t, err, "couldn't get container info ", err)
+	require.Equal(t, "docker.io/library/busybox:stable", info, "image not equal: ", info)
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+}
+
 func Test_InstancedComponents(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, reset(ctx, tc))

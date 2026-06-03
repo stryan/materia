@@ -266,6 +266,9 @@ func getDefaultPriority(a actions.Action) (int, error) {
 		components.ResourceTypeDirectory: {
 			actions.ActionInstall: 2, actions.ActionRemove: 4,
 		},
+		components.ResourceTypeDropinDir: {
+			actions.ActionInstall: 2, actions.ActionRemove: 4,
+		},
 		components.ResourceTypeManifest: {
 			actions.ActionInstall: 3, actions.ActionUpdate: 3, actions.ActionRemove: 3,
 		},
@@ -274,6 +277,9 @@ func getDefaultPriority(a actions.Action) (int, error) {
 			actions.ActionCleanup: 7, actions.ActionDump: 2,
 		},
 		components.ResourceTypeAppFile: {
+			actions.ActionInstall: 3, actions.ActionUpdate: 3, actions.ActionRemove: 3,
+		},
+		components.ResourceTypeDropin: {
 			actions.ActionInstall: 3, actions.ActionUpdate: 3, actions.ActionRemove: 3,
 		},
 		components.ResourceTypeContainer: {

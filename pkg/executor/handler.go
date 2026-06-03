@@ -111,6 +111,11 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionUpdate:  installOrUpdateFile,
 		actions.ActionRemove:  removeFile,
 	},
+	components.ResourceTypeDropin: {
+		actions.ActionInstall: installOrUpdateFile,
+		actions.ActionUpdate:  installOrUpdateFile,
+		actions.ActionRemove:  removeFile,
+	},
 	components.ResourceTypeManifest: {
 		actions.ActionInstall: installOrUpdateFile,
 		actions.ActionUpdate:  installOrUpdateFile,
@@ -125,6 +130,10 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionExecute: executeScript,
 	},
 	components.ResourceTypeDirectory: {
+		actions.ActionInstall: installDir,
+		actions.ActionRemove:  removeDir,
+	},
+	components.ResourceTypeDropinDir: {
 		actions.ActionInstall: installDir,
 		actions.ActionRemove:  removeDir,
 	},

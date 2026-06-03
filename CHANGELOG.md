@@ -26,6 +26,7 @@ Best effort list of major changes and bugfixes
 - feat: `materia server` now exposes a varlink api over its socket
 - feat: `materia agent` now uses new varlink api
 - refactor: materia now uses native podman bindings instead of wrapping the `podman` command. If you experience issues with this, use the `MATERIA_PODMAN_COMMAND` flag to restore the old behaviour.
+- feat: quadlet drop-ins are now left-unchanged by `materia update`.
 
 ## 0.6.4
 - No user facing changes

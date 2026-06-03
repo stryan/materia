@@ -20,17 +20,19 @@ func _() {
 	_ = x[ResourceTypeImage-9]
 	_ = x[ResourceTypeAppFile-10]
 	_ = x[ResourceTypeCombined-11]
-	_ = x[ResourceTypeFile-12]
-	_ = x[ResourceTypeManifest-13]
-	_ = x[ResourceTypeScript-14]
-	_ = x[ResourceTypeDirectory-15]
-	_ = x[ResourceTypeService-16]
-	_ = x[ResourceTypePodmanSecret-17]
+	_ = x[ResourceTypeDropinDir-12]
+	_ = x[ResourceTypeDropin-13]
+	_ = x[ResourceTypeFile-14]
+	_ = x[ResourceTypeManifest-15]
+	_ = x[ResourceTypeScript-16]
+	_ = x[ResourceTypeDirectory-17]
+	_ = x[ResourceTypeService-18]
+	_ = x[ResourceTypePodmanSecret-19]
 }
 
-const _ResourceType_name = "UnknownComponentHostContainerVolumePodNetworkKubeBuildImageAppFileCombinedFileManifestScriptDirectoryServicePodmanSecret"
+const _ResourceType_name = "UnknownComponentHostContainerVolumePodNetworkKubeBuildImageAppFileCombinedDropinDirDropinFileManifestScriptDirectoryServicePodmanSecret"
 
-var _ResourceType_index = [...]uint8{0, 7, 16, 20, 29, 35, 38, 45, 49, 54, 59, 66, 74, 78, 86, 92, 101, 108, 120}
+var _ResourceType_index = [...]uint8{0, 7, 16, 20, 29, 35, 38, 45, 49, 54, 59, 66, 74, 83, 89, 93, 101, 107, 116, 123, 135}
 
 func (i ResourceType) String() string {
 	idx := int(i) - 0

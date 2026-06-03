@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -23,6 +24,7 @@ var (
 type Component struct {
 	Name      string
 	Instance  string
+	Overrides []string
 	Settings  manifests.Settings
 	Resources *ResourceSet
 	State     ComponentLifecycle
@@ -250,11 +252,19 @@ func FindResourceType(file string) ResourceType {
 		return ResourceTypeService
 	case ".sh":
 		return ResourceTypeScript
+	case ".conf":
+		if IsDropin(file) {
+			return ResourceTypeDropin
+		}
+		return ResourceTypeFile
 	default:
 		if len(file) == 0 {
 			return ResourceTypeHost
 		}
 		if file[len(file)-1:] == "/" {
+			if IsDropinDir(file) {
+				return ResourceTypeDropinDir
+			}
 			return ResourceTypeDirectory
 		}
 		return ResourceTypeFile
@@ -262,6 +272,19 @@ func FindResourceType(file string) ResourceType {
 	}
 }
 
+func IsDropin(file string) bool {
+	if filepath.Dir(file) == "." {
+		return false
+	}
+	return dropInDirRegex.MatchString(filepath.Dir(file))
+}
+
+func IsDropinDir(file string) bool {
+	return dropInDirRegex.MatchString(file)
+}
+
 func IsTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
 }
+
+var dropInDirRegex = regexp.MustCompile(`^([a-zA-Z0-9_][a-zA-Z0-9_-]*-?\.)?[a-z]+\.d$`)

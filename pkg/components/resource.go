@@ -44,6 +44,8 @@ const (
 	ResourceTypeAppFile
 
 	ResourceTypeCombined
+	ResourceTypeDropinDir
+	ResourceTypeDropin
 
 	ResourceTypeFile
 	ResourceTypeManifest
@@ -78,6 +80,8 @@ func (t ResourceType) toExt() (string, error) {
 		return "volume", nil
 	case ResourceTypeAppFile:
 		return "app", nil
+	case ResourceTypeDropin:
+		return "conf", nil
 	default:
 		return "", fmt.Errorf("resource type wouldn't have file extension: %v", t)
 	}
@@ -146,7 +150,7 @@ func (r *Resource) Service() string {
 
 func (r Resource) IsQuadlet() bool {
 	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage, ResourceTypeAppFile:
+	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage, ResourceTypeAppFile, ResourceTypeDropin:
 		return true
 	default:
 		return false

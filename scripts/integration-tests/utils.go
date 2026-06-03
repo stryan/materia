@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,6 +52,24 @@ func getFile(ctx context.Context, c testcontainers.Container, path string) ([]by
 	return io.ReadAll(reader)
 }
 
+func writeFile(ctx context.Context, tc testcontainers.Container, path, content string) error {
+	file, err := os.CreateTemp("", "materia-test-file-")
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write([]byte(content))
+	if err != nil {
+		fErr := file.Close()
+		return errors.Join(err, fErr)
+	}
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+	return tc.CopyFileToContainer(ctx, file.Name(), path, 0o755)
+}
+
 func compareFile(ctx context.Context, tc testcontainers.Container, left, right string) ([]diffmatchpatch.Diff, error) {
 	dmp := diffmatchpatch.New()
 
@@ -81,8 +100,17 @@ func getService(ctx context.Context, tc testcontainers.Container, name, state st
 	return line == "ActiveState="+state
 }
 
+func reloadServices(ctx context.Context, tc testcontainers.Container) error {
+	_, _, err := runInContainer(ctx, tc, nil, "systemctl", "daemon-reload")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func applyService(ctx context.Context, tc testcontainers.Container, name, action string) error {
 	timeout := time.Now().Add(30 * time.Second)
+	// TODO this does not work the way I want it to
 	for {
 		code, _, err := runInContainer(ctx, tc, nil, "systemctl", action, name)
 		if err != nil {
@@ -96,6 +124,18 @@ func applyService(ctx context.Context, tc testcontainers.Container, name, action
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func queryContainer(ctx context.Context, tc testcontainers.Container, containerName, format string) (string, error) {
+	code, out, err := runInContainer(ctx, tc, nil, "podman", "inspect", "--format", format, containerName)
+	if err != nil {
+		return "", err
+	}
+	if code != 0 {
+		return "", fmt.Errorf("podman inspect exited %d for container %q: %s", code, containerName, out)
+	}
+
+	return strings.TrimSpace(out), nil
 }
 
 func listInstalledComponents(ctx context.Context, c testcontainers.Container) ([]string, error) {

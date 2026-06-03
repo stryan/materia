@@ -117,7 +117,7 @@ func installTestCase(ctx context.Context, c testcontainers.Container, tcs ...Tes
 		}
 	}
 	defer func() {
-		// _ = os.RemoveAll(baseDir)
+		_ = os.RemoveAll(baseDir)
 	}()
 	if err := copyDirToContainer(ctx, c, testDir, "/root/"); err != nil {
 		return err

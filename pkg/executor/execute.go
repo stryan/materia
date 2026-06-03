@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -9,6 +10,7 @@ import (
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/plan"
+	"primamateria.systems/materia/pkg/services"
 )
 
 type Executor struct {
@@ -51,6 +53,10 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 	for k, v := range lastAction {
 		serv, err := e.host.GetService(ctx, k)
 		if err != nil {
+			if errors.Is(err, services.ErrServiceNotFound) && v == actions.ActionStop {
+				// nothing to do if the service is fully gone
+				continue
+			}
 			return steps, fmt.Errorf("unable to get service %v for final check: %w", k, err)
 		}
 		switch v {
