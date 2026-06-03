@@ -316,32 +316,35 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 	if err != nil {
 		return components.Resource{}, err
 	}
+	instanceName := parent.InstanceName()
 	res := components.Resource{
 		Path:     path,
-		Parent:   parent.InstanceName(),
+		Parent:   instanceName,
 		Template: false,
 	}
+	isInQuadletDir := strings.Contains(path, r.QuadletPrefix)
+
+	basePrefix := r.DataPrefix
+	if isInQuadletDir {
+		basePrefix = r.QuadletPrefix
+	}
+	basePath := filepath.Join(basePrefix, instanceName)
+	relPath, err := filepath.Rel(basePath, path)
+	if err != nil {
+		return res, err
+	}
+	res.Path = relPath
 	if fileInfo.IsDir() {
-		if strings.Contains(path, r.QuadletPrefix) {
-			relPath, err := filepath.Rel(filepath.Join(r.QuadletPrefix, parent.InstanceName()), path)
-			if err != nil {
-				return res, err
-			}
-			res.Path = relPath
-			if components.IsDropinDir(relPath) {
-				res.Kind = components.ResourceTypeDropinDir
-			}
+		if isInQuadletDir && components.IsDropinDir(relPath) {
+			res.Kind = components.ResourceTypeDropinDir
 		} else {
 			res.Kind = components.ResourceTypeDirectory
 		}
 		return res, nil
 	}
-	if strings.Contains(path, r.QuadletPrefix) {
-		res.Path, err = filepath.Rel(filepath.Join(r.QuadletPrefix, parent.InstanceName()), path)
-		if err != nil {
-			return res, err
-		}
-		res.Kind = components.FindResourceType(res.Path)
+	// do file based changes
+	res.Kind = components.FindResourceType(res.Path)
+	if isInQuadletDir {
 		unitData, err := r.ReadResource(res)
 		if err != nil {
 			return res, err
@@ -351,15 +354,6 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 			return res, err
 		}
 		res.HostObject = hostObject
-	} else {
-		res.Kind = components.FindResourceType(path)
-		fp := filepath.Join(r.DataPrefix, parent.InstanceName())
-		rel, err := filepath.Rel(fp, path)
-		if err != nil {
-			return res, err
-		}
-		res.Path = rel
-
 	}
 	return res, nil
 }
