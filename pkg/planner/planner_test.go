@@ -26,7 +26,7 @@ func newResSet(resources ...components.Resource) *components.ResourceSet {
 	return rs
 }
 
-func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceConfigSet {
 	ss := components.NewServiceSet()
 	for _, v := range services {
 		ss.Add(v)
@@ -783,7 +783,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -796,7 +796,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -831,7 +831,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -963,7 +963,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					t.Logf("Steps got: %v", got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Todo, got[k].Todo, "Wrong Action type: Expected %v != Got %v", v.Todo, got[k].Todo)
 				assert.Equal(t, v.Target.Path, got[k].Target.Path)
 			}
 			if tt.validatePlan != nil {
@@ -996,7 +996,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -1017,7 +1017,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -1046,7 +1046,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "active",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
@@ -1068,7 +1068,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
-						Enabled: false,
+						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},

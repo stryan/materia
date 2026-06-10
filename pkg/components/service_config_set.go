@@ -9,9 +9,9 @@ import (
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-var ErrServiceNotFound = errors.New("service not found")
+var ErrServiceConfigNotFound = errors.New("service not found")
 
-type ServiceSet struct {
+type ServiceConfigSet struct {
 	sets.Set
 }
 
@@ -21,13 +21,13 @@ func compareServiceResource(left, right interface{}) int {
 	return cmp.Compare(leftSRC.Service, rightSRC.Service)
 }
 
-func NewServiceSet() *ServiceSet {
-	return &ServiceSet{
+func NewServiceSet() *ServiceConfigSet {
+	return &ServiceConfigSet{
 		treeset.NewWith(compareServiceResource),
 	}
 }
 
-func (s *ServiceSet) List() []manifests.ServiceResourceConfig {
+func (s *ServiceConfigSet) List() []manifests.ServiceResourceConfig {
 	result := make([]manifests.ServiceResourceConfig, s.Size())
 	for k, v := range s.Values() {
 		result[k] = v.(manifests.ServiceResourceConfig)
@@ -35,7 +35,7 @@ func (s *ServiceSet) List() []manifests.ServiceResourceConfig {
 	return result
 }
 
-func (s *ServiceSet) ListServiceNames() []string {
+func (s *ServiceConfigSet) ListServiceNames() []string {
 	result := make([]string, s.Size())
 	for k, v := range s.Values() {
 		result[k] = v.(manifests.ServiceResourceConfig).Service
@@ -43,12 +43,12 @@ func (s *ServiceSet) ListServiceNames() []string {
 	return result
 }
 
-func (s *ServiceSet) Get(name string) (manifests.ServiceResourceConfig, error) {
+func (s *ServiceConfigSet) Get(name string) (manifests.ServiceResourceConfig, error) {
 	for _, v := range s.Values() {
 		src := v.(manifests.ServiceResourceConfig)
 		if src.Service == name {
 			return src, nil
 		}
 	}
-	return manifests.ServiceResourceConfig{}, ErrServiceNotFound
+	return manifests.ServiceResourceConfig{}, ErrServiceConfigNotFound
 }

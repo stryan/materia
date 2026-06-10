@@ -779,7 +779,10 @@ func processUpdatedComponentServices(ctx context.Context, host HostStateManager,
 }
 
 func shouldEnableService(s manifests.ServiceResourceConfig, liveService *services.Service) bool {
-	return !s.Disabled && s.Static && !liveService.Enabled
+	if !s.Disabled && s.Static && liveService.Enabled == services.EnableStateDisabled {
+		return true
+	}
+	return false
 }
 
 func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a actions.ActionType) (actions.Action, error) {
@@ -838,7 +841,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 	if strings.HasSuffix(imageName, ".image") || strings.HasSuffix(imageName, ".build") {
 		timeout := 60
 		src, err := parent.Services.Get(imageName)
-		if errors.Is(err, components.ErrServiceNotFound) {
+		if errors.Is(err, components.ErrServiceConfigNotFound) {
 			// no custom timeout defined
 			return actions.Action{
 				Todo:   a,

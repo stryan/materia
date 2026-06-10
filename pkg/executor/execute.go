@@ -13,6 +13,11 @@ import (
 	"primamateria.systems/materia/pkg/services"
 )
 
+type ErrExecuteFailed struct {
+	Expected services.ServicesSlice
+	Actual   services.ServicesSlice
+}
+
 type Executor struct {
 	ExecutorConfig
 	host           Host
@@ -49,7 +54,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 
 	// verify services are in their expected end state (i.e. the result of the last service change command)
 
-	servicesResultMap := make(map[string]string)
+	expectedServices := make(services.ServicesSlice)
 	for k, v := range lastAction {
 		serv, err := e.host.GetService(ctx, k)
 		if err != nil {
@@ -63,14 +68,14 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		case actions.ActionRestart, actions.ActionStart, actions.ActionReload:
 			switch serv.State {
 			case "activating", "reloading":
-				servicesResultMap[serv.Name] = "active"
+				expectedServices[serv.Name] = services.StateActive
 			case "failed":
 				log.Warn("service failed to start/restart/reload", "service", serv.Name, "state", serv.State)
 			default:
 			}
 		case actions.ActionStop:
 			if serv.State == "deactivating" {
-				servicesResultMap[serv.Name] = "inactive"
+				expectedServices[serv.Name] = "inactive"
 			} else if serv.State != "inactive" {
 				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
 			}
@@ -80,9 +85,9 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		}
 	}
 	var servWG sync.WaitGroup
-	for serv, state := range servicesResultMap {
+	for serv, state := range expectedServices {
 		servWG.Add(1)
-		go func(serv, state string) {
+		go func(serv string, state services.ServiceState) {
 			defer servWG.Done()
 			err := e.host.WaitUntilState(ctx, serv, state, e.defaultTimeout) // TODO dynamically adjust timeout
 			if err != nil {

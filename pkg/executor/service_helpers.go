@@ -14,7 +14,7 @@ type ServiceManager interface {
 	ApplyService(context.Context, string, services.ServiceAction, int) error
 	GetService(context.Context, string) (*services.Service, error)
 	RunOneshotCommand(context.Context, int, string, []string) error
-	WaitUntilState(context.Context, string, string, int) error
+	WaitUntilState(context.Context, string, services.ServiceState, int) error
 }
 
 func getServiceType(a actions.Action) (services.ServiceAction, error) {
@@ -79,7 +79,7 @@ func waitService(ctx context.Context, sm ServiceManager, command actions.Action,
 	if command.Metadata.ServiceTimeout != nil {
 		timeout = *command.Metadata.ServiceTimeout
 	}
-	endState := *command.Metadata.ServiceUntilState
+	endState := services.NewServiceState(*command.Metadata.ServiceUntilState)
 
 	if err := res.Validate(); err != nil {
 		return fmt.Errorf("invalid resource when modifying service: %w", err)

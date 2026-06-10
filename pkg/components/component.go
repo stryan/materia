@@ -12,6 +12,7 @@ import (
 
 	"github.com/knadh/koanf/parsers/toml"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/services"
 )
 
 const DefaultComponentVersion = 1
@@ -29,7 +30,7 @@ type Component struct {
 	Resources *ResourceSet
 	State     ComponentLifecycle
 	Defaults  map[string]any
-	Services  *ServiceSet
+	Services  *ServiceConfigSet
 	Version   int
 }
 
@@ -209,6 +210,29 @@ func (c *Component) ToResource() Resource {
 		Parent: c.Name,
 		Kind:   ResourceTypeComponent,
 	}
+}
+
+func (c *Component) ToServiceState() (*services.ServiceSet, error) {
+	result := services.NewServiceSet()
+	for _, sc := range c.Services.List() {
+		s := services.Service{
+			Name:    sc.Service,
+			State:   services.StateActive,
+			Type:    "", // Do we even need this field
+			Enabled: services.EnableStateEnabled,
+		}
+		if sc.Stopped {
+			s.State = services.StateInactive
+		}
+		if sc.Disabled || !sc.Static {
+			s.Enabled = services.EnableStateDisabled
+		}
+		err := result.Add(s)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (c *Component) ToAppfile() []byte {

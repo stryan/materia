@@ -23,7 +23,7 @@ func newResSet(resources ...components.Resource) *components.ResourceSet {
 	return rs
 }
 
-func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceConfigSet {
 	ss := components.NewServiceSet()
 	for _, v := range services {
 		ss.Add(v)

@@ -11,7 +11,6 @@ import (
 	"charm.land/log/v2"
 	"github.com/coreos/go-systemd/v22/dbus"
 	godbus "github.com/godbus/dbus/v5"
-	"github.com/knadh/koanf/v2"
 )
 
 var (
@@ -27,9 +26,9 @@ type ServiceManager struct {
 
 type Service struct {
 	Name    string
-	State   string // active, reloading, inactive, failed, activating, deactivating
+	State   ServiceState
 	Type    string
-	Enabled bool
+	Enabled ServiceEnableStatue
 }
 
 func (s Service) Started() bool {
@@ -49,9 +48,13 @@ func (s *Service) fillFromProperties(props map[string]interface{}) error {
 	if !ok {
 		jobType = "non-existent"
 	}
-	s.State = jobState
+	s.State = NewServiceState(jobState)
 	s.Type = jobType
-	s.Enabled = (fileState == "enabled" || fileState == "static")
+	if fileState == "enabled" || fileState == "static" {
+		s.Enabled = EnableStateEnabled
+	} else {
+		s.Enabled = EnableStateDisabled
+	}
 	return nil
 }
 
@@ -67,29 +70,6 @@ const (
 	ServiceDisable
 	ServiceReloadService
 )
-
-type ServicesConfig struct {
-	Timeout        int    `toml:"timeout" koanf:"timeout"`
-	DryrunQuadlets bool   `toml:"dryrun_quadlets" koanf:"dryrun_quadlets"`
-	DbusSocket     string `toml:"dbus_socket" koanf:"dbus_socket"`
-}
-
-func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
-	c := &ServicesConfig{}
-	c.Timeout = k.Int("services.timeout")
-	c.DryrunQuadlets = k.Bool("dryrun_quadlets")
-	if c.Timeout == 0 {
-		c.Timeout = 90
-	}
-	if k.Exists("services.dbus_socket") {
-		c.DbusSocket = k.String("services.dbus_socket")
-	}
-	return c, nil
-}
-
-func (c *ServicesConfig) String() string {
-	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
-}
 
 func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
@@ -200,7 +180,7 @@ func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service,
 	return result, nil
 }
 
-func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string, timeout int) error {
+func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state ServiceState, timeout int) error {
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
