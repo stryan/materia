@@ -233,7 +233,7 @@ func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 			Enabled: services.EnableStateEnabled,
 		}
 		if sc.Stopped {
-			s.State = services.StateInactive
+			s.State = services.StateInternalWildcard
 		}
 		if sc.Disabled || !sc.Static {
 			s.Enabled = services.EnableStateDisabled

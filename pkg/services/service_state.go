@@ -13,6 +13,8 @@ const (
 	StateDeactivating ServiceState = "deactivating"
 	StateMaintenance  ServiceState = "maintenance"
 	StateRefreshing   ServiceState = "refreshing"
+
+	StateInternalWildcard ServiceState = "wildcard" // Note we don't put this in the map since its internal
 )
 
 var serviceStateMap = map[string]ServiceState{
@@ -35,27 +37,29 @@ func NewServiceState(name string) ServiceState {
 	}
 }
 
-type ServiceEnableStatue string
+type ServiceEnableState string
 
 const (
-	EnableStateUnknown        ServiceEnableStatue = "unknown"
-	EnableStateEnabled        ServiceEnableStatue = "enabled"
-	EnableStateEnabledRuntime ServiceEnableStatue = "enabled-runtime"
-	EnableStateLinked         ServiceEnableStatue = "linked"
-	EnableStateLinkedRuntime  ServiceEnableStatue = "linked-runtime"
-	EnableStateAlias          ServiceEnableStatue = "alias"
-	EnableStateMasked         ServiceEnableStatue = "masked"
-	EnableStateMaskedRuntime  ServiceEnableStatue = "masked-runtime"
-	EnableStateStatic         ServiceEnableStatue = "static"
-	EnableStateIndirect       ServiceEnableStatue = "indirect"
-	EnableStateDisabled       ServiceEnableStatue = "disabled"
-	EnableStateGenerated      ServiceEnableStatue = "generated"
-	EnableStateTransient      ServiceEnableStatue = "transient"
-	EnableStateBad            ServiceEnableStatue = "bad"
-	EnableStateNotFound       ServiceEnableStatue = "not-found"
+	EnableStateUnknown        ServiceEnableState = "unknown"
+	EnableStateEnabled        ServiceEnableState = "enabled"
+	EnableStateEnabledRuntime ServiceEnableState = "enabled-runtime"
+	EnableStateLinked         ServiceEnableState = "linked"
+	EnableStateLinkedRuntime  ServiceEnableState = "linked-runtime"
+	EnableStateAlias          ServiceEnableState = "alias"
+	EnableStateMasked         ServiceEnableState = "masked"
+	EnableStateMaskedRuntime  ServiceEnableState = "masked-runtime"
+	EnableStateStatic         ServiceEnableState = "static"
+	EnableStateIndirect       ServiceEnableState = "indirect"
+	EnableStateDisabled       ServiceEnableState = "disabled"
+	EnableStateGenerated      ServiceEnableState = "generated"
+	EnableStateTransient      ServiceEnableState = "transient"
+	EnableStateBad            ServiceEnableState = "bad"
+	EnableStateNotFound       ServiceEnableState = "not-found"
+
+	EnableStateInternalWildcard ServiceEnableState = "wildcard" // Note we don't put this in the map since its internal
 )
 
-var serviceEnableStateMap = map[string]ServiceEnableStatue{
+var serviceEnableStateMap = map[string]ServiceEnableState{
 	"unknown":         EnableStateUnknown,
 	"enabled":         EnableStateEnabled,
 	"enabled-runtime": EnableStateEnabled,
@@ -72,7 +76,7 @@ var serviceEnableStateMap = map[string]ServiceEnableStatue{
 	"bad":             EnableStateBad,
 }
 
-func NewServiceEnableState(name string) ServiceEnableStatue {
+func NewServiceEnableState(name string) ServiceEnableState {
 	if res, ok := serviceEnableStateMap[name]; !ok {
 		return EnableStateUnknown
 	} else {

@@ -458,7 +458,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 			want: []actions.Action{
@@ -527,7 +527,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 			want: []actions.Action{
@@ -569,7 +569,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 			want: []actions.Action{
@@ -752,24 +752,24 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 	}
 }
 
-func TestProcessFreshComponentServices(t *testing.T) {
+func Test_GenerateServiceActions(t *testing.T) {
 	tests := []struct {
 		name         string
-		component    *components.Component
-		setup        func(comp *components.Component, sm *mocks.MockHostManager)
+		source, host *components.Component
+		setup        func(source, host *components.Component, sm *mocks.MockHostManager)
 		want         []actions.Action
 		wantErr      bool
 		validatePlan func(*testing.T, []actions.Action)
 	}{
 		{
-			name:      "no services",
-			component: testComponents[0],
-			want:      []actions.Action{},
-			setup:     func(comp *components.Component, services *mocks.MockHostManager) {},
+			name:   "fresh - no services",
+			source: testComponents[0],
+			want:   []actions.Action{},
+			setup:  func(source, host *components.Component, services *mocks.MockHostManager) {},
 		},
 		{
-			name:      "services - none running",
-			component: testComponents[1],
+			name:   "fresh - services - none running",
+			source: testComponents[1],
 			want: []actions.Action{
 				{
 					Todo: actions.ActionStart,
@@ -778,8 +778,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range source.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -789,21 +789,21 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name:      "services - running",
-			component: testComponents[1],
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			name:   "fresh - services - running",
+			source: testComponents[1],
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range source.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
-						State:   "active",
+						State:   services.StateActive,
 						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
 		},
 		{
-			name: "services - static",
-			component: &components.Component{
+			name: "fresh - services - static",
+			source: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
@@ -826,8 +826,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range source.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -837,8 +837,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name: "services - stopped",
-			component: &components.Component{
+			name: "fresh - services - stopped",
+			source: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
@@ -848,12 +848,17 @@ func TestProcessFreshComponentServices(t *testing.T) {
 				}),
 			},
 			want: []actions.Action{},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
+					Name:    "hello.service",
+					State:   services.StateUnknown,
+					Enabled: services.EnableStateDisabled,
+				}, nil)
 			},
 		},
 		{
-			name: "services - container",
-			component: &components.Component{
+			name: "fresh - services - container",
+			source: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
@@ -869,7 +874,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
@@ -877,8 +882,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name: "services - container with image",
-			component: &components.Component{
+			name: "fresh - services - container with image",
+			source: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[8]),
@@ -894,7 +899,7 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
 					State: "inactive",
@@ -907,8 +912,8 @@ func TestProcessFreshComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name: "services - container with defined image",
-			component: &components.Component{
+			name: "fresh - services - container with defined image",
+			source: &components.Component{
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[8]),
@@ -931,68 +936,34 @@ func TestProcessFreshComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				sm.EXPECT().GetService(mock.Anything, "hello-image.service").Return(&services.Service{
+					Name:  "hello-image.service",
+					State: services.StateActive,
+				}, nil)
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "inactive",
+					State: services.StateInactive,
 				}, nil)
 			},
 			validatePlan: func(t *testing.T, a []actions.Action) {
-				assert.Equal(t, 1, len(a))
+				assert.Equal(t, 1, len(a), "expected %v steps got %v", 1, len(a))
 				assert.NotNil(t, a[0].Metadata)
 				assert.Equal(t, *a[0].Metadata.ServiceTimeout, 160)
 			},
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hm := mocks.NewMockHostManager(t)
-			tt.setup(tt.component, hm)
-			got, gotErr := processFreshOrUnchangedComponentServices(context.Background(), hm, tt.component)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("processFreshComponentServices() failed: %v", gotErr)
-				}
-				return
-			}
-			if tt.wantErr {
-				t.Fatal("processFreshComponentServices() succeeded unexpectedly")
-			}
-			for k, v := range tt.want {
-				if k >= len(got) {
-					t.Logf("Steps got: %v", got)
-					t.Errorf("Missing step #%v: %v", k, v)
-				}
-				assert.Equal(t, v.Todo, got[k].Todo, "Wrong Action type: Expected %v != Got %v", v.Todo, got[k].Todo)
-				assert.Equal(t, v.Target.Path, got[k].Target.Path)
-			}
-			if tt.validatePlan != nil {
-				tt.validatePlan(t, got)
-			}
-		})
-	}
-}
 
-func TestProcessRemovedComponentServices(t *testing.T) {
-	tests := []struct {
-		name         string
-		component    *components.Component
-		setup        func(comp *components.Component, sm *mocks.MockHostManager)
-		want         []actions.Action
-		wantErr      bool
-		validatePlan func(*testing.T, []actions.Action)
-	}{
 		{
-			name:      "no services",
-			component: testComponents[0],
-			want:      []actions.Action{},
-			setup:     func(comp *components.Component, services *mocks.MockHostManager) {},
+			name:  "removal - no services",
+			host:  testComponents[0],
+			want:  []actions.Action{},
+			setup: func(source, host *components.Component, services *mocks.MockHostManager) {},
 		},
 		{
-			name:      "services - none running",
-			component: testComponents[1],
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			name: "removal - services - none running",
+			host: testComponents[1],
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range host.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -1002,8 +973,8 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name:      "services - running",
-			component: testComponents[1],
+			name: "removal - services - running",
+			host: testComponents[1],
 			want: []actions.Action{
 				{
 					Todo: actions.ActionStop,
@@ -1012,19 +983,19 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range host.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
-						State:   "active",
+						State:   services.StateActive,
 						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
 		},
 		{
-			name: "services - static",
-			component: &components.Component{
+			name: "removal - services - static",
+			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
@@ -1041,19 +1012,19 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range host.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
-						State:   "active",
+						State:   services.StateActive,
 						Enabled: services.EnableStateDisabled,
 					}, nil)
 				}
 			},
 		},
 		{
-			name: "services - stopped",
-			component: &components.Component{
+			name: "removal - services - stopped",
+			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
@@ -1063,8 +1034,8 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 				}),
 			},
 			want: []actions.Action{},
-			setup: func(comp *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range comp.ServiceConfigs.List() {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
+				for _, src := range host.ServiceConfigs.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -1074,8 +1045,8 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name: "services - container",
-			component: &components.Component{
+			name: "removal - services - container",
+			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
@@ -1091,16 +1062,16 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 		},
 		{
-			name: "services - container with image",
-			component: &components.Component{
+			name: "removal - services - container with image",
+			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[8]),
@@ -1116,10 +1087,10 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 			validatePlan: func(t *testing.T, a []actions.Action) {
@@ -1129,8 +1100,8 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 			},
 		},
 		{
-			name: "services - container with defined image",
-			component: &components.Component{
+			name: "removal - services - container with defined image",
+			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[8]),
@@ -1153,14 +1124,14 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					},
 				},
 			},
-			setup: func(parent *components.Component, sm *mocks.MockHostManager) {
+			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello-image.service").Return(&services.Service{
 					Name:  "hello-image.service",
 					State: "inactive",
 				}, nil)
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
-					State: "active",
+					State: services.StateActive,
 				}, nil)
 			},
 			validatePlan: func(t *testing.T, a []actions.Action) {
@@ -1173,14 +1144,15 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hm := mocks.NewMockHostManager(t)
-			tt.setup(tt.component, hm)
-			got, gotErr := processRemovedComponentServices(context.Background(), hm, tt.component)
+			tt.setup(tt.source, tt.host, hm)
+			got, gotErr := GenerateServiceActions(context.Background(), hm, tt.source, tt.host)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("processRemovedComponentServices() failed: %v", gotErr)
 				}
 				return
 			}
+
 			if tt.wantErr {
 				t.Fatal("processRemovedComponentServices() succeeded unexpectedly")
 			}
@@ -1189,7 +1161,7 @@ func TestProcessRemovedComponentServices(t *testing.T) {
 					t.Logf("Steps got: %v", got)
 					t.Errorf("Missing step #%v: %v", k, v)
 				}
-				assert.Equal(t, v.Todo, got[k].Todo)
+				assert.Equal(t, v.Todo, got[k].Todo, "Todo %v != expected Todo %v", got[k].Todo, v.Todo)
 				assert.Equal(t, v.Target.Path, got[k].Target.Path)
 			}
 			if tt.validatePlan != nil {

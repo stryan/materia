@@ -801,12 +801,12 @@ func Test_EnsureQuadlets(t *testing.T) {
 
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
 
-	// Stop volume service and remove volume resource
-	err := applyService(ctx, tc, "hello-volume", "stop")
+	// Stop container service and remove volume resource
+	err := applyService(ctx, tc, "hello.service", "stop")
 	require.NoError(t, err)
-	code, _, err := runInContainer(ctx, tc, nil, "podman", "volume", "rm", "systemd-hello")
+	code, result, err := runInContainer(ctx, tc, nil, "podman", "volume", "rm", "systemd-hello")
 	require.NoError(t, err)
-	require.Zero(t, code)
+	require.Zero(t, code, "failed to remove volume: %w", result)
 	require.False(t, volumeExists(ctx, tc, "systemd-hello"))
 
 	require.NoError(t, runMateriaCmd(ctx, tc, "update"))

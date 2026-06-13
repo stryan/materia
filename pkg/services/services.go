@@ -30,11 +30,11 @@ type Service struct {
 	Name    string
 	State   ServiceState
 	Type    string
-	Enabled ServiceEnableStatue
+	Enabled ServiceEnableState
 }
 
 func (s Service) Started() bool {
-	return s.State == "active"
+	return s.State == StateActive
 }
 
 func (s *Service) fillFromProperties(props map[string]interface{}) error {
