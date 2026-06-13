@@ -238,7 +238,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 	}
-	triggeredUpdates, err := generateTriggeredUpdates(ctx, p.Host, currentTree.Source, triggeredActions, resourceActions)
+	triggeredUpdates, err := processTriggeredUpdates(ctx, p.Host, currentTree.Source, triggeredActions, resourceActions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to trigger services updates based off changed resources for %v: %w", currentTree.Name, err)
 	}
@@ -485,28 +485,6 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 	return result, nil
 }
 
-func generateComponentServiceTriggers(newComponent *components.Component) (map[string][]actions.Action, error) {
-	triggeredActions := make(map[string][]actions.Action)
-	for _, src := range newComponent.ServiceConfigs.List() {
-		for _, trigger := range src.RestartedBy {
-			triggerAction, err := getServiceAction(src, newComponent, actions.ActionRestart)
-			if err != nil {
-				return triggeredActions, err
-			}
-			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
-		}
-		for _, trigger := range src.ReloadedBy {
-			triggerAction, err := getServiceAction(src, newComponent, actions.ActionReload)
-			if err != nil {
-				return triggeredActions, err
-			}
-			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
-		}
-	}
-
-	return triggeredActions, nil
-}
-
 func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, parent *components.Component, volumeRes components.Resource) ([]actions.Action, error) {
 	var diffActions []actions.Action
 	if volumeRes.Kind != components.ResourceTypeVolume {
@@ -619,27 +597,57 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 	return liveService, nil
 }
 
-func generateTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *components.Component, triggers map[string][]actions.Action, resourceActions []actions.Action) ([]actions.Action, error) {
+func generateComponentServiceTriggers(newComponent *components.Component) (map[string][]actions.Action, error) {
+	triggeredActions := make(map[string][]actions.Action)
+	for _, src := range newComponent.ServiceConfigs.List() {
+		for _, trigger := range src.RestartedBy {
+			triggerAction, err := getServiceAction(src, newComponent, actions.ActionRestart)
+			if err != nil {
+				return nil, err
+			}
+			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
+		}
+		for _, trigger := range src.ReloadedBy {
+			triggerAction, err := getServiceAction(src, newComponent, actions.ActionReload)
+			if err != nil {
+				return nil, err
+			}
+			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
+		}
+	}
+	if newComponent.Settings.NoRestart {
+		return triggeredActions, nil
+	}
+	for _, res := range newComponent.Resources.List() {
+		if res.Kind == components.ResourceTypeContainer || res.Kind == components.ResourceTypePod {
+			resAct, err := resourceActionWithMetadata(res, newComponent, actions.ActionRestart)
+			if err != nil {
+				return nil, err
+			}
+			triggeredActions[res.Path] = append(triggeredActions[res.Path], resAct)
+		}
+	}
+
+	return triggeredActions, nil
+}
+
+func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *components.Component, triggers map[string][]actions.Action, resourceActions []actions.Action) ([]actions.Action, error) {
 	var result []actions.Action
 
 	for _, d := range resourceActions {
 		if updatedServiceActions, ok := triggers[d.Target.Path]; ok {
-			result = append(result, updatedServiceActions...)
-		} else if (d.Target.Kind == components.ResourceTypeContainer || d.Target.Kind == components.ResourceTypePod) && d.Todo == actions.ActionUpdate && !comp.Settings.NoRestart {
-			liveService, err := mgr.GetService(ctx, d.Target.Service())
-			if err != nil {
-				return nil, fmt.Errorf("can't get live service for %v:%w", d.Target, err)
-			}
-			if liveService.State == "active" {
-				restartAction, err := resourceActionWithMetadata(comp.InstantiateResource(d.Target), comp, actions.ActionRestart)
+			for _, v := range updatedServiceActions {
+				live, err := mgr.GetService(ctx, v.Target.Service())
 				if err != nil {
-					return result, fmt.Errorf("error generating auto-restart option for resource %v: %w", d.Target.Path, err)
+					return nil, err
 				}
-				result = append(result, restartAction)
+				if live.State == "active" {
+					result = append(result, v)
+				}
 			}
+			result = append(result, updatedServiceActions...)
 		}
 	}
-
 	return result, nil
 }
 
@@ -654,7 +662,7 @@ func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Co
 		}
 		return serviceActionWithMetadata(parent, res, src, a), nil
 	}
-	return resourceActionWithMetadata(parent.InstantiateResource(res), parent, a)
+	return resourceActionWithMetadata(res, parent, a)
 }
 
 func resourceActionWithMetadata(res components.Resource, parent *components.Component, a actions.ActionType) (actions.Action, error) {
@@ -813,17 +821,21 @@ func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, h
 			return nil, err
 		}
 	}
+	assignedServices.ListServiceNames()
+	allServices := slices.Concat(assignedServices.ListServiceNames(), currentServices.ListServiceNames())
 	hostServices := assignedServices.Union(currentServices)
 	// update host services set to have current states
-	for _, v := range hostServices.List() {
-		live, err := mgr.GetService(ctx, services.PathToService(v.Name))
+	for _, v := range allServices {
+		live, err := mgr.GetService(ctx, services.PathToService(v))
 
 		if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
 			return nil, err
 		}
 		if errors.Is(err, services.ErrServiceNotFound) {
-			v.State = services.StateInactive
-			hostServices.Add(v)
+			hostServices.Add(services.Service{
+				Name:  v,
+				State: services.StateInactive,
+			})
 		} else {
 			hostServices.Add(*live)
 		}
