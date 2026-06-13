@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"charm.land/log/v2"
@@ -50,11 +52,7 @@ func (s *Service) fillFromProperties(props map[string]interface{}) error {
 	}
 	s.State = NewServiceState(jobState)
 	s.Type = jobType
-	if fileState == "enabled" || fileState == "static" {
-		s.Enabled = EnableStateEnabled
-	} else {
-		s.Enabled = EnableStateDisabled
-	}
+	s.Enabled = NewServiceEnableState(fileState)
 	return nil
 }
 
@@ -293,4 +291,26 @@ func NewSystemdConnection(socketPath string) (*dbus.Conn, error) {
 		}
 		return conn, nil
 	})
+}
+
+func PathToService(name string) string {
+	kind := filepath.Ext(name)
+	switch kind {
+	case ".container":
+		return strings.ReplaceAll(name, ".container", ".service")
+	case ".kube":
+		return strings.ReplaceAll(name, ".kube", ".service")
+	case ".pod":
+		return strings.ReplaceAll(name, ".pod", "-pod.service")
+	case ".network":
+		return strings.ReplaceAll(name, ".network", "-network.service")
+	case ".volume":
+		return strings.ReplaceAll(name, ".volume", "-volume.service")
+	case ".build":
+		return strings.ReplaceAll(name, ".build", "-build.service")
+	case ".image":
+		return strings.ReplaceAll(name, ".image", "-image.service")
+	default:
+		return name
+	}
 }

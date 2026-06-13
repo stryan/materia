@@ -147,6 +147,7 @@ func checkTestCase(ctx context.Context, c testcontainers.Container, tc TestCase)
 		}
 	}
 	for _, s := range tc.Output.ActiveServices {
+		// TODO This doesn't seem to work right
 		attempts := 0
 		if !getService(ctx, c, s, "active") && attempts > 5 {
 			return fmt.Errorf("inactive service: %v", s)

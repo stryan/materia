@@ -20,18 +20,19 @@ const DefaultComponentVersion = 1
 var (
 	ErrCorruptComponent = errors.New("error corrupt component")
 	ErrUnloadedManifest = errors.New("error unloaded manifest")
+	dropInDirRegex      = regexp.MustCompile(`^([a-zA-Z0-9_][a-zA-Z0-9_-]*-?\.)?[a-z]+\.d$`)
 )
 
 type Component struct {
-	Name      string
-	Instance  string
-	Overrides []string
-	Settings  manifests.Settings
-	Resources *ResourceSet
-	State     ComponentLifecycle
-	Defaults  map[string]any
-	Services  *ServiceConfigSet
-	Version   int
+	Name           string
+	Instance       string
+	Overrides      []string
+	Settings       manifests.Settings
+	Resources      *ResourceSet
+	State          ComponentLifecycle
+	Defaults       map[string]any
+	ServiceConfigs *ServiceConfigSet
+	Version        int
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -61,22 +62,22 @@ func NewComponent(name string) *Component {
 		instance = split[1]
 	}
 	return &Component{
-		Name:      name,
-		Instance:  instance,
-		State:     StateStale,
-		Defaults:  make(map[string]any),
-		Services:  NewServiceSet(),
-		Resources: NewResourceSet(),
+		Name:           name,
+		Instance:       instance,
+		State:          StateStale,
+		Defaults:       make(map[string]any),
+		ServiceConfigs: NewServiceConfigSet(),
+		Resources:      NewResourceSet(),
 	}
 }
 
 func NewRootComponent() *Component {
 	return &Component{
-		Name:      "root",
-		State:     StateRoot,
-		Defaults:  make(map[string]any),
-		Services:  NewServiceSet(),
-		Resources: NewResourceSet(),
+		Name:           "root",
+		State:          StateRoot,
+		Defaults:       make(map[string]any),
+		ServiceConfigs: NewServiceConfigSet(),
+		Resources:      NewResourceSet(),
 	}
 }
 
@@ -98,6 +99,16 @@ func (c *Component) InstantiateResource(template Resource) Resource {
 	template.Parent = c.InstanceName()
 	if strings.Contains(template.Path, "@.") {
 		template.Path = strings.ReplaceAll(template.Path, "@", fmt.Sprintf("@%v", c.Instance))
+	}
+	return template
+}
+
+func (c *Component) InstantiateServiceConfig(template manifests.ServiceResourceConfig) manifests.ServiceResourceConfig {
+	if c.Instance == "" {
+		return template
+	}
+	if strings.Contains(template.Service, "@.") {
+		template.Service = strings.ReplaceAll(template.Service, "@", fmt.Sprintf("@%v", c.Instance))
 	}
 	return template
 }
@@ -140,7 +151,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 		if err := s.Validate(); err != nil {
 			return fmt.Errorf("invalid service for component: %w", err)
 		}
-		c.Services.Add(s)
+		c.ServiceConfigs.Add(c.InstantiateServiceConfig(s))
 	}
 	for _, r := range c.Resources.List() {
 		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
@@ -162,8 +173,8 @@ func (c *Component) String() string {
 		numRes = c.Resources.Size()
 	}
 	numServes := -1
-	if c.Services != nil {
-		numServes = c.Services.Size()
+	if c.ServiceConfigs != nil {
+		numServes = c.ServiceConfigs.Size()
 	}
 	name := c.Name
 	if c.Instance != "" {
@@ -182,7 +193,7 @@ func (c Component) Validate() error {
 	if c.Resources == nil {
 		return errors.New("component without resource set")
 	}
-	if c.Services == nil {
+	if c.ServiceConfigs == nil {
 		return errors.New("component without services set")
 	}
 	if c.Settings.SetupScript != "" && c.Settings.CleanupScript == "" {
@@ -214,7 +225,7 @@ func (c *Component) ToResource() Resource {
 
 func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 	result := services.NewServiceSet()
-	for _, sc := range c.Services.List() {
+	for _, sc := range c.ServiceConfigs.List() {
 		s := services.Service{
 			Name:    sc.Service,
 			State:   services.StateActive,
@@ -227,10 +238,7 @@ func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 		if sc.Disabled || !sc.Static {
 			s.Enabled = services.EnableStateDisabled
 		}
-		err := result.Add(s)
-		if err != nil {
-			return nil, err
-		}
+		result.Add(s)
 	}
 	return result, nil
 }
@@ -310,5 +318,3 @@ func IsDropinDir(file string) bool {
 func IsTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
 }
-
-var dropInDirRegex = regexp.MustCompile(`^([a-zA-Z0-9_][a-zA-Z0-9_-]*-?\.)?[a-z]+\.d$`)

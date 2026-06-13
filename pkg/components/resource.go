@@ -124,7 +124,7 @@ func (r *Resource) Filepath() string {
 	return r.Path
 }
 
-func (r *Resource) Service() string {
+func (r Resource) Service() string {
 	name := filepath.Base(r.Path)
 	switch r.Kind {
 	case ResourceTypeContainer:

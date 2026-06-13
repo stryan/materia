@@ -9,7 +9,7 @@ import (
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-var ErrServiceConfigNotFound = errors.New("service not found")
+var ErrServiceConfigNotFound = errors.New("service config not found")
 
 type ServiceConfigSet struct {
 	sets.Set
@@ -21,7 +21,7 @@ func compareServiceResource(left, right interface{}) int {
 	return cmp.Compare(leftSRC.Service, rightSRC.Service)
 }
 
-func NewServiceSet() *ServiceConfigSet {
+func NewServiceConfigSet() *ServiceConfigSet {
 	return &ServiceConfigSet{
 		treeset.NewWith(compareServiceResource),
 	}

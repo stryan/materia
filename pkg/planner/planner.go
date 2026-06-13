@@ -107,7 +107,7 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
-	serviceActions, err := processFreshOrUnchangedComponentServices(ctx, p.Host, currentTree.Source)
+	serviceActions, err := GenerateServiceActions(ctx, p.Host, currentTree.Source, nil)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
@@ -136,7 +136,7 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	if p.OnlyResources {
 		return resourceActions, nil
 	}
-	serviceActions, err := processRemovedComponentServices(ctx, p.Host, currentTree.Host)
+	serviceActions, err := GenerateServiceActions(ctx, p.Host, nil, currentTree.Host)
 	if err != nil {
 		return nil, fmt.Errorf("can't plan removed services for %v: %w", currentTree.Name, err)
 	}
@@ -485,7 +485,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 
 func generateComponentServiceTriggers(newComponent *components.Component) (map[string][]actions.Action, error) {
 	triggeredActions := make(map[string][]actions.Action)
-	for _, src := range newComponent.Services.List() {
+	for _, src := range newComponent.ServiceConfigs.List() {
 		for _, trigger := range src.RestartedBy {
 			triggerAction, err := getServiceAction(src, newComponent, actions.ActionRestart)
 			if err != nil {
@@ -522,7 +522,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 	}
 	// volume resource has been updated and volume migration has been enabled, add extra actions
 	stoppedServiceActions := []actions.Action{}
-	for _, s := range parent.Services.List() {
+	for _, s := range parent.ServiceConfigs.List() {
 		// stop all services so that we're safe to dump
 		currentServ, err := getLiveService(ctx, mgr, parent, s)
 		if err != nil {
@@ -628,7 +628,7 @@ func generateServiceInstallActions(comp *components.Component, osrc manifests.Se
 		// For now we don't need metadata on Enable/Disable actions since they should be effectively instant
 		res := components.Resource{
 			Parent: comp.Name,
-			Path:   comp.Instantiate(osrc.Service),
+			Path:   osrc.Service,
 			Kind:   components.ResourceTypeService,
 		}
 		result = append(result, actions.Action{
@@ -651,20 +651,14 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 	if src.Service == "" {
 		return nil, errors.New("tried to get empty live service")
 	}
-	name := ""
-	res, err := parent.Resources.Get(parent.Instantiate(src.Service))
-	if err != nil {
-		name = src.Service
-	} else {
-		name = res.Service()
-	}
-	liveService, err := mgr.GetService(ctx, parent.Instantiate(name))
+	name := services.PathToService(src.Service)
+	liveService, err := mgr.GetService(ctx, name)
 	if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
 		return nil, err
 	}
 	if errors.Is(err, services.ErrServiceNotFound) {
 		liveService = &services.Service{
-			Name:  parent.Instantiate(name),
+			Name:  name,
 			State: "non-existent",
 		}
 	}
@@ -673,11 +667,11 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 
 func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostStateManager, component *components.Component) ([]actions.Action, error) {
 	var actions []actions.Action
-	if component.Services == nil {
+	if component.ServiceConfigs == nil {
 		return actions, nil
 	}
 
-	for _, s := range component.Services.List() {
+	for _, s := range component.ServiceConfigs.List() {
 		if s.Stopped {
 			continue
 		}
@@ -698,10 +692,10 @@ func processFreshOrUnchangedComponentServices(ctx context.Context, mgr HostState
 
 func processRemovedComponentServices(ctx context.Context, mgr HostStateManager, comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
-	if comp.Services == nil {
+	if comp.ServiceConfigs == nil {
 		return result, nil
 	}
-	for _, s := range comp.Services.List() {
+	for _, s := range comp.ServiceConfigs.List() {
 		liveService, err := getLiveService(ctx, mgr, comp, s)
 		if errors.Is(err, services.ErrServiceNotFound) {
 			continue
@@ -745,7 +739,7 @@ func processUpdatedComponentServices(ctx context.Context, host HostStateManager,
 		}
 	}
 
-	for _, k := range newComponent.Services.List() {
+	for _, k := range newComponent.ServiceConfigs.List() {
 		if k.Stopped {
 			continue
 		}
@@ -765,8 +759,8 @@ func processUpdatedComponentServices(ctx context.Context, host HostStateManager,
 		result = append(result, installActions...)
 	}
 
-	for _, osrc := range original.Services.List() {
-		if !slices.Contains(newComponent.Services.ListServiceNames(), osrc.Service) {
+	for _, osrc := range original.ServiceConfigs.List() {
+		if !slices.Contains(newComponent.ServiceConfigs.ListServiceNames(), osrc.Service) {
 			removalActions, err := generateServiceRemovalActions(original, osrc)
 			if err != nil {
 				return nil, fmt.Errorf("can't generate removal actions for %v:%w", osrc.Service, err)
@@ -786,12 +780,12 @@ func shouldEnableService(s manifests.ServiceResourceConfig, liveService *service
 }
 
 func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a actions.ActionType) (actions.Action, error) {
-	res, err := parent.Resources.Get(parent.Instantiate(src.Service))
+	res, err := parent.Resources.Get(src.Service)
 	if err != nil {
 		// No resource for component, treat it like an arbitary systemd unit
 		res = components.Resource{
 			Parent: parent.Name,
-			Path:   parent.Instantiate(src.Service),
+			Path:   src.Service,
 			Kind:   components.ResourceTypeService,
 		}
 		return serviceActionWithMetadata(parent, res, src, a), nil
@@ -840,7 +834,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 	}
 	if strings.HasSuffix(imageName, ".image") || strings.HasSuffix(imageName, ".build") {
 		timeout := 60
-		src, err := parent.Services.Get(imageName)
+		src, err := parent.ServiceConfigs.Get(imageName)
 		if errors.Is(err, components.ErrServiceConfigNotFound) {
 			// no custom timeout defined
 			return actions.Action{
@@ -931,4 +925,121 @@ func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp,
 	}
 
 	return result, nil
+}
+
+func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, host *components.Component) ([]actions.Action, error) {
+	assignedServices := services.NewServiceSet()
+	currentServices := services.NewServiceSet()
+	steps := []actions.Action{}
+
+	var err error
+	if source != nil {
+		assignedServices, err = source.ToServiceState()
+		if err != nil {
+			return steps, err
+		}
+	}
+	if host != nil {
+		currentServices, err = host.ToServiceState()
+		if err != nil {
+			return steps, err
+		}
+	}
+	hostServices := assignedServices.Union(currentServices)
+	// update hostSErvices to have current state
+	for _, v := range hostServices.List() {
+		liveService, err := mgr.GetService(ctx, services.PathToService(v.Name))
+
+		if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
+			return steps, err
+		}
+		if !errors.Is(err, services.ErrServiceNotFound) {
+			hostServices.Add(*liveService)
+		} else {
+			v.State = services.StateInactive
+			hostServices.Add(v)
+		}
+	}
+
+	// no longer tracked services get stopped
+	untrackedServices := currentServices.Difference(assignedServices)
+	for _, v := range untrackedServices.List() {
+		liveSerivce, err := hostServices.Get(v.Name)
+		if errors.Is(err, services.ErrServiceNotFound) {
+			// untracked service no longer exists, nothing to do
+			continue
+		}
+		if err != nil {
+			return steps, err
+		}
+		if liveSerivce.State == services.StateActive {
+			// add stop service
+			src, err := host.ServiceConfigs.Get(v.Name)
+			if err != nil {
+				return steps, err
+			}
+			removal, err := getServiceAction(src, host, actions.ActionStop)
+			if err != nil {
+				return steps, err
+			}
+			if src.Static {
+				disabled, err := getServiceAction(src, host, actions.ActionDisable)
+				if err != nil {
+					return steps, err
+				}
+				steps = append(steps, disabled)
+			}
+			steps = append(steps, removal)
+		}
+	}
+
+	// tracked services get changed to their assigned state
+	for _, v := range assignedServices.List() {
+		liveService, err := hostServices.Get(v.Name)
+		if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
+			return steps, err
+		}
+
+		newStepsTypes := serviceStateHelper(v, liveService)
+		for _, t := range newStepsTypes {
+			src, err := source.ServiceConfigs.Get(v.Name)
+			if err != nil {
+				return steps, err
+			}
+			install, err := getServiceAction(src, source, t)
+			if err != nil {
+				return steps, err
+			}
+			steps = append(steps, install)
+		}
+	}
+
+	return steps, nil
+}
+
+func serviceStateHelper(assigned, current services.Service) []actions.ActionType {
+	var steps []actions.ActionType
+	// Special case no current
+	if current.Name == "" || current.State == services.StateUnknown {
+		if assigned.State == services.StateActive {
+			steps = append(steps, actions.ActionStart)
+		}
+		if assigned.Enabled == services.EnableStateEnabled {
+			steps = append(steps, actions.ActionEnable)
+		}
+		return steps
+	}
+	if assigned.State == services.StateInactive && current.State != services.StateInactive {
+		steps = append(steps, actions.ActionStop)
+	}
+	if assigned.State == services.StateActive && current.State != services.StateActive {
+		steps = append(steps, actions.ActionStart)
+	}
+	if assigned.Enabled == services.EnableStateEnabled && current.Enabled != services.EnableStateEnabled {
+		steps = append(steps, actions.ActionEnable)
+	}
+	if assigned.Enabled != services.EnableStateEnabled && current.Enabled == services.EnableStateEnabled {
+		steps = append(steps, actions.ActionDisable)
+	}
+	return steps
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"cmp"
-	"errors"
 
 	"github.com/emirpasic/gods/sets"
 	"github.com/emirpasic/gods/sets/treeset"
@@ -24,12 +23,8 @@ func NewServiceSet() *ServiceSet {
 	}
 }
 
-func (s *ServiceSet) Add(serv Service) error {
-	if s.Contains(serv) {
-		return errors.New("service already in set")
-	}
+func (s *ServiceSet) Add(serv Service) {
 	s.Set.Add(serv)
-	return nil
 }
 
 func (s *ServiceSet) List() []Service {
@@ -56,4 +51,40 @@ func (s *ServiceSet) Get(name string) (Service, error) {
 		}
 	}
 	return Service{}, ErrServiceNotFound
+}
+
+func (r *ServiceSet) Union(other *ServiceSet) *ServiceSet {
+	resultSet := NewServiceSet()
+
+	for _, element := range r.List() {
+		resultSet.Add(element)
+	}
+	for _, element := range other.List() {
+		resultSet.Add(element)
+	}
+
+	return resultSet
+}
+
+func (r *ServiceSet) Intersection(other *ServiceSet) *ServiceSet {
+	resultSet := NewServiceSet()
+
+	for _, element := range r.List() {
+		if other.Contains(element) {
+			resultSet.Add(element)
+		}
+	}
+
+	return resultSet
+}
+
+func (r *ServiceSet) Difference(other *ServiceSet) *ServiceSet {
+	resultSet := NewServiceSet()
+
+	for _, element := range r.List() {
+		if !other.Contains(element) {
+			resultSet.Add(element)
+		}
+	}
+	return resultSet
 }
