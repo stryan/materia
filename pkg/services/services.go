@@ -18,6 +18,7 @@ import (
 var (
 	ErrServiceNotFound   = errors.New("no service found")
 	ErrOperationTimedOut = errors.New("operation timeout")
+	ErrStateChangeFailed = errors.New("service state change failed")
 )
 
 type ServiceManager struct {
@@ -179,6 +180,10 @@ func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service,
 }
 
 func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state ServiceState, timeout int) error {
+	if state == StateInternalWildcard {
+		// Nothing to do, we allow all states
+		return nil
+	}
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
@@ -200,26 +205,29 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	timeoutTimer := time.NewTimer(time.Duration(timeout) * time.Second)
 	defer timeoutTimer.Stop()
 	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", timeout)
+	count := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
 		case <-timeoutTimer.C:
-			return fmt.Errorf("service %v did not reach state %v", name, state)
+			return fmt.Errorf("%w: service %v did not reach state %v", ErrOperationTimedOut, name, state)
 		case <-ticker.C:
 			props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 			if err != nil {
 				return err
 			}
 
-			activeState := props["ActiveState"]
+			rawState := props["ActiveState"]
+			activeState := NewServiceState(rawState.(string))
 			if activeState == state {
 				return nil
 			}
 			if activeState == "failed" {
-				return fmt.Errorf("service %v in failed state", name)
+				return ErrStateChangeFailed
 			}
 		}
+		count++
 	}
 }
 
@@ -267,6 +275,9 @@ func waitForCallback(ctx context.Context, callback chan string, timeout int) err
 		return fmt.Errorf("context cancelled during systemd operation")
 	case result := <-callback:
 		if result != "done" {
+			if result == "failed" {
+				return ErrStateChangeFailed
+			}
 			return fmt.Errorf("finished with status: %s", result)
 		}
 		return nil

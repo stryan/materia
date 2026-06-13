@@ -232,7 +232,7 @@ func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 			Type:    "", // Do we even need this field
 			Enabled: services.EnableStateEnabled,
 		}
-		if sc.Stopped {
+		if sc.Stopped || sc.Oneshot {
 			s.State = services.StateInternalWildcard
 		}
 		if sc.Disabled || !sc.Static {

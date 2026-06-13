@@ -136,8 +136,10 @@ var double = TestComponent{
 			Content: `
 			[[Services]]
 			Service = "foo.container"
+			Oneshot = true
 			[[Services]]
 			Service = "bar.service"
+			Oneshot = true
 			`,
 		},
 	},
@@ -155,8 +157,10 @@ var double = TestComponent{
 			Content: `
 			[[Services]]
 			Service = "foo.container"
+			Oneshot = true
 			[[Services]]
 			Service = "bar.service"
+			Oneshot = true
 			`,
 		},
 	},

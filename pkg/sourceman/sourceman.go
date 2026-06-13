@@ -23,7 +23,9 @@ type SourceManConfig struct {
 
 type sourcePlan struct {
 	source.Source
-	Opts source.SyncOpts
+	Primary bool
+	Opts    *source.SyncOpts
+	Report  *source.SyncReport
 }
 
 type SourceManager struct {
@@ -46,25 +48,59 @@ func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 }
 
 func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
-	for _, src := range s.sources {
-		o := src.Opts
-		if opts != nil {
-			o = *opts
+	for i, src := range s.sources {
+		o := &source.SyncOpts{}
+		if src.Opts != nil {
+			o = src.Opts
 		}
-		err := src.Sync(ctx, o)
+		if opts != nil {
+			o = opts
+		}
+		report, err := src.Sync(ctx, *o)
 		if err != nil {
 			return fmt.Errorf("error syncing source: %w", err)
+		}
+		src.Report = report
+		s.sources[i] = src
+	}
+	return nil
+}
+
+func (s *SourceManager) Rollback(ctx context.Context) error {
+	for i, src := range s.sources {
+		if src.Report == nil {
+			return fmt.Errorf("unable to rollback: no plan for %v", src.Source)
+		}
+		r := src.Report
+		if r.OldRevision == "" && src.Primary {
+			return fmt.Errorf("unable to rollback primary repository to nothing")
+		}
+		o := source.SyncOpts{
+			Revision: r.OldRevision,
+		}
+		if src.Opts != nil {
+			o.Subpath = src.Opts.Subpath
+		}
+		log.Info("rolling back", "source", src.Source, "revision", r.OldRevision)
+		if r.OldRevision == "" {
+			err := src.Clean()
+			if err != nil {
+				return err
+			}
+		} else {
+			report, err := src.Sync(ctx, o)
+			if err != nil {
+				return fmt.Errorf("unable to rollback %v: %w", src.Source, err)
+			}
+			src.Report = report
+			s.sources[i] = src
 		}
 	}
 	return nil
 }
 
-func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts) error {
-	if opts != nil {
-		s.sources = append(s.sources, sourcePlan{newSource, *opts})
-	} else {
-		s.sources = append(s.sources, sourcePlan{newSource, source.SyncOpts{}})
-	}
+func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts, report *source.SyncReport, primary bool) error {
+	s.sources = append(s.sources, sourcePlan{newSource, primary, opts, report})
 	return nil
 }
 
@@ -112,9 +148,10 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		}
 		// Do initial sync here since we need the repository manifest downloaded before loading the remotes
 		// and will thus miss the initial Sync() call
-		if err := remoteSource.Sync(ctx, source.SyncOpts{
+		report, err := remoteSource.Sync(ctx, source.SyncOpts{
 			Subpath: r.Subpath,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		if r.Subpath != "" {
@@ -128,7 +165,7 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		}
 		if err := s.AddSource(remoteSource, &source.SyncOpts{
 			Subpath: r.Subpath,
-		}); err != nil {
+		}, report, false); err != nil {
 			return fmt.Errorf("unable to add remote component source %v: %w", name, err)
 		}
 

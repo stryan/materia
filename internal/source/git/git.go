@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/log/v2"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -127,124 +126,59 @@ func NewGitSource(c *Config) (*GitSource, error) {
 	return g, nil
 }
 
-func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) error {
-	localPath := g.localRepository
-	localBranch := g.activeBranch
+func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.SyncReport, error) {
 	repoURL := g.remoteRepository
-	stale := false
-	changedBranch := false
-	// Clone the repository
+	report := &source.SyncReport{}
 	gco := &git.CloneOptions{
 		URL:               repoURL,
 		Auth:              g.auth,
 		Progress:          os.Stdout,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	}
-	r, err := git.PlainCloneContext(ctx, localPath, false, gco)
-	if errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		r, err = git.PlainOpen(localPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		remote, err := r.Remote("origin")
-		if err != nil {
-			return fmt.Errorf("failed to get remote: %w", err)
-		}
-		urls := remote.Config().URLs
-		if !slices.Contains[[]string](urls, g.remoteRepository) {
-			log.Warn("Repository exists but has different remote URL")
-			if g.resetIfNeeded {
-				err := g.Clean()
-				if err != nil {
-					return fmt.Errorf("error cleaning repo: %w", err)
-				}
-				r, err = git.PlainCloneContext(ctx, localPath, false, gco)
-				if err != nil {
-					return fmt.Errorf("failed to clone after resetting, giving up: %w", err)
-				}
-			}
-		}
-
-		stale = true
-	}
-	if err != nil && !errors.Is(err, git.ErrRepositoryAlreadyExists) {
-		return fmt.Errorf("failed to clone repository: %w", err)
-	}
-	// Get the worktree
-	w, err := r.Worktree()
+	r, oldRevision, err := g.createOrOpenRepo(ctx, gco)
 	if err != nil {
-		return fmt.Errorf("failed to get worktree: %w", err)
+		return nil, fmt.Errorf("failed to open repository: %w", err)
 	}
-	head, err := r.Head()
-	if err != nil {
-		return fmt.Errorf("failed to get HEAD: %w", err)
-	}
-	currentBranch := head.Name().String()
-	if g.activeBranch != "" {
-		// make sure we're on the specified branch
-		expectedBranchRef := fmt.Sprintf("refs/heads/%s", localBranch)
+	report.OldRevision = oldRevision
 
-		// If we're already on the target branch, skip checkout
-		if currentBranch != expectedBranchRef {
-			err = g.checkoutBranch(ctx, r, g.activeBranch, opts.Subpath)
+	if opts.Revision == "" {
+		if err := g.ensureBranch(ctx, r, opts.Subpath); err != nil {
+			return nil, err
+		}
+		target := g.activeBranch
+		if target == "" {
+			var err error
+			target, err = g.GetDefaultBranchFromRepository(r)
 			if err != nil {
-				return fmt.Errorf("error checking out requested branch: %w", err)
+				return nil, fmt.Errorf("error fetching default branch: %w", err)
 			}
-			changedBranch = true
-		} else {
-			stale = true
+		}
+
+		current, err := GetCurrentBranchFromRepository(r)
+		if err != nil {
+			return nil, fmt.Errorf("error getting current branch: %w", err)
+		}
+
+		if current != fmt.Sprintf("refs/heads/%s", target) {
+			err = g.checkoutBranch(ctx, r, target, opts.Subpath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to checkout branch: %w", err)
+			}
+		}
+		if err := g.pull(ctx, r); err != nil {
+			return nil, err
 		}
 	} else {
-		// make sure we're on the default branch
-		defaultBranch, err := g.GetDefaultBranchFromRepository(r)
-		if err != nil {
-			return fmt.Errorf("error fetching default branch: %w", err)
-		}
-		currentBranch, err := GetCurrentBranchFromRepository(r)
-		if err != nil {
-			return fmt.Errorf("error getting current branch: %w", err)
-		}
-		if currentBranch != defaultBranch {
-			err = g.checkoutBranch(ctx, r, defaultBranch, opts.Subpath)
-			if err != nil {
-				return fmt.Errorf("error reverting to default branch: %w", err)
-			}
-			changedBranch = true
-		} else {
-			stale = true
-		}
-	}
-
-	if stale || changedBranch {
-		err = w.PullContext(ctx, &git.PullOptions{
-			Auth:  g.auth,
-			Force: g.resetIfNeeded,
-		})
-		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-			if errors.Is(err, git.ErrFastForwardMergeNotPossible) {
-				if !g.resetIfNeeded {
-					return err
-				}
-				err = g.HardReset(r)
-				if err != nil {
-					return fmt.Errorf("failed to hard reset when requested: %w", err)
-				}
-				err = w.PullContext(ctx, &git.PullOptions{
-					Auth:  g.auth,
-					Force: g.resetIfNeeded,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to pull after hard reseting: %w", err)
-				}
-			}
-		}
-	}
-	if opts.Revision != "" {
 		if err := g.checkoutRevision(ctx, r, opts.Revision); err != nil {
-			return fmt.Errorf("failed to checkout revision %v: %w", opts.Revision, err)
+			return nil, fmt.Errorf("failed to checkout revision %v: %w", opts.Revision, err)
 		}
 	}
-	return nil
+	newHead, err := r.Head()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get HEAD after sync: %w", err)
+	}
+	report.NewRevision = newHead.Hash().String()
+	return report, nil
 }
 
 func (g *GitSource) Close(ctx context.Context) error {
@@ -342,6 +276,92 @@ func (g *GitSource) fetchOrigin(ctx context.Context, repo *git.Repository, refSp
 	return nil
 }
 
+// createOrOpenRepo clones a new repo or opens an existing one. Returns the current revision (if existing repo)
+func (g *GitSource) createOrOpenRepo(ctx context.Context, opts *git.CloneOptions) (*git.Repository, string, error) {
+	r, err := git.PlainCloneContext(ctx, g.localRepository, false, opts)
+	if err == nil {
+		// fresh start, nothing else to do
+		return r, "", nil
+	}
+	if !errors.Is(err, git.ErrRepositoryAlreadyExists) {
+		return nil, "", fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	r, err = git.PlainOpen(g.localRepository)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to open repository: %w", err)
+	}
+
+	remote, err := r.Remote("origin") // TODO allow custom remotes
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get remote: %w", err)
+	}
+	if slices.Contains(remote.Config().URLs, g.remoteRepository) {
+		head, err := r.Head()
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get HEAD: %w", err)
+		}
+		return r, head.Hash().String(), nil
+	}
+
+	if !g.resetIfNeeded {
+		return nil, "", fmt.Errorf("local repo has different remote and reset is disabled")
+	}
+	if err := g.Clean(); err != nil {
+		return nil, "", fmt.Errorf("error cleaning repo: %w", err)
+	}
+	r, err = git.PlainCloneContext(ctx, g.localRepository, false, opts)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to clone after resetting: %w", err)
+	}
+	return r, "", nil
+}
+
+func (g *GitSource) pull(ctx context.Context, r *git.Repository) error {
+	w, err := r.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+	err = w.PullContext(ctx, &git.PullOptions{
+		Auth:  g.auth,
+		Force: g.resetIfNeeded,
+	})
+	if err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return nil
+	}
+	if !errors.Is(err, git.ErrFastForwardMergeNotPossible) || !g.resetIfNeeded {
+		return err
+	}
+	if err := g.HardReset(r); err != nil {
+		return fmt.Errorf("failed to hard reset: %w", err)
+	}
+	if err := w.PullContext(ctx, &git.PullOptions{Auth: g.auth, Force: true}); err != nil {
+		return fmt.Errorf("failed to pull after hard reset: %w", err)
+	}
+	return nil
+}
+
+func (g *GitSource) ensureBranch(ctx context.Context, r *git.Repository, subpath string) error {
+	target := g.activeBranch
+	if target == "" {
+		var err error
+		target, err = g.GetDefaultBranchFromRepository(r)
+		if err != nil {
+			return fmt.Errorf("error fetching default branch: %w", err)
+		}
+	}
+
+	current, err := GetCurrentBranchFromRepository(r)
+	if err != nil {
+		return fmt.Errorf("error getting current branch: %w", err)
+	}
+
+	if current == fmt.Sprintf("refs/heads/%s", target) {
+		return nil
+	}
+	return g.checkoutBranch(ctx, r, target, subpath)
+}
+
 func (g *GitSource) checkoutBranch(ctx context.Context, r *git.Repository, branch, subpath string) error {
 	w, err := r.Worktree()
 	if err != nil {
@@ -387,4 +407,10 @@ func (g *GitSource) checkoutRevision(_ context.Context, r *git.Repository, revis
 		Hash:  *hash,
 		Force: g.resetIfNeeded,
 	})
+}
+
+func (g *GitSource) Inspect() source.SyncInspectReport {
+	return source.SyncInspectReport{
+		SupportsRollback: true,
+	}
 }

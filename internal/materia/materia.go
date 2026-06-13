@@ -42,6 +42,7 @@ type Materia struct {
 	Hostname       string
 	Roles          []string
 	Lock           Locker
+	Rollback       bool
 	macros         macros.MacroMap
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
@@ -189,6 +190,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Hostname:       name,
 		Roles:          roles,
 		Lock:           l,
+		Rollback:       c.Rollback != "",
 	}, nil
 }
 

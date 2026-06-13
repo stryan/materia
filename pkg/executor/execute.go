@@ -13,9 +13,13 @@ import (
 	"primamateria.systems/materia/pkg/services"
 )
 
-type ErrExecuteFailed struct {
+type ErrFinalStateUnhealthy struct {
 	Expected services.ServicesSlice
 	Actual   services.ServicesSlice
+}
+
+func (e *ErrFinalStateUnhealthy) Error() string {
+	return fmt.Sprintf("Execute in unhealthy state: Expected %v, Actual%v", e.Expected, e.Actual)
 }
 
 type Executor struct {
@@ -37,6 +41,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		return -1, nil
 	}
 	lastAction := make(map[string]actions.ActionType)
+	expectedServices := make(services.ServicesSlice)
 	steps := 0
 	// Execute actions
 	for _, v := range plan.Steps() {
@@ -46,6 +51,13 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		}
 
 		if v.Todo.IsServiceAction() && v.Target.Kind != components.ResourceTypeHost {
+			if v.Metadata != nil {
+				if v.Metadata.ServiceUntilState != nil {
+					// we know exact what state it should be in, don't bother guessing
+					expectedServices[v.Target.Service()] = services.NewServiceState(*v.Metadata.ServiceUntilState)
+					continue
+				}
+			}
 			lastAction[v.Target.Service()] = v.Todo
 		}
 
@@ -53,8 +65,6 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 	}
 
 	// verify services are in their expected end state (i.e. the result of the last service change command)
-
-	expectedServices := make(services.ServicesSlice)
 	for k, v := range lastAction {
 		serv, err := e.host.GetService(ctx, k)
 		if err != nil {
@@ -66,37 +76,49 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		}
 		switch v {
 		case actions.ActionRestart, actions.ActionStart, actions.ActionReload:
-			switch serv.State {
-			case "activating", "reloading":
-				expectedServices[serv.Name] = services.StateActive
-			case "failed":
-				log.Warn("service failed to start/restart/reload", "service", serv.Name, "state", serv.State)
-			default:
-			}
+			expectedServices[serv.Name] = services.StateActive
 		case actions.ActionStop:
-			if serv.State == "deactivating" {
-				expectedServices[serv.Name] = "inactive"
-			} else if serv.State != "inactive" {
-				log.Warn("service failed to stop", "service", serv.Name, "state", serv.State)
-			}
+			expectedServices[serv.Name] = services.StateInactive
 		case actions.ActionEnable, actions.ActionDisable:
 		default:
 			return steps, fmt.Errorf("unknown service action state: %v", v)
 		}
 	}
+	finalServices := make(services.ServicesSlice)
 	var servWG sync.WaitGroup
+	badState := false
 	for serv, state := range expectedServices {
 		servWG.Add(1)
 		go func(serv string, state services.ServiceState) {
 			defer servWG.Done()
 			err := e.host.WaitUntilState(ctx, serv, state, e.defaultTimeout) // TODO dynamically adjust timeout
-			if err != nil {
-				log.Warn(err)
+			if err == nil {
+				finalServices[serv] = state
+				return
 			}
+			if !errors.Is(err, services.ErrOperationTimedOut) {
+				log.Warn("Error waiting for final service %v check: %w", serv, err)
+			}
+			badState = true
+			fserv, err := e.host.GetService(ctx, serv)
+			if err != nil {
+				if errors.Is(err, services.ErrServiceNotFound) && state == services.StateInactive {
+					// nothing to do if the service is fully gone
+					return
+				}
+				finalServices[serv] = services.StateUnknown
+				return
+			}
+			finalServices[serv] = fserv.State
 		}(serv, state)
-
 	}
 	servWG.Wait()
+	if badState {
+		return steps, &ErrFinalStateUnhealthy{
+			Expected: expectedServices,
+			Actual:   finalServices,
+		}
+	}
 	return steps, nil
 }
 

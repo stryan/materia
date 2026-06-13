@@ -565,11 +565,15 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 }
 
 func serviceActionWithMetadata(parent *components.Component, targetSrc components.Resource, s manifests.ServiceResourceConfig, a actions.ActionType) actions.Action {
-	var metadata *actions.ActionMetadata
+	metadata := &actions.ActionMetadata{}
 	if s.Timeout != 0 {
-		metadata = &actions.ActionMetadata{
-			ServiceTimeout: &s.Timeout,
-		}
+		to := s.Timeout
+		metadata.ServiceTimeout = &to
+	}
+	if s.Oneshot {
+		endState := services.StateInternalWildcard
+		endStr := string(endState)
+		metadata.ServiceUntilState = &endStr
 	}
 	return actions.Action{
 		Todo:     a,
@@ -619,6 +623,10 @@ func generateComponentServiceTriggers(newComponent *components.Component) (map[s
 		return triggeredActions, nil
 	}
 	for _, res := range newComponent.Resources.List() {
+		if _, ok := triggeredActions[res.Path]; ok {
+			// resource already has manual triggers, don't add auto created ones
+			continue
+		}
 		if res.Kind == components.ResourceTypeContainer || res.Kind == components.ResourceTypePod {
 			resAct, err := resourceActionWithMetadata(res, newComponent, actions.ActionRestart)
 			if err != nil {
@@ -721,6 +729,13 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 			return actions.Action{}, fmt.Errorf("can't get service config for resource %v: %w", imageName, err)
 		}
 		timeout = src.Timeout + timeout
+		metadata := &actions.ActionMetadata{}
+		metadata.ServiceTimeout = &timeout
+		if src.Oneshot {
+			endState := services.StateInternalWildcard
+			endStr := string(endState)
+			metadata.ServiceUntilState = &endStr
+		}
 		return actions.Action{
 			Todo:   a,
 			Parent: parent,
