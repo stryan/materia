@@ -1,7 +1,7 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [ ] Automatic rollback on failure
-- [ ] quadlet.d override directory support
+- [x] Automatic rollback on failure
+- [x] quadlet.d override directory support
 
 # Potential future goals
 - [ ] Remote components refinement
