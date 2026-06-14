@@ -67,6 +67,11 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 }
 
 func (s *SourceManager) Rollback(ctx context.Context) error {
+	for _, s := range s.sources {
+		if !s.Inspect().SupportsRollback {
+			return fmt.Errorf("unable to rollback: unsupported source type: %v", s)
+		}
+	}
 	for i, src := range s.sources {
 		if src.Report == nil {
 			return fmt.Errorf("unable to rollback: no plan for %v", src.Source)

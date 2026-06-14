@@ -9,6 +9,7 @@ type Source interface {
 	Sync(context.Context, SyncOpts) (*SyncReport, error)
 	Inspect() SyncInspectReport
 	Close(context.Context) error
+	String() string
 	Clean() error
 }
 

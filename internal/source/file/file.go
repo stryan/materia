@@ -67,3 +67,7 @@ func (f *FileSource) Inspect() source.SyncInspectReport {
 		SupportsRollback: false,
 	}
 }
+
+func (f *FileSource) String() string {
+	return fmt.Sprintf("file:%v", f.RemoteRepository)
+}

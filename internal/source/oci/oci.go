@@ -154,3 +154,8 @@ func (o *OCISource) Inspect() source.SyncInspectReport {
 		SupportsRollback: false, // TODO support rollback
 	}
 }
+
+func (o *OCISource) String() string {
+	imageRef := fmt.Sprintf("%s/%s:%s", o.registry, o.repository, o.tag)
+	return fmt.Sprintf("oci:%v", imageRef)
+}

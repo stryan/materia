@@ -414,3 +414,7 @@ func (g *GitSource) Inspect() source.SyncInspectReport {
 		SupportsRollback: true,
 	}
 }
+
+func (g *GitSource) String() string {
+	return fmt.Sprintf("git:%v:%v", g.remoteRepository, g.localRepository)
+}
