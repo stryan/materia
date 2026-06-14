@@ -101,9 +101,9 @@ Enables `rootless` mode for Materia in a container. Causes materia to parse its 
 
 #### *MATERIA_APPMODE*/**appmode**
 
-(EXPERIMENTAL)
+Generate `.app` files with when installing quadlets to keep them compatibile with Podman 5 `podman quadlet commands`.
 
-Generate `.app` files with when installing quadlets to keep them compatibile with `podman quadlet commands`.
+Soft-Deprecated: Podman 6 no longer uses `.app` files so this feature will not be updated
 
 #### *MATERIA_LOCK*/**lock**
 
@@ -112,6 +112,19 @@ Generate `.app` files with when installing quadlets to keep them compatibile wit
 Enable locking to prevent multiple Materia or Materia related processes from interfering with each other.
 
 Valid options are `dbus` or `file`. Dbus based locking may require a dbus policy to be installed.
+
+#### *MATERIA_ROLLBACK*/**rollback**
+
+(EXPERIMENTAL)
+
+Enables `rollback` mode for the `update` command. When this is enabled, Materia will detect failures during an update and, if possible, rollback to a previous state of the source repository and re-run the update with whatever rollback method that repository source supports.
+
+This feature currently only works with the `git` source. When rolling back, Materia will checkout whatever commit the local repository cache was on before the most recent sync.
+
+The setting value will determine what health check system to use. Currently the only supported option is "service": Materia will rollback if a service state change causes the service to enter the `failed` state or if the final service check reports a different state than expected.
+
+Valid options: "service".
+
 
 #### *MATERIA_PODMAN_COMMAND*/**podman_command**
 

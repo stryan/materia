@@ -6,17 +6,19 @@ import (
 	"fmt"
 	"os/exec"
 	"os/user"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"charm.land/log/v2"
 	"github.com/coreos/go-systemd/v22/dbus"
 	godbus "github.com/godbus/dbus/v5"
-	"github.com/knadh/koanf/v2"
 )
 
 var (
 	ErrServiceNotFound   = errors.New("no service found")
 	ErrOperationTimedOut = errors.New("operation timeout")
+	ErrStateChangeFailed = errors.New("service state change failed")
 )
 
 type ServiceManager struct {
@@ -27,13 +29,13 @@ type ServiceManager struct {
 
 type Service struct {
 	Name    string
-	State   string // active, reloading, inactive, failed, activating, deactivating
+	State   ServiceState
 	Type    string
-	Enabled bool
+	Enabled ServiceEnableState
 }
 
 func (s Service) Started() bool {
-	return s.State == "active"
+	return s.State == StateActive
 }
 
 func (s *Service) fillFromProperties(props map[string]interface{}) error {
@@ -49,9 +51,9 @@ func (s *Service) fillFromProperties(props map[string]interface{}) error {
 	if !ok {
 		jobType = "non-existent"
 	}
-	s.State = jobState
+	s.State = NewServiceState(jobState)
 	s.Type = jobType
-	s.Enabled = (fileState == "enabled" || fileState == "static")
+	s.Enabled = NewServiceEnableState(fileState)
 	return nil
 }
 
@@ -67,29 +69,6 @@ const (
 	ServiceDisable
 	ServiceReloadService
 )
-
-type ServicesConfig struct {
-	Timeout        int    `toml:"timeout" koanf:"timeout"`
-	DryrunQuadlets bool   `toml:"dryrun_quadlets" koanf:"dryrun_quadlets"`
-	DbusSocket     string `toml:"dbus_socket" koanf:"dbus_socket"`
-}
-
-func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
-	c := &ServicesConfig{}
-	c.Timeout = k.Int("services.timeout")
-	c.DryrunQuadlets = k.Bool("dryrun_quadlets")
-	if c.Timeout == 0 {
-		c.Timeout = 90
-	}
-	if k.Exists("services.dbus_socket") {
-		c.DbusSocket = k.String("services.dbus_socket")
-	}
-	return c, nil
-}
-
-func (c *ServicesConfig) String() string {
-	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
-}
 
 func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
@@ -200,7 +179,11 @@ func (s *ServiceManager) GetService(ctx context.Context, name string) (*Service,
 	return result, nil
 }
 
-func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state string, timeout int) error {
+func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state ServiceState, timeout int) error {
+	if state == StateInternalWildcard {
+		// Nothing to do, we allow all states
+		return nil
+	}
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err
@@ -222,26 +205,29 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	timeoutTimer := time.NewTimer(time.Duration(timeout) * time.Second)
 	defer timeoutTimer.Stop()
 	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", timeout)
+	count := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context canceled while waiting for service %v to reach state %v", name, state)
 		case <-timeoutTimer.C:
-			return fmt.Errorf("service %v did not reach state %v", name, state)
+			return fmt.Errorf("%w: service %v did not reach state %v", ErrOperationTimedOut, name, state)
 		case <-ticker.C:
 			props, err := s.Conn.GetAllPropertiesContext(ctx, name)
 			if err != nil {
 				return err
 			}
 
-			activeState := props["ActiveState"]
+			rawState := props["ActiveState"]
+			activeState := NewServiceState(rawState.(string))
 			if activeState == state {
 				return nil
 			}
 			if activeState == "failed" {
-				return fmt.Errorf("service %v in failed state", name)
+				return ErrStateChangeFailed
 			}
 		}
+		count++
 	}
 }
 
@@ -289,6 +275,9 @@ func waitForCallback(ctx context.Context, callback chan string, timeout int) err
 		return fmt.Errorf("context cancelled during systemd operation")
 	case result := <-callback:
 		if result != "done" {
+			if result == "failed" {
+				return ErrStateChangeFailed
+			}
 			return fmt.Errorf("finished with status: %s", result)
 		}
 		return nil
@@ -313,4 +302,26 @@ func NewSystemdConnection(socketPath string) (*dbus.Conn, error) {
 		}
 		return conn, nil
 	})
+}
+
+func PathToService(name string) string {
+	kind := filepath.Ext(name)
+	switch kind {
+	case ".container":
+		return strings.ReplaceAll(name, ".container", ".service")
+	case ".kube":
+		return strings.ReplaceAll(name, ".kube", ".service")
+	case ".pod":
+		return strings.ReplaceAll(name, ".pod", "-pod.service")
+	case ".network":
+		return strings.ReplaceAll(name, ".network", "-network.service")
+	case ".volume":
+		return strings.ReplaceAll(name, ".volume", "-volume.service")
+	case ".build":
+		return strings.ReplaceAll(name, ".build", "-build.service")
+	case ".image":
+		return strings.ReplaceAll(name, ".image", "-image.service")
+	default:
+		return name
+	}
 }

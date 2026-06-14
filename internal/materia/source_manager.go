@@ -11,6 +11,7 @@ import (
 type SourceManager interface {
 	components.ComponentReader
 	LoadManifest(string) (*manifests.MateriaManifest, error)
-	AddSource(source.Source, *source.SyncOpts) error
+	AddSource(source.Source, *source.SyncOpts, *source.SyncReport, bool) error
 	Sync(context.Context, *source.SyncOpts) error
+	Rollback(context.Context) error
 }

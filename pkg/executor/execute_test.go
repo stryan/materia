@@ -23,8 +23,8 @@ func newResSet(resources ...components.Resource) *components.ResourceSet {
 	return rs
 }
 
-func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceSet {
-	ss := components.NewServiceSet()
+func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceConfigSet {
+	ss := components.NewServiceConfigSet()
 	for _, v := range services {
 		ss.Add(v)
 	}
@@ -51,12 +51,12 @@ func TestExecute(t *testing.T) {
 		Kind:   components.ResourceTypeManifest,
 	}
 	helloComp := &components.Component{
-		Name:      "hello",
-		Resources: newResSet(containerResource, dataResource, manifestResource),
-		Services:  newServSet(),
-		State:     components.StateFresh,
-		Defaults:  map[string]any{},
-		Version:   components.DefaultComponentVersion,
+		Name:           "hello",
+		Resources:      newResSet(containerResource, dataResource, manifestResource),
+		ServiceConfigs: newServSet(),
+		State:          components.StateFresh,
+		Defaults:       map[string]any{},
+		Version:        components.DefaultComponentVersion,
 	}
 	planSteps := []actions.Action{
 		{

@@ -60,11 +60,11 @@ func (s *VarlinkServer) Update(ctx context.Context, c varlinkapi.VarlinkCall) er
 	if err != nil {
 		return c.ReplyPlanFailed(ctx, err.Error())
 	}
-	steps, err := s.materia.Execute(ctx, plan)
+	rep, err := s.materia.Execute(ctx, plan)
 	if err != nil {
-		return c.ReplyExecutionFailed(ctx, err.Error(), int64(steps), int64(plan.Size()))
+		return c.ReplyExecutionFailed(ctx, err.Error(), int64(rep.StepsCompleted), int64(plan.Size()))
 	}
-	return c.ReplyUpdate(ctx, int64(steps))
+	return c.ReplyUpdate(ctx, int64(rep.StepsCompleted))
 }
 
 func newVarlinkServer(ctx context.Context, m *materia.Materia) (*varlink.Service, error) {

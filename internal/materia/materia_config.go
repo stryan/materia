@@ -46,6 +46,7 @@ type MateriaConfig struct {
 	Lock             string                       `toml:"lock"`
 	AppMode          bool                         `toml:"appmode"`
 	Rootless         bool                         `toml:"rootless"`
+	Rollback         string                       `toml:"rollback"`
 	Attributes       string                       `toml:"attributes"`
 	CommandPodman    bool                         `toml:"podman_command"`
 	AgeConfig        *age.Config                  `toml:"age"`
@@ -76,6 +77,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.RemoteDir = k.String("remote_dir")
 	c.NoSync = k.Bool("nosync")
 	c.Lock = k.String("lock")
+	c.Rollback = k.String("rollback")
 	c.AppMode = k.Bool("appmode")
 	if k.Exists("age") || c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)
@@ -208,6 +210,9 @@ func (c *MateriaConfig) Validate() error {
 			return fmt.Errorf("invalid executor config: %w", err)
 		}
 	}
+	if c.Rollback != "" && c.Rollback != "service" {
+		return fmt.Errorf("rollback type %v is invalid", c.Rollback)
+	}
 	return nil
 }
 
@@ -234,6 +239,11 @@ func (c *MateriaConfig) String() string {
 		result += fmt.Sprintf("Lock mode: %v\n", c.Lock)
 	} else {
 		result += "Lock mode: None\n"
+	}
+	if c.Rollback != "" {
+		result += fmt.Sprintf("Rollback mode: %v\n", c.Rollback)
+	} else {
+		result += "Rollback mode: None\n"
 	}
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
 	if c.ContainersConfig != nil {

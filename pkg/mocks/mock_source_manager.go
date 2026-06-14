@@ -41,16 +41,16 @@ func (_m *MockSourceManager) EXPECT() *MockSourceManager_Expecter {
 }
 
 // AddSource provides a mock function for the type MockSourceManager
-func (_mock *MockSourceManager) AddSource(source1 source.Source, syncOpts *source.SyncOpts) error {
-	ret := _mock.Called(source1, syncOpts)
+func (_mock *MockSourceManager) AddSource(source1 source.Source, syncOpts *source.SyncOpts, syncReport *source.SyncReport, b bool) error {
+	ret := _mock.Called(source1, syncOpts, syncReport, b)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddSource")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(source.Source, *source.SyncOpts) error); ok {
-		r0 = returnFunc(source1, syncOpts)
+	if returnFunc, ok := ret.Get(0).(func(source.Source, *source.SyncOpts, *source.SyncReport, bool) error); ok {
+		r0 = returnFunc(source1, syncOpts, syncReport, b)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -65,11 +65,13 @@ type MockSourceManager_AddSource_Call struct {
 // AddSource is a helper method to define mock.On call
 //   - source1 source.Source
 //   - syncOpts *source.SyncOpts
-func (_e *MockSourceManager_Expecter) AddSource(source1 interface{}, syncOpts interface{}) *MockSourceManager_AddSource_Call {
-	return &MockSourceManager_AddSource_Call{Call: _e.mock.On("AddSource", source1, syncOpts)}
+//   - syncReport *source.SyncReport
+//   - b bool
+func (_e *MockSourceManager_Expecter) AddSource(source1 interface{}, syncOpts interface{}, syncReport interface{}, b interface{}) *MockSourceManager_AddSource_Call {
+	return &MockSourceManager_AddSource_Call{Call: _e.mock.On("AddSource", source1, syncOpts, syncReport, b)}
 }
 
-func (_c *MockSourceManager_AddSource_Call) Run(run func(source1 source.Source, syncOpts *source.SyncOpts)) *MockSourceManager_AddSource_Call {
+func (_c *MockSourceManager_AddSource_Call) Run(run func(source1 source.Source, syncOpts *source.SyncOpts, syncReport *source.SyncReport, b bool)) *MockSourceManager_AddSource_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 source.Source
 		if args[0] != nil {
@@ -79,9 +81,19 @@ func (_c *MockSourceManager_AddSource_Call) Run(run func(source1 source.Source, 
 		if args[1] != nil {
 			arg1 = args[1].(*source.SyncOpts)
 		}
+		var arg2 *source.SyncReport
+		if args[2] != nil {
+			arg2 = args[2].(*source.SyncReport)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -92,7 +104,7 @@ func (_c *MockSourceManager_AddSource_Call) Return(err error) *MockSourceManager
 	return _c
 }
 
-func (_c *MockSourceManager_AddSource_Call) RunAndReturn(run func(source1 source.Source, syncOpts *source.SyncOpts) error) *MockSourceManager_AddSource_Call {
+func (_c *MockSourceManager_AddSource_Call) RunAndReturn(run func(source1 source.Source, syncOpts *source.SyncOpts, syncReport *source.SyncReport, b bool) error) *MockSourceManager_AddSource_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -626,6 +638,57 @@ func (_c *MockSourceManager_ReadResource_Call) Return(s string, err error) *Mock
 }
 
 func (_c *MockSourceManager_ReadResource_Call) RunAndReturn(run func(resource components.Resource) (string, error)) *MockSourceManager_ReadResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Rollback provides a mock function for the type MockSourceManager
+func (_mock *MockSourceManager) Rollback(context1 context.Context) error {
+	ret := _mock.Called(context1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Rollback")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(context1)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSourceManager_Rollback_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Rollback'
+type MockSourceManager_Rollback_Call struct {
+	*mock.Call
+}
+
+// Rollback is a helper method to define mock.On call
+//   - context1 context.Context
+func (_e *MockSourceManager_Expecter) Rollback(context1 interface{}) *MockSourceManager_Rollback_Call {
+	return &MockSourceManager_Rollback_Call{Call: _e.mock.On("Rollback", context1)}
+}
+
+func (_c *MockSourceManager_Rollback_Call) Run(run func(context1 context.Context)) *MockSourceManager_Rollback_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSourceManager_Rollback_Call) Return(err error) *MockSourceManager_Rollback_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSourceManager_Rollback_Call) RunAndReturn(run func(context1 context.Context) error) *MockSourceManager_Rollback_Call {
 	_c.Call.Return(run)
 	return _c
 }

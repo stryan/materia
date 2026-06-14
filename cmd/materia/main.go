@@ -227,10 +227,27 @@ func main() {
 					if !quiet {
 						fmt.Println(plan.Pretty())
 					}
-					steps, err := m.Execute(ctx, plan)
+					rep, err := m.Execute(ctx, plan)
 					if err != nil {
-						log.Warnf("%v/%v steps completed", steps, len(plan.Steps()))
-						return err
+						if !errors.Is(err, materia.ErrNeedRollback) {
+							log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(plan.Steps()))
+							return err
+						}
+						err := m.Source.Rollback(ctx)
+						if err != nil {
+							return err
+						}
+						plan, err := m.Plan(ctx)
+						if err != nil {
+							return err
+						}
+						if !quiet {
+							fmt.Println(plan.Pretty())
+						}
+						_, err = m.Execute(ctx, plan)
+						if err != nil {
+							return err
+						}
 					}
 					err = m.SavePlan(plan, "lastrun.toml")
 					if err != nil {

@@ -53,7 +53,7 @@ func NewOCISource(c *Config) (*OCISource, error) {
 	return o, nil
 }
 
-func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
+func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) (*source.SyncReport, error) {
 	revision := o.tag
 	if opts.Revision != "" {
 		// Debatable whether OCI should support a seperate revision here
@@ -64,7 +64,7 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
 
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
-		return fmt.Errorf("failed to parse image reference: %w", err)
+		return nil, fmt.Errorf("failed to parse image reference: %w", err)
 	}
 
 	remoteOpts := []remote.Option{
@@ -78,18 +78,18 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
 
 	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
-		return fmt.Errorf("failed to pull image: %w", err)
+		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return fmt.Errorf("failed to get image layers: %w", err)
+		return nil, fmt.Errorf("failed to get image layers: %w", err)
 	}
 
 	log.Debugf("Found %d layers in image", len(layers))
 
 	if err := os.MkdirAll(o.localRepository, 0o755); err != nil {
-		return fmt.Errorf("failed to create local repository: %w", err)
+		return nil, fmt.Errorf("failed to create local repository: %w", err)
 	}
 
 	contentsTar := mutate.Extract(img)
@@ -105,7 +105,7 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read tar header: %w", err)
+			return nil, fmt.Errorf("failed to read tar header: %w", err)
 		}
 
 		target := filepath.Join(o.localRepository, header.Name)
@@ -113,23 +113,23 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", target, err)
+				return nil, fmt.Errorf("failed to create directory %s: %w", target, err)
 			}
 
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("failed to create parent directory for %s: %w", target, err)
+				return nil, fmt.Errorf("failed to create parent directory for %s: %w", target, err)
 			}
 
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", target, err)
+				return nil, fmt.Errorf("failed to create file %s: %w", target, err)
 			}
 
 			_, err = io.Copy(f, tr)
 			_ = f.Close()
 			if err != nil {
-				return fmt.Errorf("failed to write file %s: %w", target, err)
+				return nil, fmt.Errorf("failed to write file %s: %w", target, err)
 			}
 		default:
 			log.Debugf("Skipping unsupported file type %c for %s", header.Typeflag, header.Name)
@@ -137,7 +137,7 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) error {
 	}
 
 	log.Infof("Successfully extracted OCI image to %s", o.localRepository)
-	return nil
+	return &source.SyncReport{}, nil
 }
 
 func (o *OCISource) Close(ctx context.Context) error {
@@ -147,4 +147,15 @@ func (o *OCISource) Close(ctx context.Context) error {
 
 func (o *OCISource) Clean() error {
 	return os.RemoveAll(o.localRepository)
+}
+
+func (o *OCISource) Inspect() source.SyncInspectReport {
+	return source.SyncInspectReport{
+		SupportsRollback: false, // TODO support rollback
+	}
+}
+
+func (o *OCISource) String() string {
+	imageRef := fmt.Sprintf("%s/%s:%s", o.registry, o.repository, o.tag)
+	return fmt.Sprintf("oci:%v", imageRef)
 }

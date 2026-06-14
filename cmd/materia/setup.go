@@ -182,7 +182,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		return nil, err
 	}
 	log.Debug("adding source", "source", mainRepo)
-	err = sm.AddSource(mainRepo, nil)
+	err = sm.AddSource(mainRepo, nil, nil, true)
 	if err != nil {
 		return nil, err
 	}

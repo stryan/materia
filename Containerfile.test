@@ -30,5 +30,9 @@ RUN go mod download
 
 RUN systemctl enable podman.socket
 
+RUN git config --global user.name "Materia User"
+RUN git config --global user.email "notreal@primamateria.systems"
+
+
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]

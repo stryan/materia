@@ -12,7 +12,7 @@ type ServiceManager interface {
 	ApplyService(context.Context, string, services.ServiceAction, int) error
 	GetService(context.Context, string) (*services.Service, error)
 	RunOneshotCommand(context.Context, int, string, []string) error
-	WaitUntilState(context.Context, string, string, int) error
+	WaitUntilState(context.Context, string, services.ServiceState, int) error
 	Close() error
 }
 

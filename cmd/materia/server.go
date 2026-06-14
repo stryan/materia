@@ -88,7 +88,7 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, err
 	}
-	err = sm.AddSource(mainRepo, nil)
+	err = sm.AddSource(mainRepo, nil, nil, true)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +260,9 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 				}
 				break
 			}
-			steps, err := s.materia.Execute(ctx, plan)
+			rep, err := s.materia.Execute(ctx, plan)
 			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, plan.Size())); nerr != nil {
+				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
 				}
 				if s.QuitOnError {
@@ -280,10 +280,10 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 				}
 				break
 			}
-			if steps == -1 {
+			if rep.StepsCompleted == -1 {
 				log.Info("Sync ran; no changes made")
 			} else {
-				log.Infof("Sync ran; Steps completed: %v", steps)
+				log.Infof("Sync ran; Steps completed: %v", rep.StepsCompleted)
 			}
 		}
 	}
@@ -385,9 +385,9 @@ func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	steps, err := s.materia.Execute(ctx, plan)
+	rep, err := s.materia.Execute(ctx, plan)
 	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, steps, plan.Size())); nerr != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
 		}
 		if s.QuitOnError {
@@ -405,9 +405,9 @@ func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if steps == -1 {
+	if rep.StepsCompleted == -1 {
 		log.Info("Update ran; no changes made")
 	} else {
-		log.Infof("Update ran; Steps completed: %v", steps)
+		log.Infof("Update ran; Steps completed: %v", rep.StepsCompleted)
 	}
 }

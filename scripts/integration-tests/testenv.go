@@ -42,6 +42,7 @@ func reset(ctx context.Context, tc testcontainers.Container) error {
 		{"sh", "-c", "rm -rf /etc/containers/systemd/*"},
 		{"sh", "-c", "rm -f /tmp/materia-test-env.sh"},
 		{"sh", "-c", "rm -rf /etc/materia/*"},
+		{"sh", "-c", "rm -rf /tmp/materia/*"},
 		{"sh", "-c", "podman system reset -f"},
 		{"sh", "-c", "systemctl reset-failed"},
 		{"sh", "-c", "systemctl daemon-reload"},

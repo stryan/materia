@@ -411,6 +411,118 @@ func Test_ExampleRepoBranch(t *testing.T) {
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
 }
 
+func Test_Rollback_Git_Failed(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc))
+	code, result, err := runInContainer(ctx, tc, nil, "git", "clone", "https://github.com/stryan/materia_example_repo", "/tmp/materia/repo")
+	require.NoError(t, err, "unable to run clone command")
+	require.Zero(t, code, "failed to clone repo: %w", result)
+	testcase := TestCase{
+		Name: "rollback-git-failed",
+		Config: newConfig(t, map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"sops.base_dir": "attributes",
+			"sops.suffix":   "enc",
+			"source.kind":   "git",
+			"source.url":    "/tmp/materia/repo",
+		}),
+		Source: TestRepo{Remote: true},
+		Output: TestOutput{
+			ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+			InactiveServices: []string{},
+			Components:       []string{"freshrss", "podman_exporter"},
+			Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+		},
+	}
+	trackServices(testcase)
+	require.NoError(t, testcase.Setup())
+	require.NoError(t, installTestCase(ctx, tc, testcase))
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
+	require.NoError(t, setEnv(ctx, tc, "SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+
+	// now break the repo with a new commit
+	badManifest := `
+	Defaults.containerTag = "brokenNotReal"
+	Defaults.Port = 9882
+
+	[[Services]]
+	Service = "podman_exporter.service"
+	RestartedBy = ["podman_exporter.container"]
+	`
+	require.NoError(t, writeFile(ctx, tc, "/tmp/materia/repo/components/podman_exporter/MANIFEST.toml", badManifest))
+	code, result, err = runInContainer(ctx, tc, nil, "git", "-C", "/tmp/materia/repo", "add", "components/podman_exporter/MANIFEST.toml")
+	require.NoError(t, err, "unable to run git add")
+	require.Zero(t, code, "failed to edit repo: %w", result)
+
+	code, result, err = runInContainer(ctx, tc, nil, "git", "-C", "/tmp/materia/repo", "commit", "-m", "\"broken commit\"")
+	require.NoError(t, err, "unable to run git commit")
+	require.Zero(t, code, "failed to edit repo: %w", result)
+
+	require.Error(t, runMateriaCmd(ctx, tc, "update"))
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+}
+
+func Test_Rollback_Git_Success(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc))
+	code, result, err := runInContainer(ctx, tc, nil, "git", "clone", "https://github.com/stryan/materia_example_repo", "/tmp/materia/repo")
+	require.NoError(t, err, "unable to run clone command")
+	require.Zero(t, code, "failed to clone repo: %w", result)
+	testcase := TestCase{
+		Name: "rollback-git-success",
+		Config: newConfig(t, map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"sops.base_dir": "attributes",
+			"sops.suffix":   "enc",
+			"source.kind":   "git",
+			"source.url":    "/tmp/materia/repo",
+			"rollback":      "service",
+		}),
+		Source: TestRepo{Remote: true},
+		Output: TestOutput{
+			ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+			InactiveServices: []string{},
+			Components:       []string{"freshrss", "podman_exporter"},
+			Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+		},
+	}
+	trackServices(testcase)
+	require.NoError(t, testcase.Setup())
+	require.NoError(t, installTestCase(ctx, tc, testcase))
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
+	require.NoError(t, setEnv(ctx, tc, "SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+
+	// now break the repo with a new commit
+	badManifest := `
+	Defaults.containerTag = "brokenNotReal"
+	Defaults.Port = 9882
+
+	[[Services]]
+	Service = "podman_exporter.service"
+	RestartedBy = ["podman_exporter.container"]
+	`
+	require.NoError(t, writeFile(ctx, tc, "/tmp/materia/repo/components/podman_exporter/MANIFEST.toml", badManifest))
+	code, result, err = runInContainer(ctx, tc, nil, "git", "-C", "/tmp/materia/repo", "add", "components/podman_exporter/MANIFEST.toml")
+	require.NoError(t, err, "unable to run git add")
+	require.Zero(t, code, "failed to edit repo: %w", result)
+
+	code, result, err = runInContainer(ctx, tc, nil, "git", "-C", "/tmp/materia/repo", "commit", "-m", "\"broken commit\"")
+	require.NoError(t, err, "unable to run git commit")
+	require.Zero(t, code, "failed to edit repo: %w", result)
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+}
+
 func Test_AllResources(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, reset(ctx, tc))
@@ -801,12 +913,12 @@ func Test_EnsureQuadlets(t *testing.T) {
 
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
 
-	// Stop volume service and remove volume resource
-	err := applyService(ctx, tc, "hello-volume", "stop")
+	// Stop container service and remove volume resource
+	err := applyService(ctx, tc, "hello.service", "stop")
 	require.NoError(t, err)
-	code, _, err := runInContainer(ctx, tc, nil, "podman", "volume", "rm", "systemd-hello")
+	code, result, err := runInContainer(ctx, tc, nil, "podman", "volume", "rm", "systemd-hello")
 	require.NoError(t, err)
-	require.Zero(t, code)
+	require.Zero(t, code, "failed to remove volume: %w", result)
 	require.False(t, volumeExists(ctx, tc, "systemd-hello"))
 
 	require.NoError(t, runMateriaCmd(ctx, tc, "update"))

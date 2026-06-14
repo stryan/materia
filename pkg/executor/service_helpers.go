@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"charm.land/log/v2"
@@ -10,11 +11,20 @@ import (
 	"primamateria.systems/materia/pkg/services"
 )
 
+type ErrServiceUnhealthy struct {
+	name string
+	err  error
+}
+
+func (e *ErrServiceUnhealthy) Error() string {
+	return fmt.Sprintf("service %v unhealthy: %v", e.name, e.err)
+}
+
 type ServiceManager interface {
 	ApplyService(context.Context, string, services.ServiceAction, int) error
 	GetService(context.Context, string) (*services.Service, error)
 	RunOneshotCommand(context.Context, int, string, []string) error
-	WaitUntilState(context.Context, string, string, int) error
+	WaitUntilState(context.Context, string, services.ServiceState, int) error
 }
 
 func getServiceType(a actions.Action) (services.ServiceAction, error) {
@@ -59,7 +69,14 @@ func modifyService(ctx context.Context, sm ServiceManager, command actions.Actio
 	}
 	log.Debugf("%v service %v", cmd, res.Service())
 
-	return sm.ApplyService(ctx, res.Service(), cmd, timeout)
+	err = sm.ApplyService(ctx, res.Service(), cmd, timeout)
+	if err != nil {
+		if errors.Is(err, services.ErrStateChangeFailed) {
+			return &ErrServiceUnhealthy{res.Service(), err}
+		}
+		return err
+	}
+	return nil
 }
 
 func waitService(ctx context.Context, sm ServiceManager, command actions.Action, timeout int) error {
@@ -79,12 +96,20 @@ func waitService(ctx context.Context, sm ServiceManager, command actions.Action,
 	if command.Metadata.ServiceTimeout != nil {
 		timeout = *command.Metadata.ServiceTimeout
 	}
-	endState := *command.Metadata.ServiceUntilState
+	endState := services.NewServiceState(*command.Metadata.ServiceUntilState)
 
 	if err := res.Validate(); err != nil {
 		return fmt.Errorf("invalid resource when modifying service: %w", err)
 	}
 	log.Debugf("service %v waiting for %v", res.Service(), endState)
 
-	return sm.WaitUntilState(ctx, res.Service(), endState, timeout)
+	err := sm.WaitUntilState(ctx, res.Service(), endState, timeout)
+	if err != nil {
+
+		if errors.Is(err, services.ErrStateChangeFailed) {
+			return &ErrServiceUnhealthy{res.Service(), err}
+		}
+		return err
+	}
+	return nil
 }

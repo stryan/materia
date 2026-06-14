@@ -17,6 +17,7 @@ type ServiceResourceConfig struct {
 	Disabled    bool     `toml:"Disabled"`
 	Static      bool     `toml:"Static"`
 	Stopped     bool     `toml:"Stopped"`
+	Oneshot     bool     `toml:"Oneshot"`
 	Timeout     int      `toml:"Timeout"`
 }
 

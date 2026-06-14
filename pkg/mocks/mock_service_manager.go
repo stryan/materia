@@ -289,16 +289,16 @@ func (_c *MockServiceManager_RunOneshotCommand_Call) RunAndReturn(run func(conte
 }
 
 // WaitUntilState provides a mock function for the type MockServiceManager
-func (_mock *MockServiceManager) WaitUntilState(context1 context.Context, s string, s1 string, n int) error {
-	ret := _mock.Called(context1, s, s1, n)
+func (_mock *MockServiceManager) WaitUntilState(context1 context.Context, s string, serviceState services.ServiceState, n int) error {
+	ret := _mock.Called(context1, s, serviceState, n)
 
 	if len(ret) == 0 {
 		panic("no return value specified for WaitUntilState")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, int) error); ok {
-		r0 = returnFunc(context1, s, s1, n)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, services.ServiceState, int) error); ok {
+		r0 = returnFunc(context1, s, serviceState, n)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -313,13 +313,13 @@ type MockServiceManager_WaitUntilState_Call struct {
 // WaitUntilState is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-//   - s1 string
+//   - serviceState services.ServiceState
 //   - n int
-func (_e *MockServiceManager_Expecter) WaitUntilState(context1 interface{}, s interface{}, s1 interface{}, n interface{}) *MockServiceManager_WaitUntilState_Call {
-	return &MockServiceManager_WaitUntilState_Call{Call: _e.mock.On("WaitUntilState", context1, s, s1, n)}
+func (_e *MockServiceManager_Expecter) WaitUntilState(context1 interface{}, s interface{}, serviceState interface{}, n interface{}) *MockServiceManager_WaitUntilState_Call {
+	return &MockServiceManager_WaitUntilState_Call{Call: _e.mock.On("WaitUntilState", context1, s, serviceState, n)}
 }
 
-func (_c *MockServiceManager_WaitUntilState_Call) Run(run func(context1 context.Context, s string, s1 string, n int)) *MockServiceManager_WaitUntilState_Call {
+func (_c *MockServiceManager_WaitUntilState_Call) Run(run func(context1 context.Context, s string, serviceState services.ServiceState, n int)) *MockServiceManager_WaitUntilState_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -329,9 +329,9 @@ func (_c *MockServiceManager_WaitUntilState_Call) Run(run func(context1 context.
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 string
+		var arg2 services.ServiceState
 		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg2 = args[2].(services.ServiceState)
 		}
 		var arg3 int
 		if args[3] != nil {
@@ -352,7 +352,7 @@ func (_c *MockServiceManager_WaitUntilState_Call) Return(err error) *MockService
 	return _c
 }
 
-func (_c *MockServiceManager_WaitUntilState_Call) RunAndReturn(run func(context1 context.Context, s string, s1 string, n int) error) *MockServiceManager_WaitUntilState_Call {
+func (_c *MockServiceManager_WaitUntilState_Call) RunAndReturn(run func(context1 context.Context, s string, serviceState services.ServiceState, n int) error) *MockServiceManager_WaitUntilState_Call {
 	_c.Call.Return(run)
 	return _c
 }
