@@ -27,6 +27,11 @@ Best effort list of major changes and bugfixes
 - feat: `materia agent` now uses new varlink api
 - refactor: materia now uses native podman bindings instead of wrapping the `podman` command. If you experience issues with this, use the `MATERIA_PODMAN_COMMAND` flag to restore the old behaviour.
 - feat: quadlet drop-ins are now left-unchanged by `materia update`.
+- feat: new service resource config setting: `Oneshot`.
+- feat: experimental rollback ~~netcode~~ update mode support
+    - service state health checks have been rewritten
+    - supports git source
+    - If a materia update leads to a failed service or a service is in the wrong state at the end of the update, checkout the last known git commit and run the update again
 
 ## 0.6.4
 - No user facing changes
