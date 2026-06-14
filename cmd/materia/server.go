@@ -262,7 +262,7 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 			}
 			rep, err := s.materia.Execute(ctx, plan)
 			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep, plan.Size())); nerr != nil {
+				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
 				}
 				if s.QuitOnError {
@@ -387,7 +387,7 @@ func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	rep, err := s.materia.Execute(ctx, plan)
 	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep, plan.Size())); nerr != nil {
+		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
 		}
 		if s.QuitOnError {
