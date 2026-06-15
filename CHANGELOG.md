@@ -36,6 +36,7 @@ Best effort list of major changes and bugfixes
     - Set `notify.triggers.update` to replace `server.notify_webhook`
     - Get notifications when rollback occurs with `notify.triggers.rollback`
     - `server.notify_webhook` is now deprecated and will be removed in a future release, server mode uses same notification code as everywhere else.
+- refactor: removed `source.URL` guessing. `source.URL` is now passed directly to the sources config.
 
 ## 0.6.4
 - No user facing changes

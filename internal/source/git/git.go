@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -41,25 +40,12 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		g.defaultBranch = c.Default
 	}
 	proto := ""
-	splitURL := strings.Split(c.URL, "://")
-	if splitURL[0] == "git" {
-		// We didn't specify the source type and guessed off the URL
-		// rewrite to HTTP(S)
-		prefix := "https"
-		if c.Insecure {
-			prefix = "http"
-		}
-		g.remoteRepository = fmt.Sprintf("%v://%v", prefix, splitURL[1])
-		proto = "http"
-	} else {
-		// we specified the type directly, use the URL as is
-		g.remoteRepository = c.URL
-		ep, err := transport.NewEndpoint(c.URL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse endpoint: %v", err)
-		}
-		proto = ep.Protocol
+	g.remoteRepository = c.URL
+	ep, err := transport.NewEndpoint(c.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse endpoint: %v", err)
 	}
+	proto = ep.Protocol
 
 	g.activeBranch = c.Branch
 

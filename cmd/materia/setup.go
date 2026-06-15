@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
@@ -99,41 +98,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 			return nil, fmt.Errorf("invalid OCI source: %w", err)
 		}
 	default:
-		// try to guess from URL
-		log.Warn("guessing source type via URL is deprecated and will be removed in 0.7 . Please provide a source.kind setting")
-		parsedPath := strings.Split(sourceConfig.URL, "://")
-		switch parsedPath[0] {
-		case "git":
-			config, err := git.NewConfig(k, sourceDir, sourceConfig.URL)
-			if err != nil {
-				return nil, fmt.Errorf("error creating git config: %w", err)
-			}
-			source, err = git.NewGitSource(config)
-			if err != nil {
-				return nil, fmt.Errorf("invalid git source: %w", err)
-			}
-		case "file":
-			config, err := filesource.NewConfig(k, sourceDir, sourceConfig.URL)
-			if err != nil {
-				return nil, fmt.Errorf("error creating file config: %w", err)
-			}
-			source, err = filesource.NewFileSource(config)
-			if err != nil {
-				return nil, fmt.Errorf("invalid file source: %w", err)
-			}
-		case "oci":
-			config, err := oci.NewConfig(k, sourceDir, sourceConfig.URL)
-			if err != nil {
-				return nil, fmt.Errorf("error creating OCI config: %w", err)
-			}
-			source, err = oci.NewOCISource(config)
-			if err != nil {
-				return nil, fmt.Errorf("invalid OCI source: %w", err)
-			}
-		default:
-			return nil, fmt.Errorf("invalid source: %v", parsedPath[0])
-		}
-
+		return nil, fmt.Errorf("invalid source URL: %v", sourceConfig.URL)
 	}
 	return source, nil
 }
