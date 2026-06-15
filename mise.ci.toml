@@ -18,6 +18,18 @@ run = '''
   fi
 '''
 
+[tasks.ci-buildah]
+env = { CGO_ENABLED = 0}
+usage = '''
+  arg "<tag>" help = "Tag to push" default="latest"
+  flag "--destination <destination>" help = "Destination forge"
+'''
+run = '''
+  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
+  buildah manifest push --all materia docker://${usage_destination}/materia:${usage_tag}
+  buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:${usage_tag}
+'''
+
 [tasks.ci-release]
 env = { CGO_ENABLE = 0 }
 tools.gh = "latest"
