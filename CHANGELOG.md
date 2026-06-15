@@ -32,6 +32,10 @@ Best effort list of major changes and bugfixes
     - service state health checks have been rewritten
     - supports git source
     - If a materia update leads to a failed service or a service is in the wrong state at the end of the update, checkout the last known git commit and run the update again
+- feat: `notify` config block for configuring all webhook notifications in one place
+    - Set `notify.triggers.update` to replace `server.notify_webhook`
+    - Get notifications when rollback occurs with `notify.triggers.rollback`
+    - `server.notify_webhook` is now deprecated and will be removed in a future release, server mode uses same notification code as everywhere else.
 
 ## 0.6.4
 - No user facing changes

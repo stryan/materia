@@ -13,6 +13,7 @@ import (
 	"primamateria.systems/materia/internal/attributes/sops"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/executor"
+	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/planner"
 	"primamateria.systems/materia/pkg/services"
 )
@@ -56,6 +57,7 @@ type MateriaConfig struct {
 	ExecutorConfig   *executor.ExecutorConfig     `toml:"executor"`
 	ServicesConfig   *services.ServicesConfig     `toml:"services"`
 	ContainersConfig *containers.ContainersConfig `toml:"containers"`
+	NotifyConfig     *notify.NotifyConfig         `toml:"notify"`
 	User             *user.User
 }
 
@@ -114,6 +116,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		return nil, err
 	}
 	c.ExecutorConfig, err = executor.NewExecutorConfig(k)
+	if err != nil {
+		return nil, err
+	}
+	c.NotifyConfig, err = notify.NewConfig(k)
 	if err != nil {
 		return nil, err
 	}

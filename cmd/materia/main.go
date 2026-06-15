@@ -8,9 +8,11 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/urfave/cli/v3"
+	"primamateria.systems/materia/internal/config"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/notify"
 )
 
 var Version string
@@ -65,7 +67,7 @@ func main() {
 				Name:  "config",
 				Usage: "Dump active config",
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					k, err := LoadConfigs(ctx, configFile, map[string]any{})
+					k, err := config.LoadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
 						return err
 					}
@@ -233,7 +235,11 @@ func main() {
 							log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(plan.Steps()))
 							return err
 						}
-						err := m.Source.Rollback(ctx)
+						err := m.Notifier.Notify(ctx, notify.NotifyRollback, "Rollback initiated")
+						if err != nil {
+							return fmt.Errorf("needed rollback but failed to send rollback notification: %w", err)
+						}
+						err = m.Source.Rollback(ctx)
 						if err != nil {
 							return err
 						}
@@ -364,7 +370,7 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					k, err := LoadConfigs(ctx, configFile, map[string]any{})
+					k, err := config.LoadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
 						return err
 					}
@@ -409,7 +415,7 @@ func main() {
 				Name:  "server",
 				Usage: "start materia in server mode",
 				Action: func(_ context.Context, cCtx *cli.Command) error {
-					k, err := LoadConfigs(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}

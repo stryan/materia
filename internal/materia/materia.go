@@ -26,6 +26,7 @@ import (
 	"primamateria.systems/materia/pkg/loader"
 	"primamateria.systems/materia/pkg/lock"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/planner"
 	"primamateria.systems/materia/pkg/services"
@@ -35,9 +36,9 @@ type Materia struct {
 	Host           HostManager
 	Source         SourceManager
 	Manifest       *manifests.MateriaManifest
-	plannerConfig  planner.PlannerConfig
 	Executor       *executor.Executor
 	Planner        *planner.Planner
+	Notifier       *notify.Notifier
 	Vault          AttributesEngine
 	Hostname       string
 	Roles          []string
@@ -147,6 +148,10 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		ec = *c.ExecutorConfig
 	}
 	sc := services.ServicesConfig{}
+	nc := notify.NotifyConfig{}
+	if c.NotifyConfig != nil {
+		nc = *c.NotifyConfig
+	}
 	socketpath := ""
 	if c.ServicesConfig != nil {
 		sc = *c.ServicesConfig
@@ -172,6 +177,10 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		// maybe make a dummy lock
 		l = nil
 	}
+	n, err := notify.NewNotifier(nc)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Materia{
 		Host:           hm,
@@ -184,9 +193,9 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		appMode:        c.AppMode,
 		snippets:       snips,
 		macros:         loadDefaultMacros(c, hm, snips),
-		plannerConfig:  pc,
 		Executor:       e,
 		Planner:        p,
+		Notifier:       n,
 		Hostname:       name,
 		Roles:          roles,
 		Lock:           l,

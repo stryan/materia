@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/source"
 	"primamateria.systems/materia/pkg/sourceman"
 )
@@ -24,13 +24,12 @@ type ServerConfig struct {
 	Hostname                     string `koanf:"hostname" toml:"hostname"`
 	NotifyWebhook                string `koanf:"notify_webhook" toml:"notify_webhook"`
 	UpdateWebhook                bool   `koanf:"update_webhook" toml:"update_webhook"`
-	UpdateUrl                    string `koanf:"sync_url" toml:"sync_url"`
-	UpdateSecret                 string `koanf:"sync_secret" toml:"sync_secret"`
+	UpdateUrl                    string `koanf:"update_url" toml:"update_url"`
+	UpdateSecret                 string `koanf:"update_secret" toml:"update_secret"`
 	Socket                       string `koanf:"socket" toml:"socket"`
 }
 
 type Server struct {
-	NotifyWebhook                string
 	syncSecret                   string
 	Socket                       string
 	UpdateInterval, PlanInterval int
@@ -54,7 +53,7 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	return &c, nil
 }
 
-func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error) {
+func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
 	c, err := materia.NewConfig(k)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
@@ -105,6 +104,13 @@ func serverMateria(ctx context.Context, k *koanf.Koanf) (*materia.Materia, error
 	if err != nil {
 		return nil, err
 	}
+	if sc.NotifyWebhook != "" {
+		c.NotifyConfig = &notify.NotifyConfig{
+			Triggers: map[string]string{
+				notify.NotifyUpdate: sc.NotifyWebhook,
+			},
+		}
+	}
 	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
 	if err != nil {
 		log.Fatal(err)
@@ -124,10 +130,11 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		return err
 	}
 	if conf.NotifyWebhook != "" {
+		log.Warn("Server notifications config is deprecated, use the new [notify] config")
 		log.Infof("starting up with notify webhook %v", conf.NotifyWebhook)
 	}
 
-	m, err := serverMateria(ctx, k)
+	m, err := serverMateria(ctx, k, conf)
 	if err != nil {
 		return err
 	}
@@ -139,7 +146,6 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 
 	log.Info("Materia instance created")
 	serv := &Server{
-		NotifyWebhook:  conf.NotifyWebhook,
 		syncSecret:     conf.UpdateSecret,
 		Socket:         conf.Socket,
 		PlanInterval:   conf.PlanInterval,
@@ -312,30 +318,9 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 	}
 }
 
-type hookPayload struct {
-	Text string `json:"text"`
-}
-
 func (s *Server) notify(ctx context.Context, msg string) error {
-	if s.NotifyWebhook == "" {
-		return nil
-	}
-	marshaledPayload, err := json.Marshal(hookPayload{fmt.Sprintf("%v: %v", s.materia.Hostname, msg)})
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload to JSON: %v", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.NotifyWebhook, bytes.NewBuffer(marshaledPayload))
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
-	_, err = client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP request: %v", err)
-	}
-	return nil
+	payload := fmt.Sprintf("%v: %v", s.materia.Hostname, msg)
+	return s.materia.Notifier.Notify(ctx, notify.NotifyDefault, payload)
 }
 
 type UpdatePayload struct {

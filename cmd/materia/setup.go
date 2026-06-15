@@ -10,11 +10,8 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/confmap"
-	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/config"
 	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/hostman"
@@ -142,7 +139,7 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 }
 
 func setup(ctx context.Context, configFile string, cliflags map[string]any) (*materia.Materia, error) {
-	k, err := LoadConfigs(ctx, configFile, cliflags)
+	k, err := config.LoadConfigs(ctx, configFile, cliflags)
 	if err != nil {
 		return nil, fmt.Errorf("error generating config blob: %w", err)
 	}
@@ -230,48 +227,9 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 
 		}
 	}
-
 	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return m, nil
-}
-
-func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
-	k := koanf.New(".")
-	fileConf := koanf.New(".")
-	envConf := koanf.New(".")
-	cliConf := koanf.New(".")
-	if configFile != "" {
-		err := fileConf.Load(file.Provider(configFile), toml.Parser())
-		if err != nil {
-			return nil, fmt.Errorf("error loading config file: %w", err)
-		}
-	}
-	err := envConf.Load(env.Provider("MATERIA", ".", func(s string) string {
-		return strings.Replace(strings.ToLower(
-			strings.TrimPrefix(s, "MATERIA_")), "__", ".", 1)
-	}), nil)
-	if err != nil {
-		return nil, fmt.Errorf("error loading config from env: %w", err)
-	}
-	err = cliConf.Load(confmap.Provider(cliflags, "."), nil)
-	if err != nil {
-		return nil, err
-	}
-	err = k.Merge(fileConf)
-	if err != nil {
-		return nil, fmt.Errorf("error building config: %w", err)
-	}
-	err = k.Merge(envConf)
-	if err != nil {
-		return nil, fmt.Errorf("error building config: %w", err)
-	}
-	err = k.Merge(cliConf)
-	if err != nil {
-		return nil, fmt.Errorf("error building config: %w", err)
-	}
-
-	return k, err
 }

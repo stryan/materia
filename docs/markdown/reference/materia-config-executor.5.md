@@ -32,11 +32,11 @@ Overrides the executor's configured materia data directory.
 
 Overrides the executor's configured quadlet directory.
 
-#### *MATERIA_EXECUTOR__SCRIPTS_DIR*/executor.scripts_dir*
+#### *MATERIA_EXECUTOR__SCRIPTS_DIR*/**executor.scripts_dir**
 
 Overrides the executor's configured scripts directory.
 
-#### *MATERIA_EXECUTOR__SERVICE_DIR*/executor.service_dir*
+#### *MATERIA_EXECUTOR__SERVICE_DIR*/**executor.service_dir**
 
 Overrides the executor's configured service directory.
 
