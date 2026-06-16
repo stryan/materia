@@ -109,7 +109,7 @@ Enable locking to prevent multiple Materia or Materia related processes from int
 
 Valid options are `dbus` or `file`. Dbus based locking may require a dbus policy to be installed.
 
-#### *MATERIA_ROLLBACK*/**rollback**
+#### *MATERIA_ROLLBACK__KIND*/**rollback.kind**
 
 (EXPERIMENTAL)
 

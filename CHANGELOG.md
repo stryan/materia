@@ -3,11 +3,10 @@
 Best effort list of major changes and bugfixes
 
 ## Deprecations
-### v0.7
-- `autoUpdate` snippet
-- `source.URL` autoguessing. `source.URL` will be removed entirely in a future release once per source URLs are implemented.
 
 ## Upcoming
+
+## 0.7.0
 - feat: Components with instanced systemd units (i.e. `unit@.service`) can now be instanced at the component level
 - refactor: removed `autoUpdate` snippet, added `onBoot` and `harden` snippets.
 - feat: Added `m_quadletDir`, `m_outputDir`, `m_scriptsDir`, `m_serviceDir` macros
@@ -28,7 +27,7 @@ Best effort list of major changes and bugfixes
 - refactor: materia now uses native podman bindings instead of wrapping the `podman` command. If you experience issues with this, use the `MATERIA_PODMAN_COMMAND` flag to restore the old behaviour.
 - feat: quadlet drop-ins are now left-unchanged by `materia update`.
 - feat: new service resource config setting: `Oneshot`.
-- feat: experimental rollback update mode support
+- feat: experimental rollback on failure support. Enable with `rollback.kind = "service"`
     - service state health checks have been rewritten
     - Currently supports git source, OCI coming post 0.7.0
     - If a materia update leads to a failed service or a service is in the wrong state at the end of the update, checkout the last known git commit and run the update again

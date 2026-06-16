@@ -181,6 +181,10 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if err != nil {
 		return nil, err
 	}
+	rollback := false
+	if c.RollbackConfig != nil {
+		rollback = c.RollbackConfig.Kind != ""
+	}
 
 	return &Materia{
 		Host:           hm,
@@ -199,7 +203,7 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 		Hostname:       name,
 		Roles:          roles,
 		Lock:           l,
-		Rollback:       c.Rollback != "",
+		Rollback:       rollback,
 	}, nil
 }
 

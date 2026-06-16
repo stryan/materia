@@ -482,7 +482,7 @@ func Test_Rollback_Git_Success(t *testing.T) {
 			"sops.suffix":   "enc",
 			"source.kind":   "git",
 			"source.url":    "/tmp/materia/repo",
-			"rollback":      "service",
+			"rollback.kind": "service",
 		}),
 		Source: TestRepo{Remote: true},
 		Output: TestOutput{

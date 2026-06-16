@@ -47,7 +47,6 @@ type MateriaConfig struct {
 	Lock             string                       `toml:"lock"`
 	AppMode          bool                         `toml:"appmode"`
 	Rootless         bool                         `toml:"rootless"`
-	Rollback         string                       `toml:"rollback"`
 	Attributes       string                       `toml:"attributes"`
 	CommandPodman    bool                         `toml:"podman_command"`
 	AgeConfig        *age.Config                  `toml:"age"`
@@ -58,6 +57,7 @@ type MateriaConfig struct {
 	ServicesConfig   *services.ServicesConfig     `toml:"services"`
 	ContainersConfig *containers.ContainersConfig `toml:"containers"`
 	NotifyConfig     *notify.NotifyConfig         `toml:"notify"`
+	RollbackConfig   *RollbackConfig              `toml:"rollback"`
 	User             *user.User
 }
 
@@ -79,7 +79,6 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.RemoteDir = k.String("remote_dir")
 	c.NoSync = k.Bool("nosync")
 	c.Lock = k.String("lock")
-	c.Rollback = k.String("rollback")
 	c.AppMode = k.Bool("appmode")
 	if k.Exists("age") || c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)
@@ -120,6 +119,10 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 		return nil, err
 	}
 	c.NotifyConfig, err = notify.NewConfig(k)
+	if err != nil {
+		return nil, err
+	}
+	c.RollbackConfig, err = NewRollbackConfig(k)
 	if err != nil {
 		return nil, err
 	}
@@ -216,8 +219,10 @@ func (c *MateriaConfig) Validate() error {
 			return fmt.Errorf("invalid executor config: %w", err)
 		}
 	}
-	if c.Rollback != "" && c.Rollback != "service" {
-		return fmt.Errorf("rollback type %v is invalid", c.Rollback)
+	if c.RollbackConfig != nil {
+		if err := c.RollbackConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid rollback config: %w", err)
+		}
 	}
 	return nil
 }
@@ -246,8 +251,8 @@ func (c *MateriaConfig) String() string {
 	} else {
 		result += "Lock mode: None\n"
 	}
-	if c.Rollback != "" {
-		result += fmt.Sprintf("Rollback mode: %v\n", c.Rollback)
+	if c.RollbackConfig != nil {
+		result += fmt.Sprintf("Rollback mode: %v\n", c.RollbackConfig.Kind)
 	} else {
 		result += "Rollback mode: None\n"
 	}
