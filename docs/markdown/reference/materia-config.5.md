@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -16,7 +16,9 @@ materia-config - Materia configuration settings
 
 ## Description
 
-**materia** is designed to be entirely configured via environmental variables (`MATERIA_*`). However for administrative convenience it is possible to also configure it via a TOML config file, passed via the `-c` flag.
+Materia is designed to be entirely configured via environmental variables (`MATERIA_*`). However for administrative convenience it is possible to also configure it via a TOML config file.
+
+Materia will automatically attempt to use the config file located at `/etc/materia/config.toml`. Alternatively, `-c` can be used to specify the file.
 
 When both environmental variables and a config file are used, config file settings are overwritten by environmental variables.
 
@@ -35,7 +37,7 @@ For configuring attributes management with `sops`, see `materia-config-sops(5)`.
 ## Options
 Presented in *environmental variable*/**TOML config line option** format.
 
-#### MATERIA_ATTRIBUTES/attributes
+#### *MATERIA_ATTRIBUTES*/**attributes**
 
 Attributes Engine config to use. Optional, if not configured Materia will use all attributes engines configured.
 
@@ -58,12 +60,6 @@ Log to `STDOUT` instead of `STDERR`
 #### *MATERIA_ROLES*/**roles**
 
 Use these assigned roles instead of what's in the `materia-manifest(5)`
-
-#### *MATERIA_TIMEOUT*/**timeout**
-
-(Moved to services.timeout)
-
-How long to wait when starting/stopping systemd services when no service resource timeout is configured. Default 90 seconds.
 
 #### *MATERIA_NO_SYNC*/**no_sync**
 

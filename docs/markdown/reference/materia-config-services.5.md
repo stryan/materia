@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVICES
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -12,7 +12,7 @@ materia-config-services - Materia services configuration settings
 
 ## Synopsis
 
-`/etc/materia/config.toml`, `$MATERIA_SERVICES_<option-name>`
+`/etc/materia/config.toml`, `$MATERIA_SERVICES__<option-name>`
 
 ## Options
 
@@ -28,4 +28,6 @@ How long to wait when starting/stopping systemd services when no service resourc
 
 Defaults to false.
 
-Whether to run a dry-run of the quadlet generator before starting/stopping services. Enable this if you need to make sure Quadlets are installed correctly before starting services.
+Whether to run a dry-run of the quadlet generator before starting/stopping services.
+
+Enable this if you need to make sure Quadlets are installed correctly before starting services.

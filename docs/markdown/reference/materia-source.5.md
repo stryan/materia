@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -32,21 +32,11 @@ If left empty materia will guess based off the provided URL. Otherwise the speci
 
 #### MATERIA_SOURCE__URL / source.url
 
-Source location of the *materia-repository(5)* in URL format. Will be provided directly to the source provider.
-
-(The following behaviour is deprecated and will be removed in v0.7)
-
-If `source.kind` is not specified it will attempt to guess what source to use based off the following formats:
-
-Accepted formats:
-
-    Git Repo: `git://git_repo_url`. Will be treated as an HTTP(s) remote
-
-    Local file Repo: `file://<file_path>` e.g. `file:///tmp/materia_repo`
+Source location of the `materia-repository(5)` in URL format. Will be provided directly to the source provider.
 
 ### Git Config
 
-#### **MATERIA_GIT__BRANCH**/ **git.branch**
+#### *MATERIA_GIT__BRANCH*/ **git.branch**
 
 Git branch to checkout.
 
@@ -54,23 +44,23 @@ Git branch to checkout.
 
 The Git branch to checkout if `git.branch` isn't specified. Defaults to `master`.
 
-#### **MATERIA_GIT__PRIVATE_KEY**/ **git.private_key**
+#### *MATERIA_GIT__PRIVATE_KEY*/ **git.private_key**
 
 Private key used for SSH-based git operations
 
-#### **MATERIA_GIT__USERNAME**, **MATERIA_GIT__PASSWORD**/ **git.username/git.password**
+#### *MATERIA_GIT__USERNAME*, *MATERIA_GIT__PASSWORD*/ **git.username/git.password**
 
 Username and password used for HTTP-based git operations
 
-#### **MATERIA_GIT__KNOWNHOSTS**/ **git.knownhosts**
+#### *MATERIA_GIT__KNOWNHOSTS*/ **git.knownhosts**
 
 `knownhosts` file used for SSH-based git operations. Useful if you're running materia in a container.
 
-#### **MATERIA_GIT__INSECURE**/ **git.insecure**
+#### *MATERIA_GIT__INSECURE*/ **git.insecure**
 
 Disable SSH knownhosts checking for git SSH operations and use `http://` instead of `https://` for HTTP operations.
 
-#### MATERIA_GIT__CAREFUL/ git.careful
+#### *MATERIA_GIT__CAREFUL*/ **git.careful**
 
 Prevents materia from running git operations that would overwrite git history (i.e. anything requiring `--force`). Defaults to `false`.
 
@@ -80,18 +70,18 @@ Note: the OCI source only works with remote images. You can not refer to a local
 
 The OCI image is expected to have the materia repository as its root filesystem.
 
-#### MATERIA_OCI__USERNAME/ oci.username
+#### *MATERIA_OCI__USERNAME*/ **oci.username**
 
 The username used to authenticate against the image repository.
 
-#### MATERIA_OCI__PASSWORD/ oci.password
+#### *MATERIA_OCI__PASSWORD*/ **oci.password**
 
 The password used to authenticate against the image repository.
 
-#### MATERIA_OCI__INSECURE/ oci.insecure
+#### *MATERIA_OCI__INSECURE*/ **oci.insecure**
 
 Whether or not to allow insecure connections to the remote image repository.
 
-#### MATERIA_OCI__TAG/ oci.tag
+#### *MATERIA_OCI__TAG*/ **oci.tag**
 
 OCI image tag to use instead of what's in the source URL.

@@ -2,8 +2,8 @@
 title: MATERIA-REPOSITORY
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -41,7 +41,7 @@ A collection of one or more resources, where at least one resource is a `MANIFES
 
 A single file in a component. Resources are either static files or Golang templates and come in the following types:
 
-   **file**: An arbitrary data file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME`
+   *file*: An arbitrary data file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME`
 
    *service*: A systemd unit file. Installed to `PREFIX/components/COMPONENT_NAME/RESOURCENAME` and `MATERIA_SERVICE_DIR`
 
@@ -58,8 +58,6 @@ A single file in a component. Resources are either static files or Golang templa
    *image*: A `.image` file. Installed to `MATERIA_QUADLET_DIR.`
 
    *manifest*: A `MANIFEST.TOML` file. Installed to `PREFIX/components/COMPONENT_NAME/MAINFEST.TOML`
-
-   *volumefile*: A data file that should be installed in a Podman volume. Experimental, defined in the components `MANIFEST.toml`
 
    *script*: A script file, ending in `.sh`. Installed in `PREFIX/components/COMPONENT_NAME/RESOURCENAME `as well as `MATERIA_SCRIPTS_DIR`
 

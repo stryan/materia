@@ -2,8 +2,8 @@
 title: MATERIA-TEMPLATES
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -29,6 +29,8 @@ Macros with arguments should have the arguments passed in quotes.
 ### Macro List
 
 #### **m_dataDir "component_name"**
+
+Other variants: `m_quadletDir`, `m_scriptsDir`, `m_serviceDir`, `m_outputDir`.
 
 Reference the components **data directory**. Often used for templating bind mounts
 
@@ -67,6 +69,10 @@ Access a Materia attribute that is specified as a podman secret in the component
 
 Same as `secretEnv` but accesses the secret as a file mount. Optionally, provide additional arguments as defined in the Podman manual
 
+#### **isRoot**
+
+Returns `true` if materia is running in rootful mode.
+
 ## Snippets
 
 Snippets are pre-made blocks of templated text that can be inserted with the `snippet` macro. Some come with materia, while others are defined in a component manifest or Repository manifest.
@@ -74,12 +80,3 @@ Snippets are pre-made blocks of templated text that can be inserted with the `sn
 Snippets are not designed for highly-dynamic text, but can take one value as an argument.
 
 Snippets are an experimental feature
-
-##### Built-in Snippets
-
-**autoUpdate <update_source>**
-
-`Label=io.containers.autoupdate=<update_source>`
-
-
-

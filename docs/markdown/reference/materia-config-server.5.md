@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVER
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.0
+date: June 2026
 author: stryan
 ---
 
@@ -16,19 +16,21 @@ materia-config-server - Materia server mode configuration settings
 
 ## Options
 
-#### MATERIA_SERVER__UPDATE_INTERVAL/server.update_interval
+#### *MATERIA_SERVER__UPDATE_INTERVAL*/**server.update_interval**
 
 How long (in seconds) for `materia server` to wait before running a `materia update`.
 
-#### MATERIA_SERVER__PLAN_INTERVAL/server.plan_interval
+#### *MATERIA_SERVER__PLAN_INTERVAL*/**server.plan_interval**
 
 How long (in seconds) for `materia server` to wait before running a `materia plan`.
 
-#### MATERIA_SERVER__NOTIFY_WEBHOOK/server.notify_webhook
+#### *MATERIA_SERVER__NOTIFY_WEBHOOK*/**server.notify_webhook**
 
-Where to send webhook notifications on plan/update failure
+Where to send webhook notifications on plan/update failure.
 
-#### MATERIA_SERVER__UPDATE_WEBHOOK/server.update_webhook
+This has been replaced by the materia-config-notify.5 config.
+
+#### *MATERIA_SERVER__UPDATE_WEBHOOK*/**server.update_webhook**
 
 True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON payloads in the following format:
 
@@ -40,15 +42,16 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
 }
 ```
 
-#### MATERIA_SERVER__UPDATE_SECRET/server.update_secret
+#### *MATERIA_SERVER__UPDATE_SECRET*/**server.update_secret**
 
 Pre-shared secret for basic security on update webhook
 
-#### MATERIA_SERVER__UPDATE_URL/server.update_url
+#### *MATERIA_SERVER__UPDATE_URL*/**server.update_url**
 
 What URL the update webhook listens on. Defaults to `:6284/webhook`
 
-#### MATERIA_SERVER__SOCKET/server.socket
+#### *MATERIA_SERVER__SOCKET*/**server.socket**
 
-What Unix socket to listen on. Defaults to `unix:/run/materia/materia.sock` for root and `unix:/run/UID/materia/materia.sock` for rootless.
+What Unix socket to listen on for the Varlink API.
 
+Defaults to `unix:/run/materia/materia.sock` for root and `unix:/run/UID/materia/materia.sock` for rootless.

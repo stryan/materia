@@ -18,7 +18,7 @@ Best effort list of major changes and bugfixes
 - tests: new testcontainers based setup to replace virter tests
 - feat: `clean` command now attempts to gracefully remove components. Skippable with `--force`.
 - feat: server mode can now listen on a webhook for sync/update requests.
-    - `server.webhook` is now `server.notify_webhook`
+    - `server.webhook` is now `server.notify_webhook`, though see also the new `notify` config block
     - `server.update_webhook` = true|false
     - `server.update_secret` = "shared secret"
     - `server.update_url` = URL to listen on. Default `:6284/webhook`
@@ -28,9 +28,9 @@ Best effort list of major changes and bugfixes
 - refactor: materia now uses native podman bindings instead of wrapping the `podman` command. If you experience issues with this, use the `MATERIA_PODMAN_COMMAND` flag to restore the old behaviour.
 - feat: quadlet drop-ins are now left-unchanged by `materia update`.
 - feat: new service resource config setting: `Oneshot`.
-- feat: experimental rollback ~~netcode~~ update mode support
+- feat: experimental rollback update mode support
     - service state health checks have been rewritten
-    - supports git source
+    - Currently supports git source, OCI coming post 0.7.0
     - If a materia update leads to a failed service or a service is in the wrong state at the end of the update, checkout the last known git commit and run the update again
 - feat: `notify` config block for configuring all webhook notifications in one place
     - Set `notify.triggers.update` to replace `server.notify_webhook`

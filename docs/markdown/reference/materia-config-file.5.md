@@ -12,7 +12,7 @@ materia-config-file - Materia configuration for file based attribute management
 
 ## Synopsis
 
-**$MATERIA_FILE__<option-name>**
+`/etc/materia/config.toml`, `$MATERIA_FILE_<option-name>`
 
 ## Description
 
@@ -24,15 +24,15 @@ Supports TOML files.
 
 ## Options
 
-#### **MATERIA_FILE__BASE_DIR**/**file.base_dir**
+#### *MATERIA_FILE__BASE_DIR*/**file.base_dir**
 
 Directory that contains attributes. Defaults to `secrets`.
 
-#### **MATERIA_FILE__VAULTS**/**file.vaults**
+#### *MATERIA_FILE__VAULTS*/**file.vaults**
 
 Files that are general attributes vaults. Defaults to `vault.toml`.
 
-#### **MATERIA_FILE__LOAD_ALL_VAULTS**/**file.load_all_vaults**
+#### *MATERIA_FILE__LOAD_ALL_VAULTS*/**file.load_all_vaults**
 
 Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
 
