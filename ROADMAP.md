@@ -1,9 +1,10 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [x] Automatic rollback on failure
-- [x] quadlet.d override directory support
+- [ ] Standardize config parsing
+- [ ] Rollback for OCI source
 
 # Potential future goals
+- [ ] Smarted rollback
 - [ ] Remote components refinement
 - [ ] Add rootless integration tests
 - [ ] Slimmer container image
