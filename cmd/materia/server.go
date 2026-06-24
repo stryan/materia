@@ -20,13 +20,14 @@ import (
 )
 
 type ServerConfig struct {
-	PlanInterval, UpdateInterval int    `koanf:"plan_interval" toml:"plan_interval"`
-	Hostname                     string `koanf:"hostname" toml:"hostname"`
-	NotifyWebhook                string `koanf:"notify_webhook" toml:"notify_webhook"`
-	UpdateWebhook                bool   `koanf:"update_webhook" toml:"update_webhook"`
-	UpdateUrl                    string `koanf:"update_url" toml:"update_url"`
-	UpdateSecret                 string `koanf:"update_secret" toml:"update_secret"`
-	Socket                       string `koanf:"socket" toml:"socket"`
+	PlanInterval   int    `koanf:"plan_interval" toml:"plan_interval"`
+	UpdateInterval int    `koanf:"update_interval" toml:"update_interval"`
+	Hostname       string `koanf:"hostname" toml:"hostname"`
+	NotifyWebhook  string `koanf:"notify_webhook" toml:"notify_webhook"`
+	UpdateWebhook  bool   `koanf:"update_webhook" toml:"update_webhook"`
+	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
+	UpdateSecret   string `koanf:"update_secret" toml:"update_secret"`
+	Socket         string `koanf:"socket" toml:"socket"`
 }
 
 type Server struct {
@@ -43,14 +44,8 @@ func (c ServerConfig) Validate() error {
 
 func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	var c ServerConfig
-	c.UpdateInterval = k.Int("server.update_interval")
-	c.PlanInterval = k.Int("server.plan_interval")
-	c.NotifyWebhook = k.String("server.notify_webhook")
-	c.UpdateWebhook = k.Bool("server.sync_webhook")
-	c.UpdateSecret = k.String("server.sync_secret")
-	c.UpdateUrl = k.String("server.sync_url")
-	c.Socket = k.String("server.socket")
-	return &c, nil
+	err := k.UnmarshalWithConf("server", &c, koanf.UnmarshalConf{})
+	return &c, err
 }
 
 func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
