@@ -13,18 +13,22 @@ type ServicesConfig struct {
 }
 
 func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
-	c := &ServicesConfig{}
-	c.Timeout = k.Int("services.timeout")
-	c.DryrunQuadlets = k.Bool("dryrun_quadlets")
-	if c.Timeout == 0 {
-		c.Timeout = 90
-	}
-	if k.Exists("services.dbus_socket") {
-		c.DbusSocket = k.String("services.dbus_socket")
+	c := DefaultServicesConfig()
+	err := k.UnmarshalWithConf("services", c, koanf.UnmarshalConf{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create services config: %w", err)
 	}
 	return c, nil
 }
 
 func (c *ServicesConfig) String() string {
 	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
+}
+
+func DefaultServicesConfig() *ServicesConfig {
+	return &ServicesConfig{
+		Timeout:        90,
+		DryrunQuadlets: false,
+		DbusSocket:     "",
+	}
 }

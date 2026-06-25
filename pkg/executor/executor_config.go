@@ -8,12 +8,12 @@ import (
 )
 
 type ExecutorConfig struct {
-	CleanupComponents bool   `toml:"cleanup_components"`
-	MateriaDir        string `toml:"materia_dir"`
-	QuadletDir        string `toml:"quadlet_dir"`
-	ScriptsDir        string `toml:"scripts_dir"`
-	ServiceDir        string `toml:"service_dir"`
-	OutputDir         string `toml:"output_dir"`
+	CleanupComponents bool   `koanf:"cleanup_components"`
+	MateriaDir        string `koanf:"materia_dir"`
+	QuadletDir        string `koanf:"quadlet_dir"`
+	ScriptsDir        string `koanf:"scripts_dir"`
+	ServiceDir        string `koanf:"service_dir"`
+	OutputDir         string `koanf:"output_dir"`
 }
 
 func (e *ExecutorConfig) String() string {
@@ -21,16 +21,9 @@ func (e *ExecutorConfig) String() string {
 }
 
 func NewExecutorConfig(k *koanf.Koanf) (*ExecutorConfig, error) {
-	ec := &ExecutorConfig{
-		CleanupComponents: k.Bool("executor.cleanup_components"),
-		MateriaDir:        k.String("executor.materia_dir"),
-		QuadletDir:        k.String("executor.quadlet_dir"),
-		ScriptsDir:        k.String("executor.scripts_dir"),
-		ServiceDir:        k.String("executor.service_dir"),
-		OutputDir:         k.String("executor.output_dir"),
-	}
-
-	return ec, nil
+	ec := &ExecutorConfig{}
+	err := k.UnmarshalWithConf("executor", ec, koanf.UnmarshalConf{})
+	return ec, err
 }
 
 func (e *ExecutorConfig) Validate() error {

@@ -102,14 +102,11 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if k.Exists("planner") {
-		c.PlannerConfig, err = planner.NewPlannerConfig(k)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		c.PlannerConfig = planner.DefaultPlannerConfig()
+	c.PlannerConfig, err = planner.NewPlannerConfig(k)
+	if err != nil {
+		return nil, err
 	}
+
 	c.ContainersConfig, err = containers.NewContainersConfig(k)
 	if err != nil {
 		return nil, err

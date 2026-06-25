@@ -7,23 +7,19 @@ import (
 )
 
 type PlannerConfig struct {
-	OnlyResources   bool `toml:"only_resources"`
-	CleanupQuadlets bool `toml:"cleanup_quadlets"`
-	CleanupVolumes  bool `toml:"cleanup_volumes"`
-	BackupVolumes   bool `toml:"backup_volumes"`
-	MigrateVolumes  bool `toml:"migrate_volumes"`
+	OnlyResources   bool `koanf:"only_resources"`
+	CleanupQuadlets bool `koanf:"cleanup_quadlets"`
+	CleanupVolumes  bool `koanf:"cleanup_volumes"`
+	BackupVolumes   bool `koanf:"backup_volumes"`
+	MigrateVolumes  bool `koanf:"migrate_volumes"`
 }
 
 func NewPlannerConfig(k *koanf.Koanf) (*PlannerConfig, error) {
-	pc := &PlannerConfig{}
-	pc.CleanupQuadlets = k.Bool("planner.cleanup_quadlets")
-	pc.CleanupVolumes = k.Bool("planner.cleanup_volumes")
-	if k.Exists("planner.backup_volumes") {
-		pc.BackupVolumes = k.Bool("planner.backup_volumes")
-	} else {
-		pc.BackupVolumes = true
+	pc := DefaultPlannerConfig()
+	err := k.UnmarshalWithConf("planner", pc, koanf.UnmarshalConf{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create planner config: %w", err)
 	}
-	pc.MigrateVolumes = k.Bool("planner.migrate_volumes")
 
 	return pc, nil
 }
