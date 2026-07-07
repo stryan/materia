@@ -2,20 +2,24 @@
 Description=Materia: quadlet manager
 
 [Service]
-Environment="SCRIPT_ARGS=%I"
 Type=oneshot
 
 [Container]
 Image=ghcr.io/stryan/materia:stable
 ContainerName=materia
+Exec=update
+#Pull=newer (OPTIONAL), since this container doesn't run all the time, you can use this to make sure you always have the latest materia version
+
+
 Environment=MATERIA_SOURCE__KIND="git"
 Environment=MATERIA_SOURCE__URL=https://github.com/stryan/materia_example_repo
 Environment=MATERIA_AGE__KEYFILE=/etc/materia/key.txt
 Environment=MATERIA_AGE__BASE_DIR=attributes
+
 SecurityLabelDisable=true
 HostName=%q
-Exec=$SCRIPT_ARGS
 Network=host
+
 Volume=/etc/materia:/etc/materia
 Volume=/etc/materia/known_hosts:/root/.ssh/known_hosts:ro
 Volume=/run/dbus/system_bus_socket:/run/dbus/system_bus_socket
@@ -24,4 +28,3 @@ Volume=/var/lib/materia:/var/lib/materia
 Volume=/etc/containers/systemd:/etc/containers/systemd
 Volume=/usr/local/bin:/usr/local/bin
 Volume=/etc/systemd/system:/etc/systemd/system
-AutoUpdate=registry

@@ -3,18 +3,21 @@ Description=Materia: quadlet manager (server mode)
 
 [Container]
 Image=ghcr.io/stryan/materia:stable
-ContainerName=materia
+ContainerName=materia-server
+
 Environment=MATERIA_SOURCE__KIND="git"
 Environment=MATERIA_SOURCE__URL=https://github.com/stryan/materia_example_repo
 Environment=MATERIA_AGE__KEYFILE=/etc/materia/key.txt
 Environment=MATERIA_AGE__BASE_DIR=attributes
 Environment=MATERIA_SERVER__UPDATE_INTERVAL=900 # Update every 15 minutes
+
 SecurityLabelDisable=true
 HostName=%q
 Exec=server
 Network=host
+
 Volume=/etc/materia:/etc/materia
-Volume=/run/materia:/run/materia # Control materia server from outside the container
+Volume=/run/materia:/run/materia # Control materia server from outside the container with the varlink API sockets here
 Volume=/etc/materia/known_hosts:/root/.ssh/known_hosts:ro
 Volume=/run/dbus/system_bus_socket:/run/dbus/system_bus_socket
 Volume=/run/podman/podman.sock:/run/podman/podman.sock
@@ -22,4 +25,5 @@ Volume=/var/lib/materia:/var/lib/materia
 Volume=/etc/containers/systemd:/etc/containers/systemd
 Volume=/usr/local/bin:/usr/local/bin
 Volume=/etc/systemd/system:/etc/systemd/system
+
 AutoUpdate=registry

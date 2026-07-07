@@ -3,7 +3,7 @@ Description=Materia daily update
 
 [Timer]
 OnCalendar=*-*-* 05:00:00 America/New_York
-Unit=materia@update.service
+Unit=materia-rootless-update.service
 
 [Install]
 WantedBy=timers.target
