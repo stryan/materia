@@ -200,11 +200,10 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 	if activeState == state {
 		return nil
 	}
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	timeoutTimer := time.NewTimer(time.Duration(timeout) * time.Second)
 	defer timeoutTimer.Stop()
-	log.Debug("waiting for service to update", "service", name, "state", state, "timeout", timeout)
 	count := 0
 	for {
 		select {
@@ -226,6 +225,7 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 			if activeState == "failed" {
 				return ErrStateChangeFailed
 			}
+			log.Debug("waiting for service to update", "service", name, "active state", activeState, "desired state", state)
 		}
 		count++
 	}
