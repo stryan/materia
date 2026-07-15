@@ -1,0 +1,4 @@
+MATERIA_SOURCE__KIND=git
+MATERIA_SOURCE__URL=https://github.com/stryan/materia_example_repo
+MATERIA_AGE__KEYFILE=/etc/materia/key.txt
+MATERIA_AGE__BASE_DIR=attributes

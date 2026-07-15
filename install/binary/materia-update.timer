@@ -1,0 +1,9 @@
+[Unit]
+Description=Materia update every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+Unit=materia-update.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Materia Server - GitOps tool for deploying Quadlets
+
+[Service]
+EnvironmentFile=/etc/sysconfig/materia-server
+ExecStart=/usr/bin/materia server
+
+[Install]
+WantedBy=multi-user.target
