@@ -360,6 +360,9 @@ func (r *HostComponentRepository) NewResource(parent *components.Component, path
 
 func (r *HostComponentRepository) ReadResource(res components.Resource) (string, error) {
 	resPath := ""
+	if err := res.Validate(); err != nil {
+		return "", fmt.Errorf("can't read invalid resource %v: %w", res.Path, err)
+	}
 	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
 		return "", nil
 	}

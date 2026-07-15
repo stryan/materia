@@ -125,7 +125,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 func (e *Executor) executeAction(ctx context.Context, v actions.Action) error {
 	handlers, ok := handlerList[v.Target.Kind]
 	if !ok {
-		return fmt.Errorf("unsupported resource type: %v", v.Target.Kind)
+		return fmt.Errorf("unsupported resource type: %v for target %v", v.Target.Kind, v.Target)
 	}
 
 	handler, ok := handlers[v.Todo]

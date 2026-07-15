@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"charm.land/log/v2"
 	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/pkg/actions"
@@ -48,6 +49,7 @@ func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents
 
 	for _, currentTree := range componentGraph.List() {
 		if currentTree.Host == nil {
+			log.Debugf("planning fresh component %v", currentTree.Name)
 			currentTree.Source.State = components.StateFresh
 			actions, err := p.PlanFreshComponent(ctx, currentTree)
 			if err != nil {
@@ -55,9 +57,10 @@ func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents
 			}
 			err = actionPlan.Append(actions)
 			if err != nil {
-				return nil, fmt.Errorf("error calculating fresh component %v differences:%w", currentTree.Name, err)
+				return nil, fmt.Errorf("error calculating fresh component %v differences: %w", currentTree.Name, err)
 			}
 		} else if currentTree.Source == nil {
+			log.Debugf("planning removed component %v", currentTree.Name)
 			currentTree.Host.State = components.StateNeedRemoval
 			actions, err := p.PlanRemovedComponent(ctx, currentTree)
 			if err != nil {
@@ -65,9 +68,10 @@ func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents
 			}
 			err = actionPlan.Append(actions)
 			if err != nil {
-				return nil, fmt.Errorf("error calculating removed component %v differences:%w", currentTree.Name, err)
+				return nil, fmt.Errorf("error calculating removed component %v differences: %w", currentTree.Name, err)
 			}
 		} else {
+			log.Debugf("planning updated component %v", currentTree.Name)
 			currentTree.Host.State = components.StateMayNeedUpdate
 			currentTree.Source.State = components.StateFresh
 			actions, err := p.PlanUpdatedComponent(ctx, currentTree)
@@ -76,7 +80,7 @@ func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents
 			}
 			err = actionPlan.Append(actions)
 			if err != nil {
-				return nil, fmt.Errorf("error calculating updated component %v differences:%w", currentTree.Name, err)
+				return nil, fmt.Errorf("error calculating updated component %v differences: %w", currentTree.Name, err)
 			}
 		}
 	}
