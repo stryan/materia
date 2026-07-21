@@ -233,6 +233,19 @@ func Test_Plan(t *testing.T) {
 				act("hello", actions.ActionRestart, "hello.container", 0),
 			},
 		},
+		{
+			name: "enable/disable only service action",
+			input: []actions.Action{
+				act("hello", actions.ActionInstall, "", 0),
+				act("hello", actions.ActionInstall, "hello.service", 0),
+				act("hello", actions.ActionEnable, "hello.service", 0),
+			},
+			output: []actions.Action{
+				act("hello", actions.ActionInstall, "", 0),
+				act("hello", actions.ActionInstall, "hello.service", 0),
+				act("hello", actions.ActionEnable, "hello.service", 0),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -249,6 +262,7 @@ func Test_Plan(t *testing.T) {
 				actualStep := result[k]
 				assert.Equal(t, expectedStep.Parent.Name, actualStep.Parent.Name, "%v wrong parent %v!=%v", k, expectedStep.Parent, actualStep.Parent)
 				assert.Equal(t, expectedStep.Todo, actualStep.Todo, "%v wrong action %v!=%v", k, expectedStep.Todo, actualStep.Todo)
+				assert.NotEqual(t, actions.ActionUnknown, actualStep.Todo, "plan contains a unknown action: %+v", actualStep)
 				assert.Equal(t, expectedStep.Target, actualStep.Target, "%v wrong target %v!=%v", k, expectedStep.Target, actualStep.Target)
 				if expectedStep.Priority != 0 {
 					assert.Equal(t, expectedStep.Priority, actualStep.Priority, "%v wrong priority %v != %v", expectedStep.Priority, actualStep.Priority)

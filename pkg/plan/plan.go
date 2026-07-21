@@ -184,45 +184,43 @@ func (p *Plan) Steps() []actions.Action {
 
 func coalesceServices(changes []actions.Action) []actions.Action {
 	var results []actions.Action
-	serviceResults := make(map[string]int)
-	serviceActions := make(map[string]actions.Action)
+	actionTiers := map[actions.ActionType]int{
+		actions.ActionReload:  1,
+		actions.ActionStart:   2,
+		actions.ActionRestart: 3,
+		actions.ActionStop:    4,
+	}
+	type state struct {
+		tier int
+		act  actions.Action
+	}
+	endStates := make(map[string]state, 0)
+
 	for _, a := range changes {
-		if _, ok := serviceResults[a.Target.Path]; !ok {
-			serviceResults[a.Target.Path] = 0
-		}
-		endState := serviceResults[a.Target.Path]
 		if a.Todo == actions.ActionEnable || a.Todo == actions.ActionDisable {
 			// don't need to coalesce enabling/disabling services
 			// if someone wants to enable and disable a service in the same plan, who are we to judge
 			results = append(results, a)
 			continue
 		}
-		if a.Todo == actions.ActionReload && endState < 1 {
-			endState = 1
-			serviceActions[a.Target.Path] = a
+		tier, ok := actionTiers[a.Todo]
+		if !ok {
+			// not a coalesce-able service action, leave it alone
+			continue
 		}
-		if a.Todo == actions.ActionStart && endState < 2 {
-			endState = 2
-			serviceActions[a.Target.Path] = a
+		if current, ok := endStates[a.Target.Path]; !ok || tier > current.tier {
+			endStates[a.Target.Path] = state{tier: tier, act: a}
 		}
-		if a.Todo == actions.ActionRestart && endState < 3 {
-			endState = 3
-			serviceActions[a.Target.Path] = a
-		}
-		if a.Todo == actions.ActionStop && endState < 4 {
-			endState = 4
-			serviceActions[a.Target.Path] = a
-		}
-		serviceResults[a.Target.Path] = endState
+
 	}
-	sortedResults := make([]string, 0, len(serviceResults))
-	for k := range serviceResults {
+	sortedResults := make([]string, 0, len(endStates))
+	for k := range endStates {
 		sortedResults = append(sortedResults, k)
 	}
 	slices.Sort(sortedResults)
 
 	for _, k := range sortedResults {
-		results = append(results, serviceActions[k])
+		results = append(results, endStates[k].act)
 	}
 	return results
 }
