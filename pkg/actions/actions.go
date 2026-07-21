@@ -45,7 +45,7 @@ func (t ActionType) IsResourceAction() bool {
 }
 
 func (t ActionType) IsHostAction() bool {
-	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump || t == ActionEnable
+	return t == ActionSetup || t == ActionCleanup || t == ActionMount || t == ActionImport || t == ActionDump
 }
 
 type Action struct {

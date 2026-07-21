@@ -657,7 +657,6 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 					result = append(result, v)
 				}
 			}
-			result = append(result, updatedServiceActions...)
 		}
 	}
 	return result, nil
@@ -741,12 +740,10 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 			metadata.ServiceUntilState = &endStr
 		}
 		return actions.Action{
-			Todo:   a,
-			Parent: parent,
-			Target: parent.InstantiateResource(res),
-			Metadata: &actions.ActionMetadata{
-				ServiceTimeout: &timeout,
-			},
+			Todo:     a,
+			Parent:   parent,
+			Target:   parent.InstantiateResource(res),
+			Metadata: metadata,
 		}, nil
 	}
 	return actions.Action{
