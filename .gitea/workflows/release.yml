@@ -19,9 +19,9 @@ jobs:
         uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
         with:
-          install: true  
-          cache: false  
-          experimental: true  
+          install: true
+          cache: false
+          experimental: true
           github_token: ${{ secrets.GH_TOKEN }}
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
@@ -37,8 +37,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_TOKEN }}
-      - name: Build and run release
-        run: |
-          mise ci-release ${{ github.ref_name }}
+      - name: Build and test
+        run: mise run ci-build
+      - name: Push and release
+        run: mise run ci-push ${{ github.ref_name }}
       - name: Logout registry
         run: docker logout ghcr.io
