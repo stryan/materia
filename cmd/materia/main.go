@@ -121,7 +121,7 @@ func main() {
 				Name:  "plan",
 				Usage: "Show application plan",
 				Flags: []cli.Flag{
-					&cli.StringFlag{
+					&cli.BoolFlag{
 						Name:    "quiet",
 						Aliases: []string{"q"},
 						Usage:   "Minimize output",
@@ -193,7 +193,7 @@ func main() {
 				Name:  "update",
 				Usage: "Plan and execute update",
 				Flags: []cli.Flag{
-					&cli.StringFlag{
+					&cli.BoolFlag{
 						Name:    "quiet",
 						Aliases: []string{"q"},
 						Usage:   "Minimize output",
@@ -414,7 +414,7 @@ func main() {
 			{
 				Name:  "server",
 				Usage: "start materia in server mode",
-				Action: func(_ context.Context, cCtx *cli.Command) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
@@ -523,7 +523,7 @@ func main() {
 						Usage:   "Don't try to remove components gracefully before cleaning",
 					},
 				},
-				Action: func(_ context.Context, cCtx *cli.Command) error {
+				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					m, err := setup(ctx, configFile, cliflags)
 					if err != nil {
 						return err

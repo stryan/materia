@@ -33,10 +33,12 @@ func NewNotifyType(name string) string {
 }
 
 func NewConfig(k *koanf.Koanf) (*NotifyConfig, error) {
-	var c NotifyConfig
-	c.Triggers = k.StringMap("notify.triggers")
-
-	return &c, nil
+	nc := DefaultNotifyConfig()
+	err := k.UnmarshalWithConf("notify", nc, koanf.UnmarshalConf{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to create planner config: %w", err)
+	}
+	return nc, nil
 }
 
 func (c *NotifyConfig) Validate() error {
@@ -46,4 +48,10 @@ func (c *NotifyConfig) Validate() error {
 		}
 	}
 	return nil
+}
+
+func DefaultNotifyConfig() *NotifyConfig {
+	return &NotifyConfig{
+		Triggers: make(map[string]string),
+	}
 }

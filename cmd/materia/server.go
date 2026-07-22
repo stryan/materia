@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -120,11 +121,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	}
 	spath := serv.Socket
 	if spath == "" {
-		spath, err = socketPath()
-		if err != nil {
-			return err
-		}
-		spath = "unix:" + spath
+		return errors.New("no socket provided, unable to generate one")
 	}
 	vserv, err := newVarlinkServer(ctx, m)
 	if err != nil {

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
 )
@@ -29,7 +31,20 @@ func (c ServerConfig) Validate() error {
 }
 
 func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
-	var c ServerConfig
-	err := k.UnmarshalWithConf("server", &c, koanf.UnmarshalConf{})
-	return &c, err
+	c, err := DefaultServicesConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate default server config: %w", err)
+	}
+	err = k.UnmarshalWithConf("server", c, koanf.UnmarshalConf{})
+	return c, err
+}
+
+func DefaultServicesConfig() (*ServerConfig, error) {
+	socket, err := socketPath()
+	if err != nil {
+		return nil, err
+	}
+	return &ServerConfig{
+		Socket: socket,
+	}, nil
 }

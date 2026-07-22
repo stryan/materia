@@ -25,7 +25,7 @@ import (
 )
 
 func setupDirectories(c *materia.MateriaConfig) error {
-	err := os.Mkdir(filepath.Join(c.MateriaDir), 0o755)
+	err := os.Mkdir(c.MateriaDir, 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating prefix: %w", err)
 	}
@@ -174,6 +174,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 		for _, v := range potentials {
 			if v.Hostname == cn {
 				materiaContainer = v
+				break
 			}
 		}
 		if materiaContainer != nil {
@@ -194,7 +195,7 @@ func setup(ctx context.Context, configFile string, cliflags map[string]any) (*ma
 	}
 	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return m, nil
 }

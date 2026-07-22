@@ -235,9 +235,6 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 
 		}
 	}
-	if p.OnlyResources {
-		return steps, nil
-	}
 	triggeredActions, err := generateComponentServiceTriggers(currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
@@ -523,8 +520,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 			stopAction.Metadata = &actions.ActionMetadata{}
 		}
 		stopAction.Priority = 1
-		stopState := "inactive"
-		stopAction.Metadata.ServiceUntilState = &stopState
+		stopAction.Metadata.ServiceUntilState = stateToPointer(services.StateInactive)
 		diffActions = append(diffActions, stopAction)
 		stoppedServiceActions = append(stoppedServiceActions, stopAction)
 	}
@@ -559,9 +555,8 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 		startAction.Todo = actions.ActionStart
 		startAction.Parent = parent
 		startAction.Priority = 5
-		startState := "active"
 		startAction.Metadata = &actions.ActionMetadata{
-			ServiceUntilState: &startState,
+			ServiceUntilState: stateToPointer(services.StateActive),
 		}
 		diffActions = append(diffActions, startAction)
 	}
@@ -653,7 +648,7 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 				if err != nil {
 					return nil, err
 				}
-				if live.State == "active" {
+				if live.State == services.StateActive {
 					result = append(result, v)
 				}
 			}
@@ -837,7 +832,6 @@ func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, h
 			return nil, err
 		}
 	}
-	assignedServices.ListServiceNames()
 	allServices := slices.Concat(assignedServices.ListServiceNames(), currentServices.ListServiceNames())
 	hostServices := assignedServices.Union(currentServices)
 	// update host services set to have current states
@@ -945,4 +939,9 @@ func serviceStateHelper(assigned, current services.Service) []actions.ActionType
 		steps = append(steps, actions.ActionStart)
 	}
 	return steps
+}
+
+func stateToPointer(s services.ServiceState) *string {
+	res := string(s)
+	return &res
 }
