@@ -15,6 +15,7 @@ on:
       - go.sum
   pull_request:
     branches: [master]
+  workflow_dispath:
 env:
   REGISTRY_USER: ${{ github.actor }}
   REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
