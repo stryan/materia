@@ -5,11 +5,15 @@ CGO_ENABLE = "0"
 [vars]
 image_registry = "${IMAGE_REGISTRY}"
 
-[tasks.ci]
-usage = '''
-  arg "[tag]" help = "Tag to push"
-'''
+[tasks.ci-build]
+description = "Build and test for CI"
 depends = ["build", "test", "integration -k"]
+
+[tasks.ci-image]
+description = "Build CI image"
+usage = '''
+  arg "[tag]" help = "Tag to push, omit to build only without pushing"
+'''
 run = '''
   if [ -n "$usage_tag" ]; then
     docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:"$usage_tag" -t ghcr.io/stryan/materia:"$usage_tag" .
@@ -18,36 +22,7 @@ run = '''
   fi
 '''
 
-[tasks.ci-buildah]
-usage = '''
-  arg "<tag>" help = "Tag to push" default="latest"
-  flag "--destination <destination>" help = "Destination forge"
-'''
-run = '''
-  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
-  buildah manifest push --all materia docker://${usage_destination}/materia:${usage_tag}
-  buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:${usage_tag}
-'''
-
 [tasks.ci-release]
-tools.gh = "latest"
-usage = '''
-  arg "<tag>" help = "Tag to push"
-'''
-depends = ["build", "test", "integration -k"]
-run = [
-  "git remote add mirror git@github.com:stryan/materia",
-  "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:${usage_tag?} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:${usage_tag?} -t ghcr.io/stryan/materia:stable --push .",
-  "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
-  "git remote rm mirror",
-]
-
-
-[tasks.ci-build]
-description = "Build for ci"
-depends = ["build", "test", "integration -k"]
-
-[tasks.ci-push]
 description = "Build images for release"
 tools.gh = "latest"
 usage = '''
@@ -59,4 +34,17 @@ run = [
   "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
+
+# For post-migration
+[tasks.ci-buildah]
+usage = '''
+  arg "<tag>" help = "Tag to push" default="latest"
+  flag "--destination <destination>" help = "Destination forge"
+'''
+run = '''
+  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
+  buildah manifest push --all materia docker://${usage_destination}/materia:${usage_tag}
+  buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:${usage_tag}
+'''
+
 

@@ -37,9 +37,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_TOKEN }}
-      - name: Build and test
+      - name: Build and test binaries
         run: mise run ci-build
-      - name: Push and release
-        run: mise run ci-push ${{ github.ref_name }}
+      - name: Build container image and release
+        run: mise run ci-release ${{ github.ref_name }}
       - name: Logout registry
         run: docker logout ghcr.io

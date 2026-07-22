@@ -36,6 +36,8 @@ jobs:
           cache: false
           experimental: true
           github_token: ${{ secrets.GH_TOKEN }}
+      - name: Build binaries
+        run: mise run ci-build
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Login to registry
@@ -50,12 +52,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GH_TOKEN }}
-      - name: Build container
+      - name: Build container image
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            mise ci
+            mise ci-image
           else
-            mise ci latest
+            mise ci-image latest
           fi
       - name: Cleanup leftover containers
         if: always()
