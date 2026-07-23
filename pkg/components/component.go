@@ -227,16 +227,18 @@ func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 	result := services.NewServiceSet()
 	for _, sc := range c.ServiceConfigs.List() {
 		s := services.Service{
-			Name:    sc.Service,
-			State:   services.StateActive,
-			Type:    "", // Do we even need this field
-			Enabled: services.EnableStateEnabled,
+			Name:  sc.Service,
+			State: services.StateActive,
+			Type:  "", // Do we even need this field
 		}
 		if sc.Stopped || sc.Oneshot {
 			s.State = services.StateInternalWildcard
 		}
-		if sc.Disabled || !sc.Static {
-			s.Enabled = services.EnableStateDisabled
+		if sc.Static {
+			s.Enabled = services.EnableStateEnabled
+			if sc.Disabled {
+				s.Enabled = services.EnableStateDisabled
+			}
 		}
 		result.Add(s)
 	}
