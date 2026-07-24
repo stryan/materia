@@ -6,6 +6,14 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## 0.7.1
+- bugfix: services are only enabled/disabled when static
+- bugfix: service coalescing no longer adds phantom action for enable/disable
+- bugfix: bring back per action validation in planner
+- chore: server,executor,planner,services,containers config smoothing
+- bugfix: server config parsing
+- feat: reorganize `install/` to have example configurations for each supported install method
+
 ## 0.7.0
 - feat: Components with instanced systemd units (i.e. `unit@.service`) can now be instanced at the component level
 - refactor: removed `autoUpdate` snippet, added `onBoot` and `harden` snippets.
