@@ -5,6 +5,7 @@
 - [ ] Improve Service manifest definitions
 
 # Potential future goals
+- [ ] Some type of in-repo per-host systemd override management
 - [ ] Smarted rollback
 - [ ] Remote components refinement
 - [ ] Add rootless integration tests
