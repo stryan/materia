@@ -5,6 +5,7 @@ Best effort list of major changes and bugfixes
 ## Deprecations
 
 ## Upcoming
+- bugfix: git sources now sync fully divergent branches correctly
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static

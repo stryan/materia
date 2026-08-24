@@ -151,7 +151,7 @@ func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 				return nil, fmt.Errorf("failed to checkout branch: %w", err)
 			}
 		}
-		if err := g.pull(ctx, r); err != nil {
+		if err := g.pull(ctx, r, target); err != nil {
 			return nil, err
 		}
 	} else {
@@ -303,14 +303,15 @@ func (g *GitSource) createOrOpenRepo(ctx context.Context, opts *git.CloneOptions
 	return r, "", nil
 }
 
-func (g *GitSource) pull(ctx context.Context, r *git.Repository) error {
+func (g *GitSource) pull(ctx context.Context, r *git.Repository, target string) error {
 	w, err := r.Worktree()
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}
 	err = w.PullContext(ctx, &git.PullOptions{
-		Auth:  g.auth,
-		Force: g.resetIfNeeded,
+		Auth:          g.auth,
+		Force:         g.resetIfNeeded,
+		ReferenceName: plumbing.NewBranchReferenceName(target),
 	})
 	if err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil
@@ -321,7 +322,7 @@ func (g *GitSource) pull(ctx context.Context, r *git.Repository) error {
 	if err := g.HardReset(r); err != nil {
 		return fmt.Errorf("failed to hard reset: %w", err)
 	}
-	if err := w.PullContext(ctx, &git.PullOptions{Auth: g.auth, Force: true}); err != nil {
+	if err := w.PullContext(ctx, &git.PullOptions{Auth: g.auth, Force: true, ReferenceName: plumbing.NewBranchReferenceName(target)}); err != nil {
 		return fmt.Errorf("failed to pull after hard reset: %w", err)
 	}
 	return nil

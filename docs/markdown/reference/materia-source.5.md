@@ -42,7 +42,11 @@ Git branch to checkout.
 
 #### MATERIA_GIT__DEFAULT/ git.default
 
+(SOFT DEPRECATED)
+
 The Git branch to checkout if `git.branch` isn't specified. Defaults to `master`.
+
+There is nothing this config option does that **git.branch** can't do as well. Kept it for legacy configs and future updates.
 
 #### *MATERIA_GIT__PRIVATE_KEY*/ **git.private_key**
 
