@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"charm.land/log/v2"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -50,37 +51,34 @@ func NewGitSource(c *Config) (*GitSource, error) {
 	g.activeBranch = c.Branch
 
 	if c.PrivateKey != "" {
+		_, err = os.Stat(c.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("cannot find private key: %w", err)
+		}
+
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, err
 		}
-		hostsfile := c.KnownHosts
-		if hostsfile == "" {
-			hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
-			_, err = os.Stat(hostsfile)
-			if err != nil {
-				return nil, err
-			}
 
-		}
-		_, err = os.Stat(c.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-		publicKeys, err := ssh.NewPublicKeysFromFile("git", c.PrivateKey, "")
-		if err != nil {
-			return nil, err
-		}
+		var publicKeys *ssh.PublicKeys
 		if c.Insecure {
-			publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
-		}
-		if hostsfile != "" {
-			publicKeys.HostKeyCallback, err = knownhosts.New(hostsfile)
-			if err != nil {
-				return nil, fmt.Errorf("can't use knownhosts %v: %w", hostsfile, err)
-			}
-		}
+			publicKeys, err = getPubKeys(c.PrivateKey, "", true)
+		} else {
+			hostsfile := c.KnownHosts
+			if hostsfile == "" {
+				hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
+				_, err = os.Stat(hostsfile)
+				if err != nil {
+					return nil, err
+				}
 
+			}
+			publicKeys, err = getPubKeys(c.PrivateKey, hostsfile, c.Insecure)
+		}
+		if err != nil {
+			return nil, err
+		}
 		g.auth = publicKeys
 	} else if c.Username != "" {
 		g.auth = &http.BasicAuth{
@@ -93,18 +91,35 @@ func NewGitSource(c *Config) (*GitSource, error) {
 		if err != nil {
 			return nil, err
 		}
-		privkey := filepath.Join(home, ".ssh", "id_rsa")
-		_, err = os.Stat(privkey)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil, err
+
+		var privkey string
+		for _, name := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
+			candidate := filepath.Join(home, ".ssh", name)
+			if _, serr := os.Stat(candidate); serr == nil {
+				privkey = candidate
+				break
+			} else if !errors.Is(serr, os.ErrNotExist) {
+				return nil, serr
+			}
 		}
-		if !errors.Is(err, os.ErrNotExist) {
-			publicKeys, err := ssh.NewPublicKeysFromFile("git", privkey, "")
+
+		if privkey != "" {
+
+			var publicKeys *ssh.PublicKeys
+			if c.Insecure {
+				publicKeys, err = getPubKeys(c.PrivateKey, "", true)
+			} else {
+				hostsfile := c.KnownHosts
+				if hostsfile == "" {
+					hostsfile = fmt.Sprintf("%v/.ssh/known_hosts", home)
+				}
+				if _, err := os.Stat(hostsfile); err != nil {
+					return nil, err
+				}
+				publicKeys, err = getPubKeys(privkey, hostsfile, false)
+			}
 			if err != nil {
 				return nil, err
-			}
-			if c.Insecure {
-				publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
 			}
 			g.auth = publicKeys
 		}
@@ -200,8 +215,11 @@ func (g *GitSource) GetDefaultBranchFromRepository(repo *git.Repository) (string
 	if err != nil {
 		return "", err
 	}
-	references, _ := remote.List(&git.ListOptions{})
 	defaultName := "master"
+	references, err := remote.List(&git.ListOptions{})
+	if err != nil {
+		log.Warn("unable to list origin references, using \"master\"")
+	}
 	for _, reference := range references {
 		if reference.Name() == "HEAD" && reference.Type() == plumbing.SymbolicReference {
 			defaultName = reference.Target().Short()
@@ -254,7 +272,7 @@ func (g *GitSource) fetchOrigin(ctx context.Context, repo *git.Repository, refSp
 		RefSpecs: refSpecs,
 		Auth:     g.auth,
 	}); err != nil {
-		if err == git.NoErrAlreadyUpToDate {
+		if errors.Is(err, git.NoErrAlreadyUpToDate) {
 			fmt.Print("refs already up to date")
 		} else {
 			return fmt.Errorf("fetch origin failed: %v", err)
@@ -311,20 +329,21 @@ func (g *GitSource) pull(ctx context.Context, r *git.Repository, target string) 
 		return fmt.Errorf("failed to get worktree: %w", err)
 	}
 	err = w.PullContext(ctx, &git.PullOptions{
-		Auth:          g.auth,
-		Force:         g.resetIfNeeded,
-		ReferenceName: plumbing.NewBranchReferenceName(target),
+		Auth:              g.auth,
+		Force:             g.resetIfNeeded,
+		ReferenceName:     plumbing.NewBranchReferenceName(target),
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	})
 	if err == nil || errors.Is(err, git.NoErrAlreadyUpToDate) {
 		return nil
 	}
-	if !errors.Is(err, git.ErrFastForwardMergeNotPossible) || !g.resetIfNeeded {
+	if !errors.Is(err, git.ErrNonFastForwardUpdate) || !g.resetIfNeeded {
 		return err
 	}
 	if err := g.HardReset(r); err != nil {
 		return fmt.Errorf("failed to hard reset: %w", err)
 	}
-	if err := w.PullContext(ctx, &git.PullOptions{Auth: g.auth, Force: true, ReferenceName: plumbing.NewBranchReferenceName(target)}); err != nil {
+	if err := w.PullContext(ctx, &git.PullOptions{Auth: g.auth, Force: true, ReferenceName: plumbing.NewBranchReferenceName(target), RecurseSubmodules: git.DefaultSubmoduleRecursionDepth}); err != nil {
 		return fmt.Errorf("failed to pull after hard reset: %w", err)
 	}
 	return nil
@@ -402,6 +421,22 @@ func (g *GitSource) checkoutRevision(ctx context.Context, r *git.Repository, rev
 		Hash:  *hash,
 		Force: g.resetIfNeeded,
 	})
+}
+
+func getPubKeys(key, hostsfile string, insecure bool) (*ssh.PublicKeys, error) {
+	publicKeys, err := ssh.NewPublicKeysFromFile("git", key, "")
+	if err != nil {
+		return nil, err
+	}
+	if insecure {
+		publicKeys.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+	} else {
+		publicKeys.HostKeyCallback, err = knownhosts.New(hostsfile)
+		if err != nil {
+			return nil, fmt.Errorf("can't use knownhosts %v: %w", hostsfile, err)
+		}
+	}
+	return publicKeys, nil
 }
 
 func (g *GitSource) Inspect() source.SyncInspectReport {
