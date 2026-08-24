@@ -118,7 +118,7 @@ func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 	gco := &git.CloneOptions{
 		URL:               repoURL,
 		Auth:              g.auth,
-		Progress:          os.Stdout,
+		Progress:          os.Stdout, // TODO use custom writer so we can format this better
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	}
 	r, oldRevision, err := g.createOrOpenRepo(ctx, gco)
@@ -127,6 +127,8 @@ func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 	}
 	report.OldRevision = oldRevision
 
+	// TODO refactor this to not be an ugly branch and double check all the opts
+	// are passed correctly
 	if opts.Revision == "" {
 		if err := g.ensureBranch(ctx, r, opts.Subpath); err != nil {
 			return nil, err
@@ -152,7 +154,7 @@ func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 			}
 		}
 		if err := g.pull(ctx, r, target); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to pull non-revisioned target: %w", err)
 		}
 	} else {
 		if err := g.checkoutRevision(ctx, r, opts.Revision); err != nil {
@@ -379,7 +381,7 @@ func (g *GitSource) checkoutBranch(ctx context.Context, r *git.Repository, branc
 	return nil
 }
 
-func (g *GitSource) checkoutRevision(_ context.Context, r *git.Repository, revision string) error {
+func (g *GitSource) checkoutRevision(ctx context.Context, r *git.Repository, revision string) error {
 	w, err := r.Worktree()
 	if err != nil {
 		return fmt.Errorf("failed to get worktree: %w", err)
@@ -387,7 +389,13 @@ func (g *GitSource) checkoutRevision(_ context.Context, r *git.Repository, revis
 
 	hash, err := r.ResolveRevision(plumbing.Revision(revision))
 	if err != nil {
-		return fmt.Errorf("failed to resolve revision %q: %w", revision, err)
+		if err := g.fetchOrigin(ctx, r, ""); err != nil {
+			return fmt.Errorf("failed to fetch origin: %w", err)
+		}
+		hash, err = r.ResolveRevision(plumbing.Revision(revision))
+		if err != nil {
+			return fmt.Errorf("failed to resolve revision %q: %w", revision, err)
+		}
 	}
 
 	return w.Checkout(&git.CheckoutOptions{
