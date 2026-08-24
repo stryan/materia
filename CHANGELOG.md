@@ -6,6 +6,7 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 - bugfix: git sources now sync fully divergent branches correctly
+- bugfix: git insecure/hostkeys has better handling
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static
