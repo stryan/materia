@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SOPS
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: February 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -12,7 +12,7 @@ materia-config-sops - Materia configuration for SOPS based attribute management
 
 ## Synopsis
 
-*$MATERIA_SOPS__<option-name>*
+`/etc/materia/config.toml`, `$MATERIA_SOPS__<option-name>`
 
 ## Description
 
@@ -22,7 +22,7 @@ These are in addition to the normal SOPs configuration settings.
 
 If you don't need any settings (i.e. you're using the default vaults and base dir), you can enable the engine by setting `MATERIA_SOPS=""` or adding an empty `[sops]` table to your config.
 
-Supports YAML, JSON, and INI files.
+Supports YAML. JSON and INI parsing are available but are not tested.
 
 ## Options
 
@@ -56,7 +56,7 @@ A file vault is a YAML or INI file with one or more of the following maps:
 
 An example file would look like this:
 
-```yaml
+~~~yaml
 globals:
     localDNS: 192.168.10.10
     localDomain: saintnet.lan
@@ -64,4 +64,4 @@ globals:
 components:
     caddy:
         caddyImage: git.saintnet.tech/stryan/saintnet_caddy
-```
+~~~

@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVICES
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -13,6 +13,10 @@ materia-config-services - Materia services configuration settings
 ## Synopsis
 
 `/etc/materia/config.toml`, `$MATERIA_SERVICES__<option-name>`
+
+## Description
+
+Adjust how Materia interacts with systemd.
 
 ## Options
 
@@ -31,3 +35,7 @@ Defaults to false.
 Whether to run a dry-run of the quadlet generator before starting/stopping services.
 
 Enable this if you need to make sure Quadlets are installed correctly before starting services.
+
+#### *MATERIA_SERVICES__DBUS_SOCKET*/**services.dbus_socket**
+
+If set, use this socket to connect to DBUS instead of the system defaults.

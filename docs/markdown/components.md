@@ -8,14 +8,14 @@ The Component name is the name of the directory it's in.
 
 For example purposes, the following file layout will be used:
 
-```
+~~~default
 components/
 components/hello/
 components/hello/MANIFEST.toml
 components/hello/hello.container
 components/hello/hello.env
 components/hello/conf/config.toml
-```
+~~~
 
 This represents a component named "hello".
 
@@ -41,14 +41,14 @@ Component Manifests can not be templated outside of the `Scripts` section.
 
 For the example component, the Manifest file might look like this:
 
-```toml
+~~~toml
 Defaults.containerTag = "latest"
 
 [[Services]]
 Service = "hello.service"
-RestartedBy = "hello.container"
-ReloadedBy = "conf/config.toml"
-```
+RestartedBy = [ "hello.container" ]
+ReloadedBy = [ "conf/config.toml" ]
+~~~
 
 This manifest sets the default "containerTag" attribute to be "latest" and defines the "hello.service" service.
 
@@ -73,14 +73,14 @@ Example component `server@site1`
 ~~~
 
 Similarly, Materia will substitue `@` signs in `[[Services]]` definitions as well with the instance name:
-~~~
+~~~toml
 [[Services]]
 Service = "server@.container"
 ~~~
 
 becomes
 
-~~~
+~~~toml
 [[Services]]
 Service = "server@site1.container"
 ~~~

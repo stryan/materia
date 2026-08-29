@@ -27,7 +27,19 @@ Work in progress online docs for the Materia Project.
 
 [Materia Containers config options](materia-config-containers.5.md)
 
-[Source config](materia-source.5.md)
+[Materia Notification config options](materia-config-notify.5.md)
+
+[Materia Server config options](materia-config-server.5.md)
+
+[Materia Source config](materia-source.5.md)
+
+### Individual source settings
+
+[Git](materia-source-git.5.md)
+
+[OCI Image](materia-source-oci.5.md)
+
+[File](materia-source-file.5.md)
 
 ## Attributes Engines
 

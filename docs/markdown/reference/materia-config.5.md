@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -24,6 +24,8 @@ When both environmental variables and a config file are used, config file settin
 
 Materia will by default use any and all configured attributes engines.
 
+For configuring repository sources, see `materia-source(5)`
+
 For configuring extra planner features (Podman resource cleanup, volume data migration, etc) see `materia-config-planner(5)`.
 
 For configuring extra execution features (Remove invalid components on failed execution, etc) see `materia-config-executor(5)`.
@@ -33,6 +35,9 @@ For configuring server mode features, see `materia-config-server(5)`.
 For configuring attributes management with `age`, see `materia-config-age(5)`.
 
 For configuring attributes management with `sops`, see `materia-config-sops(5)`.
+
+For other config sections, see the `See Also` section
+
 
 ## Options
 Presented in *environmental variable*/**TOML config line option** format.
@@ -61,7 +66,7 @@ Log to `STDOUT` instead of `STDERR`
 
 Use these assigned roles instead of what's in the `materia-manifest(5)`
 
-#### *MATERIA_NO_SYNC*/**no_sync**
+#### *MATERIA_NOSYNC*/**nosync**
 
 Do not sync source repository before running operations.
 
@@ -89,7 +94,11 @@ Directory where materia installs non-generated systemd unit files. Defaults to `
 
 Directory where materia installs scripts resources. Defaults to `/usr/local/bin/` for root and `$HOME /.local/bin` for nonroot.
 
-#### *MATERIA_ROOTLESS*/**materia.rootless**
+#### *MATERIA_REMOTE_DIR*/**remote_dir**
+
+Directory where materia keeps local cache of remote components. Defaults to `MATERIA_DATA_DIR/remote`
+
+#### *MATERIA_ROOTLESS*/**rootless**
 
 (EXPERIMENTAL)
 
@@ -127,3 +136,7 @@ Valid options: "service".
 Fallback to using the old system of wrapping the `podman` command for container operations. Use if you're seeing errors accessing podman containers/secrets/volumes/etc.
 
 Will be removed in 0.8.
+
+## See Also
+
+`materia-config-age(5)`, `materia-config-containers(5)`, `materia-config-executor(5)`, `materia-config-file(5)`, `materia-config-notify(5)`, `materia-config-planner(5)`, `materia-config-server(5)`, `materia-config-services(5)`, `materia-config-sops(5)`, `materia-manifest(5)`, `materia-source(5)`.

@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVER
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -13,6 +13,10 @@ materia-config-server - Materia server mode configuration settings
 ## Synopsis
 
 `/etc/materia/config.toml`, `$MATERIA_SERVER__<option-name>`
+
+## Description
+
+Settings that only apply to Materia when run in server mode (with `materia server`).
 
 ## Options
 
@@ -34,13 +38,13 @@ This has been replaced by the materia-config-notify.5 config.
 
 True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON payloads in the following format:
 
-```json
+~~~json
 {
     "revision": "optional: revision to sync to",
     "update": true|false,
     "secret": "pre-shared secret: server.secret"
 }
-```
+~~~
 
 #### *MATERIA_SERVER__UPDATE_SECRET*/**server.update_secret**
 

@@ -2,8 +2,8 @@
 title: MATERIA-MANIFEST
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -28,9 +28,11 @@ Manifest files are required for a repository or component to be considered valid
 
 A TOML table containing hosts entries of the following format:
 
-      [Hosts.localhost]
-      Components = ["caddy","openldap","caddy@siteb"]
-      Roles = ["base"]
+~~~toml
+[Hosts.localhost]
+Components = ["caddy","openldap","caddy@siteb"]
+Roles = ["base"]
+~~~
 
 ##### Component instances
 
@@ -43,14 +45,14 @@ Example component `server@site1`
 ~~~
 
 Similarly, Materia will substitue `@` signs in `[[Services]]` definitions as well with the instance name:
-~~~
+~~~toml
 [[Services]]
 Service = "server@.container"
 ~~~
 
 becomes
 
-~~~
+~~~toml
 [[Services]]
 Service = "server@site1.container"
 ~~~
@@ -60,12 +62,14 @@ The table can also contain an `Overrides` table that contains keys mapped to com
 
 Example:
 
-      [Hosts.localhost]
-      Components = ["caddy","openldap"]
-      [Hosts.localhost.Overrides.caddy.Defaults]
-      port = "80"
-      [Hosts.localhost.Overrides.caddy.Services]
-      Service = "caddy.service"
+~~~toml
+[Hosts.localhost]
+Components = ["caddy","openldap"]
+[Hosts.localhost.Overrides.caddy.Defaults]
+port = "80"
+[Hosts.localhost.Overrides.caddy.Services]
+Service = "caddy.service"
+~~~
 
 This will override the `Defaults` and `Services` entries to be the above.
 
@@ -74,10 +78,12 @@ The table can also contain an `Extensions` table that contains keys mapped to co
 
 Example:
 
-      [Hosts.localhost]
-      Components = ["caddy","openldap"]
-      [Hosts.localhost.Extensions.caddy.Defaults]
-      port = "80"
+~~~toml
+[Hosts.localhost]
+Components = ["caddy","openldap"]
+[Hosts.localhost.Extensions.caddy.Defaults]
+port = "80"
+~~~
 
 This will "extend" the `caddy` component's `Defaults` table to have the key-value pair `port = "80"`. If the key already exists in the table it will be updated.
 
@@ -85,22 +91,27 @@ This will "extend" the `caddy` component's `Defaults` table to have the key-valu
 
 A TOML table of containing roles entries of the following format:
 
-      [Roles.base]
-      Components = ["nagios-agent"]
+~~~toml
+[Roles.base]
+Components = ["nagios-agent"]
+~~~
 
 #### **RoleCommand**
 
 (EXPERIMENTAL) An external command ran on a host to determine what role(s) it has.
 
-#### Remote
+#### Remotes
 
 A TOML table containing Remote Component entries of the following format:
 
-      [Remotes.COMPONENT_LOCAL_NAME]
-      Revision = "v1" # optional
-      Subpath = "component" # optional
-      [Remotes.COMPONENT_LOCAL_NAME.git]
-      URL = "https://github.com/example/component_name"
+~~~toml
+[Remotes.COMPONENT_LOCAL_NAME]
+Revision = "v1" # optional
+Subpath = "component" # optional
+
+[Remotes.COMPONENT_LOCAL_NAME.git]
+URL = "https://github.com/example/component_name"
+~~~
 
 Remote components use the same source format as the normal repository sources in *materia-source(5)*.
 
@@ -110,29 +121,29 @@ For most cases, the main table can be skipped and only a source is needed.
 
 Experimental. Use it for repeated blocks of code across components. Takes the following format:
 
-```
+~~~toml
 [[Snippets]]
 Name = 'Foo'
 Parameters = ['Bar']
 Body = '''
 Label=Foo={{.Bar}}
 '''
-```
+~~~
 
 ## Example Manifest
 
-```
+~~~toml
 [Roles.base]
-components = ["nagios-agent"]
+Components = ["nagios-agent"]
 
 [Hosts.warden]
-components = ["dota_patch_bot"]
-roles = ["base"]
+Components = ["dota_patch_bot"]
+Roles = ["base"]
 
 [Hosts.ivy]
-components = ["authelia"]
+Components = ["authelia"]
 
-```
+~~~
 
 ## Component manifests
 
@@ -193,7 +204,7 @@ Example: `defaults.containerTag = "latest"`
 
 An array of service definitions, use to describe what systemd services should be started when a component is installed.
 
-```
+~~~default
 [[Services]]
 Service = "SERVICE_NAME.[service|container|pod]" # The name of the systemd service or resource to modify.
 RestartedBy = ["resource"] # List of resources that, if updated by a materia run, should trigger the service to be restarted
@@ -204,7 +215,7 @@ Stopped = false # Prevents materia from starting the service. Useful for .build 
 Oneshot = false # Prevents materia from checking if this service started succesfully. Useful for containers that don't stay running
 Timeout = 0 # Default timeout in seconds for service actions involving this resource.
 
-```
+~~~
 
 #### *Scripts*
 
@@ -218,19 +229,23 @@ Under construction. Used to indicate custom snippets. See *materia-templates(5)*
 
 A list of materia attributes that will be added to the podman secrets vault and are accessible in templates with the related macros `secretMount` and `secretEnv`.
 
-```
+~~~toml
 Secrets = ["attribute1"]
-```
+~~~
 
 ## Example Component Manifest
 
 `arcade-agent/MANIFEST.toml`
 
-```
+~~~toml
 [Defaults]
 port = "5656"
 containerTag = "latest"
 
 [[Services]]
 Service = "arcade-agent.service"
-```
+~~~
+
+## See Also
+
+`materia-repository(5)`, `materia-templates(5)`, `materia-source(5)`

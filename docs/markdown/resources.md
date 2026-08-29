@@ -36,7 +36,7 @@ They are installed to the Scripts directory as well the Data directory. By defau
 #### Services
 Services are resources that are Systemd unit files. The following types are recognized: `.timer`,`.service`,`.socket`,`.mount`,`.device`,`.automount`,`.device`,`.slice`,`.scope`,`.swap`,`.path`, and `.target`.
 
-They are installed the Systemd directory as well as the Data directory. By default this is `/etc/systemd/system` for root and .
+They are installed the Systemd directory as well as the Data directory. By default this is `/etc/systemd/system` for root and `$HOME/.config/systemd/user/` for rootless.
 
 
 ## Templating Resources

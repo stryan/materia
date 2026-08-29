@@ -2,8 +2,8 @@
 title: MATERIA-REPOSITORY
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -18,7 +18,7 @@ A directory containing containing components and manifests for materia to manage
 
 A directory containing containing components and manifests for materia to manage. Example file layout:
 
-```
+~~~default
 materia-repo/
 materia-repo/components
 materia-repo/components/hello
@@ -27,7 +27,7 @@ materia-repo/components/hello/MANIFEST.toml
 materia-repo/attributes
 materia-repo/attributes/vault.age
 materia-repo/MANIFEST.toml
-```
+~~~
 
 ## Details
 

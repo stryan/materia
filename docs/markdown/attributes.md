@@ -12,7 +12,7 @@ Materia does not provide tools for managing attributes outside of what is needed
 
 ### Attribute Scoping
 
-Attributes can be scoped to three different levels: **global**, **host**, **role**, and **component**.
+Attributes can be scoped to four different levels: **global**, **host**, **role**, and **component**.
 
 **Global** attributes are available when templating any component on any host.
 
@@ -40,27 +40,27 @@ The following example assumes you're using the [sops](#sops-recommended) engine.
 
 The recommended file layout for organizing attributes is this:
 
-```
+~~~default
 attributes/
 attributes/vault.yml
 attributes/localhost.yml
 attributes/base.yml
-```
+~~~
 
 The `vault.yml` file includes attributes that are either referenced globally or are scoped to components but don't depend on the target host.
 
-```yaml
+~~~yaml
 globals:
     lanDnsServer: 192.168.1.10
     lanName: example.lan
 components:
     caddy:
         caddyImage: docker.io/user/special_caddy_version
-```
+~~~
 
 The `localhost.yml` file includes attributes that are specific to the host.
 
-```yaml
+~~~yaml
 globals:
     hostIP: 192.168.1.22
 components:
@@ -68,16 +68,16 @@ components:
         containerTag: stable
         caddyConfig: |
             {}
-```
+~~~
 
 
 The `base.yml` file includes attributes for any host with the `base` role assigned to it.
 
-```yaml
+~~~yaml
 components:
     beszel-agent:
         beszelKey: ssh-blahimakey
-```
+~~~
 
 
 ## Attributes Engines
@@ -94,7 +94,7 @@ Materia expects SOPS-encrypted files to be either YAML or INI files.
 
 An example SOPS vault with all four levels of **attribute scoping** looks like this:
 
-```yaml
+~~~yaml
 globals:
     localIP: 192.168.1.67
 components:
@@ -106,7 +106,7 @@ roles:
 hosts:
     localhost:
         keyForLocalhost: value
-```
+~~~
 
 
 ### Age (recommended)
@@ -117,7 +117,7 @@ Materia expects Age-encrypted files to be TOML files.
 
 An example Age vault with all four levels of **attribute scoping** looks like this:
 
-```toml
+~~~toml
 [globals]
     localIP = "192.168.1.67"
 [components.freshrss]
@@ -126,7 +126,7 @@ An example Age vault with all four levels of **attribute scoping** looks like th
     bsezelKey = "ssh-blahimadifferentkey"
 [hosts.localhost]
     keyForLocalhost = "value"
-```
+~~~
 
 
 ### File

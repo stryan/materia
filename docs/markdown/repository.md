@@ -12,7 +12,7 @@ Also known as a repository manifest, this `MANIFEST.toml` file describes compone
 
 A simple manifest might look like this:
 
-```toml
+~~~toml
 [Hosts]
 [Hosts.vindicta]
 Components = ["freshrss"]
@@ -21,7 +21,7 @@ Roles = ["base"]
 [Roles]
 [Roles.base]
 Components = ["podman_exporter"]
-```
+~~~
 
 This defines two entities: a `host `and a `role`. Roles are collections of components and are assigned to hosts. Any host with a given role will be treated as if it has all the role's assigned components assigned to it.
 
@@ -30,21 +30,22 @@ In this case we have one host: `vindicta`. Vindicta has the "freshrss" component
 ## Overriding and Extending Manifests
 Materia manifests can also include other metadata or orchestration configuration. For example, we can override a components defined services with the `Overrides` key:
 
-```toml
+~~~toml
 [Hosts.vindicta]
 Components = ["freshrss"]
-[Hosts.vindicta.Overrides.freshrss.Services]
-```
+[Hosts.vindicta.Overrides.freshrss]
+Services = []
+~~~
 
 This override will replace the `Services` array defined in the `freshrss` component with the one in the manifest. In this case, we're simply replacing it with an empty array so no services are started.
 
 Alternatively we can extend a config with the `Extensions` key:
-```
+~~~toml
 [Hosts.vindicta]
 Components = ["freshrss"]
 [[Hosts.vindicta.Extensions.freshrss.Services]]
 Service = "freshrss.timer"
-```
+~~~
 
 This will add a new service definition to the component with the `freshrss.timer` service.
 

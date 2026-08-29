@@ -50,7 +50,7 @@ Base prefix for materia data: `$XDG_DATA_HOME/materia`
 
 Target's local copy of source repository: `$XDG_DATA_HOME/materia/source`
 
-Quadlet files (.container,.volume,etc): `/etc/containers/systemd/COMPONENT_NAME/`
+Quadlet files (.container,.volume,etc): `$XDG_CONFIG_HOME/containers/systemd/COMPONENT_NAME/`
 
 Data files for components: `$XDG_DATA_HOME/materia/components/COMPONENT_NAME`
 
@@ -62,7 +62,7 @@ The following resources types are installed to the specified locations as well a
 
 Script resources: `$HOME/.local/bin`
 
-Systemd unit files: `$XDG_CONFIG_HOME/containers/systemd/`
+Systemd unit files: `$XDG_CONFIG_HOME/systemd/user`
 
 
 ## Materia high-level overview

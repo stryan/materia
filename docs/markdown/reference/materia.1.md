@@ -2,8 +2,8 @@
 title: MATERIA
 section: 1
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -113,7 +113,7 @@ Run commands against materia server over a unix socket
 
 ##### Arguments
 
-**--socket, -s <path>**: Manually specify a socket path. If not specified, defaults to `/run/materia/materia.sock` for root or `/run/uid/materia/materia.socket` for user.
+**--socket, -s <path>**: Manually specify a socket path. If not specified, defaults to `/run/materia/materia.sock` for root or `/run/uid/materia/materia.sock` for user.
 
 ##### Subcommands
 

@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-EXECUTOR
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -12,7 +12,13 @@ materia-config-executor - Materia executor configuration settings
 
 ## Synopsis
 
-`/etc/materia/config.toml`, `$MATERIA_EXECUTOR_<option-name>`
+`/etc/materia/config.toml`, `$MATERIA_EXECUTOR__<option-name>`
+
+## Description
+
+The executor is the part of Materia that actually performs actions such as creating/updating/removing files and starting services.
+
+These settings can be used to tweak its behavior.
 
 ## Options
 
@@ -28,7 +34,7 @@ If an error occurs while installing a component resulting in an execution failur
 
 Overrides the executor's configured materia data directory.
 
-#### *MATERIA_EXECUTOR__QUADLET_DIR/**executor.quadlet_dir**
+#### *MATERIA_EXECUTOR__QUADLET_DIR*/**executor.quadlet_dir**
 
 Overrides the executor's configured quadlet directory.
 
@@ -40,3 +46,6 @@ Overrides the executor's configured scripts directory.
 
 Overrides the executor's configured service directory.
 
+#### *MATERIA_EXECUTOR__OUTPUT_DIR*/**executor.output_dir**
+
+Overrides the executor's configured output directory.

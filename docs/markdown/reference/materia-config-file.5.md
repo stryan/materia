@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-FILE
 section: 5
 header: User Manual
-footer: materia 0.6.0
-date: February 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -12,7 +12,7 @@ materia-config-file - Materia configuration for file based attribute management
 
 ## Synopsis
 
-`/etc/materia/config.toml`, `$MATERIA_FILE_<option-name>`
+`/etc/materia/config.toml`, `$MATERIA_FILE__<option-name>`
 
 ## Description
 
@@ -49,11 +49,11 @@ A file vault is a TOML file with one or more of the following tables:
 
 An example file would look like this:
 
-```toml
+~~~toml
 [components]
 [components.freshrss]
 dataContents = ""
 extensionsContents = ""
 port = "7770"
 containerTag = "edge"
-
+~~~

@@ -34,7 +34,7 @@ Rootless containerized is (currently) not recommended for production use. It is 
 
 Materia runs as root within the container, so some adjustments need to be made for volume mounts and macros to work:
 
-You should mount your user podman socket and systemd sockets as root's sockets within the container i.e `Volume=/run/user/1000/podman/podman.sock:/run/podman/podman.sock` not `Volume=/run/user/1000/podman/podman.sock:/run/podman/podman.sock`.
+You should mount your user podman socket and systemd sockets as root's sockets within the container i.e `Volume=/run/user/1000/podman/podman.sock:/run/podman/podman.sock` not `Volume=/run/user/1000/podman/podman.sock:/run/user/1000/podman/podman.sock`.
 
 Some macros like `m_dataDir` reference materia path's directly. This means, when the rootless container is setup as described, it will template the root path into templated files instead of the correct host path. In order to fix this you need to do one of the following:
 

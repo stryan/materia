@@ -2,8 +2,8 @@
 title: MATERIA-TEMPLATES
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 

@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-AGE
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: June 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -50,11 +50,11 @@ An age file vault is a TOML file with one or more of the following tables:
 
 An example file would look like this:
 
-```toml
+~~~toml
 [components]
 [components.freshrss]
 dataContents = ""
 extensionsContents = ""
 port = "7770"
 containerTag = "edge"
-```
+~~~

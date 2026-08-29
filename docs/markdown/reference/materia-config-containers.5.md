@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-CONTAINERS
 section: 5
 header: User Manual
-footer: materia 0.7.0
-date: March 2026
+footer: materia 0.7.1
+date: August 2026
 author: stryan
 ---
 
@@ -13,6 +13,10 @@ materia-config-containers - Materia containers configuration settings
 ## Synopsis
 
 `/etc/materia/config.toml`, `$MATERIA_CONTAINERS__<option-name>`
+
+## Description
+
+Adjust how Materia interacts with Podman, such as how secrets are prefixed.
 
 ## Options
 
@@ -29,10 +33,10 @@ This option only works when `MATERIA_PODMAN_COMMAND` is set and will be deprecat
 Sets the prefix Materia appends to Podman secrets it manages. Defaults to `materia-`
 
 
-#### *MATERIA_CONTAINERS__COMPRESSION_COMMAND/**containers.compression_command**
+#### *MATERIA_CONTAINERS__COMPRESSION*/**containers.compression**
 
 If set, volumes created by a dump action or volume migration will be compressed with this format.
 
-Valid options: "gzip" or "zstd".
+Valid options: "gzip", "gz" or "zstd".
 
-Volume dump file are now in the format `volumename-volume.tar(.gz/zst)`.
+Volume dump files are in the format `volumename-volume.tar(.gz/.zst)`.

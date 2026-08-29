@@ -12,7 +12,7 @@ type Config struct {
 	PrivateKey      string `koanf:"private_key" toml:"private_key" json:"private_key" yaml:"private_key"`
 	Username        string `toml:"username" json:"username" yaml:"username"`
 	Password        string `toml:"password" json:"password" yaml:"password"`
-	KnownHosts      string `toml:"known_hosts" json:"known_hosts" yaml:"known_hosts"`
+	KnownHosts      string `toml:"knownhosts" json:"knownhosts" yaml:"knownhosts"`
 	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
 	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
 	Careful         bool   `toml:"careful" json:"careful" yaml:"careful"`
