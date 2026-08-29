@@ -501,8 +501,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 				Name:    "hello",
 				State:   components.StateMayNeedUpdate,
 				Version: components.DefaultComponentVersion,
-				Settings: manifests.Settings{
-					PreScript: "pre-sync-hook.sh",
+				Config: manifests.Settings{
+					PreScript: Ptr("pre-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
@@ -514,8 +514,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			fresh: &components.Component{
 				Name:  "hello",
 				State: components.StateFresh,
-				Settings: manifests.Settings{
-					PreScript: "pre-sync-hook.sh",
+				Config: manifests.Settings{
+					PreScript: Ptr("pre-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
@@ -543,8 +543,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 				Name:    "hello",
 				State:   components.StateMayNeedUpdate,
 				Version: components.DefaultComponentVersion,
-				Settings: manifests.Settings{
-					PostScript: "post-sync-hook.sh",
+				Config: manifests.Settings{
+					PostScript: Ptr("post-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
@@ -556,8 +556,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			fresh: &components.Component{
 				Name:  "hello",
 				State: components.StateFresh,
-				Settings: manifests.Settings{
-					PostScript: "post-sync-hook.sh",
+				Config: manifests.Settings{
+					PostScript: Ptr("post-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
@@ -1374,8 +1374,8 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 			input: &components.Component{
 				ServiceConfigs: newServSet(),
 				Resources:      newResSet(resourceHelper("hello.container", "hello", "[Container]\nImage=foo")),
-				Settings: manifests.Settings{
-					NoRestart: true,
+				Config: manifests.Settings{
+					NoRestart: Ptr(true),
 				},
 			},
 			want: map[string][]actions.Action{},
@@ -1655,4 +1655,8 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 		},
 	}
 	return act
+}
+
+func Ptr[T any](v T) *T {
+	return &v
 }

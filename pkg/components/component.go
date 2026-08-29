@@ -27,7 +27,7 @@ type Component struct {
 	Name           string
 	Instance       string
 	Overrides      []string
-	Settings       manifests.Settings
+	Config         manifests.Settings
 	Resources      *ResourceSet
 	State          ComponentLifecycle
 	Defaults       map[string]any
@@ -136,7 +136,8 @@ func (c *Component) GetManifest() (*manifests.ComponentManifest, error) {
 
 func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 	maps.Copy(c.Defaults, man.Defaults)
-	c.Settings = man.Settings
+	// TODO merge here?
+	c.Config = man.Settings
 	slices.Sort(man.Secrets)
 	var secretResources []Resource
 	for _, s := range man.Secrets {
@@ -196,10 +197,10 @@ func (c Component) Validate() error {
 	if c.ServiceConfigs == nil {
 		return errors.New("component without services set")
 	}
-	if c.Settings.SetupScript != "" && c.Settings.CleanupScript == "" {
+	if c.Config.GetSetupScript() != "" && c.Config.GetCleanupScript() == "" {
 		return errors.New("component has setup script but no cleanup script")
 	}
-	if c.Settings.SetupScript == "" && c.Settings.CleanupScript != "" {
+	if c.Config.GetSetupScript() == "" && c.Config.GetCleanupScript() != "" {
 		return errors.New("component has cleanup script but no setup script")
 	}
 	return nil

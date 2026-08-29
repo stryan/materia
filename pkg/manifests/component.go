@@ -22,18 +22,75 @@ type ServiceResourceConfig struct {
 }
 
 type Settings struct {
-	NoRestart     bool   `toml:"NoRestart"`
-	NoExpansion   bool   `toml:"NoExpansion"`
-	SetupScript   string `toml:"SetupScript"`
-	CleanupScript string `toml:"CleanupScript"`
-	PreScript     string `toml:"PreScript"`
-	PostScript    string `toml:"PostScript"`
+	NoRestart     *bool   `toml:"NoRestart"`
+	NoExpansion   *bool   `toml:"NoExpansion"`
+	SetupScript   *string `toml:"SetupScript"`
+	CleanupScript *string `toml:"CleanupScript"`
+	PreScript     *string `toml:"PreScript"`
+	PostScript    *string `toml:"PostScript"`
 }
 
 func (s *Settings) Merge(o Settings) {
-	s.NoRestart = o.NoRestart
-	s.CleanupScript = o.CleanupScript
-	s.SetupScript = o.SetupScript
+	if o.NoRestart != nil {
+		s.NoRestart = o.NoRestart
+	}
+	if o.NoExpansion != nil {
+		s.NoExpansion = o.NoExpansion
+	}
+	if o.SetupScript != nil {
+		s.SetupScript = o.SetupScript
+	}
+	if o.CleanupScript != nil {
+		s.CleanupScript = o.CleanupScript
+	}
+	if o.PreScript != nil {
+		s.PreScript = o.PreScript
+	}
+	if o.PostScript != nil {
+		s.PostScript = o.PostScript
+	}
+}
+
+func (s Settings) GetNoRestart() bool {
+	if s.NoRestart == nil {
+		return false
+	}
+	return *s.NoRestart
+}
+
+func (s Settings) GetNoExpansion() bool {
+	if s.NoExpansion == nil {
+		return false
+	}
+	return *s.NoExpansion
+}
+
+func (s Settings) GetSetupScript() string {
+	if s.SetupScript == nil {
+		return ""
+	}
+	return *s.SetupScript
+}
+
+func (s Settings) GetCleanupScript() string {
+	if s.CleanupScript == nil {
+		return ""
+	}
+	return *s.CleanupScript
+}
+
+func (s Settings) GetPreScript() string {
+	if s.PreScript == nil {
+		return ""
+	}
+	return *s.PreScript
+}
+
+func (s Settings) GetPostScript() string {
+	if s.PostScript == nil {
+		return ""
+	}
+	return *s.PostScript
 }
 
 func (src ServiceResourceConfig) Validate() error {
@@ -79,6 +136,10 @@ func MergeComponentManifests(original, override *ComponentManifest) (*ComponentM
 	}
 
 	result := ComponentManifest{}
+	result.Snippets = original.Snippets
+	result.Scripts = original.Scripts
+	result.Services = original.Services
+	result.Secrets = original.Secrets
 
 	if len(override.Defaults) > 0 {
 		result.Defaults = maps.Clone(override.Defaults)
@@ -87,28 +148,17 @@ func MergeComponentManifests(original, override *ComponentManifest) (*ComponentM
 	}
 	result.Settings.Merge(override.Settings)
 	if len(override.Snippets) > 0 {
-		copy(result.Snippets, override.Snippets)
-	} else {
-		copy(result.Snippets, original.Snippets)
+		result.Snippets = slices.Clone(override.Snippets)
 	}
 	if len(override.Services) > 0 {
-		copy(result.Services, override.Services)
-	} else {
-		copy(result.Services, original.Services)
+		result.Services = slices.Clone(override.Services)
 	}
-
 	if len(override.Scripts) > 0 {
-		copy(result.Scripts, override.Scripts)
-	} else {
-		copy(result.Scripts, original.Scripts)
+		result.Scripts = slices.Clone(override.Scripts)
 	}
 	if len(override.Secrets) > 0 {
-		result.Secrets = append(result.Secrets, override.Secrets...)
-		copy(result.Secrets, override.Secrets)
-	} else {
-		copy(result.Secrets, original.Secrets)
+		result.Secrets = slices.Clone(override.Secrets)
 	}
-
 	return &result, nil
 }
 

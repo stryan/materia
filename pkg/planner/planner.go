@@ -115,11 +115,11 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	if err != nil {
 		return nil, fmt.Errorf("can't plan fresh services for %v: %w", currentTree.Name, err)
 	}
-	if currentTree.Source.Settings.SetupScript != "" {
+	if currentTree.Source.Config.GetSetupScript() != "" {
 		c := currentTree.Source
-		setupResource, err := c.Resources.Get(c.Settings.SetupScript)
+		setupResource, err := c.Resources.Get(c.Config.GetSetupScript())
 		if err != nil {
-			return nil, fmt.Errorf("setup resource %v not found: %w", c.Settings.SetupScript, err)
+			return nil, fmt.Errorf("setup resource %v not found: %w", c.Config.GetSetupScript(), err)
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionSetup,
@@ -149,11 +149,11 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 		Parent: components.NewRootComponent(),
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
-	if currentTree.Host.Settings.CleanupScript != "" {
+	if currentTree.Host.Config.GetCleanupScript() != "" {
 		c := currentTree.Host
-		setupResource, err := c.Resources.Get(c.Settings.CleanupScript)
+		setupResource, err := c.Resources.Get(c.Config.GetCleanupScript())
 		if err != nil {
-			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.Settings.CleanupScript, err)
+			return nil, fmt.Errorf("cleanup resource %v not found: %w", c.Config.GetCleanupScript(), err)
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionCleanup,
@@ -173,11 +173,11 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't generate resources for %v: %w", currentTree.Name, err)
 	}
-	if len(resourceActions) > 0 && currentTree.Source.Settings.PreScript != "" && !p.OnlyResources {
+	if len(resourceActions) > 0 && currentTree.Source.Config.GetPreScript() != "" && !p.OnlyResources {
 		c := currentTree.Source
-		preResource, err := c.Resources.Get(c.Settings.PreScript)
+		preResource, err := c.Resources.Get(c.Config.GetPreScript())
 		if err != nil {
-			return nil, fmt.Errorf("pre-update resource %v not found: %w", c.Settings.PreScript, err)
+			return nil, fmt.Errorf("pre-update resource %v not found: %w", c.Config.GetPreScript(), err)
 		}
 		cmdName := fmt.Sprintf("%v-materia-pre-update.service", c.Name)
 		steps = append(steps, actions.Action{
@@ -216,11 +216,11 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 		currentTree.Host.State = components.StateNeedUpdate
-		if currentTree.Source.Settings.PostScript != "" {
+		if currentTree.Source.Config.GetPostScript() != "" {
 			c := currentTree.Source
-			postResource, err := c.Resources.Get(c.Settings.PostScript)
+			postResource, err := c.Resources.Get(c.Config.GetPostScript())
 			if err != nil {
-				return nil, fmt.Errorf("post-update resource %v not found: %w", c.Settings.PostScript, err)
+				return nil, fmt.Errorf("post-update resource %v not found: %w", c.Config.GetPostScript(), err)
 			}
 			cmdName := fmt.Sprintf("%v-materia-post-update.service", c.Name)
 			steps = append(steps, actions.Action{
@@ -618,7 +618,7 @@ func generateComponentServiceTriggers(newComponent *components.Component) (map[s
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
 	}
-	if newComponent.Settings.NoRestart {
+	if newComponent.Config.GetNoRestart() {
 		return triggeredActions, nil
 	}
 	for _, res := range newComponent.Resources.List() {
