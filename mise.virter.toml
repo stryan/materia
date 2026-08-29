@@ -1,5 +1,5 @@
 [env]
-MATERIA_SOURCE__KIND = "file"
+MATERIA_SOURCE__KIND = "local"
 MATERIA_SOURCE__URL = "/root/materia/virter/in/testrepo4"
 MATERIA_HOSTNAME = "localhost"
 MATERIA_ATTRIBUTES = "age"

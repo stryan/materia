@@ -150,7 +150,7 @@ func Test_Sops(t *testing.T) {
 			"quiet":         "true",
 			"sops.base_dir": "attributes",
 			"sops.suffix":   "enc",
-			"source.kind":   "file",
+			"source.kind":   "local",
 			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "sops-test"),
 		}),
 		Source: TestRepo{
@@ -200,7 +200,7 @@ func Test_VolumeMigration(t *testing.T) {
 			"quiet":                   "true",
 			"file.base_dir":           "attributes",
 			"planner.migrate_volumes": "true",
-			"source.kind":             "file",
+			"source.kind":             "local",
 			"source.url":              fmt.Sprintf("file:///root/tests/%v/source", "migration-1"),
 		}),
 		Source: TestRepo{
@@ -296,7 +296,7 @@ func Test_VolumeMigration(t *testing.T) {
 			// "quiet":                   "true",
 			"file.base_dir":           "attributes",
 			"planner.migrate_volumes": "true",
-			"source.kind":             "file",
+			"source.kind":             "local",
 			"source.url":              fmt.Sprintf("file:///root/tests/%v/source", "migration-2"),
 		}),
 		Source: TestRepo{
@@ -848,7 +848,7 @@ func Test_PlannerConfigs(t *testing.T) {
 			"file.base_dir":            "attributes",
 			"planner.cleanup_quadlets": "true",
 			"planner.backup_volumes":   "false",
-			"source.kind":              "file",
+			"source.kind":              "local",
 			"source.url":               "file:///root/tests/planner-configs/source",
 		}),
 		Source: TestRepo{
@@ -889,7 +889,7 @@ func Test_EnsureQuadlets(t *testing.T) {
 			"hostname":      "localhost",
 			"quiet":         "true",
 			"file.base_dir": "attributes",
-			"source.kind":   "file",
+			"source.kind":   "local",
 			"source.url":    "file:///root/tests/planner-configs/source",
 		}),
 		Source: TestRepo{
@@ -1089,7 +1089,7 @@ func Test_AppMode(t *testing.T) {
 			"quiet":         "true",
 			"appmode":       "true",
 			"file.base_dir": "attributes",
-			"source.kind":   "file",
+			"source.kind":   "local",
 			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "app-mode"),
 		}),
 		Source: TestRepo{
@@ -1124,7 +1124,7 @@ func Test_QuadletDropins(t *testing.T) {
 			"hostname":      "localhost",
 			"quiet":         "true",
 			"file.base_dir": "attributes",
-			"source.kind":   "file",
+			"source.kind":   "local",
 			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "quadlet-dropins"),
 		}),
 		Source: TestRepo{
@@ -1247,7 +1247,7 @@ WantedBy=multi-user.target`,
 		Name:   "instanced-components",
 		Config: defaultConfig(t, "instanced-components"),
 		Source: TestRepo{
-			AttributesKind: "file",
+			AttributesKind: "local",
 			Manifest:       defaultManifest("hello@foo", "hello@bar"),
 			Components:     []TestComponent{comp},
 			Attributes: map[string]attributes.AttributeVault{
@@ -1287,7 +1287,7 @@ func defaultConfig(t *testing.T, name string) *koanf.Koanf {
 		"hostname":      "localhost",
 		"quiet":         "true",
 		"file.base_dir": "attributes",
-		"source.kind":   "file",
+		"source.kind":   "local",
 		"source.url":    fmt.Sprintf("file:///root/tests/%v/source", name),
 		"lock":          "true",
 	})

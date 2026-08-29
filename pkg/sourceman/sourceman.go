@@ -9,8 +9,8 @@ import (
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/local"
 	"primamateria.systems/materia/internal/source/oci"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
@@ -136,7 +136,7 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		}
 		if r.FileSource != nil {
 			r.FileSource.Destination = localpath
-			remoteSource, err = file.NewFileSource(r.FileSource)
+			remoteSource, err = local.NewLocalFileSource(r.FileSource)
 			if err != nil {
 				return fmt.Errorf("invalid file source: %w", err)
 			}

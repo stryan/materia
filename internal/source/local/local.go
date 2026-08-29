@@ -1,4 +1,4 @@
-package file
+package local
 
 import (
 	"context"
@@ -10,31 +10,31 @@ import (
 	"primamateria.systems/materia/pkg/source"
 )
 
-type FileSource struct {
+type LocalFileSource struct {
 	RemoteRepository string
 	Destination      string
 }
 
-func (f *FileSource) Close(_ context.Context) (_ error) {
+func (f *LocalFileSource) Close(_ context.Context) (_ error) {
 	return nil
 }
 
-func (f *FileSource) Clean() (_ error) {
+func (f *LocalFileSource) Clean() (_ error) {
 	return os.RemoveAll(f.Destination)
 }
 
-func NewFileSource(c *Config) (*FileSource, error) {
+func NewLocalFileSource(c *Config) (*LocalFileSource, error) {
 	source := strings.TrimPrefix(c.SourcePath, "file://")
 	if _, err := os.Stat(source); err != nil {
 		return nil, err
 	}
-	return &FileSource{
+	return &LocalFileSource{
 		RemoteRepository: source,
 		Destination:      c.Destination,
 	}, nil
 }
 
-func (f *FileSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.SyncReport, error) {
+func (f *LocalFileSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.SyncReport, error) {
 	if _, err := os.Stat(f.Destination); os.IsNotExist(err) {
 		return nil, fmt.Errorf("source destination path %v does not exist", f.Destination)
 	}
@@ -62,12 +62,12 @@ func (f *FileSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Sy
 	return &source.SyncReport{}, nil
 }
 
-func (f *FileSource) Inspect() source.SyncInspectReport {
+func (f *LocalFileSource) Inspect() source.SyncInspectReport {
 	return source.SyncInspectReport{
 		SupportsRollback: false,
 	}
 }
 
-func (f *FileSource) String() string {
+func (f *LocalFileSource) String() string {
 	return fmt.Sprintf("file:%v", f.RemoteRepository)
 }

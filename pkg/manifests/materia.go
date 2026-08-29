@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"github.com/BurntSushi/toml"
-	filesource "primamateria.systems/materia/internal/source/file"
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/local"
 	"primamateria.systems/materia/internal/source/oci"
 )
 
@@ -23,11 +23,11 @@ type SnippetConfig struct {
 }
 
 type RemoteComponentConfig struct {
-	GitSource  *git.Config        `toml:"git,omitempty"`
-	OciSource  *oci.Config        `toml:"oci,omitempty"`
-	FileSource *filesource.Config `toml:"file,omitempty"`
-	Subpath    string             `toml:"subpath"`
-	Revision   string             `toml:"Revision"`
+	GitSource  *git.Config   `toml:"git,omitempty"`
+	OciSource  *oci.Config   `toml:"oci,omitempty"`
+	FileSource *local.Config `toml:"file,omitempty"`
+	Subpath    string        `toml:"subpath"`
+	Revision   string        `toml:"Revision"`
 }
 
 type MateriaManifest struct {

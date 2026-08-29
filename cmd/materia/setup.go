@@ -19,9 +19,8 @@ import (
 	"primamateria.systems/materia/pkg/sourceman"
 
 	"primamateria.systems/materia/internal/source/git"
+	"primamateria.systems/materia/internal/source/local"
 	"primamateria.systems/materia/internal/source/oci"
-
-	filesource "primamateria.systems/materia/internal/source/file"
 )
 
 func setupDirectories(c *materia.MateriaConfig) error {
@@ -79,12 +78,15 @@ func getLocalRepo(k *koanf.Koanf, sourceDir string) (source.Source, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid git source: %w", err)
 		}
-	case "file":
-		config, err := filesource.NewConfig(k, sourceDir, sourceConfig.URL)
+	case "local", "file":
+		if sourceConfig.Kind == "file" {
+			log.Warn("DEPRECATION: 'file' source is now called 'local'. File will be removed in 0.8; adjust your config to use 'local'")
+		}
+		config, err := local.NewConfig(k, sourceDir, sourceConfig.URL)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file config: %w", err)
 		}
-		source, err = filesource.NewFileSource(config)
+		source, err = local.NewLocalFileSource(config)
 		if err != nil {
 			return nil, fmt.Errorf("invalid file source: %w", err)
 		}

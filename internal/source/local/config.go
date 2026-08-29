@@ -1,4 +1,4 @@
-package file
+package local
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ type Config struct {
 
 func NewConfig(_ *koanf.Koanf, destination, path string) (*Config, error) {
 	if path == "" {
-		return nil, errors.New("need file source path")
+		return nil, errors.New("need local file source path")
 	}
 	return &Config{
 		SourcePath:  path,
