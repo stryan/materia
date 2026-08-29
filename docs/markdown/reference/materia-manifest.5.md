@@ -55,7 +55,7 @@ becomes
 Service = "server@site1.container"
 ~~~
 
-##### hosts.Overrides
+##### Hosts.Overrides
 The table can also contain an `Overrides` table that contains keys mapped to component manifests. This can be used to override the MANIFEST.toml included with a component on a per-host basis. Note that this will replace entire tables; if you just want to add an element to a manifest use the `Extensions` table.
 
 Example:
@@ -69,7 +69,7 @@ Example:
 
 This will override the `Defaults` and `Services` entries to be the above.
 
-##### hosts.Extensions
+##### Hosts.Extensions
 The table can also contain an `Extensions` table that contains keys mapped to component manifests. This can be used to extend the MANIFEST.toml included with a component on a per-host basis.
 
 Example:
@@ -113,14 +113,14 @@ Experimental placeholder.
 ## Example Manifest
 
 ```
-[roles.base]
+[Roles.base]
 components = ["nagios-agent"]
 
-[hosts.warden]
+[Hosts.warden]
 components = ["dota_patch_bot"]
 roles = ["base"]
 
-[hosts.ivy]
+[Hosts.ivy]
 components = ["authelia"]
 
 ```
@@ -222,6 +222,6 @@ Secrets = ["attribute1"]
 port = "5656"
 containerTag = "latest"
 
-[[services]]
+[[Services]]
 Service = "arcade-agent.service"
 ```
