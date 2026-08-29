@@ -1247,7 +1247,7 @@ WantedBy=multi-user.target`,
 		Name:   "instanced-components",
 		Config: defaultConfig(t, "instanced-components"),
 		Source: TestRepo{
-			AttributesKind: "local",
+			AttributesKind: "file",
 			Manifest:       defaultManifest("hello@foo", "hello@bar"),
 			Components:     []TestComponent{comp},
 			Attributes: map[string]attributes.AttributeVault{

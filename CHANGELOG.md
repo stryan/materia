@@ -4,9 +4,13 @@ Best effort list of major changes and bugfixes
 
 ## Deprecations
 
+- The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
+
 ## Upcoming
 - bugfix: git sources now sync fully divergent branches correctly
 - bugfix: git insecure/hostkeys has better handling
+- docs: cleanup
+- feat: `local` source replaces `file`.
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static
