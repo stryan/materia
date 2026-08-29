@@ -21,10 +21,10 @@ Configures a local directory as a the source for the Materia repository
 
 ### Options
 
-#### *MATERIA_LOCAL__SOURCE_PATH*/ **local.source_path**
+#### `MATERIA_LOCAL__SOURCE_PATH`/ **local.source_path**
 
 Path for the local repository
 
-#### *MATERIA_LOCAL__DESTINATION*/ **local.destination**
+#### `MATERIA_LOCAL__DESTINATION`/ **local.destination**
 
 Manual override for source repository destination

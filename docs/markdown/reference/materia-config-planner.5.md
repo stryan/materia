@@ -20,9 +20,9 @@ The planner is the part of Materia that calculates what needs to be done. Adjust
 
 ## Options
 
-Presented in *environmental variable*/**TOML config line option** format.
+Presented in `environmental variable`/**TOML config line option** format.
 
-#### *MATERIA_PLANNER__CLEANUP_QUADLETS*/**planner.cleanup_quadlets**
+#### `MATERIA_PLANNER__CLEANUP_QUADLETS`/**planner.cleanup_quadlets**
 
 Removes non-volume Quadlets when their associated resources are removed. Defaults to false.
 
@@ -36,23 +36,23 @@ The following quadlet types are supported by this:
 - Images
 - Build
 
-#### *MATERIA_PLANNER__CLEANUP_VOLUMES*/**planner.cleanup_volumes**
+#### `MATERIA_PLANNER__CLEANUP_VOLUMES`/**planner.cleanup_volumes**
 
 When removing a `.volume` Quadlet resource, remove the volume from Podman as well. Defaults to false.
 
 This is separate from the above **cleanup_podman** option since volumes container user data. It is recommended to leave this to false or use this in conjunction with the **backupvolumes** option.
 
-#### *MATERIA_PLANNER__BACKUP_VOLUMES*/**planner.backup_volumes**
+#### `MATERIA_PLANNER__BACKUP_VOLUMES`/**planner.backup_volumes**
 
 If an action would delete a Podman volume, create a backup of it first using `podman volume export` and store it in **output_dir**. Defaults to true.
 
 Note, this only occurs if a Podman volume is actually being deleted e.g. `podman volume rm`. This does NOT create a backup if just the Quadlet file is deleted.
 
-#### *MATERIA_PLANNER__ONLY_RESOURCES*/**planner.only_resources**
+#### `MATERIA_PLANNER__ONLY_RESOURCES`/**planner.only_resources**
 
 Do not take any service related actions post component install. Actions required for installation/updates (like ensuring volumes exist) will still be taken.
 
-#### *MATERIA_PLANNER__MIGRATE_VOLUMES*/**planner.migrate_volumes**
+#### `MATERIA_PLANNER__MIGRATE_VOLUMES`/**planner.migrate_volumes**
 
 (EXPERIMENTAL)
 

@@ -26,19 +26,19 @@ Supports YAML. JSON and INI parsing are available but are not tested.
 
 ## Options
 
-#### *MATERIA_SOPS__BASE_DIR*/**sops.base_dir**
+#### `MATERIA_SOPS__BASE_DIR`/**sops.base_dir**
 
 Directory that contains attributes. Defaults to `secrets`.
 
-#### *MATERIA_SOPS__VAULTS*/**sops.vaults**
+#### `MATERIA_SOPS__VAULTS`/**sops.vaults**
 
 Files that are general attributes vaults. Defaults to "vault.yml" and "attributes.yml".
 
-#### *MATERIA_SOPS__LOAD_ALL_VAULTS*/**sops.load_all_vaults**
+#### `MATERIA_SOPS__LOAD_ALL_VAULTS`/**sops.load_all_vaults**
 
 Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
 
-#### *MATERIA_SOPS__SUFFIX*/**sops.suffix**
+#### `MATERIA_SOPS__SUFFIX`/**sops.suffix**
 
 Suffix that denotes an encrypted file and comes before the base file type. Use this if your base directory includes both encrypted and un-encrypted files.
 

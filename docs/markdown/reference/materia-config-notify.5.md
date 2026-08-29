@@ -20,7 +20,7 @@ Adjust how and where Materia sends notifications to.
 
 ## Options
 
-#### *MATERIA_NOTIFY__TRIGGERS*/**notify.triggers**
+#### `MATERIA_NOTIFY__TRIGGERS`/**notify.triggers**
 
 What webhooks to use for what type of notification event. The following event types are supported:
 

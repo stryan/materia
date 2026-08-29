@@ -20,15 +20,15 @@ Adjust how Materia interacts with systemd.
 
 ## Options
 
-Presented in *environmental variable*/**TOML config line option** format.
+Presented in `environmental variable`/**TOML config line option** format.
 
-#### *MATERIA_SERVICES__TIMEOUT*/**services.timeout**
+#### `MATERIA_SERVICES__TIMEOUT`/**services.timeout**
 
 Defaults to `90`.
 
 How long to wait when starting/stopping systemd services when no service resource timeout is configured.
 
-#### *MATERIA_SERVICES__DRYRUN_QUADLETS*/**services.dryrun_quadlets**
+#### `MATERIA_SERVICES__DRYRUN_QUADLETS`/**services.dryrun_quadlets**
 
 Defaults to false.
 
@@ -36,6 +36,6 @@ Whether to run a dry-run of the quadlet generator before starting/stopping servi
 
 Enable this if you need to make sure Quadlets are installed correctly before starting services.
 
-#### *MATERIA_SERVICES__DBUS_SOCKET*/**services.dbus_socket**
+#### `MATERIA_SERVICES__DBUS_SOCKET`/**services.dbus_socket**
 
 If set, use this socket to connect to DBUS instead of the system defaults.

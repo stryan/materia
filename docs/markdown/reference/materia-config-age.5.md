@@ -22,19 +22,19 @@ If you don't need any settings, you can enable the engine by setting `MATERIA_AG
 
 ## Options
 
-#### *MATERIA_AGE__KEYFILE*/**age.keyfile**
+#### `MATERIA_AGE__KEYFILE`/**age.keyfile**
 
 File that contains the Age private key to use. Defaults to `/etc/materia/key.txt`.
 
-#### *MATERIA_AGE__BASE_DIR*/**age.base_dir**
+#### `MATERIA_AGE__BASE_DIR`/**age.base_dir**
 
 Directory that contains attributes. Defaults to `secrets`.
 
-#### *MATERIA_AGE__LOAD_ALL_VAULTS*/**age.load_all_vaults**
+#### `MATERIA_AGE__LOAD_ALL_VAULTS`/**age.load_all_vaults**
 
 Whether to load all vault files that exist without filtering by role, or filename above. Defaults to `false`.
 
-#### *MATERIA_AGE__VAULTS*/**age.vaults**
+#### `MATERIA_AGE__VAULTS`/**age.vaults**
 
 Files that are general attribute vaults. Defaults to `vault.age` and `attributes.age`.
 

@@ -21,15 +21,15 @@ Materia needs to be able to clone its repository from a source. This is either a
 
 ## Options
 
-Presented in *environmental variable*/**TOML config line option** format.
+Presented in `environmental variable`/**TOML config line option** format.
 
-#### *MATERIA_SOURCE__KIND* / **source.kind**
+#### `MATERIA_SOURCE__KIND` / **source.kind**
 
 Remote source repository kind. Supported values: `git`,`file`,`oci`.
 
 If left empty materia will guess based off the provided URL. Otherwise the specified `source.url` will be provided directly to the source provider.
 
-#### *MATERIA_SOURCE__URL* / **source.url**
+#### `MATERIA_SOURCE__URL` / **source.url**
 
 Source location of the `materia-repository(5)` in URL format. Will be provided directly to the source provider.
 
