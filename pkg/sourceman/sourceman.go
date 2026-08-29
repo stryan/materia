@@ -154,7 +154,8 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		// Do initial sync here since we need the repository manifest downloaded before loading the remotes
 		// and will thus miss the initial Sync() call
 		report, err := remoteSource.Sync(ctx, source.SyncOpts{
-			Subpath: r.Subpath,
+			Subpath:  r.Subpath,
+			Revision: r.Revision,
 		})
 		if err != nil {
 			return err

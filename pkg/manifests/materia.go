@@ -27,6 +27,7 @@ type RemoteComponentConfig struct {
 	OciSource  *oci.Config        `toml:"oci,omitempty"`
 	FileSource *filesource.Config `toml:"file,omitempty"`
 	Subpath    string             `toml:"subpath"`
+	Revision   string             `toml:"Revision"`
 }
 
 type MateriaManifest struct {
