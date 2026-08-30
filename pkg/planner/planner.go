@@ -101,15 +101,15 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
 	resourceActions = append(resourceActions, ensureActions...)
-	if p.OnlyResources {
-		return resourceActions, nil
-	}
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
 			Parent: components.NewRootComponent(),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
+	}
+	if p.OnlyResources {
+		return resourceActions, nil
 	}
 	serviceActions, err := GenerateServiceActions(ctx, p.Host, currentTree.Source, nil)
 	if err != nil {
