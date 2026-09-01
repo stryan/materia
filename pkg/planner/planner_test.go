@@ -1618,6 +1618,89 @@ func TestPlan(t *testing.T) {
 	}
 }
 
+func TestPlanOnlyResourcesFreshComponentReload(t *testing.T) {
+	ctx := context.Background()
+	host := mocks.NewMockHostManager(t)
+	p := NewPlanner(PlannerConfig{OnlyResources: true}, host)
+
+	containerResource := components.Resource{
+		Parent:     "only-resources",
+		Path:       "only-resources.container",
+		Kind:       components.ResourceTypeContainer,
+		Content:    "[Container]\nImage=quay.io/example/only-resources:latest",
+		HostObject: "systemd-only-resources",
+	}
+	setupResource := components.Resource{
+		Parent:  "only-resources",
+		Path:    "setup.sh",
+		Kind:    components.ResourceTypeScript,
+		Content: "#!/bin/sh\ntrue",
+	}
+	cleanupResource := components.Resource{
+		Parent:  "only-resources",
+		Path:    "cleanup.sh",
+		Kind:    components.ResourceTypeScript,
+		Content: "#!/bin/sh\ntrue",
+	}
+	component := &components.Component{
+		Name:      "only-resources",
+		State:     components.StateFresh,
+		Resources: newResSet(containerResource, setupResource, cleanupResource),
+		Settings: manifests.Settings{
+			SetupScript:   setupResource.Path,
+			CleanupScript: cleanupResource.Path,
+		},
+		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+			Service: containerResource.Path,
+			Static:  true,
+		}),
+		Version: components.DefaultComponentVersion,
+	}
+
+	got, err := p.Plan(ctx, "localhost", nil, []*components.Component{component})
+	require.NoError(t, err)
+
+	expectedTargets := []components.Resource{
+		{Parent: component.Name, Kind: components.ResourceTypeComponent, Path: component.Name},
+		containerResource,
+		setupResource,
+		cleanupResource,
+		{Kind: components.ResourceTypeHost},
+	}
+	require.Equal(t, expectedTargets, targets(got.Steps()))
+	require.Equal(t, []actions.ActionType{
+		actions.ActionInstall,
+		actions.ActionInstall,
+		actions.ActionInstall,
+		actions.ActionInstall,
+		actions.ActionReload,
+	}, todos(got.Steps()))
+
+	for _, action := range got.Steps() {
+		if action.Todo.IsServiceAction() {
+			require.Equal(t, actions.ActionReload, action.Todo)
+			require.Equal(t, components.ResourceTypeHost, action.Target.Kind)
+		}
+		require.NotEqual(t, actions.ActionSetup, action.Todo)
+	}
+}
+
+func todos(planned []actions.Action) []actions.ActionType {
+	result := make([]actions.ActionType, 0, len(planned))
+	for _, action := range planned {
+		result = append(result, action.Todo)
+	}
+	return result
+}
+
+func targets(planned []actions.Action) []components.Resource {
+	result := make([]components.Resource, 0, len(planned))
+	for _, action := range planned {
+		result = append(result, action.Target)
+	}
+	return result
+}
+
 func planHelper(todo actions.ActionType, name, res string) actions.Action {
 	if res == "" {
 		if name == "" {
