@@ -11,6 +11,7 @@ Best effort list of major changes and bugfixes
 - bugfix: git insecure/hostkeys has better handling
 - docs: cleanup
 - feat: `local` source replaces `file`.
+- bugfix: standardize `resource-only` behaviour to always host-reload
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static

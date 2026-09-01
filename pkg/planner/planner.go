@@ -137,6 +137,12 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't generate removed resources for %v: %w", currentTree.Name, err)
 	}
+	resourceActions = append(resourceActions, actions.Action{
+		Todo:   actions.ActionReload,
+		Parent: components.NewRootComponent(),
+		Target: components.Resource{Kind: components.ResourceTypeHost},
+	})
+
 	if p.OnlyResources {
 		return resourceActions, nil
 	}
@@ -144,11 +150,6 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't plan removed services for %v: %w", currentTree.Name, err)
 	}
-	resourceActions = append(resourceActions, actions.Action{
-		Todo:   actions.ActionReload,
-		Parent: components.NewRootComponent(),
-		Target: components.Resource{Kind: components.ResourceTypeHost},
-	})
 	if currentTree.Host.Config.GetCleanupScript() != "" {
 		c := currentTree.Host
 		setupResource, err := c.Resources.Get(c.Config.GetCleanupScript())
@@ -198,23 +199,24 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			Target: components.Resource{Parent: currentTree.Source.Name, Kind: components.ResourceTypeComponent, Path: currentTree.Source.Name},
 		})
 	}
-	steps = append(steps, resourceActions...)
-
-	if p.OnlyResources {
-		return steps, nil
-	}
 	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host, currentTree.Source)
 	if err != nil {
 		return nil, fmt.Errorf("can't ensure resources: %w", err)
 	}
-	steps = append(steps, ensureActions...)
-	var serviceActions []actions.Action
+	resourceActions = append(resourceActions, ensureActions...)
+	steps = append(steps, resourceActions...)
 	if len(resourceActions) > 0 {
 		steps = append(steps, actions.Action{
 			Todo:   actions.ActionReload,
 			Parent: components.NewRootComponent(),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
+	}
+	if p.OnlyResources {
+		return steps, nil
+	}
+	var serviceActions []actions.Action
+	if len(resourceActions) > 0 {
 		currentTree.Host.State = components.StateNeedUpdate
 		if currentTree.Source.Config.GetPostScript() != "" {
 			c := currentTree.Source

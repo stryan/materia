@@ -64,7 +64,7 @@ Display host facts and role information
 
 **--quiet, -q**: Minimize output. Useful for validation that a plan can be generated.
 
-**--resource-only, -r**: Only install resources instead of also starting/stopping services
+**--resource-only, -r**: Only install resources. Skips any service related commands (besides daemon-reload).
 
 **--format, -f**: Control output format. Supports json,text. Defaults text.
 

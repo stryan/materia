@@ -1646,9 +1646,9 @@ func TestPlanOnlyResourcesFreshComponentReload(t *testing.T) {
 		Name:      "only-resources",
 		State:     components.StateFresh,
 		Resources: newResSet(containerResource, setupResource, cleanupResource),
-		Settings: manifests.Settings{
-			SetupScript:   setupResource.Path,
-			CleanupScript: cleanupResource.Path,
+		Config: manifests.Settings{
+			SetupScript:   Ptr(setupResource.Path),
+			CleanupScript: Ptr(cleanupResource.Path),
 		},
 		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
 			Service: containerResource.Path,
