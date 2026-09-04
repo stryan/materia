@@ -12,6 +12,7 @@ Best effort list of major changes and bugfixes
 - docs: cleanup
 - feat: `local` source replaces `file`.
 - bugfix: standardize `resource-only` behaviour to always host-reload
+- feat: enable shell completion
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static

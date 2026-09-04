@@ -23,8 +23,9 @@ func main() {
 	var configFile string
 
 	app := &cli.Command{
-		Name:  "materia",
-		Usage: "Manage quadlet files and resources",
+		Name:                  "materia",
+		Usage:                 "Manage quadlet files and resources",
+		EnableShellCompletion: true,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "config",
