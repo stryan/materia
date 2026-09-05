@@ -65,7 +65,7 @@ type MockServiceManager_ApplyService_Call struct {
 //   - s string
 //   - serviceAction services.ServiceAction
 //   - n int
-func (_e *MockServiceManager_Expecter) ApplyService(context1 interface{}, s interface{}, serviceAction interface{}, n interface{}) *MockServiceManager_ApplyService_Call {
+func (_e *MockServiceManager_Expecter) ApplyService(context1 any, s any, serviceAction any, n any) *MockServiceManager_ApplyService_Call {
 	return &MockServiceManager_ApplyService_Call{Call: _e.mock.On("ApplyService", context1, s, serviceAction, n)}
 }
 
@@ -187,7 +187,7 @@ type MockServiceManager_GetService_Call struct {
 // GetService is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockServiceManager_Expecter) GetService(context1 interface{}, s interface{}) *MockServiceManager_GetService_Call {
+func (_e *MockServiceManager_Expecter) GetService(context1 any, s any) *MockServiceManager_GetService_Call {
 	return &MockServiceManager_GetService_Call{Call: _e.mock.On("GetService", context1, s)}
 }
 
@@ -246,7 +246,7 @@ type MockServiceManager_RunOneshotCommand_Call struct {
 //   - n int
 //   - s string
 //   - strings []string
-func (_e *MockServiceManager_Expecter) RunOneshotCommand(context1 interface{}, n interface{}, s interface{}, strings interface{}) *MockServiceManager_RunOneshotCommand_Call {
+func (_e *MockServiceManager_Expecter) RunOneshotCommand(context1 any, n any, s any, strings any) *MockServiceManager_RunOneshotCommand_Call {
 	return &MockServiceManager_RunOneshotCommand_Call{Call: _e.mock.On("RunOneshotCommand", context1, n, s, strings)}
 }
 
@@ -315,7 +315,7 @@ type MockServiceManager_WaitUntilState_Call struct {
 //   - s string
 //   - serviceState services.ServiceState
 //   - n int
-func (_e *MockServiceManager_Expecter) WaitUntilState(context1 interface{}, s interface{}, serviceState interface{}, n interface{}) *MockServiceManager_WaitUntilState_Call {
+func (_e *MockServiceManager_Expecter) WaitUntilState(context1 any, s any, serviceState any, n any) *MockServiceManager_WaitUntilState_Call {
 	return &MockServiceManager_WaitUntilState_Call{Call: _e.mock.On("WaitUntilState", context1, s, serviceState, n)}
 }
 

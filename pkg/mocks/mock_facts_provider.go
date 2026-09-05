@@ -160,7 +160,7 @@ type MockFactsProvider_Lookup_Call struct {
 
 // Lookup is a helper method to define mock.On call
 //   - s string
-func (_e *MockFactsProvider_Expecter) Lookup(s interface{}) *MockFactsProvider_Lookup_Call {
+func (_e *MockFactsProvider_Expecter) Lookup(s any) *MockFactsProvider_Lookup_Call {
 	return &MockFactsProvider_Lookup_Call{Call: _e.mock.On("Lookup", s)}
 }
 
@@ -177,8 +177,8 @@ func (_c *MockFactsProvider_Lookup_Call) Run(run func(s string)) *MockFactsProvi
 	return _c
 }
 
-func (_c *MockFactsProvider_Lookup_Call) Return(v any, err error) *MockFactsProvider_Lookup_Call {
-	_c.Call.Return(v, err)
+func (_c *MockFactsProvider_Lookup_Call) Return(anyMoqParam any, err error) *MockFactsProvider_Lookup_Call {
+	_c.Call.Return(anyMoqParam, err)
 	return _c
 }
 

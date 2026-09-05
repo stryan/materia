@@ -67,7 +67,7 @@ type MockSourceManager_AddSource_Call struct {
 //   - syncOpts *source.SyncOpts
 //   - syncReport *source.SyncReport
 //   - b bool
-func (_e *MockSourceManager_Expecter) AddSource(source1 interface{}, syncOpts interface{}, syncReport interface{}, b interface{}) *MockSourceManager_AddSource_Call {
+func (_e *MockSourceManager_Expecter) AddSource(source1 any, syncOpts any, syncReport any, b any) *MockSourceManager_AddSource_Call {
 	return &MockSourceManager_AddSource_Call{Call: _e.mock.On("AddSource", source1, syncOpts, syncReport, b)}
 }
 
@@ -186,7 +186,7 @@ type MockSourceManager_ComponentExists_Call struct {
 
 // ComponentExists is a helper method to define mock.On call
 //   - s string
-func (_e *MockSourceManager_Expecter) ComponentExists(s interface{}) *MockSourceManager_ComponentExists_Call {
+func (_e *MockSourceManager_Expecter) ComponentExists(s any) *MockSourceManager_ComponentExists_Call {
 	return &MockSourceManager_ComponentExists_Call{Call: _e.mock.On("ComponentExists", s)}
 }
 
@@ -248,7 +248,7 @@ type MockSourceManager_GetComponent_Call struct {
 
 // GetComponent is a helper method to define mock.On call
 //   - s string
-func (_e *MockSourceManager_Expecter) GetComponent(s interface{}) *MockSourceManager_GetComponent_Call {
+func (_e *MockSourceManager_Expecter) GetComponent(s any) *MockSourceManager_GetComponent_Call {
 	return &MockSourceManager_GetComponent_Call{Call: _e.mock.On("GetComponent", s)}
 }
 
@@ -310,7 +310,7 @@ type MockSourceManager_GetManifest_Call struct {
 
 // GetManifest is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockSourceManager_Expecter) GetManifest(component interface{}) *MockSourceManager_GetManifest_Call {
+func (_e *MockSourceManager_Expecter) GetManifest(component any) *MockSourceManager_GetManifest_Call {
 	return &MockSourceManager_GetManifest_Call{Call: _e.mock.On("GetManifest", component)}
 }
 
@@ -371,7 +371,7 @@ type MockSourceManager_GetResource_Call struct {
 // GetResource is a helper method to define mock.On call
 //   - component *components.Component
 //   - s string
-func (_e *MockSourceManager_Expecter) GetResource(component interface{}, s interface{}) *MockSourceManager_GetResource_Call {
+func (_e *MockSourceManager_Expecter) GetResource(component any, s any) *MockSourceManager_GetResource_Call {
 	return &MockSourceManager_GetResource_Call{Call: _e.mock.On("GetResource", component, s)}
 }
 
@@ -493,7 +493,7 @@ type MockSourceManager_ListResources_Call struct {
 
 // ListResources is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockSourceManager_Expecter) ListResources(component interface{}) *MockSourceManager_ListResources_Call {
+func (_e *MockSourceManager_Expecter) ListResources(component any) *MockSourceManager_ListResources_Call {
 	return &MockSourceManager_ListResources_Call{Call: _e.mock.On("ListResources", component)}
 }
 
@@ -555,7 +555,7 @@ type MockSourceManager_LoadManifest_Call struct {
 
 // LoadManifest is a helper method to define mock.On call
 //   - s string
-func (_e *MockSourceManager_Expecter) LoadManifest(s interface{}) *MockSourceManager_LoadManifest_Call {
+func (_e *MockSourceManager_Expecter) LoadManifest(s any) *MockSourceManager_LoadManifest_Call {
 	return &MockSourceManager_LoadManifest_Call{Call: _e.mock.On("LoadManifest", s)}
 }
 
@@ -615,7 +615,7 @@ type MockSourceManager_ReadResource_Call struct {
 
 // ReadResource is a helper method to define mock.On call
 //   - resource components.Resource
-func (_e *MockSourceManager_Expecter) ReadResource(resource interface{}) *MockSourceManager_ReadResource_Call {
+func (_e *MockSourceManager_Expecter) ReadResource(resource any) *MockSourceManager_ReadResource_Call {
 	return &MockSourceManager_ReadResource_Call{Call: _e.mock.On("ReadResource", resource)}
 }
 
@@ -666,7 +666,7 @@ type MockSourceManager_Rollback_Call struct {
 
 // Rollback is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockSourceManager_Expecter) Rollback(context1 interface{}) *MockSourceManager_Rollback_Call {
+func (_e *MockSourceManager_Expecter) Rollback(context1 any) *MockSourceManager_Rollback_Call {
 	return &MockSourceManager_Rollback_Call{Call: _e.mock.On("Rollback", context1)}
 }
 
@@ -718,7 +718,7 @@ type MockSourceManager_Sync_Call struct {
 // Sync is a helper method to define mock.On call
 //   - context1 context.Context
 //   - syncOpts *source.SyncOpts
-func (_e *MockSourceManager_Expecter) Sync(context1 interface{}, syncOpts interface{}) *MockSourceManager_Sync_Call {
+func (_e *MockSourceManager_Expecter) Sync(context1 any, syncOpts any) *MockSourceManager_Sync_Call {
 	return &MockSourceManager_Sync_Call{Call: _e.mock.On("Sync", context1, syncOpts)}
 }
 

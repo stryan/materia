@@ -74,7 +74,7 @@ type MockAttributesEngine_Lookup_Call struct {
 // Lookup is a helper method to define mock.On call
 //   - context1 context.Context
 //   - attributesFilter attributes.AttributesFilter
-func (_e *MockAttributesEngine_Expecter) Lookup(context1 interface{}, attributesFilter interface{}) *MockAttributesEngine_Lookup_Call {
+func (_e *MockAttributesEngine_Expecter) Lookup(context1 any, attributesFilter any) *MockAttributesEngine_Lookup_Call {
 	return &MockAttributesEngine_Lookup_Call{Call: _e.mock.On("Lookup", context1, attributesFilter)}
 }
 
@@ -96,8 +96,8 @@ func (_c *MockAttributesEngine_Lookup_Call) Run(run func(context1 context.Contex
 	return _c
 }
 
-func (_c *MockAttributesEngine_Lookup_Call) Return(stringToV map[string]any, err error) *MockAttributesEngine_Lookup_Call {
-	_c.Call.Return(stringToV, err)
+func (_c *MockAttributesEngine_Lookup_Call) Return(stringToAnyMoqParam map[string]any, err error) *MockAttributesEngine_Lookup_Call {
+	_c.Call.Return(stringToAnyMoqParam, err)
 	return _c
 }
 

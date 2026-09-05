@@ -64,7 +64,7 @@ type MockContainerManager_DumpVolume_Call struct {
 //   - context1 context.Context
 //   - volume *containers.Volume
 //   - s string
-func (_e *MockContainerManager_Expecter) DumpVolume(context1 interface{}, volume interface{}, s interface{}) *MockContainerManager_DumpVolume_Call {
+func (_e *MockContainerManager_Expecter) DumpVolume(context1 any, volume any, s any) *MockContainerManager_DumpVolume_Call {
 	return &MockContainerManager_DumpVolume_Call{Call: _e.mock.On("DumpVolume", context1, volume, s)}
 }
 
@@ -133,9 +133,9 @@ type MockContainerManager_ExecContainer_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - strings ...string
-func (_e *MockContainerManager_Expecter) ExecContainer(context1 interface{}, s interface{}, strings ...interface{}) *MockContainerManager_ExecContainer_Call {
+func (_e *MockContainerManager_Expecter) ExecContainer(context1 any, s any, strings ...any) *MockContainerManager_ExecContainer_Call {
 	return &MockContainerManager_ExecContainer_Call{Call: _e.mock.On("ExecContainer",
-		append([]interface{}{context1, s}, strings...)...)}
+		append([]any{context1, s}, strings...)...)}
 }
 
 func (_c *MockContainerManager_ExecContainer_Call) Run(run func(context1 context.Context, s string, strings ...string)) *MockContainerManager_ExecContainer_Call {
@@ -209,7 +209,7 @@ type MockContainerManager_GetContainer_Call struct {
 // GetContainer is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) GetContainer(context1 interface{}, s interface{}) *MockContainerManager_GetContainer_Call {
+func (_e *MockContainerManager_Expecter) GetContainer(context1 any, s any) *MockContainerManager_GetContainer_Call {
 	return &MockContainerManager_GetContainer_Call{Call: _e.mock.On("GetContainer", context1, s)}
 }
 
@@ -277,7 +277,7 @@ type MockContainerManager_GetNetwork_Call struct {
 // GetNetwork is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) GetNetwork(context1 interface{}, s interface{}) *MockContainerManager_GetNetwork_Call {
+func (_e *MockContainerManager_Expecter) GetNetwork(context1 any, s any) *MockContainerManager_GetNetwork_Call {
 	return &MockContainerManager_GetNetwork_Call{Call: _e.mock.On("GetNetwork", context1, s)}
 }
 
@@ -345,7 +345,7 @@ type MockContainerManager_GetSecret_Call struct {
 // GetSecret is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) GetSecret(context1 interface{}, s interface{}) *MockContainerManager_GetSecret_Call {
+func (_e *MockContainerManager_Expecter) GetSecret(context1 any, s any) *MockContainerManager_GetSecret_Call {
 	return &MockContainerManager_GetSecret_Call{Call: _e.mock.On("GetSecret", context1, s)}
 }
 
@@ -413,7 +413,7 @@ type MockContainerManager_GetVolume_Call struct {
 // GetVolume is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) GetVolume(context1 interface{}, s interface{}) *MockContainerManager_GetVolume_Call {
+func (_e *MockContainerManager_Expecter) GetVolume(context1 any, s any) *MockContainerManager_GetVolume_Call {
 	return &MockContainerManager_GetVolume_Call{Call: _e.mock.On("GetVolume", context1, s)}
 }
 
@@ -471,7 +471,7 @@ type MockContainerManager_ImportVolume_Call struct {
 //   - context1 context.Context
 //   - volume *containers.Volume
 //   - s string
-func (_e *MockContainerManager_Expecter) ImportVolume(context1 interface{}, volume interface{}, s interface{}) *MockContainerManager_ImportVolume_Call {
+func (_e *MockContainerManager_Expecter) ImportVolume(context1 any, volume any, s any) *MockContainerManager_ImportVolume_Call {
 	return &MockContainerManager_ImportVolume_Call{Call: _e.mock.On("ImportVolume", context1, volume, s)}
 }
 
@@ -544,7 +544,7 @@ type MockContainerManager_ListContainers_Call struct {
 // ListContainers is a helper method to define mock.On call
 //   - context1 context.Context
 //   - containerListFilter containers.ContainerListFilter
-func (_e *MockContainerManager_Expecter) ListContainers(context1 interface{}, containerListFilter interface{}) *MockContainerManager_ListContainers_Call {
+func (_e *MockContainerManager_Expecter) ListContainers(context1 any, containerListFilter any) *MockContainerManager_ListContainers_Call {
 	return &MockContainerManager_ListContainers_Call{Call: _e.mock.On("ListContainers", context1, containerListFilter)}
 }
 
@@ -611,7 +611,7 @@ type MockContainerManager_ListImages_Call struct {
 
 // ListImages is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockContainerManager_Expecter) ListImages(context1 interface{}) *MockContainerManager_ListImages_Call {
+func (_e *MockContainerManager_Expecter) ListImages(context1 any) *MockContainerManager_ListImages_Call {
 	return &MockContainerManager_ListImages_Call{Call: _e.mock.On("ListImages", context1)}
 }
 
@@ -673,7 +673,7 @@ type MockContainerManager_ListNetworks_Call struct {
 
 // ListNetworks is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockContainerManager_Expecter) ListNetworks(context1 interface{}) *MockContainerManager_ListNetworks_Call {
+func (_e *MockContainerManager_Expecter) ListNetworks(context1 any) *MockContainerManager_ListNetworks_Call {
 	return &MockContainerManager_ListNetworks_Call{Call: _e.mock.On("ListNetworks", context1)}
 }
 
@@ -735,7 +735,7 @@ type MockContainerManager_ListSecrets_Call struct {
 
 // ListSecrets is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockContainerManager_Expecter) ListSecrets(context1 interface{}) *MockContainerManager_ListSecrets_Call {
+func (_e *MockContainerManager_Expecter) ListSecrets(context1 any) *MockContainerManager_ListSecrets_Call {
 	return &MockContainerManager_ListSecrets_Call{Call: _e.mock.On("ListSecrets", context1)}
 }
 
@@ -797,7 +797,7 @@ type MockContainerManager_ListVolumes_Call struct {
 
 // ListVolumes is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockContainerManager_Expecter) ListVolumes(context1 interface{}) *MockContainerManager_ListVolumes_Call {
+func (_e *MockContainerManager_Expecter) ListVolumes(context1 any) *MockContainerManager_ListVolumes_Call {
 	return &MockContainerManager_ListVolumes_Call{Call: _e.mock.On("ListVolumes", context1)}
 }
 
@@ -849,7 +849,7 @@ type MockContainerManager_RemoveImage_Call struct {
 // RemoveImage is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) RemoveImage(context1 interface{}, s interface{}) *MockContainerManager_RemoveImage_Call {
+func (_e *MockContainerManager_Expecter) RemoveImage(context1 any, s any) *MockContainerManager_RemoveImage_Call {
 	return &MockContainerManager_RemoveImage_Call{Call: _e.mock.On("RemoveImage", context1, s)}
 }
 
@@ -906,7 +906,7 @@ type MockContainerManager_RemoveNetwork_Call struct {
 // RemoveNetwork is a helper method to define mock.On call
 //   - context1 context.Context
 //   - network *containers.Network
-func (_e *MockContainerManager_Expecter) RemoveNetwork(context1 interface{}, network interface{}) *MockContainerManager_RemoveNetwork_Call {
+func (_e *MockContainerManager_Expecter) RemoveNetwork(context1 any, network any) *MockContainerManager_RemoveNetwork_Call {
 	return &MockContainerManager_RemoveNetwork_Call{Call: _e.mock.On("RemoveNetwork", context1, network)}
 }
 
@@ -963,7 +963,7 @@ type MockContainerManager_RemoveSecret_Call struct {
 // RemoveSecret is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockContainerManager_Expecter) RemoveSecret(context1 interface{}, s interface{}) *MockContainerManager_RemoveSecret_Call {
+func (_e *MockContainerManager_Expecter) RemoveSecret(context1 any, s any) *MockContainerManager_RemoveSecret_Call {
 	return &MockContainerManager_RemoveSecret_Call{Call: _e.mock.On("RemoveSecret", context1, s)}
 }
 
@@ -1020,7 +1020,7 @@ type MockContainerManager_RemoveVolume_Call struct {
 // RemoveVolume is a helper method to define mock.On call
 //   - context1 context.Context
 //   - volume *containers.Volume
-func (_e *MockContainerManager_Expecter) RemoveVolume(context1 interface{}, volume interface{}) *MockContainerManager_RemoveVolume_Call {
+func (_e *MockContainerManager_Expecter) RemoveVolume(context1 any, volume any) *MockContainerManager_RemoveVolume_Call {
 	return &MockContainerManager_RemoveVolume_Call{Call: _e.mock.On("RemoveVolume", context1, volume)}
 }
 
@@ -1076,7 +1076,7 @@ type MockContainerManager_SecretName_Call struct {
 
 // SecretName is a helper method to define mock.On call
 //   - s string
-func (_e *MockContainerManager_Expecter) SecretName(s interface{}) *MockContainerManager_SecretName_Call {
+func (_e *MockContainerManager_Expecter) SecretName(s any) *MockContainerManager_SecretName_Call {
 	return &MockContainerManager_SecretName_Call{Call: _e.mock.On("SecretName", s)}
 }
 
@@ -1129,7 +1129,7 @@ type MockContainerManager_WriteSecret_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - s1 string
-func (_e *MockContainerManager_Expecter) WriteSecret(context1 interface{}, s interface{}, s1 interface{}) *MockContainerManager_WriteSecret_Call {
+func (_e *MockContainerManager_Expecter) WriteSecret(context1 any, s any, s1 any) *MockContainerManager_WriteSecret_Call {
 	return &MockContainerManager_WriteSecret_Call{Call: _e.mock.On("WriteSecret", context1, s, s1)}
 }
 

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"charm.land/log/v2"
-	"github.com/containers/podman/v5/pkg/systemd/parser"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"go.podman.io/podman/v6/pkg/systemd/parser"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"

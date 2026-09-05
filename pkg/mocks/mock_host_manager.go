@@ -68,7 +68,7 @@ type MockHostManager_ApplyService_Call struct {
 //   - s string
 //   - serviceAction services.ServiceAction
 //   - n int
-func (_e *MockHostManager_Expecter) ApplyService(context1 interface{}, s interface{}, serviceAction interface{}, n interface{}) *MockHostManager_ApplyService_Call {
+func (_e *MockHostManager_Expecter) ApplyService(context1 any, s any, serviceAction any, n any) *MockHostManager_ApplyService_Call {
 	return &MockHostManager_ApplyService_Call{Call: _e.mock.On("ApplyService", context1, s, serviceAction, n)}
 }
 
@@ -231,7 +231,7 @@ type MockHostManager_ComponentExists_Call struct {
 
 // ComponentExists is a helper method to define mock.On call
 //   - s string
-func (_e *MockHostManager_Expecter) ComponentExists(s interface{}) *MockHostManager_ComponentExists_Call {
+func (_e *MockHostManager_Expecter) ComponentExists(s any) *MockHostManager_ComponentExists_Call {
 	return &MockHostManager_ComponentExists_Call{Call: _e.mock.On("ComponentExists", s)}
 }
 
@@ -284,7 +284,7 @@ type MockHostManager_DumpVolume_Call struct {
 //   - context1 context.Context
 //   - volume *containers.Volume
 //   - s string
-func (_e *MockHostManager_Expecter) DumpVolume(context1 interface{}, volume interface{}, s interface{}) *MockHostManager_DumpVolume_Call {
+func (_e *MockHostManager_Expecter) DumpVolume(context1 any, volume any, s any) *MockHostManager_DumpVolume_Call {
 	return &MockHostManager_DumpVolume_Call{Call: _e.mock.On("DumpVolume", context1, volume, s)}
 }
 
@@ -353,9 +353,9 @@ type MockHostManager_ExecContainer_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - strings ...string
-func (_e *MockHostManager_Expecter) ExecContainer(context1 interface{}, s interface{}, strings ...interface{}) *MockHostManager_ExecContainer_Call {
+func (_e *MockHostManager_Expecter) ExecContainer(context1 any, s any, strings ...any) *MockHostManager_ExecContainer_Call {
 	return &MockHostManager_ExecContainer_Call{Call: _e.mock.On("ExecContainer",
-		append([]interface{}{context1, s}, strings...)...)}
+		append([]any{context1, s}, strings...)...)}
 }
 
 func (_c *MockHostManager_ExecContainer_Call) Run(run func(context1 context.Context, s string, strings ...string)) *MockHostManager_ExecContainer_Call {
@@ -428,7 +428,7 @@ type MockHostManager_GetComponent_Call struct {
 
 // GetComponent is a helper method to define mock.On call
 //   - s string
-func (_e *MockHostManager_Expecter) GetComponent(s interface{}) *MockHostManager_GetComponent_Call {
+func (_e *MockHostManager_Expecter) GetComponent(s any) *MockHostManager_GetComponent_Call {
 	return &MockHostManager_GetComponent_Call{Call: _e.mock.On("GetComponent", s)}
 }
 
@@ -491,7 +491,7 @@ type MockHostManager_GetContainer_Call struct {
 // GetContainer is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) GetContainer(context1 interface{}, s interface{}) *MockHostManager_GetContainer_Call {
+func (_e *MockHostManager_Expecter) GetContainer(context1 any, s any) *MockHostManager_GetContainer_Call {
 	return &MockHostManager_GetContainer_Call{Call: _e.mock.On("GetContainer", context1, s)}
 }
 
@@ -648,7 +648,7 @@ type MockHostManager_GetManifest_Call struct {
 
 // GetManifest is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) GetManifest(component interface{}) *MockHostManager_GetManifest_Call {
+func (_e *MockHostManager_Expecter) GetManifest(component any) *MockHostManager_GetManifest_Call {
 	return &MockHostManager_GetManifest_Call{Call: _e.mock.On("GetManifest", component)}
 }
 
@@ -711,7 +711,7 @@ type MockHostManager_GetNetwork_Call struct {
 // GetNetwork is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) GetNetwork(context1 interface{}, s interface{}) *MockHostManager_GetNetwork_Call {
+func (_e *MockHostManager_Expecter) GetNetwork(context1 any, s any) *MockHostManager_GetNetwork_Call {
 	return &MockHostManager_GetNetwork_Call{Call: _e.mock.On("GetNetwork", context1, s)}
 }
 
@@ -777,7 +777,7 @@ type MockHostManager_GetResource_Call struct {
 // GetResource is a helper method to define mock.On call
 //   - component *components.Component
 //   - s string
-func (_e *MockHostManager_Expecter) GetResource(component interface{}, s interface{}) *MockHostManager_GetResource_Call {
+func (_e *MockHostManager_Expecter) GetResource(component any, s any) *MockHostManager_GetResource_Call {
 	return &MockHostManager_GetResource_Call{Call: _e.mock.On("GetResource", component, s)}
 }
 
@@ -845,7 +845,7 @@ type MockHostManager_GetSecret_Call struct {
 // GetSecret is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) GetSecret(context1 interface{}, s interface{}) *MockHostManager_GetSecret_Call {
+func (_e *MockHostManager_Expecter) GetSecret(context1 any, s any) *MockHostManager_GetSecret_Call {
 	return &MockHostManager_GetSecret_Call{Call: _e.mock.On("GetSecret", context1, s)}
 }
 
@@ -913,7 +913,7 @@ type MockHostManager_GetService_Call struct {
 // GetService is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) GetService(context1 interface{}, s interface{}) *MockHostManager_GetService_Call {
+func (_e *MockHostManager_Expecter) GetService(context1 any, s any) *MockHostManager_GetService_Call {
 	return &MockHostManager_GetService_Call{Call: _e.mock.On("GetService", context1, s)}
 }
 
@@ -981,7 +981,7 @@ type MockHostManager_GetVolume_Call struct {
 // GetVolume is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) GetVolume(context1 interface{}, s interface{}) *MockHostManager_GetVolume_Call {
+func (_e *MockHostManager_Expecter) GetVolume(context1 any, s any) *MockHostManager_GetVolume_Call {
 	return &MockHostManager_GetVolume_Call{Call: _e.mock.On("GetVolume", context1, s)}
 }
 
@@ -1039,7 +1039,7 @@ type MockHostManager_ImportVolume_Call struct {
 //   - context1 context.Context
 //   - volume *containers.Volume
 //   - s string
-func (_e *MockHostManager_Expecter) ImportVolume(context1 interface{}, volume interface{}, s interface{}) *MockHostManager_ImportVolume_Call {
+func (_e *MockHostManager_Expecter) ImportVolume(context1 any, volume any, s any) *MockHostManager_ImportVolume_Call {
 	return &MockHostManager_ImportVolume_Call{Call: _e.mock.On("ImportVolume", context1, volume, s)}
 }
 
@@ -1100,7 +1100,7 @@ type MockHostManager_InstallComponent_Call struct {
 
 // InstallComponent is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) InstallComponent(component interface{}) *MockHostManager_InstallComponent_Call {
+func (_e *MockHostManager_Expecter) InstallComponent(component any) *MockHostManager_InstallComponent_Call {
 	return &MockHostManager_InstallComponent_Call{Call: _e.mock.On("InstallComponent", component)}
 }
 
@@ -1152,7 +1152,7 @@ type MockHostManager_InstallResource_Call struct {
 // InstallResource is a helper method to define mock.On call
 //   - resource components.Resource
 //   - bytes []byte
-func (_e *MockHostManager_Expecter) InstallResource(resource interface{}, bytes interface{}) *MockHostManager_InstallResource_Call {
+func (_e *MockHostManager_Expecter) InstallResource(resource any, bytes any) *MockHostManager_InstallResource_Call {
 	return &MockHostManager_InstallResource_Call{Call: _e.mock.On("InstallResource", resource, bytes)}
 }
 
@@ -1210,7 +1210,7 @@ type MockHostManager_InstallScript_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - bytes []byte
-func (_e *MockHostManager_Expecter) InstallScript(context1 interface{}, s interface{}, bytes interface{}) *MockHostManager_InstallScript_Call {
+func (_e *MockHostManager_Expecter) InstallScript(context1 any, s any, bytes any) *MockHostManager_InstallScript_Call {
 	return &MockHostManager_InstallScript_Call{Call: _e.mock.On("InstallScript", context1, s, bytes)}
 }
 
@@ -1273,7 +1273,7 @@ type MockHostManager_InstallUnit_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - bytes []byte
-func (_e *MockHostManager_Expecter) InstallUnit(context1 interface{}, s interface{}, bytes interface{}) *MockHostManager_InstallUnit_Call {
+func (_e *MockHostManager_Expecter) InstallUnit(context1 any, s any, bytes any) *MockHostManager_InstallUnit_Call {
 	return &MockHostManager_InstallUnit_Call{Call: _e.mock.On("InstallUnit", context1, s, bytes)}
 }
 
@@ -1401,7 +1401,7 @@ type MockHostManager_ListContainers_Call struct {
 // ListContainers is a helper method to define mock.On call
 //   - context1 context.Context
 //   - containerListFilter containers.ContainerListFilter
-func (_e *MockHostManager_Expecter) ListContainers(context1 interface{}, containerListFilter interface{}) *MockHostManager_ListContainers_Call {
+func (_e *MockHostManager_Expecter) ListContainers(context1 any, containerListFilter any) *MockHostManager_ListContainers_Call {
 	return &MockHostManager_ListContainers_Call{Call: _e.mock.On("ListContainers", context1, containerListFilter)}
 }
 
@@ -1468,7 +1468,7 @@ type MockHostManager_ListImages_Call struct {
 
 // ListImages is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockHostManager_Expecter) ListImages(context1 interface{}) *MockHostManager_ListImages_Call {
+func (_e *MockHostManager_Expecter) ListImages(context1 any) *MockHostManager_ListImages_Call {
 	return &MockHostManager_ListImages_Call{Call: _e.mock.On("ListImages", context1)}
 }
 
@@ -1585,7 +1585,7 @@ type MockHostManager_ListNetworks_Call struct {
 
 // ListNetworks is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockHostManager_Expecter) ListNetworks(context1 interface{}) *MockHostManager_ListNetworks_Call {
+func (_e *MockHostManager_Expecter) ListNetworks(context1 any) *MockHostManager_ListNetworks_Call {
 	return &MockHostManager_ListNetworks_Call{Call: _e.mock.On("ListNetworks", context1)}
 }
 
@@ -1647,7 +1647,7 @@ type MockHostManager_ListResources_Call struct {
 
 // ListResources is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) ListResources(component interface{}) *MockHostManager_ListResources_Call {
+func (_e *MockHostManager_Expecter) ListResources(component any) *MockHostManager_ListResources_Call {
 	return &MockHostManager_ListResources_Call{Call: _e.mock.On("ListResources", component)}
 }
 
@@ -1709,7 +1709,7 @@ type MockHostManager_ListSecrets_Call struct {
 
 // ListSecrets is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockHostManager_Expecter) ListSecrets(context1 interface{}) *MockHostManager_ListSecrets_Call {
+func (_e *MockHostManager_Expecter) ListSecrets(context1 any) *MockHostManager_ListSecrets_Call {
 	return &MockHostManager_ListSecrets_Call{Call: _e.mock.On("ListSecrets", context1)}
 }
 
@@ -1771,7 +1771,7 @@ type MockHostManager_ListVolumes_Call struct {
 
 // ListVolumes is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockHostManager_Expecter) ListVolumes(context1 interface{}) *MockHostManager_ListVolumes_Call {
+func (_e *MockHostManager_Expecter) ListVolumes(context1 any) *MockHostManager_ListVolumes_Call {
 	return &MockHostManager_ListVolumes_Call{Call: _e.mock.On("ListVolumes", context1)}
 }
 
@@ -1833,7 +1833,7 @@ type MockHostManager_Lookup_Call struct {
 
 // Lookup is a helper method to define mock.On call
 //   - s string
-func (_e *MockHostManager_Expecter) Lookup(s interface{}) *MockHostManager_Lookup_Call {
+func (_e *MockHostManager_Expecter) Lookup(s any) *MockHostManager_Lookup_Call {
 	return &MockHostManager_Lookup_Call{Call: _e.mock.On("Lookup", s)}
 }
 
@@ -1850,8 +1850,8 @@ func (_c *MockHostManager_Lookup_Call) Run(run func(s string)) *MockHostManager_
 	return _c
 }
 
-func (_c *MockHostManager_Lookup_Call) Return(v any, err error) *MockHostManager_Lookup_Call {
-	_c.Call.Return(v, err)
+func (_c *MockHostManager_Lookup_Call) Return(anyMoqParam any, err error) *MockHostManager_Lookup_Call {
+	_c.Call.Return(anyMoqParam, err)
 	return _c
 }
 
@@ -1884,7 +1884,7 @@ type MockHostManager_PurgeComponent_Call struct {
 
 // PurgeComponent is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) PurgeComponent(component interface{}) *MockHostManager_PurgeComponent_Call {
+func (_e *MockHostManager_Expecter) PurgeComponent(component any) *MockHostManager_PurgeComponent_Call {
 	return &MockHostManager_PurgeComponent_Call{Call: _e.mock.On("PurgeComponent", component)}
 }
 
@@ -1935,7 +1935,7 @@ type MockHostManager_PurgeComponentByName_Call struct {
 
 // PurgeComponentByName is a helper method to define mock.On call
 //   - s string
-func (_e *MockHostManager_Expecter) PurgeComponentByName(s interface{}) *MockHostManager_PurgeComponentByName_Call {
+func (_e *MockHostManager_Expecter) PurgeComponentByName(s any) *MockHostManager_PurgeComponentByName_Call {
 	return &MockHostManager_PurgeComponentByName_Call{Call: _e.mock.On("PurgeComponentByName", s)}
 }
 
@@ -1995,7 +1995,7 @@ type MockHostManager_ReadResource_Call struct {
 
 // ReadResource is a helper method to define mock.On call
 //   - resource components.Resource
-func (_e *MockHostManager_Expecter) ReadResource(resource interface{}) *MockHostManager_ReadResource_Call {
+func (_e *MockHostManager_Expecter) ReadResource(resource any) *MockHostManager_ReadResource_Call {
 	return &MockHostManager_ReadResource_Call{Call: _e.mock.On("ReadResource", resource)}
 }
 
@@ -2046,7 +2046,7 @@ type MockHostManager_RemoveComponent_Call struct {
 
 // RemoveComponent is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) RemoveComponent(component interface{}) *MockHostManager_RemoveComponent_Call {
+func (_e *MockHostManager_Expecter) RemoveComponent(component any) *MockHostManager_RemoveComponent_Call {
 	return &MockHostManager_RemoveComponent_Call{Call: _e.mock.On("RemoveComponent", component)}
 }
 
@@ -2098,7 +2098,7 @@ type MockHostManager_RemoveImage_Call struct {
 // RemoveImage is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) RemoveImage(context1 interface{}, s interface{}) *MockHostManager_RemoveImage_Call {
+func (_e *MockHostManager_Expecter) RemoveImage(context1 any, s any) *MockHostManager_RemoveImage_Call {
 	return &MockHostManager_RemoveImage_Call{Call: _e.mock.On("RemoveImage", context1, s)}
 }
 
@@ -2155,7 +2155,7 @@ type MockHostManager_RemoveNetwork_Call struct {
 // RemoveNetwork is a helper method to define mock.On call
 //   - context1 context.Context
 //   - network *containers.Network
-func (_e *MockHostManager_Expecter) RemoveNetwork(context1 interface{}, network interface{}) *MockHostManager_RemoveNetwork_Call {
+func (_e *MockHostManager_Expecter) RemoveNetwork(context1 any, network any) *MockHostManager_RemoveNetwork_Call {
 	return &MockHostManager_RemoveNetwork_Call{Call: _e.mock.On("RemoveNetwork", context1, network)}
 }
 
@@ -2211,7 +2211,7 @@ type MockHostManager_RemoveResource_Call struct {
 
 // RemoveResource is a helper method to define mock.On call
 //   - resource components.Resource
-func (_e *MockHostManager_Expecter) RemoveResource(resource interface{}) *MockHostManager_RemoveResource_Call {
+func (_e *MockHostManager_Expecter) RemoveResource(resource any) *MockHostManager_RemoveResource_Call {
 	return &MockHostManager_RemoveResource_Call{Call: _e.mock.On("RemoveResource", resource)}
 }
 
@@ -2263,7 +2263,7 @@ type MockHostManager_RemoveScript_Call struct {
 // RemoveScript is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) RemoveScript(context1 interface{}, s interface{}) *MockHostManager_RemoveScript_Call {
+func (_e *MockHostManager_Expecter) RemoveScript(context1 any, s any) *MockHostManager_RemoveScript_Call {
 	return &MockHostManager_RemoveScript_Call{Call: _e.mock.On("RemoveScript", context1, s)}
 }
 
@@ -2320,7 +2320,7 @@ type MockHostManager_RemoveSecret_Call struct {
 // RemoveSecret is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) RemoveSecret(context1 interface{}, s interface{}) *MockHostManager_RemoveSecret_Call {
+func (_e *MockHostManager_Expecter) RemoveSecret(context1 any, s any) *MockHostManager_RemoveSecret_Call {
 	return &MockHostManager_RemoveSecret_Call{Call: _e.mock.On("RemoveSecret", context1, s)}
 }
 
@@ -2377,7 +2377,7 @@ type MockHostManager_RemoveUnit_Call struct {
 // RemoveUnit is a helper method to define mock.On call
 //   - context1 context.Context
 //   - s string
-func (_e *MockHostManager_Expecter) RemoveUnit(context1 interface{}, s interface{}) *MockHostManager_RemoveUnit_Call {
+func (_e *MockHostManager_Expecter) RemoveUnit(context1 any, s any) *MockHostManager_RemoveUnit_Call {
 	return &MockHostManager_RemoveUnit_Call{Call: _e.mock.On("RemoveUnit", context1, s)}
 }
 
@@ -2434,7 +2434,7 @@ type MockHostManager_RemoveVolume_Call struct {
 // RemoveVolume is a helper method to define mock.On call
 //   - context1 context.Context
 //   - volume *containers.Volume
-func (_e *MockHostManager_Expecter) RemoveVolume(context1 interface{}, volume interface{}) *MockHostManager_RemoveVolume_Call {
+func (_e *MockHostManager_Expecter) RemoveVolume(context1 any, volume any) *MockHostManager_RemoveVolume_Call {
 	return &MockHostManager_RemoveVolume_Call{Call: _e.mock.On("RemoveVolume", context1, volume)}
 }
 
@@ -2493,7 +2493,7 @@ type MockHostManager_RunOneshotCommand_Call struct {
 //   - n int
 //   - s string
 //   - strings []string
-func (_e *MockHostManager_Expecter) RunOneshotCommand(context1 interface{}, n interface{}, s interface{}, strings interface{}) *MockHostManager_RunOneshotCommand_Call {
+func (_e *MockHostManager_Expecter) RunOneshotCommand(context1 any, n any, s any, strings any) *MockHostManager_RunOneshotCommand_Call {
 	return &MockHostManager_RunOneshotCommand_Call{Call: _e.mock.On("RunOneshotCommand", context1, n, s, strings)}
 }
 
@@ -2559,7 +2559,7 @@ type MockHostManager_SecretName_Call struct {
 
 // SecretName is a helper method to define mock.On call
 //   - s string
-func (_e *MockHostManager_Expecter) SecretName(s interface{}) *MockHostManager_SecretName_Call {
+func (_e *MockHostManager_Expecter) SecretName(s any) *MockHostManager_SecretName_Call {
 	return &MockHostManager_SecretName_Call{Call: _e.mock.On("SecretName", s)}
 }
 
@@ -2610,7 +2610,7 @@ type MockHostManager_UpdateComponent_Call struct {
 
 // UpdateComponent is a helper method to define mock.On call
 //   - component *components.Component
-func (_e *MockHostManager_Expecter) UpdateComponent(component interface{}) *MockHostManager_UpdateComponent_Call {
+func (_e *MockHostManager_Expecter) UpdateComponent(component any) *MockHostManager_UpdateComponent_Call {
 	return &MockHostManager_UpdateComponent_Call{Call: _e.mock.On("UpdateComponent", component)}
 }
 
@@ -2664,7 +2664,7 @@ type MockHostManager_WaitUntilState_Call struct {
 //   - s string
 //   - serviceState services.ServiceState
 //   - n int
-func (_e *MockHostManager_Expecter) WaitUntilState(context1 interface{}, s interface{}, serviceState interface{}, n interface{}) *MockHostManager_WaitUntilState_Call {
+func (_e *MockHostManager_Expecter) WaitUntilState(context1 any, s any, serviceState any, n any) *MockHostManager_WaitUntilState_Call {
 	return &MockHostManager_WaitUntilState_Call{Call: _e.mock.On("WaitUntilState", context1, s, serviceState, n)}
 }
 
@@ -2732,7 +2732,7 @@ type MockHostManager_WriteSecret_Call struct {
 //   - context1 context.Context
 //   - s string
 //   - s1 string
-func (_e *MockHostManager_Expecter) WriteSecret(context1 interface{}, s interface{}, s1 interface{}) *MockHostManager_WriteSecret_Call {
+func (_e *MockHostManager_Expecter) WriteSecret(context1 any, s any, s1 any) *MockHostManager_WriteSecret_Call {
 	return &MockHostManager_WriteSecret_Call{Call: _e.mock.On("WriteSecret", context1, s, s1)}
 }
 

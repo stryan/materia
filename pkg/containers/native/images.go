@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 
-	im "go.podman.io/podman/v6/pkg/bindings/images"
+	"go.podman.io/podman/v6/pkg/bindings/images"
 	"primamateria.systems/materia/pkg/containers"
 )
 
 func (n *NativeManager) GetImage(_ context.Context, nameOrId string) (*containers.Image, error) {
-	img, err := im.GetImage(n.conn, nameOrId, nil)
+	img, err := images.GetImage(n.conn, nameOrId, nil)
 	if err != nil {
 		return nil, err
 	}

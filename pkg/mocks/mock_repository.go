@@ -61,7 +61,7 @@ type MockRepository_Clean_Call struct {
 
 // Clean is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockRepository_Expecter) Clean(ctx interface{}) *MockRepository_Clean_Call {
+func (_e *MockRepository_Expecter) Clean(ctx any) *MockRepository_Clean_Call {
 	return &MockRepository_Clean_Call{Call: _e.mock.On("Clean", ctx)}
 }
 
@@ -122,7 +122,7 @@ type MockRepository_Exists_Call struct {
 // Exists is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *MockRepository_Expecter) Exists(ctx interface{}, path interface{}) *MockRepository_Exists_Call {
+func (_e *MockRepository_Expecter) Exists(ctx any, path any) *MockRepository_Exists_Call {
 	return &MockRepository_Exists_Call{Call: _e.mock.On("Exists", ctx, path)}
 }
 
@@ -188,7 +188,7 @@ type MockRepository_Get_Call struct {
 // Get is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *MockRepository_Expecter) Get(ctx interface{}, path interface{}) *MockRepository_Get_Call {
+func (_e *MockRepository_Expecter) Get(ctx any, path any) *MockRepository_Get_Call {
 	return &MockRepository_Get_Call{Call: _e.mock.On("Get", ctx, path)}
 }
 
@@ -246,7 +246,7 @@ type MockRepository_Install_Call struct {
 //   - ctx context.Context
 //   - path string
 //   - data []byte
-func (_e *MockRepository_Expecter) Install(ctx interface{}, path interface{}, data interface{}) *MockRepository_Install_Call {
+func (_e *MockRepository_Expecter) Install(ctx any, path any, data any) *MockRepository_Install_Call {
 	return &MockRepository_Install_Call{Call: _e.mock.On("Install", ctx, path, data)}
 }
 
@@ -318,7 +318,7 @@ type MockRepository_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockRepository_Expecter) List(ctx interface{}) *MockRepository_List_Call {
+func (_e *MockRepository_Expecter) List(ctx any) *MockRepository_List_Call {
 	return &MockRepository_List_Call{Call: _e.mock.On("List", ctx)}
 }
 
@@ -370,7 +370,7 @@ type MockRepository_Remove_Call struct {
 // Remove is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *MockRepository_Expecter) Remove(ctx interface{}, path interface{}) *MockRepository_Remove_Call {
+func (_e *MockRepository_Expecter) Remove(ctx any, path any) *MockRepository_Remove_Call {
 	return &MockRepository_Remove_Call{Call: _e.mock.On("Remove", ctx, path)}
 }
 

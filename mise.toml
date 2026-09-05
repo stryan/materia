@@ -1,11 +1,11 @@
 [tools]
-go = "1.26"
+go = "1.27"
 age = "latest"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 "go:github.com/varlink/go/cmd/varlink-go-interface-generator" = "latest"
-golangci-lint = "2.10.1"
+golangci-lint = "2.13.2"
 gotestsum = "latest"
-mockery = "latest"
+mockery = "3.7.4"
 sops = "latest"
 
 [settings]

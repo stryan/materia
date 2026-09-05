@@ -149,7 +149,7 @@ type MockLocker_LockOrWait_Call struct {
 
 // LockOrWait is a helper method to define mock.On call
 //   - context1 context.Context
-func (_e *MockLocker_Expecter) LockOrWait(context1 interface{}) *MockLocker_LockOrWait_Call {
+func (_e *MockLocker_Expecter) LockOrWait(context1 any) *MockLocker_LockOrWait_Call {
 	return &MockLocker_LockOrWait_Call{Call: _e.mock.On("LockOrWait", context1)}
 }
 

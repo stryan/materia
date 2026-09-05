@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/containers/podman/v5/pkg/systemd/parser"
+	"go.podman.io/podman/v6/pkg/systemd/parser"
 )
 
 type Resource struct {
