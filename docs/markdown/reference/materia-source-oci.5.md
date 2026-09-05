@@ -20,10 +20,11 @@ Configures a remote OCI image as a the source for the Materia repository
 
 The OCI image is expected to have the materia repository as its root file system
 
-
-### Options
+Note: When extracting the image, materia will create a `.materia_revision` file in $MATERIA_SOURCE_DIR for rollback purposes. If you delete the source directory between runs, you will not be able to rollback.
 
 Note: the OCI source only works with remote images. You can not refer to a local image with this.
+
+### Options
 
 #### `MATERIA_OCI__USERNAME`/ **oci.username**
 

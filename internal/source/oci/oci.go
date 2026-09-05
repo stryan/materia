@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -17,6 +18,8 @@ import (
 	"primamateria.systems/materia/pkg/source"
 )
 
+var revName = ".materia_revision"
+
 type OCISource struct {
 	registry        string
 	repository      string
@@ -24,6 +27,9 @@ type OCISource struct {
 	localRepository string
 	auth            authn.Authenticator
 	insecure        bool
+
+	lastDigest  string
+	canRollback bool
 }
 
 func NewOCISource(c *Config) (*OCISource, error) {
@@ -50,16 +56,31 @@ func NewOCISource(c *Config) (*OCISource, error) {
 		o.auth = authn.Anonymous
 	}
 
+	if _, err := os.Stat(filepath.Join(c.LocalRepository, revName)); err == nil {
+		revData, err := os.ReadFile(filepath.Join(c.LocalRepository, revName))
+		if err != nil {
+			log.Warnf("unable to read existing revision for rollback: %v", err)
+		} else {
+			o.lastDigest = string(revData)
+			o.canRollback = true
+		}
+	}
+
 	return o, nil
 }
 
 func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) (*source.SyncReport, error) {
-	revision := o.tag
+	revision := fmt.Sprintf(":%v", o.tag)
 	if opts.Revision != "" {
-		// Debatable whether OCI should support a seperate revision here
-		revision = opts.Revision
+		if strings.Contains(opts.Revision, "sha256") {
+			// we're pulling a specific digest not just a tag
+			revision = fmt.Sprintf("@%v", opts.Revision)
+		} else {
+			revision = fmt.Sprintf(":%v", opts.Revision)
+		}
 	}
-	imageRef := fmt.Sprintf("%s/%s:%s", o.registry, o.repository, revision)
+	currentDigest := o.lastDigest
+	imageRef := fmt.Sprintf("%s/%s%s", o.registry, o.repository, revision)
 	log.Infof("Pulling OCI image %s", imageRef)
 
 	ref, err := name.ParseReference(imageRef)
@@ -135,9 +156,28 @@ func (o *OCISource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 			log.Debugf("Skipping unsupported file type %c for %s", header.Typeflag, header.Name)
 		}
 	}
-
+	digest, err := img.Digest()
+	if err != nil {
+		log.Warnf("Unable to fetch image digest for rollback support")
+	} else {
+		err = os.WriteFile(filepath.Join(o.localRepository, revName), []byte(digest.String()), 0o644)
+		if err != nil {
+			log.Warnf("Unable to save image digest for rollback support")
+			o.canRollback = false
+			err := os.Remove(filepath.Join(o.localRepository, revName))
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("unable to remove stale OCI revision state: %w", err)
+			}
+		} else {
+			o.lastDigest = digest.String()
+			o.canRollback = true
+		}
+	}
 	log.Infof("Successfully extracted OCI image to %s", o.localRepository)
-	return &source.SyncReport{}, nil
+	return &source.SyncReport{
+		OldRevision: currentDigest,
+		NewRevision: o.lastDigest,
+	}, nil
 }
 
 func (o *OCISource) Close(ctx context.Context) error {
@@ -151,7 +191,7 @@ func (o *OCISource) Clean() error {
 
 func (o *OCISource) Inspect() source.SyncInspectReport {
 	return source.SyncInspectReport{
-		SupportsRollback: false, // TODO support rollback
+		SupportsRollback: o.canRollback,
 	}
 }
 

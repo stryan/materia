@@ -1079,6 +1079,78 @@ func Test_OCISource(t *testing.T) {
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
 }
 
+func Test_OCISource_RollbackFailed(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc))
+	testcase := TestCase{
+		Name: "example-repo-oci",
+		Config: newConfig(t, map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"sops.base_dir": "attributes",
+			"sops.suffix":   "enc",
+			"source.kind":   "oci",
+			"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		}),
+		Source: TestRepo{Remote: true},
+		Output: TestOutput{
+			ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+			InactiveServices: []string{},
+			Components:       []string{"freshrss", "podman_exporter"},
+			Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+		},
+	}
+	trackServices(testcase)
+	require.NoError(t, testcase.Setup())
+	require.NoError(t, installTestCase(ctx, tc, testcase))
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
+	require.NoError(t, setEnv(ctx, tc, "SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	// Now swap to a broken repo image
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_SOURCE__URL", "oci://git.saintnet.tech/stryan/materia-example-repo:bad"))
+
+	require.Error(t, runMateriaCmd(ctx, tc, "update"))
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+}
+
+func Test_OCISource_RollbackSuccess(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc))
+	testcase := TestCase{
+		Name: "example-repo-oci",
+		Config: newConfig(t, map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"sops.base_dir": "attributes",
+			"sops.suffix":   "enc",
+			"source.kind":   "oci",
+			"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+			"rollback.kind": "service",
+		}),
+		Source: TestRepo{Remote: true},
+		Output: TestOutput{
+			ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+			InactiveServices: []string{},
+			Components:       []string{"freshrss", "podman_exporter"},
+			Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+		},
+	}
+	trackServices(testcase)
+	require.NoError(t, testcase.Setup())
+	require.NoError(t, installTestCase(ctx, tc, testcase))
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
+	require.NoError(t, setEnv(ctx, tc, "SOPS_AGE_KEY_FILE", "/var/lib/materia/source/key.txt"))
+
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+
+	// Now swap to a broken repo image
+	require.NoError(t, setEnv(ctx, tc, "MATERIA_SOURCE__URL", "oci://git.saintnet.tech/stryan/materia-example-repo:bad"))
+	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+}
+
 func Test_AppMode(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, reset(ctx, tc))
