@@ -153,7 +153,8 @@ func (g *GitSource) Sync(ctx context.Context, opts source.SyncOpts) (*source.Syn
 			var err error
 			target, err = g.GetDefaultBranchFromRepository(r)
 			if err != nil {
-				return nil, fmt.Errorf("error fetching default branch: %w", err)
+				log.Warn("error fetching default branch, using master: %w", err)
+				target = "master"
 			}
 		}
 
@@ -216,9 +217,9 @@ func (g *GitSource) GetDefaultBranchFromRepository(repo *git.Repository) (string
 		return "", err
 	}
 	defaultName := "master"
-	references, err := remote.List(&git.ListOptions{})
+	references, err := remote.List(&git.ListOptions{Auth: g.auth})
 	if err != nil {
-		log.Warn("unable to list origin references, using \"master\"")
+		return "", err
 	}
 	for _, reference := range references {
 		if reference.Name() == "HEAD" && reference.Type() == plumbing.SymbolicReference {
@@ -355,7 +356,8 @@ func (g *GitSource) ensureBranch(ctx context.Context, r *git.Repository, subpath
 		var err error
 		target, err = g.GetDefaultBranchFromRepository(r)
 		if err != nil {
-			return fmt.Errorf("error fetching default branch: %w", err)
+			log.Warn("error fetching default branch, using master: %w", err)
+			target = "master"
 		}
 	}
 
