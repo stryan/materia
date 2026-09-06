@@ -13,6 +13,7 @@ experimental = true
 
 [env]
 DOCKER_HOST="unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
+BUILDAH_FORMAT="docker"
 
 [vars]
 CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"

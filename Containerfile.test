@@ -7,6 +7,18 @@ RUN zypper in -y \
         gawk \
     && zypper clean all
 
+# Force podman/buildah onto fuse-overlayfs instead of native kernel overlay,
+# to avoid nested overlay-on-overlay failures
+# This gets around https://github.com/podman-container-tools/buildah/issues/6892
+RUN mkdir -p /etc/containers && \
+    cat <<'EOF' > /etc/containers/storage.conf
+[storage]
+driver = "overlay"
+
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"
+EOF
+
 # remove some units that end up always crashing
 RUN systemctl mask \
         systemd-remount-fs.service \

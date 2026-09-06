@@ -20,7 +20,7 @@ func (n *NativeManager) GetImage(_ context.Context, nameOrId string) (*container
 }
 
 func (n *NativeManager) ListImages(ctx context.Context) ([]*containers.Image, error) {
-	imageList, err := im.List(n.conn, nil)
+	imageList, err := images.List(n.conn, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,6 @@ func (n *NativeManager) ListImages(ctx context.Context) ([]*containers.Image, er
 }
 
 func (n *NativeManager) RemoveImage(_ context.Context, nameOrId string) error {
-	_, err := im.Remove(n.conn, []string{nameOrId}, &im.RemoveOptions{})
+	_, err := images.Remove(n.conn, []string{nameOrId}, &images.RemoveOptions{})
 	return errors.Join(err...)
 }

@@ -1,6 +1,6 @@
 module primamateria.systems/materia
 
-go 1.26.3
+go 1.27
 
 require (
 	charm.land/log/v2 v2.0.1
@@ -247,7 +247,7 @@ require (
 	github.com/ulikunitz/xz v0.5.16 // indirect
 	github.com/urfave/cli v1.22.17 // indirect
 	github.com/vbatts/tar-split v0.12.3 // indirect
-	github.com/vbauerster/mpb/v8 v8.16.1 // indirect
+	github.com/vbauerster/mpb/v8 v8.14.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

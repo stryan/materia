@@ -1,4 +1,4 @@
-FROM docker.io/golang:1.26 as builder
+FROM docker.io/golang:1.27 as builder
 
 WORKDIR /go/src/app
 COPY go.mod go.sum ./
