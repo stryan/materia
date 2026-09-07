@@ -5,7 +5,7 @@ RUN zypper in -y \
         git \
         golang \
         gawk \
-    && zypper clean all
+    && zypper clean --all
 
 # Force podman/buildah onto fuse-overlayfs instead of native kernel overlay,
 # to avoid nested overlay-on-overlay failures

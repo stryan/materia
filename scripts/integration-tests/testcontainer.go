@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/netip"
+	"os"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
@@ -15,15 +16,15 @@ import (
 func startTestContainer(ctx context.Context, bin string) (testcontainers.Container, error) {
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
-			Context:    "../../",
-			Dockerfile: "Containerfile.test",
-			KeepImage:  true,
+			Context:        "../../",
+			Dockerfile:     "Containerfile.test",
+			KeepImage:      true,
+			BuildLogWriter: os.Stdout,
 		},
 		HostConfigModifier: func(hc *container.HostConfig) {
 			hc.DNS = []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("1.0.0.1")}
 			hc.Privileged = true // for podman in podman
 		},
-
 		Networks: []string{"podman"},
 	}
 
