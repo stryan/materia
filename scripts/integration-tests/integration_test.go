@@ -751,11 +751,12 @@ status: {}`,
 func Test_ContainerWithBuild(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, reset(ctx, tc))
-	comp := TestComponent{Name: "hello"}
-	comp.Files = []TestFile{
-		{
-			Path: "hello.container",
-			Content: `
+	comp := TestComponent{
+		Name: "hello",
+		Files: []TestFile{
+			{
+				Path: "hello.container",
+				Content: `
 			[Unit]
 			Description=Hello Service
 			Wants=network-online.target
@@ -769,10 +770,10 @@ func Test_ContainerWithBuild(t *testing.T) {
 			[Install]
 			WantedBy=multi-user.target
 			`,
-		},
-		{
-			Path: "MANIFEST.toml",
-			Content: `
+			},
+			{
+				Path: "MANIFEST.toml",
+				Content: `
 			[[Services]]
 			Service = "hello.container"
 
@@ -781,18 +782,19 @@ func Test_ContainerWithBuild(t *testing.T) {
 			Stopped = true
 			Timeout = 100
 			`,
-		},
-		{
-			Path:    "Containerfile",
-			Content: "FROM busybox\nRUN echo 'We Built This Container on Rock and Roll' >> /hello",
-		},
-		{
-			Path: "hello.build",
-			Content: `
+			},
+			{
+				Path:    "Containerfile",
+				Content: "FROM busybox\nRUN echo 'We Built This Container on Rock and Roll' >> /hello",
+			},
+			{
+				Path: "hello.build",
+				Content: `
 			[Build]
 			ImageTag=localhost/hellobuild:latest
 			File=/var/lib/materia/components/hello/Containerfile
 			`,
+			},
 		},
 	}
 	comp.Output = []TestFile{
@@ -1240,11 +1242,12 @@ func Test_QuadletDropins(t *testing.T) {
 func Test_InstancedComponents(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, reset(ctx, tc))
-	comp := TestComponent{Name: "hello"}
-	comp.Files = []TestFile{
-		{
-			Path: "hello@.container.gotmpl",
-			Content: `[Unit]
+	comp := TestComponent{
+		Name: "hello",
+		Files: []TestFile{
+			{
+				Path: "hello@.container.gotmpl",
+				Content: `[Unit]
 Description=Hello Service
 Wants=network-online.target
 After=network-online.target
@@ -1256,15 +1259,16 @@ Volume=hello.volume:/{{.mountPoint}}
 
 [Install]
 WantedBy=multi-user.target`,
-		},
-		{
-			Path: "MANIFEST.toml",
-			Content: `[[Services]]
+			},
+			{
+				Path: "MANIFEST.toml",
+				Content: `[[Services]]
 			Service = "hello@.container"`,
-		},
-		{
-			Path:    "hello.volume",
-			Content: "[Volume]",
+			},
+			{
+				Path:    "hello.volume",
+				Content: "[Volume]",
+			},
 		},
 	}
 	comp.Output = []TestFile{

@@ -94,5 +94,6 @@ func socketPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(socketDir, "materia.sock"), nil
+	// varlink does unix: not the normal scheme://
+	return fmt.Sprintf("unix:%v", filepath.Join(socketDir, "materia.sock")), nil
 }

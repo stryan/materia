@@ -49,7 +49,7 @@ usage = '''
 flag "-v --verbose" help="Verbose gotestum output" default=#false
 '''
 run = [
-  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} -- -tags '{{ vars.NOCGO }}' ./internal/... ./pkg/...",
+  "gotestsum {% if usage.verbose %} --format standard-verbose {% endif %} -- -tags '{{ vars.NOCGO }}' ./cmd/... ./internal/... ./pkg/...",
 ]
 
 [tasks.virter]

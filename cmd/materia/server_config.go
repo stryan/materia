@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/materia"
@@ -27,6 +28,9 @@ type Server struct {
 }
 
 func (c ServerConfig) Validate() error {
+	if c.Socket != "" && !strings.HasPrefix(c.Socket, "unix:") && !strings.HasPrefix(c.Socket, "tcp:") {
+		return fmt.Errorf("invalid socket type for %v; should be unix or tcp", c.Socket)
+	}
 	return nil
 }
 
