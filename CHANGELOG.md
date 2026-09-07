@@ -14,6 +14,7 @@ Best effort list of major changes and bugfixes
 - bugfix: standardize `resource-only` behaviour to always host-reload
 - feat: enable shell completion
 - feat: OCI sources now support rollback.
+- chore: dependency bumps
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static
