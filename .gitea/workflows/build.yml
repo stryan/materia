@@ -36,8 +36,12 @@ jobs:
           cache: false
           experimental: true
           github_token: ${{ secrets.GH_TOKEN }}
+      - name: Run unit tests
+        run: mise run test
       - name: Build binaries
-        run: mise run ci-build
+        run: mise run build
+      - name: Run integration tests
+        run: mise run integration -k
       - name: Setup qemu
         run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
       - name: Login to registry
@@ -61,7 +65,8 @@ jobs:
           fi
       - name: Cleanup leftover containers
         if: always()
-        run: docker ps -aq --filter "label=org.testcontainers=true" | xargs -r docker rm -f
+        run: docker ps -aq --filter "label=org.testcontainers=true" | xargs -r docker
+          rm -f
       - name: Logout registry
         run: docker logout $(IMAGE_REGISTRY)
       - name: Logout registry
