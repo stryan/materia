@@ -34,8 +34,9 @@ jobs:
           git init .
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" \
-            fetch --depth=1 origin "+${GITHUB_REF}:${GITHUB_REF}"
+            fetch --tags origin "${GITHUB_REF}"
           git checkout --detach FETCH_HEAD
+          git update-ref "${GITHUB_REF}" HEAD
       - name: Setup mise
         run: |
           mise trust
