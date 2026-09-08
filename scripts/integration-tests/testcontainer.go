@@ -15,17 +15,24 @@ import (
 
 func startTestContainer(ctx context.Context, bin string) (testcontainers.Container, error) {
 	req := testcontainers.ContainerRequest{
-		FromDockerfile: testcontainers.FromDockerfile{
-			Context:        "../../",
-			Dockerfile:     "Containerfile.test",
-			KeepImage:      true,
-			BuildLogWriter: os.Stdout,
-		},
 		HostConfigModifier: func(hc *container.HostConfig) {
 			hc.DNS = []netip.Addr{netip.MustParseAddr("1.1.1.1"), netip.MustParseAddr("1.0.0.1")}
 			hc.Privileged = true // for podman in podman
 		},
 		Networks: []string{"podman"},
+	}
+	// try to use pre-built image (probably from the mise task)
+	// otherwise build it ourselves
+	if img := os.Getenv("MATERIA_TEST_IMAGE"); img != "" {
+		req.Image = img
+	} else {
+		// Fallback for local dev if the mise task wasn't run first
+		req.FromDockerfile = testcontainers.FromDockerfile{
+			Context:        "../../",
+			Dockerfile:     "Containerfile.test",
+			KeepImage:      true,
+			BuildLogWriter: os.Stdout,
+		}
 	}
 
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

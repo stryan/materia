@@ -28,6 +28,12 @@ depends = ["build", "lint", "test"]
 env = { LDFLAGS = '-ldflags="-w -s"' }
 run = "podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.systems/materia:latest ."
 
+[tasks.build-test-container]
+description = "Build image used for test container"
+sources = ["Containerfile.test", "go.mod", "go.sum", "install/systems.primamateria.materia.conf"]
+outputs = { auto = true } # maybe someday mise will support oci outputs
+run = "podman build -f Containerfile.test -t materia-testcontainer:latest ."
+
 [tasks.build]
 depends = ["generate", "build-arm64", "build-amd64"]
 
@@ -131,7 +137,7 @@ run = [
 description = "Generate github release"
 depends = ["lint", "test", "build"]
 usage = '''
-  arg "<version>" help="Version to release" 
+  arg "<version>" help="Version to release"
 '''
 tools.gh = "latest"
 run = [
@@ -144,15 +150,16 @@ tools = { "go:golang.org/x/vuln/cmd/govulncheck" = "latest" }
 run = "govulncheck ./..."
 
 [tasks.integration]
-depends = [ "build" ]
+depends = [ "build", "build-test-container"]
 usage = '''
-  arg "[test]" help="Test to run" 
+  arg "[test]" help="Test to run"
   flag "-k --keep" help="Keep container after running" default=#false
 '''
 raw = true
 run = '''
   export TESTCONTAINERS_RYUK_DISABLED={{usage.keep}}
   export MATERIA_KEEP_TEST_CONTAINER={{usage.keep}}
+  export MATERIA_TEST_IMAGE=materia-testcontainer:latest
   gotestsum --format standard-verbose -- \
   {%- if usage.test != "" -%} -run {{usage.test}} \ {%- endif -%}
   -v \

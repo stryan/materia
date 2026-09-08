@@ -3,7 +3,6 @@ FROM registry.opensuse.org/opensuse/bci/bci-init:latest
 RUN zypper in -y \
         podman \
         git \
-        golang \
         gawk \
     && zypper clean --all
 
@@ -34,11 +33,6 @@ RUN mkdir -p /etc/containers/systemd \
 
 # Install dbus policy file
 COPY install/systems.primamateria.materia.conf /etc/dbus-1/system.d/systems.primamateria.materia.conf
-
-# module cache
-WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
 
 RUN systemctl enable podman.socket
 

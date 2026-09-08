@@ -10,36 +10,43 @@ env:
   MISE_ENV: ci
   GITHUB_REPOSITORY: stryan/materia
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  CONTAINER_HOST: unix:///var/run/podman/podman.sock
+  RYUK_CONTAINER_PRIVILEGED: true
 jobs:
   # Build job
   build-and-release:
-    runs-on: ubuntu-latest
+    runs-on: materia
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-        with:
-          install: true
-          cache: false
-          experimental: true
-          github_token: ${{ secrets.GH_TOKEN }}
-      - name: Setup qemu
-        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git init .
+          git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" \
+            fetch --depth=1 origin "+${GITHUB_REF}:${GITHUB_REF}"
+          git checkout --detach FETCH_HEAD
+      - name: Setup mise
+        run: |
+          mise trust
+          mise install
+      - name: Run unit tests
+        run: mise run test
+      - name: Build binaries
+        run: mise run build
+      - name: Run integration tests
+        run: mise run integration -k
       - name: Login to registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.FORGE }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.REGISTRY_TOKEN }}
-      - name: Login to registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_TOKEN }}
-      - name: Build and test binaries
-        run: mise run ci-build
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | podman login "${{ vars.FORGE }}"
+          -u "${{ gitea.actor }}" --password-stdin
+      - name: Login to ghcr registry
+        run: echo "${{ secrets.GH_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}"
+          --password-stdin
       - name: Build container image and release
         run: mise run ci-release ${{ github.ref_name }}
+      - name: Cleanup leftover containers
+        if: always()
+        run: mise run clean-test-containers
       - name: Logout registry
-        run: docker logout ghcr.io
+        run: podman logout "$IMAGE_REGISTRY"
+      - name: Logout registry
+        run: podman logout ghcr.io

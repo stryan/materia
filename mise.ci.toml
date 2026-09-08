@@ -1,9 +1,12 @@
 [env]
-DOCKER_HOST="unix:///var/run/docker.sock"
+DOCKER_HOST="unix:///var/run/podman/podman.sock"
+CONTAINER_HOST="unix:///var/run/podman/podman.sock"
 CGO_ENABLE = "0"
+BUILDAH_ISOLATION="chroot"
 
 [vars]
 image_registry = "${IMAGE_REGISTRY}"
+gh_repo = "stryan/materia"
 
 [tasks.ci-build]
 description = "Build and test for CI"
@@ -29,22 +32,36 @@ usage = '''
   arg "<tag>" help = "Tag to push"
 '''
 run = [
-  "git remote add mirror git@github.com:stryan/materia",
-  "docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 -t {{vars.image_registry}}/materia:${usage_tag?} -t {{vars.image_registry}}/materia:stable -t ghcr.io/stryan/materia:${usage_tag?} -t ghcr.io/stryan/materia:stable --push .",
+  "mise run ci-buildah ${usage_tag?}",
   "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
 
 # For post-migration
 [tasks.ci-buildah]
+depends = ["build-amd64", "build-arm64"]
 usage = '''
-  arg "<tag>" help = "Tag to push" default="latest"
-  flag "--destination <destination>" help = "Destination forge"
+  arg "[tag]" help = "Tag to push, omit to build only without pushing"
 '''
 run = '''
   buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
-  buildah manifest push --all materia docker://${usage_destination}/materia:${usage_tag}
-  buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:${usage_tag}
+  if [ -n "$usage_tag" ]; then
+    buildah manifest push --all materia docker://{{vars.image_registry}}/materia:"$usage_tag"
+    buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:"$usage_tag"
+  fi
 '''
 
 
+# Override main mise one to use remote podman in CI
+[tasks.build-test-container]
+description = "Build image used for test container"
+sources = ["Containerfile.test", "go.mod", "go.sum", "install/systems.primamateria.materia.conf"]
+outputs = { auto = true } # maybe someday mise will support oci outputs
+run = """
+	podman --remote build -f Containerfile.test -t materia-testcontainer:latest .
+"""
+
+[tasks.clean-test-containers]
+run = """
+	podman ps -aq --filter "label=org.testcontainers=true" | xargs -r podman rm -f
+"""
