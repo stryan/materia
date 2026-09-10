@@ -15,6 +15,7 @@ Best effort list of major changes and bugfixes
 - feat: enable shell completion
 - feat: OCI sources now support rollback.
 - chore: dependency bumps
+- bugfix: X/Y Steps completed shows correct number son failure
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static
