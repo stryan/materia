@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"primamateria.systems/materia/internal/source/oci"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/source/oci"
 )
 
 // TestSyncRemotesOCIConstruction verifies the TOML → koanf → NewOCISource

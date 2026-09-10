@@ -13,8 +13,8 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/source"
 	"primamateria.systems/materia/pkg/sourceman"

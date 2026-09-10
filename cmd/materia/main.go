@@ -9,9 +9,9 @@ import (
 	"charm.land/log/v2"
 	"github.com/urfave/cli/v3"
 	"primamateria.systems/materia/internal/config"
-	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
 )
 

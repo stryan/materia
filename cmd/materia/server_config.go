@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/pkg/materia"
 )
 
 type ServerConfig struct {

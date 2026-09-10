@@ -9,8 +9,8 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/varlink/go/varlink"
-	"primamateria.systems/materia/internal/materia"
 	varlinkapi "primamateria.systems/materia/pkg/api"
+	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/source"
 )
 

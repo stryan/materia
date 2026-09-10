@@ -1,4 +1,3 @@
-// Package materia contains the primary materia plan-execute functions. You probably don't want to be calling it
 package materia
 
 import (

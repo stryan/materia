@@ -11,16 +11,16 @@ import (
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/internal/config"
-	"primamateria.systems/materia/internal/materia"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/source"
 
 	"primamateria.systems/materia/pkg/sourceman"
 
-	"primamateria.systems/materia/internal/source/git"
-	"primamateria.systems/materia/internal/source/local"
-	"primamateria.systems/materia/internal/source/oci"
+	"primamateria.systems/materia/pkg/source/git"
+	"primamateria.systems/materia/pkg/source/local"
+	"primamateria.systems/materia/pkg/source/oci"
 )
 
 func setupDirectories(c *materia.MateriaConfig) error {
