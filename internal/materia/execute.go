@@ -12,12 +12,19 @@ import (
 
 var ErrNeedRollback = errors.New("need rollback")
 
-type ExecutionReport struct {
-	StepsCompleted int
-	Rolledback     bool
-	Error          error
+type ErrNeedRollbackType struct {
+	Reason error
 }
 
+func (e *ErrNeedRollbackType) Error() string {
+	return fmt.Sprintf("need rollback: %v", e.Reason)
+}
+
+type ExecutionReport struct {
+	StepsCompleted int
+}
+
+// Execute always returns StepsCompleted in its ExecutionReport, even if it errors out
 func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (ExecutionReport, error) {
 	defer func() {
 		if m.Executor.CleanupComponents {
@@ -30,22 +37,18 @@ func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (ExecutionRepor
 	}
 	defer m.unlock()
 	steps, err := m.Executor.Execute(ctx, aplan)
-	if aErr, ok := errors.AsType[*executor.ErrServiceUnhealthy](err); ok {
-		if m.Rollback {
-			return ExecutionReport{StepsCompleted: steps, Rolledback: true, Error: aErr}, ErrNeedRollback
+	report := ExecutionReport{
+		StepsCompleted: steps,
+	}
+	if m.Rollback {
+		if aErr, ok := errors.AsType[*executor.ErrServiceUnhealthy](err); ok {
+			return report, &ErrNeedRollbackType{aErr}
+		}
+		if aErr, ok := errors.AsType[*executor.ErrFinalStateUnhealthy](err); ok {
+			return report, &ErrNeedRollbackType{aErr}
 		}
 	}
-	if aErr, ok := errors.AsType[*executor.ErrFinalStateUnhealthy](err); ok {
-		// services are unhealthy on final check, rollback if enabled
-		if m.Rollback {
-			return ExecutionReport{StepsCompleted: steps, Rolledback: true, Error: aErr}, ErrNeedRollback
-		}
-	}
-	if err != nil {
-		return ExecutionReport{}, err
-	}
-
-	return ExecutionReport{steps, false, nil}, nil
+	return report, err
 }
 
 func (m *Materia) validatePostExecute(ctx context.Context) {

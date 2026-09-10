@@ -1,7 +1,5 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [x] Standardize config parsing
-- [x] Rollback for OCI source
 - [ ] Improve Service manifest definitions
 
 # Potential future goals

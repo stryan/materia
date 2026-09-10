@@ -232,28 +232,35 @@ func main() {
 					}
 					rep, err := m.Execute(ctx, plan)
 					if err != nil {
-						if !errors.Is(err, materia.ErrNeedRollback) {
+						if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); !ok {
 							log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(plan.Steps()))
 							return err
-						}
-						err := m.Notifier.Notify(ctx, notify.NotifyRollback, "Rollback initiated")
-						if err != nil {
-							return fmt.Errorf("needed rollback but failed to send rollback notification: %w", err)
-						}
-						err = m.Source.Rollback(ctx)
-						if err != nil {
-							return err
-						}
-						plan, err := m.Plan(ctx)
-						if err != nil {
-							return err
-						}
-						if !quiet {
-							fmt.Println(plan.Pretty())
-						}
-						_, err = m.Execute(ctx, plan)
-						if err != nil {
-							return err
+						} else {
+							err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
+							if err != nil {
+								return fmt.Errorf("needed rollback but failed to send rollback notification: %w", err)
+							}
+							err = m.Source.Rollback(ctx)
+							if err != nil {
+								return err
+							}
+							// re-use plan so we save the rolled-back plan outside of this block
+							oldPlan := plan
+							plan, err = m.Plan(ctx)
+							if err != nil {
+								return err
+							}
+							if !quiet {
+								fmt.Println(plan.Pretty())
+							}
+							rep2, err := m.Execute(ctx, plan)
+							if err != nil {
+								log.Warnf("post-rollback: %v/%v steps completed", rep2.StepsCompleted, len(plan.Steps()))
+								return err
+							}
+							if !quiet {
+								fmt.Printf("Original Plan:\n %v\nRollback Plan:\n %v\n", oldPlan.Pretty(), plan.Pretty())
+							}
 						}
 					}
 					err = m.SavePlan(plan, "lastrun.toml")
