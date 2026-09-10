@@ -1,11 +1,8 @@
-package main
+package rpc
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/user"
-	"path/filepath"
 
 	"charm.land/log/v2"
 	"github.com/varlink/go/varlink"
@@ -67,8 +64,8 @@ func (s *VarlinkServer) Update(ctx context.Context, c varlinkapi.VarlinkCall) er
 	return c.ReplyUpdate(ctx, int64(rep.StepsCompleted))
 }
 
-func newVarlinkServer(ctx context.Context, m *materia.Materia) (*varlink.Service, error) {
-	serv, err := varlink.NewService("primamateria", "materia", Version, "https://primamateria.systems")
+func NewVarlinkServer(ctx context.Context, m *materia.Materia, version string) (*varlink.Service, error) {
+	serv, err := varlink.NewService("primamateria", "materia", version, "https://primamateria.systems")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create varlink service: %w", err)
 	}
@@ -76,24 +73,4 @@ func newVarlinkServer(ctx context.Context, m *materia.Materia) (*varlink.Service
 		return nil, fmt.Errorf("unable to register varlink interface: %w", err)
 	}
 	return serv, nil
-}
-
-func socketPath() (string, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		return "", err
-	}
-	socketDir := ""
-	if currentUser.Name != "root" {
-		uid := currentUser.Uid
-		socketDir = filepath.Join("/run/user", uid, "materia")
-	} else {
-		socketDir = filepath.Join("/run/materia")
-	}
-	err = os.MkdirAll(socketDir, 0o700)
-	if err != nil {
-		return "", err
-	}
-	// varlink does unix: not the normal scheme://
-	return fmt.Sprintf("unix:%v", filepath.Join(socketDir, "materia.sock")), nil
 }

@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"context"
@@ -14,7 +14,7 @@ func Test_NewVarlinkServer_BindsSocket(t *testing.T) {
 	addr, err := socketPath()
 	require.NoError(t, err)
 
-	serv, err := newVarlinkServer(ctx, nil)
+	serv, err := NewVarlinkServer(ctx, nil, "test")
 	require.NoError(t, err)
 
 	require.NoError(t, serv.Bind(ctx, addr))

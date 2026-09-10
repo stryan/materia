@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -13,11 +13,11 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/internal/commands"
+	"primamateria.systems/materia/internal/rpc"
 	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/source"
-	"primamateria.systems/materia/pkg/sourceman"
 )
 
 func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
@@ -25,67 +25,26 @@ func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*mate
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
-	err = c.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("error validating config: %w", err)
-	}
-	if err := setupDirectories(c); err != nil {
-		return nil, fmt.Errorf("error creating base directories: %w", err)
-	}
 
-	mainRepo, err := getLocalRepo(k, c.SourceDir)
-	if err != nil {
-		return nil, err
-	}
-	hmc := &hostman.HostmanConfig{
-		Hostname:         c.Hostname,
-		DataDir:          c.MateriaDir,
-		QuadletDir:       c.QuadletDir,
-		ScriptsDir:       c.ScriptsDir,
-		ServicesDir:      c.ServiceDir,
-		ServicesConfig:   c.ServicesConfig,
-		ContainersConfig: c.ContainersConfig,
-	}
-	smc := &sourceman.SourceManConfig{
-		SourceDir: c.SourceDir,
-		RemoteDir: c.RemoteDir,
-	}
-	sm, err := sourceman.NewSourceManager(smc)
-	if err != nil {
-		return nil, err
-	}
-	err = sm.AddSource(mainRepo, nil, nil, true)
-	if err != nil {
-		return nil, err
-	}
-	err = sm.Sync(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error with initial repo sync: %w", err)
-	}
-	err = sm.LoadRemotes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
-	}
-
-	hm, err := hostman.NewHostManager(ctx, hmc)
-	if err != nil {
-		return nil, err
-	}
 	if sc.NotifyWebhook != "" {
 		c.NotifyConfig = &notify.NotifyConfig{
-			Triggers: map[string]string{
-				notify.NotifyUpdate: sc.NotifyWebhook,
-			},
+			Triggers: map[string]string{notify.NotifyUpdate: sc.NotifyWebhook},
 		}
 	}
-	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
-	if err != nil {
-		log.Fatal(err)
+
+	if err := c.Validate(); err != nil {
+		return nil, fmt.Errorf("error validating config: %w", err)
 	}
-	return m, nil
+
+	src, err := commands.BuildSource(k)
+	if err != nil {
+		return nil, err
+	}
+
+	return materia.NewMateria2(ctx, c, src)
 }
 
-func RunServer(ctx context.Context, k *koanf.Koanf) error {
+func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	ctx, serverClose := context.WithCancel(ctx)
 	defer serverClose()
 	log.Info("Starting server mode")
@@ -123,7 +82,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if spath == "" {
 		return errors.New("no socket provided, unable to generate one")
 	}
-	vserv, err := newVarlinkServer(ctx, m)
+	vserv, err := rpc.NewVarlinkServer(ctx, m, version)
 	if err != nil {
 		log.Fatal(err)
 	}

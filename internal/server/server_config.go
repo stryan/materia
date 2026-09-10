@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -44,11 +44,7 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 }
 
 func DefaultServicesConfig() (*ServerConfig, error) {
-	socket, err := socketPath()
-	if err != nil {
-		return nil, err
-	}
 	return &ServerConfig{
-		Socket: socket,
+		Socket: "",
 	}, nil
 }

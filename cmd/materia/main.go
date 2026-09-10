@@ -8,11 +8,10 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/urfave/cli/v3"
+	"primamateria.systems/materia/internal/commands"
 	"primamateria.systems/materia/internal/config"
-	"primamateria.systems/materia/pkg/components"
-	"primamateria.systems/materia/pkg/hostman"
-	"primamateria.systems/materia/pkg/materia"
-	"primamateria.systems/materia/pkg/notify"
+	"primamateria.systems/materia/internal/rpc"
+	"primamateria.systems/materia/internal/server"
 )
 
 var Version string
@@ -72,12 +71,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					c, err := materia.NewConfig(k)
-					if err != nil {
-						log.Fatal(err)
-					}
-					fmt.Println(c)
-					return nil
+					return commands.RunDumpConfig(ctx, k)
 				},
 			},
 			{
@@ -97,25 +91,11 @@ func main() {
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
-					m, err := setup(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-					if arg != "" {
-						fact, err := m.Host.Lookup(arg)
-						if err != nil {
-							return err
-						}
-						fmt.Printf("Fact %v: %v", arg, fact)
-						return nil
-					}
-					fmt.Println(m.GetFacts(host))
-					return nil
+					return commands.RunFacts(ctx, k, host, arg)
 				},
 			},
 			{
@@ -151,43 +131,11 @@ func main() {
 					if cCtx.IsSet("format") {
 						format = cCtx.String("format")
 					}
-					m, err := setup(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-					plan, err := m.Plan(ctx)
-					if err != nil {
-						return fmt.Errorf("error planning actions: %w", err)
-					}
-					if !quiet {
-						switch format {
-						case "text":
-							if plan.Empty() {
-								fmt.Println("No changes made")
-								return nil
-							}
-							fmt.Println(plan.Pretty())
-						case "json":
-							jsonPlan, err := plan.ToJson()
-							if err != nil {
-								return fmt.Errorf("error converting to json: %w", err)
-							}
-							fmt.Printf("%s", string(jsonPlan))
-						default:
-							return fmt.Errorf("unsupported output format")
-						}
-					}
-					err = m.SavePlan(plan, "plan.toml")
-					if err != nil {
-						return fmt.Errorf("error writing plan: %w", err)
-					}
-
-					return nil
+					return commands.RunPlan(ctx, k, quiet, format)
 				},
 			},
 			{
@@ -214,60 +162,11 @@ func main() {
 					if cCtx.IsSet("resource-only") {
 						cliflags["onlyresource"] = cCtx.Bool("resource-only")
 					}
-					m, err := setup(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-					plan, err := m.Plan(ctx)
-					if err != nil {
-						return err
-					}
-					if !quiet {
-						fmt.Println(plan.Pretty())
-					}
-					rep, err := m.Execute(ctx, plan)
-					if err != nil {
-						if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); !ok {
-							log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(plan.Steps()))
-							return err
-						} else {
-							err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
-							if err != nil {
-								return fmt.Errorf("needed rollback but failed to send rollback notification: %w", err)
-							}
-							err = m.Source.Rollback(ctx)
-							if err != nil {
-								return err
-							}
-							// re-use plan so we save the rolled-back plan outside of this block
-							oldPlan := plan
-							plan, err = m.Plan(ctx)
-							if err != nil {
-								return err
-							}
-							if !quiet {
-								fmt.Println(plan.Pretty())
-							}
-							rep2, err := m.Execute(ctx, plan)
-							if err != nil {
-								log.Warnf("post-rollback: %v/%v steps completed", rep2.StepsCompleted, len(plan.Steps()))
-								return err
-							}
-							if !quiet {
-								fmt.Printf("Original Plan:\n %v\nRollback Plan:\n %v\n", oldPlan.Pretty(), plan.Pretty())
-							}
-						}
-					}
-					err = m.SavePlan(plan, "lastrun.toml")
-					if err != nil {
-						return fmt.Errorf("error writing plan: %w", err)
-					}
-					return nil
+					return commands.RunUpdate(ctx, k, quiet)
 				},
 			},
 			{
@@ -279,25 +178,11 @@ func main() {
 						return cli.Exit("specify a component to remove", 1)
 					}
 
-					m, err := setup(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-
-					err = m.CleanComponent(ctx, comp)
-					if err != nil {
-						if errors.Is(err, components.ErrCorruptComponent) {
-							return cli.Exit("Component is corrupted, try `materia doctor` instead", 1)
-						}
-						return cli.Exit(fmt.Sprintf("error removing component: %v", err), 1)
-					}
-					fmt.Printf("component %v removed succesfully\n", comp)
-					return nil
+					return commands.RunRemove(ctx, k, comp)
 				},
 			},
 			{
@@ -346,25 +231,11 @@ func main() {
 					if hostname != "" {
 						cliflags["hostname"] = hostname
 					}
-					m, err := setup(ctx, configFile, cliflags)
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-
-					plan, err := m.PlanComponent(ctx, comp, roles)
-					if err != nil {
-						return err
-					}
-					if cCtx.Bool("verbose") {
-						fmt.Println(plan.Pretty())
-					}
-					fmt.Println("OK")
-					return nil
+					return commands.RunValidate(ctx, k, commands.ValidationSetup{Component: comp, Roles: roles}, cCtx.Bool("verbose"))
 				},
 			},
 			{
@@ -378,45 +249,12 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
+					remove := cCtx.Bool("remove")
 					k, err := config.LoadConfigs(ctx, configFile, map[string]any{})
 					if err != nil {
 						return err
 					}
-					c, err := materia.NewConfig(k)
-					if err != nil {
-						return err
-					}
-					hmc := &hostman.HostmanConfig{
-						Hostname:         c.Hostname,
-						DataDir:          c.MateriaDir,
-						QuadletDir:       c.QuadletDir,
-						ScriptsDir:       c.ScriptsDir,
-						ServicesDir:      c.ServiceDir,
-						ServicesConfig:   c.ServicesConfig,
-						ContainersConfig: c.ContainersConfig,
-						CommandPodman:    c.CommandPodman,
-					}
-					hm, err := hostman.NewHostManager(ctx, hmc)
-					if err != nil {
-						return err
-					}
-					corrupted, err := hm.ValidateComponents()
-					if err != nil {
-						return err
-					}
-					for _, v := range corrupted {
-						fmt.Printf("Corrupted component: %v\n", v)
-					}
-					if !cCtx.Bool("remove") {
-						return nil
-					}
-					for _, v := range corrupted {
-						err := hm.PurgeComponentByName(v)
-						if err != nil {
-							return err
-						}
-					}
-					return nil
+					return commands.RunDoctor(ctx, k, remove)
 				},
 			},
 			{
@@ -427,7 +265,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return RunServer(ctx, k)
+					return server.RunServer(ctx, k, Version)
 				},
 			},
 			{
@@ -447,14 +285,11 @@ func main() {
 						Name:  "facts",
 						Usage: "Request facts",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := socketPath()
+							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
+							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
 							}
-							if cCtx.String("socket") != "" {
-								socketPath = cCtx.String("socket")
-							}
-							agent := Agent{socketPath}
 							return agent.Facts(ctx)
 						},
 					},
@@ -471,19 +306,17 @@ func main() {
 						},
 
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := socketPath()
+							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
+							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
-							}
-							if cCtx.String("socket") != "" {
-								socketPath = cCtx.String("socket")
 							}
 							var rev *string
 							if cCtx.String("revision") != "" {
 								revarg := cCtx.String("revision")
 								rev = &revarg
 							}
-							agent := Agent{socketPath}
+
 							return agent.Sync(ctx, rev)
 						},
 					},
@@ -491,15 +324,11 @@ func main() {
 						Name:  "plan",
 						Usage: "Generate a plan",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := socketPath()
+							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
+							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
 							}
-							if cCtx.String("socket") != "" {
-								socketPath = cCtx.String("socket")
-							}
-
-							agent := Agent{socketPath}
 							return agent.Plan(ctx)
 						},
 					},
@@ -507,15 +336,11 @@ func main() {
 						Name:  "update",
 						Usage: "Run update",
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							socketPath, err := socketPath()
+							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
+							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
 							}
-							if cCtx.String("socket") != "" {
-								socketPath = cCtx.String("socket")
-							}
-
-							agent := Agent{socketPath}
 							return agent.Update(ctx)
 						},
 					},
@@ -532,17 +357,13 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					m, err := setup(ctx, configFile, cliflags)
+					force := cCtx.Bool("force")
+
+					k, err := config.LoadConfigs(ctx, configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					defer func() {
-						if err := m.Close(); err != nil {
-							log.Warn("error closing materia: %w", err)
-						}
-					}()
-
-					return m.Clean(ctx, cCtx.Bool("force"))
+					return commands.RunClean(ctx, k, force)
 				},
 			},
 			{
