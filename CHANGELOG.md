@@ -7,6 +7,8 @@ Best effort list of major changes and bugfixes
 - The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
 
 ## Upcoming
+
+## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
 - bugfix: git insecure/hostkeys has better handling
 - docs: cleanup
@@ -15,7 +17,7 @@ Best effort list of major changes and bugfixes
 - feat: enable shell completion
 - feat: OCI sources now support rollback.
 - chore: dependency bumps
-- bugfix: X/Y Steps completed shows correct number son failure
+- bugfix: X/Y Steps completed shows correct numbers on failure
 
 ## 0.7.1
 - bugfix: services are only enabled/disabled when static
