@@ -32,7 +32,8 @@ usage = '''
   arg "<tag>" help = "Tag to push"
 '''
 run = [
-  "mise run ci-buildah ${usage_tag?}",
+  "git remote add mirror git@github.com:stryan/materia", #need this for gh
+  "mise run ci-buildah --stable ${usage_tag?}",
   "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
@@ -42,12 +43,15 @@ run = [
 depends = ["build-amd64", "build-arm64"]
 usage = '''
   arg "[tag]" help = "Tag to push, omit to build only without pushing"
+  flag "-s --stable" help="Make this release a stable release" default=#false
 '''
 run = '''
   buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
   if [ -n "$usage_tag" ]; then
     buildah manifest push --all materia docker://{{vars.image_registry}}/materia:"$usage_tag"
+    [[ "${usage_stable}" == "true" ]] && buildah manifest push --all materia docker://{{vars.image_registry}}/materia:stable
     buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:"$usage_tag"
+    [[ "${usage_stable}" == "true" ]] && buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:stable
   fi
 '''
 
