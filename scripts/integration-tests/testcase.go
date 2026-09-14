@@ -8,7 +8,6 @@ import (
 	"slices"
 	"time"
 
-	"charm.land/log/v2"
 	"filippo.io/age"
 	koanftoml "github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/v2"
@@ -147,24 +146,13 @@ func checkTestCase(ctx context.Context, c testcontainers.Container, tc TestCase)
 		}
 	}
 	for _, s := range tc.Output.ActiveServices {
-		// TODO This doesn't seem to work right
-		attempts := 0
-		if !getService(ctx, c, s, "active") && attempts > 5 {
+		if err := waitForServiceState(ctx, c, s, "active", 10*time.Second); err != nil {
 			return fmt.Errorf("inactive service: %v", s)
-		} else {
-			log.Infof("waiting on %v to start", s)
-			attempts++
-			time.Sleep(2 * time.Second)
 		}
 	}
 	for _, s := range tc.Output.InactiveServices {
-		attempts := 0
-		if !getService(ctx, c, s, "inactive") && attempts > 5 {
-			return fmt.Errorf("inactive service: %v", s)
-		} else {
-			log.Infof("waiting on %v to stop", s)
-			attempts++
-			time.Sleep(2 * time.Second)
+		if err := waitForServiceState(ctx, c, s, "inactive", 10*time.Second); err != nil {
+			return fmt.Errorf("active service shouldn't be active: %v", s)
 		}
 	}
 

@@ -1,50 +1,225 @@
 package main
 
-var hello = TestComponent{
-	Name: "hello",
-	Files: []TestFile{
-		{
-			Path:    "hello.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path: "MANIFEST.toml",
-		},
+import (
+	"fmt"
+	"slices"
+
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/manifests"
+)
+
+var testcases = []TestCase{
+	simpleRepo,
+	simpleRepo2,
+	updatedRes1,
+	updatedRes2,
+	plannerConfigs,
+	ensureQuadlets,
+	appMode,
+	quadletDropins,
+	migration1,
+	migration2,
+	sopsTest,
+	allResources,
+	componentScripts,
+	instancedComponents,
+	containerWithBuild,
+
+	exampleRepo,
+	exampleRepoBranch,
+
+	ociSource,
+
+	rollbackGitFailed,
+	rollbackGitSuccess,
+	rollbackOciFailed,
+	rollbackOciSuccess,
+}
+
+var simpleRepo = TestCase{
+	Name:   "simple-repo",
+	Config: defaultConfig("simple-repo"),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{hello},
 	},
-	Output: []TestFile{
-		{
-			Path:    "/etc/containers/systemd/hello/hello.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path: "/var/lib/materia/components/hello/MANIFEST.toml",
-		},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files:            hello.Output,
 	},
 }
 
-var helloTmpl = TestComponent{
-	Name: "hello",
-	Files: []TestFile{
-		{
-			Path:    "hello.container",
-			Content: "[Container]\nImage=docker.io/busybox:{{.containerTag}}\n",
-		},
-		{
-			Path: "MANIFEST.toml",
-		},
+var updatedRes1 = TestCase{
+	Name:   "updated-res-1",
+	Config: defaultConfig("updated-res-1"),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{helloQuadlets},
 	},
-	Output: []TestFile{
-		{
-			Path:    "/etc/containers/systemd/hello/hello.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path: "/var/lib/materia/components/hello/MANIFEST.toml",
-		},
+	Output: TestOutput{
+		ActiveServices:   []string{"hello.service"},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files:            helloQuadlets.Output,
 	},
 }
 
-var helloQuadlets = TestComponent{
+var updatedRes2 = TestCase{
+	Name:   "updated-res-2",
+	Config: defaultConfig("updated-res-2"),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{hello},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{"hello.service"},
+		Components:       []string{"hello"},
+		Files:            hello.Output,
+	},
+}
+
+var plannerConfigs = TestCase{
+	Name: "planner-configs",
+	Config: mustConfig("planner-configs", map[string]any{
+		"hostname":                 "localhost",
+		"quiet":                    "true",
+		"file.base_dir":            "attributes",
+		"planner.cleanup_quadlets": "true",
+		"planner.backup_volumes":   "false",
+		"source.kind":              "local",
+		"source.url":               "file:///root/tests/planner-configs/source",
+	}),
+	Source: TestRepo{
+		AttributesKind: "sops",
+		Manifest:       defaultManifest("hello"),
+		Components:     []TestComponent{helloQuadlets},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{"hello.service"},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files:            helloQuadlets.Output,
+	},
+}
+
+var ensureQuadlets = TestCase{
+	Name: "ensure-quadlets",
+	Config: mustConfig("ensure-quadlets", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"file.base_dir": "attributes",
+		"source.kind":   "local",
+		"source.url":    "file:///root/tests/ensure-quadlets/source",
+	}),
+	Source: TestRepo{
+		AttributesKind: "sops",
+		Manifest:       defaultManifest("hello"),
+		Components:     []TestComponent{helloQuadlets},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{"hello.service"},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files:            helloQuadlets.Output,
+	},
+}
+
+var quadletDropins = TestCase{
+	Name: "quadlet-dropins",
+	Config: mustConfig("quadlet-dropins", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"file.base_dir": "attributes",
+		"source.kind":   "local",
+		"source.url":    "file:///root/tests/quadlet-dropins/source",
+	}),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{helloQuadlets},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{"hello.service"},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files:            helloQuadlets.Output,
+	},
+}
+
+var appMode = TestCase{
+	Name: "app-mode",
+	Config: mustConfig("app-mode", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"appmode":       "true",
+		"file.base_dir": "attributes",
+		"source.kind":   "local",
+		"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "app-mode"),
+	}),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{hello},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{"hello"},
+		Files: append(hello.Output, TestFile{
+			Path:    "/etc/containers/systemd/hello/.hello.app",
+			Content: "hello.container",
+		}),
+	},
+}
+
+var simpleRepo2 = func() TestCase {
+	tc := TestCase{
+		Name:   "simple-repo-2",
+		Config: defaultConfig("simple-repo-2"),
+		Source: TestRepo{
+			Manifest: &manifests.MateriaManifest{
+				Hosts: map[string]manifests.Host{
+					"localhost": {
+						Components: []string{"carpal", "freshrss"},
+						Roles:      []string{"double"},
+					},
+				},
+				Roles: map[string]manifests.Role{
+					"double": {Components: []string{"double"}},
+				},
+			},
+			Components: []TestComponent{carpalTmpl, freshRssTmpl, double},
+			Attributes: map[string]attributes.AttributeVault{
+				"vault.toml": {
+					Components: map[string]map[string]any{},
+				},
+			},
+		},
+		Output: TestOutput{
+			ActiveServices:   []string{"freshrss.service", "carpal.service", "foo.service", "bar.service"},
+			InactiveServices: []string{},
+			Components:       []string{"freshrss", "carpal", "double"},
+			Files:            slices.Concat(freshRssTmpl.Output, carpalTmpl.Output, double.Output),
+		},
+	}
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "carpal", "configContents", `
+driver: file
+file:
+  directory: /etc/carpal/resources/`)
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "carpal", "ldapTemplate", `
+  aliases:
+    - "mailto:{{ index . "mail" }}"`)
+
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "freshrss", "domain", "rss.example.com")
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "freshrss", "cron", "1,31")
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "freshrss", "timezone", "America/NewYork")
+	return tc
+}()
+
+var helloWithNetworkVolume = TestComponent{
 	Name: "hello",
 	Files: []TestFile{
 		{
@@ -67,20 +242,11 @@ var helloQuadlets = TestComponent{
 			`,
 		},
 		{
-			Path: "MANIFEST.toml",
-			Content: `
-			[[Services]]
-			Service = "hello.container"
-			`,
+			Path:    "MANIFEST.toml",
+			Content: "\n\t\t\t[[Services]]\n\t\t\tService = \"hello.container\"\n\t\t\t",
 		},
-		{
-			Path:    "hello.volume",
-			Content: "[Volume]\n",
-		},
-		{
-			Path:    "hello.network",
-			Content: "[Network]\n",
-		},
+		{Path: "hello.volume", Content: "[Volume]\nLabel=foo=bar\n"},
+		{Path: "hello.network", Content: "[Network]\n"},
 	},
 	Output: []TestFile{
 		{
@@ -111,7 +277,7 @@ var helloQuadlets = TestComponent{
 		},
 		{
 			Path:    "/etc/containers/systemd/hello/hello.volume",
-			Content: "[Volume]\n",
+			Content: "[Volume]\nLabel=foo=bar\n",
 		},
 		{
 			Path:    "/etc/containers/systemd/hello/hello.network",
@@ -120,332 +286,312 @@ var helloQuadlets = TestComponent{
 	},
 }
 
-var double = TestComponent{
-	Name: "double",
-	Files: []TestFile{
-		{
-			Path:    "foo.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path:    "bar.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path: "MANIFEST.toml",
-			Content: `
-			[[Services]]
-			Service = "foo.container"
-			Oneshot = true
-			[[Services]]
-			Service = "bar.service"
-			Oneshot = true
-			`,
-		},
-	},
-	Output: []TestFile{
-		{
-			Path:    "/etc/containers/systemd/double/foo.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path:    "/etc/containers/systemd/double/bar.container",
-			Content: "[Container]\nImage=docker.io/busybox:stable\n",
-		},
-		{
-			Path: "/var/lib/materia/components/double/MANIFEST.toml",
-			Content: `
-			[[Services]]
-			Service = "foo.container"
-			Oneshot = true
-			[[Services]]
-			Service = "bar.service"
-			Oneshot = true
-			`,
-		},
+var migration1 = TestCase{
+	Name: "migration-1",
+	Config: mustConfig("migration-1", map[string]any{
+		"hostname": "localhost", "quiet": "true", "file.base_dir": "attributes",
+		"planner.migrate_volumes": "true", "source.kind": "local",
+		"source.url": "file:///root/tests/migration-1/source",
+	}),
+	Source: TestRepo{Manifest: defaultManifest("hello"), Components: []TestComponent{helloQuadlets}},
+	Output: TestOutput{
+		ActiveServices: []string{"hello.service"},
+		Components:     []string{"hello"},
+		Files:          helloQuadlets.Output,
 	},
 }
 
-var freshRssTmpl = TestComponent{
-	Name: "freshrss",
-	Files: []TestFile{
-		{
-			Path: "MANIFEST.toml",
-			Content: `
-				Defaults.containerTag = "latest"
-				Defaults.Port = 80
-				Secrets = ["domain"]
-
-				[[Services]]
-				Service = "freshrss.service"
-			`,
-		},
-		{
-			Path:    "freshrss-data.volume",
-			Content: "[Volume]\n",
-		},
-		{
-			Path:    "freshrss-extensions.volume",
-			Content: "[Volume]\n",
-		},
-		{
-			Path: "freshrss.container.gotmpl",
-			Content: `
-			[Container]
-			Image=docker.io/freshrss/freshrss:{{.containerTag}}
-			ContainerName=freshrss
-			EnvironmentFile={{ m_dataDir "freshrss" }}/freshrss.env
-			Volume=freshrss-data.volume:/var/www/FreshRSS/data
-			Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
-			PublishPort={{ .Port }}:80
-			{{ secretEnv "domain" "SERVER_DNS" }}
-			`,
-		},
-		{
-			Path:    "freshrss.env.gotmpl",
-			Content: "TZ={{.timezone}}\nCRON_MIN={{.cron}}",
-		},
-	},
-	Output: []TestFile{
-		{
-			Path: "/var/lib/materia/components/freshrss/MANIFEST.toml",
-			Content: `
-			Defaults.containerTag = "latest"
-			Defaults.Port = 80
-			Secrets = ["domain"]
-
-			[[Services]]
-			Service = "freshrss.service"
-			`,
-		},
-		{
-			Path: "/var/lib/materia/components/freshrss/freshrss.env",
-			Content: `
-			TZ=America/NewYork
-			CRON_MIN=1,31
-			`,
-		},
-		{
-			Path:    "/etc/containers/systemd/freshrss/freshrss-data.volume",
-			Content: "[Volume]\n",
-		},
-		{
-			Path:    "/etc/containers/systemd/freshrss/freshrss-extensions.volume",
-			Content: "[Volume]\n",
-		},
-		{
-			Path: "/etc/containers/systemd/freshrss/freshrss.container",
-			Content: `
-			[Container]
-			Image=docker.io/freshrss/freshrss:latest
-			ContainerName=freshrss
-			EnvironmentFile=/var/lib/materia/components/freshrss/freshrss.env
-			Volume=freshrss-data.volume:/var/www/FreshRSS/data
-			Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
-			PublishPort=80:80
-			Secret=materia-domain,type=env,target=SERVER_DNS
-			`,
-		},
+var migration2 = TestCase{
+	Name: "migration-2",
+	Config: mustConfig("migration-2", map[string]any{
+		"hostname": "localhost", "file.base_dir": "attributes",
+		"planner.migrate_volumes": "true", "source.kind": "local",
+		"source.url": "file:///root/tests/migration-2/source",
+	}),
+	Source: TestRepo{Manifest: defaultManifest("hello"), Components: []TestComponent{helloWithNetworkVolume}},
+	Output: TestOutput{
+		ActiveServices: []string{"hello.service"},
+		Components:     []string{"hello"},
+		Files:          helloWithNetworkVolume.Output,
 	},
 }
 
-var carpalTmpl = TestComponent{
-	Name: "carpal",
-	Files: []TestFile{
-		{
-			Path: "MANIFEST.toml",
-			Content: `
-			[Defaults]
-			port = 8000
-			containerTag = "latest"
-
-			[[Services]]
-			Service = "carpal.service"
-			ReloadedBy = ["conf/config.yml","conf/ldap.yml"]
-			RestartedBy = ["conf/config.yml","carpal.container"]
-			`,
+var sopsTest = func() TestCase {
+	tc := TestCase{
+		Name: "sops-test",
+		Config: mustConfig("sops-test", map[string]any{
+			"hostname":      "localhost",
+			"quiet":         "true",
+			"sops.base_dir": "attributes",
+			"sops.suffix":   "enc",
+			"source.kind":   "local",
+			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "sops-test"),
+		}),
+		Source: TestRepo{
+			AttributesKind: "sops",
+			Manifest:       defaultManifest("hello"),
+			Components:     []TestComponent{helloTmpl},
+			Attributes: map[string]attributes.AttributeVault{
+				"vault.yml": {
+					Components: map[string]map[string]any{},
+				},
+			},
 		},
-		{
-			Path: "carpal.container.gotmpl",
-			Content: `
-			[Unit]
-			Description=carpal container
-			After=local-fs.target network.target
-			StartLimitIntervalSec=300
-			StartLimitBurst=5
-
-			[Service]
-			SuccessExitStatus=2
-
-
-			[Container]
-			Image=docker.io/peeley/carpal:{{.containerTag}}
-			ContainerName=carpal
-			Volume={{ m_dataDir "carpal" }}/conf:/etc/carpal:Z
-			PublishPort={{.port}}:8008
-
-			[Install]
-			# Start by default on boot
-			WantedBy=multi-user.target default.target
-			`,
+		Output: TestOutput{
+			ActiveServices:   []string{},
+			InactiveServices: []string{},
+			Components:       []string{"hello"},
+			Files: []TestFile{
+				{
+					Path:    "/etc/containers/systemd/hello/hello.container",
+					Content: "[Container]\nImage=docker.io/busybox:latest\n",
+				},
+				{
+					Path: "/var/lib/materia/components/hello/MANIFEST.toml",
+				},
+			},
 		},
-		{
-			Path:    "conf/config.yml.gotmpl",
-			Content: "{{.configContents}}",
-		},
-		{
-			Path:    "conf/ldap.gotmpl.gotmpl",
-			Content: "{{ .ldapTemplate }}",
-		},
-		{
-			Path:  "conf/resources/",
-			IsDir: true,
-		},
+	}
+
+	injectComponentAttribute(tc.Source.Attributes["vault.yml"], "hello", "containerTag", "latest")
+	return tc
+}()
+
+var allResources = TestCase{
+	Name:   "all-resources",
+	Config: defaultConfig("all-resources"),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello-all"),
+		Components: []TestComponent{helloAll},
 	},
-	Output: []TestFile{
-		{
-			Path: "/var/lib/materia/components/carpal/MANIFEST.toml",
-			Content: `
-			[Defaults]
-			port = 8000
-			containerTag = "latest"
-
-			[[Services]]
-			Service = "carpal.service"
-			ReloadedBy = ["conf/config.yml","conf/ldap.yml"]
-			RestartedBy = ["conf/config.yml","carpal.container"]
-			`,
-		},
-		{
-			Path: "/etc/containers/systemd/carpal/carpal.container",
-			Content: `
-			[Unit]
-			Description=carpal container
-			After=local-fs.target network.target
-			StartLimitIntervalSec=300
-			StartLimitBurst=5
-
-			[Service]
-			SuccessExitStatus=2
-
-
-			[Container]
-			Image=docker.io/peeley/carpal:latest
-			ContainerName=carpal
-			Volume=/var/lib/materia/components/carpal/conf:/etc/carpal:Z
-			PublishPort=8008:8008
-
-			[Install]
-			# Start by default on boot
-			WantedBy=multi-user.target default.target
-			`,
-		},
-		{
-			Path:    "/var/lib/materia/components/carpal/conf/config.yml.gotmpl",
-			Content: "{{.configContents}}",
-		},
-		{
-			Path:    "/var/lib/materia/components/carpal/conf/ldap.gotmpl.gotmpl",
-			Content: "{{ .ldapTemplate }}",
-		},
-		{
-			Path:  "/var/lib/materia/components/carpal/conf/resources/",
-			IsDir: true,
-		},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{"hello-all"},
+		Files:            helloAll.Output,
 	},
 }
 
-var exampleRepoFreshRSSOutput = []TestFile{
-	{
-		Path: "/var/lib/materia/components/freshrss/MANIFEST.toml",
-		Content: `
-			Defaults.containerTag = "latest"
-			Defaults.Port = 80
-			Secrets = ["domain"]
-
-			[[Services]]
-			Service = "freshrss.service"
-			`,
-	},
-	{
-		Path: "/var/lib/materia/components/freshrss/freshrss.env",
-		Content: `
-			TZ=America/NewYork
-			CRON_MIN=1,31
-			`,
-	},
-	{
-		Path:    "/etc/containers/systemd/freshrss/freshrss-data.volume",
-		Content: "[Volume]\n",
-	},
-	{
-		Path:    "/etc/containers/systemd/freshrss/freshrss-extensions.volume",
-		Content: "[Volume]\n",
-	},
-	{
-		Path: "/etc/containers/systemd/freshrss/freshrss.container",
-		Content: `
-			[Unit]
-			Description=FreshRSS container
-			StartLimitIntervalSec=300
-			StartLimitBurst=5
-
-
-			[Service]
-			Restart=on-failure
-			RestartSec=5s
-
-
-			[Container]
-			Image=docker.io/freshrss/freshrss:latest
-			ContainerName=freshrss
-			EnvironmentFile=/var/lib/materia/components/freshrss/freshrss.env
-			Volume=freshrss-data.volume:/var/www/FreshRSS/data
-			Volume=freshrss-extensions.volume:/var/www/FreshRSS/extensions
-			PublishPort=80:80
-			Secret=materia-domain,type=env,target=SERVER_DNS
-
-			[Install]
-			# Start by default on boot
-			WantedBy=multi-user.target default.target
-			`,
+var componentScripts = TestCase{
+	Name:   "component-scripts",
+	Config: defaultConfig("component-scripts"),
+	Source: TestRepo{Manifest: defaultManifest("hello"), Components: []TestComponent{helloWithScripts}},
+	Output: TestOutput{
+		Components: []string{"hello"},
+		Files:      helloWithScripts.Output,
 	},
 }
 
-var exampleRepoPodmanExporterOutput = []TestFile{
-	{
-		Path: "/etc/containers/systemd/podman_exporter/podman_exporter.container",
-		Content: `[Unit]
-			Description=Podman prometheus exporter
-
-
-			[Service]
-			Restart=on-failure
-			RestartSec=5s
-
-			[Container]
-			Image=quay.io/navidys/prometheus-podman-exporter:latest
-			ContainerName=podman_exporter
-			Volume=/run/podman/podman.sock:/run/podman/podman.sock
-			Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
-			SecurityLabelDisable=true
-			User=root
-			PublishPort=9882:9882
-
-			[Install]
-			# Start by default on boot
-			WantedBy=multi-user.target default.target
-		`,
+var containerWithBuild = TestCase{
+	Name:   "container-with-build",
+	Config: defaultConfig("container-with-build"),
+	Source: TestRepo{
+		AttributesKind: "sops",
+		Manifest:       defaultManifest("hello"),
+		Components:     []TestComponent{helloBuild},
 	},
-	{
-		Path: "/var/lib/materia/components/podman_exporter/MANIFEST.toml",
-		Content: `
-			Defaults.containerTag = "latest"
-			Defaults.Port = 9882
-
-			[[Services]]
-			Service = "podman_exporter.service"
-			RestartedBy = ["podman_exporter.container"]
-			`,
+	Output: TestOutput{
+		ActiveServices:   []string{"hello.service"},
+		InactiveServices: []string{"hello-build.service"},
+		Components:       []string{"hello"},
+		Files:            helloBuild.Output,
 	},
+}
+
+var instancedComponents = func() TestCase {
+	tc := TestCase{
+		Name:   "instanced-components",
+		Config: defaultConfig("instanced-components"),
+		Source: TestRepo{
+			AttributesKind: "file",
+			Manifest:       defaultManifest("hello@foo", "hello@bar"),
+			Components:     []TestComponent{helloInstanced},
+			Attributes: map[string]attributes.AttributeVault{
+				"vault.toml": {Components: map[string]map[string]any{}},
+			},
+		},
+		Output: TestOutput{
+			ActiveServices: []string{"hello@foo.service", "hello@bar.service"},
+			Components:     []string{"hello@foo", "hello@bar"},
+			Files:          helloInstanced.Output,
+		},
+	}
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "hello", "containerTag", "latest")
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "hello@foo", "mountPoint", "hellofoo")
+	injectComponentAttribute(tc.Source.Attributes["vault.toml"], "hello@bar", "mountPoint", "hellobar")
+	return tc
+}()
+
+var exampleRepo = TestCase{
+	Name: "example-repo",
+	Config: mustConfig("example-repo", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "git",
+		"source.url":    "https://github.com/stryan/materia_example_repo",
+	}),
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var exampleRepoBranch = TestCase{
+	Name: "example-repo-branch",
+	Config: mustConfig("example-repo-branch", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "git",
+		"source.url":    "https://github.com/stryan/materia_example_repo",
+	}),
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var ociSource = TestCase{
+	Name: "example-repo-oci",
+	Config: mustConfig("oci-source", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "oci",
+		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+	}),
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var rollbackGitFailed = TestCase{
+	Name: "rollback-git-failed",
+	Config: mustConfig("rollback-git-failed", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "git",
+		"source.url":    "/tmp/materia/repo",
+	}),
+
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var rollbackGitSuccess = TestCase{
+	Name: "rollback-git-success",
+	Config: mustConfig("rollback-git-success", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "git",
+		"source.url":    "/tmp/materia/repo",
+		"rollback.kind": "service",
+	}),
+
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var rollbackOciFailed = TestCase{
+	Name: "rollback-oci-failed",
+	Config: mustConfig("rollback-oci-failed", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "oci",
+		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+	}),
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var rollbackOciSuccess = TestCase{
+	Name: "rollback-oci-success",
+	Config: mustConfig("rollback-oci-success", map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"sops.base_dir": "attributes",
+		"sops.suffix":   "enc",
+		"source.kind":   "oci",
+		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"rollback.kind": "service",
+	}),
+	Source: TestRepo{Remote: true},
+	Output: TestOutput{
+		ActiveServices:   []string{"freshrss.service", "podman_exporter.service"},
+		InactiveServices: []string{},
+		Components:       []string{"freshrss", "podman_exporter"},
+		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+func newConfig(input map[string]any) (*koanf.Koanf, error) {
+	k := koanf.New(".")
+	if err := k.Load(confmap.Provider(input, "."), nil); err != nil {
+		return nil, err
+	}
+	return k, nil
+}
+
+func mustConfig(name string, input map[string]any) *koanf.Koanf {
+	k, err := newConfig(input)
+	if err != nil {
+		panic(fmt.Sprintf("building config for fixture %v: %v", name, err))
+	}
+	return k
+}
+
+func defaultConfig(name string) *koanf.Koanf {
+	return mustConfig(name, map[string]any{
+		"hostname":      "localhost",
+		"quiet":         "true",
+		"file.base_dir": "attributes",
+		"source.kind":   "local",
+		"source.url":    fmt.Sprintf("file:///root/tests/%v/source", name),
+		"lock":          "true",
+	})
+}
+
+func defaultManifest(comps ...string) *manifests.MateriaManifest {
+	return &manifests.MateriaManifest{
+		Hosts: map[string]manifests.Host{
+			"localhost": {
+				Components: comps,
+			},
+		},
+	}
 }

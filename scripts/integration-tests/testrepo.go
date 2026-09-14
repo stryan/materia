@@ -94,6 +94,9 @@ func (r *TestRepo) Write(ctx context.Context, basedir string) error {
 					}
 					return fmt.Errorf("failed to encode attr to yaml for sops: %w", err)
 				}
+				if err := writer.Close(); err != nil {
+					return fmt.Errorf("failed to close yaml encoder for sops: %w", err)
+				}
 				if err := sopsEncryptFile(ctx, r.Pubkey, vaultfile); err != nil {
 					return fmt.Errorf("failed to sops encrypt file: %w", err)
 				}

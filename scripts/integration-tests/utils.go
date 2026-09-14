@@ -126,6 +126,19 @@ func applyService(ctx context.Context, tc testcontainers.Container, name, action
 	}
 }
 
+func waitForServiceState(ctx context.Context, tc testcontainers.Container, name, state string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if getService(ctx, tc, name, state) {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for %v to become %v", name, state)
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
 func queryContainer(ctx context.Context, tc testcontainers.Container, containerName, format string) (string, error) {
 	code, out, err := runInContainer(ctx, tc, nil, "podman", "inspect", "--format", format, containerName)
 	if err != nil {
@@ -179,16 +192,12 @@ func sopsEncryptFile(ctx context.Context, pubkey, src string) error {
 		return err
 	}
 	defer func() { _ = outfile.Close() }()
-	cmd := exec.CommandContext(ctx,
-		"sops", "encrypt",
-		"--age", pubkey,
-		src,
-	)
+	cmd := exec.CommandContext(ctx, "sops", "encrypt", "--age", pubkey, src)
 	errbuf := bytes.NewBuffer([]byte{})
 	cmd.Stdout = outfile
 	cmd.Stderr = errbuf
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("sops err: %v", errbuf)
+		return fmt.Errorf("sops encrypt failed: %w: %s", err, errbuf.String())
 	}
 	return nil
 }
