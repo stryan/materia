@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/BurntSushi/toml"
-	"primamateria.systems/materia/internal/source/git"
-	"primamateria.systems/materia/internal/source/local"
-	"primamateria.systems/materia/internal/source/oci"
+	"primamateria.systems/materia/pkg/source/git"
+	"primamateria.systems/materia/pkg/source/local"
+	"primamateria.systems/materia/pkg/source/oci"
 )
 
 var (

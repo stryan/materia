@@ -7,6 +7,8 @@ Best effort list of major changes and bugfixes
 - The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
 
 ## Upcoming
+- feat: most materia packages are now public. This will be stablized and documented better in 0.8 or 0.9.
+    - This may also fix some bugs in server mode that (hopefully) no-one has noticed
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly

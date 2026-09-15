@@ -1,12 +1,11 @@
 package containers
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/config"
+	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewContainersConfig_TOML(t *testing.T) {
@@ -22,7 +21,7 @@ compression = "zstd"
 	err = f.Close()
 	assert.Nil(t, err)
 
-	k, err := config.LoadConfigs(context.Background(), f.Name(), nil)
+	k, err := config.Load(f.Name(), nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewContainersConfig(k)
@@ -38,7 +37,7 @@ func Test_NewContainersConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_CONTAINERS__SECRETS_PREFIX", "custom-")
 	t.Setenv("MATERIA_CONTAINERS__COMPRESSION", "zstd")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewContainersConfig(k)
@@ -52,7 +51,7 @@ func Test_NewContainersConfig_Env(t *testing.T) {
 func Test_NewContainersConfig_Defaults(t *testing.T) {
 	t.Setenv("container", "")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewContainersConfig(k)
@@ -66,7 +65,7 @@ func Test_NewContainersConfig_Defaults(t *testing.T) {
 func Test_NewContainersConfig_RemoteDefaultFromEnv(t *testing.T) {
 	t.Setenv("container", "podman")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewContainersConfig(k)

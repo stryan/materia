@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
-func LoadConfigs(_ context.Context, configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
+func Load(configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
 	k := koanf.New(".")
 	fileConf := koanf.New(".")
 	envConf := koanf.New(".")

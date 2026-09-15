@@ -1,12 +1,11 @@
 package notify
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/config"
+	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewConfig_TOML(t *testing.T) {
@@ -20,7 +19,7 @@ rollback = "https://example.com/otherwebhook"
 	assert.Nil(t, err)
 	err = f.Close()
 	assert.Nil(t, err)
-	k, err := config.LoadConfigs(context.Background(), f.Name(), nil)
+	k, err := config.Load(f.Name(), nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewConfig(k)
@@ -41,7 +40,7 @@ func Test_NewConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__UPDATE", "https://example.com/webhook")
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__ROLLBACK", "https://example.com/otherwebhook")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewConfig(k)
@@ -61,7 +60,7 @@ func Test_InvalidConfig(t *testing.T) {
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__UPDATE", "https://example.com/webhook")
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__FORFUN", "https://example.com/otherwebhook")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewConfig(k)

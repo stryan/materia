@@ -7,11 +7,11 @@ import (
 	"slices"
 
 	"charm.land/log/v2"
-	"primamateria.systems/materia/internal/facts"
-	"primamateria.systems/materia/internal/repository"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/containers/command"
 	"primamateria.systems/materia/pkg/containers/native"
+	"primamateria.systems/materia/pkg/facts"
+	"primamateria.systems/materia/pkg/repository"
 	"primamateria.systems/materia/pkg/services"
 )
 

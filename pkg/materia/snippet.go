@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"primamateria.systems/materia/internal/macros"
+	"primamateria.systems/materia/pkg/macros"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

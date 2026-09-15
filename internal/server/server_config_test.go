@@ -1,12 +1,11 @@
-package main
+package server
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/config"
+	"primamateria.systems/materia/pkg/config"
 )
 
 var testConfig = &ServerConfig{
@@ -37,7 +36,7 @@ socket = "/run/sock"
 	assert.Nil(t, err)
 	err = f.Close()
 	assert.Nil(t, err)
-	k, err := config.LoadConfigs(context.Background(), f.Name(), nil)
+	k, err := config.Load(f.Name(), nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewConfig(k)
@@ -55,7 +54,7 @@ func Test_NewConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_SERVER__UPDATE_SECRET", "secret")
 	t.Setenv("MATERIA_SERVER__SOCKET", "/run/sock")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewConfig(k)

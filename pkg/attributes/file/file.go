@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 )
 
 type FileStore struct {

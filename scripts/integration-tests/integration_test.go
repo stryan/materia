@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"charm.land/log/v2"
 	"github.com/stretchr/testify/require"
@@ -438,4 +439,73 @@ func Test_InstancedComponents(t *testing.T) {
 	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
 
 	require.NoError(t, checkTestCase(ctx, tc, testcase))
+}
+
+func Test_ServerMode(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc, false))
+	testcase := serverMode
+	trackServices(testcase)
+
+	require.NoError(t, runMateriaServer(ctx, tc, testcase), "materia server failed to start")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", true, 30*time.Second))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+
+	require.NoError(t, stopMateriaServer(ctx, tc, testcase), "unable to stop server")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", false, 30*time.Second))
+}
+
+func Test_ServerMode_AutoPlan(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc, false))
+	testcase := serverModePlan
+	trackServices(testcase)
+
+	require.NoError(t, runMateriaServer(ctx, tc, testcase), "materia server failed to start")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", true, 30*time.Second))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase)) // technically we could save the lastplan.toml as an output file and verify here
+	require.NoError(t, waitForFile(ctx, tc, "/var/lib/materia/output/plan.toml", true, 30*time.Second))
+
+	require.NoError(t, stopMateriaServer(ctx, tc, testcase), "unable to stop server")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", false, 30*time.Second))
+}
+
+func Test_ServerMode_Sync(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc, false))
+	testcase := serverModeSync
+	trackServices(testcase)
+
+	require.NoError(t, runMateriaServer(ctx, tc, testcase), "materia server failed to start")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", true, 30*time.Second))
+	require.NoError(t, waitForFile(ctx, tc, "/var/lib/materia/output/lastrun.toml", true, 30*time.Second))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+
+	require.NoError(t, stopMateriaServer(ctx, tc, testcase), "unable to stop server")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", false, 30*time.Second))
+}
+
+func Test_ServerMode_Agent(t *testing.T) {
+	ctx := context.Background()
+	require.NoError(t, reset(ctx, tc, false))
+	testcase := serverModeAgent
+	trackServices(testcase)
+
+	require.NoError(t, runMateriaServer(ctx, tc, testcase), "materia server failed to start")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", true, 30*time.Second))
+
+	require.NoError(t, checkTestCase(ctx, tc, testcase))
+
+	// TODO actually validate agent command output
+	require.NoError(t, runMateriaCmd(ctx, tc, "agent", "facts"), "facts failed")
+	require.NoError(t, runMateriaCmd(ctx, tc, "agent", "sync"), "sync failed")
+	require.NoError(t, runMateriaCmd(ctx, tc, "agent", "plan"), "plan failed")
+	require.NoError(t, runMateriaCmd(ctx, tc, "agent", "update"), "update failed")
+	require.NoError(t, runMateriaCmd(ctx, tc, "agent", "facts"), "facts failed")
+
+	require.NoError(t, stopMateriaServer(ctx, tc, testcase), "unable to stop server")
+	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", false, 30*time.Second))
 }

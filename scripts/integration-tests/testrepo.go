@@ -9,7 +9,7 @@ import (
 	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
 	"gopkg.in/yaml.v3"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/attributes/age"
-	fileattrs "primamateria.systems/materia/internal/attributes/file"
-	"primamateria.systems/materia/internal/attributes/sops"
+	"primamateria.systems/materia/pkg/attributes/age"
+	fileattrs "primamateria.systems/materia/pkg/attributes/file"
+	"primamateria.systems/materia/pkg/attributes/sops"
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/notify"

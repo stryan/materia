@@ -3,7 +3,7 @@ package mem
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 )
 
 type MemoryEngine struct {

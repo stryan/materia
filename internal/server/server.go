@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -9,83 +9,52 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/materia"
-	"primamateria.systems/materia/pkg/hostman"
+	"primamateria.systems/materia/internal/commands"
+	"primamateria.systems/materia/internal/rpc"
+	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/source"
-	"primamateria.systems/materia/pkg/sourceman"
 )
+
+type Server struct {
+	syncSecret                   string
+	Socket                       string
+	UpdateInterval, PlanInterval int
+	QuitOnError                  bool
+	materia                      *materia.Materia
+}
 
 func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
 	c, err := materia.NewConfig(k)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
-	err = c.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("error validating config: %w", err)
-	}
-	if err := setupDirectories(c); err != nil {
-		return nil, fmt.Errorf("error creating base directories: %w", err)
-	}
+	materia.SetupLogger(c)
 
-	mainRepo, err := getLocalRepo(k, c.SourceDir)
-	if err != nil {
-		return nil, err
-	}
-	hmc := &hostman.HostmanConfig{
-		Hostname:         c.Hostname,
-		DataDir:          c.MateriaDir,
-		QuadletDir:       c.QuadletDir,
-		ScriptsDir:       c.ScriptsDir,
-		ServicesDir:      c.ServiceDir,
-		ServicesConfig:   c.ServicesConfig,
-		ContainersConfig: c.ContainersConfig,
-	}
-	smc := &sourceman.SourceManConfig{
-		SourceDir: c.SourceDir,
-		RemoteDir: c.RemoteDir,
-	}
-	sm, err := sourceman.NewSourceManager(smc)
-	if err != nil {
-		return nil, err
-	}
-	err = sm.AddSource(mainRepo, nil, nil, true)
-	if err != nil {
-		return nil, err
-	}
-	err = sm.Sync(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error with initial repo sync: %w", err)
-	}
-	err = sm.LoadRemotes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error with repo remotes sync: %w", err)
-	}
-
-	hm, err := hostman.NewHostManager(ctx, hmc)
-	if err != nil {
-		return nil, err
-	}
 	if sc.NotifyWebhook != "" {
 		c.NotifyConfig = &notify.NotifyConfig{
-			Triggers: map[string]string{
-				notify.NotifyUpdate: sc.NotifyWebhook,
-			},
+			Triggers: map[string]string{notify.NotifyUpdate: sc.NotifyWebhook},
 		}
 	}
-	m, err := materia.NewMateriaFromConfig(ctx, c, hm, sm)
-	if err != nil {
-		log.Fatal(err)
+
+	if err := c.Validate(); err != nil {
+		return nil, fmt.Errorf("error validating config: %w", err)
 	}
-	return m, nil
+
+	src, err := commands.BuildSource(k)
+	if err != nil {
+		return nil, err
+	}
+
+	return materia.NewFromConfig(ctx, c, src)
 }
 
-func RunServer(ctx context.Context, k *koanf.Koanf) error {
+func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	ctx, serverClose := context.WithCancel(ctx)
 	defer serverClose()
 	log.Info("Starting server mode")
@@ -123,14 +92,14 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 	if spath == "" {
 		return errors.New("no socket provided, unable to generate one")
 	}
-	vserv, err := newVarlinkServer(ctx, m)
+	vserv, err := rpc.NewVarlinkServer(ctx, m, version)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	var wg sync.WaitGroup
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM, os.Interrupt)
 	go func() {
 		<-c
 		log.Info("trying to shutdown cleanly")
@@ -139,6 +108,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		if err != nil {
 			log.Warn("error closing socket", "error", err)
 		}
+		log.Info("Shutdown varlink server")
 	}()
 	if conf.UpdateInterval > 0 {
 		wg.Add(1)
@@ -176,7 +146,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf) error {
 		if err := vserv.Listen(ctx, spath, 0); err != nil {
 			log.Fatal(err)
 		}
-		log.Debug("shutdown socket")
+		log.Debug("shutdown varlink listener")
 	}()
 	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
@@ -276,7 +246,12 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 				}
 				break
 			}
-			log.Info("Plan generated succesfully: %v changes", plan.Size())
+
+			err = s.materia.SavePlan(plan, "plan.toml")
+			if err != nil {
+				return fmt.Errorf("error writing plan: %w", err)
+			}
+			log.Infof("Plan generated succesfully: %v changes", plan.Size())
 		}
 	}
 }

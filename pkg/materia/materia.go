@@ -1,4 +1,3 @@
-// Package materia contains the primary materia plan-execute functions. You probably don't want to be calling it
 package materia
 
 import (
@@ -14,17 +13,14 @@ import (
 	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/internal/attributes"
-	"primamateria.systems/materia/internal/attributes/age"
-	fileattrs "primamateria.systems/materia/internal/attributes/file"
-	"primamateria.systems/materia/internal/attributes/mem"
-	"primamateria.systems/materia/internal/attributes/sops"
-	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/pkg/actions"
+	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/loader"
 	"primamateria.systems/materia/pkg/lock"
+	"primamateria.systems/materia/pkg/macros"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/plan"
@@ -52,57 +48,7 @@ type Materia struct {
 	debug          bool
 }
 
-func setupVault(c *MateriaConfig) (AttributesEngine, error) {
-	var vaults []AttributesEngine
-	if c.AgeConfig != nil {
-		vault, err := age.NewAgeStore(*c.AgeConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating age store: %w", err)
-		}
-		if c.Attributes == "age" {
-			return vault, nil
-		}
-		vaults = append(vaults, vault)
-	}
-	if c.FileConfig != nil {
-		vault, err := fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating file store: %w", err)
-		}
-
-		if c.Attributes == "file" {
-			return vault, nil
-		}
-		vaults = append(vaults, vault)
-	}
-	if c.SopsConfig != nil {
-		vault, err := sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
-		if err != nil {
-			return nil, fmt.Errorf("error creating sops store: %w", err)
-		}
-		if c.Attributes == "sops" {
-			return vault, nil
-		}
-
-		vaults = append(vaults, vault)
-	}
-	if len(vaults) == 0 {
-		log.Warn("No attributes engines configured: defaulting to in-memory")
-		return mem.NewMemoryEngine(), nil
-	}
-	return NewMultiVaultEngine(vaults...)
-}
-
-func NewMateriaFromConfig(ctx context.Context, c *MateriaConfig, hm HostManager, sm SourceManager) (*Materia, error) {
-	vault, err := setupVault(c)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create attributes engine: %w", err)
-	}
-
-	return NewMateria(ctx, c, hm, vault, sm)
-}
-
-func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attributes AttributesEngine, srcman SourceManager) (*Materia, error) {
+func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceManager, attributes AttributesEngine) (*Materia, error) {
 	if err := c.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid materia config: %w", err)
 	}
@@ -147,6 +93,36 @@ func NewMateria(ctx context.Context, c *MateriaConfig, hm HostManager, attribute
 	if c.ExecutorConfig != nil {
 		ec = *c.ExecutorConfig
 	}
+	if c.Rootless {
+		cn := hm.GetHostname()
+		potentials, err := hm.ListContainers(ctx, containers.ContainerListFilter{})
+		if err != nil {
+			return nil, fmt.Errorf("passed rootless but unable to list materia containers: %w", err)
+		}
+		var materiaContainer *containers.Container
+		for _, v := range potentials {
+			if v.Hostname == cn {
+				materiaContainer = v
+				break
+			}
+		}
+		if materiaContainer != nil {
+			if dataSrc, ok := materiaContainer.BindMounts[DefaultDataDir]; ok {
+				c.ExecutorConfig.MateriaDir = dataSrc.Source
+			}
+			if quadSrc, ok := materiaContainer.BindMounts[DefaultQuadletDir]; ok {
+				c.ExecutorConfig.QuadletDir = quadSrc.Source
+			}
+			if scriptSrc, ok := materiaContainer.BindMounts[DefaultScriptsDir]; ok {
+				c.ExecutorConfig.ScriptsDir = scriptSrc.Source
+			}
+			if serviceSrc, ok := materiaContainer.BindMounts[DefaultServiceDir]; ok {
+				c.ExecutorConfig.ServiceDir = serviceSrc.Source
+			}
+
+		}
+	}
+
 	sc := services.ServicesConfig{}
 	nc := notify.NotifyConfig{}
 	if c.NotifyConfig != nil {

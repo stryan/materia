@@ -6,7 +6,7 @@ import (
 
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/manifests"
 )
 
@@ -36,6 +36,11 @@ var testcases = []TestCase{
 	rollbackGitSuccess,
 	rollbackOciFailed,
 	rollbackOciSuccess,
+
+	serverMode,
+	serverModePlan,
+	serverModeSync,
+	serverModeAgent,
 }
 
 var simpleRepo = TestCase{
@@ -556,6 +561,78 @@ var rollbackOciSuccess = TestCase{
 		InactiveServices: []string{},
 		Components:       []string{"freshrss", "podman_exporter"},
 		Files:            slices.Concat(exampleRepoFreshRSSOutput, exampleRepoPodmanExporterOutput),
+	},
+}
+
+var serverMode = TestCase{
+	Name:   "simple-server-mode",
+	Config: defaultConfig("simple-server-mode"),
+	Source: TestRepo{
+		Manifest:   &manifests.MateriaManifest{},
+		Components: []TestComponent{},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{},
+		Files:            []TestFile{},
+	},
+}
+
+var serverModePlan = TestCase{
+	Name: "auto-plan",
+	Config: mustConfig("auto-plan", map[string]any{
+		"hostname":             "localhost",
+		"quiet":                "true",
+		"file.base_dir":        "attributes",
+		"source.kind":          "local",
+		"source.url":           fmt.Sprintf("file:///root/tests/%v/source", "auto-plan"),
+		"server.plan_interval": "1",
+	}),
+	Source: TestRepo{
+		Manifest:   defaultManifest(),
+		Components: []TestComponent{hello},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{},
+		Files:            []TestFile{},
+	},
+}
+
+var serverModeSync = TestCase{
+	Name: "auto-sync",
+	Config: mustConfig("auto-sync", map[string]any{
+		"hostname":               "localhost",
+		"quiet":                  "true",
+		"file.base_dir":          "attributes",
+		"source.kind":            "local",
+		"source.url":             fmt.Sprintf("file:///root/tests/%v/source", "auto-sync"),
+		"server.update_interval": "1",
+	}),
+	Source: TestRepo{
+		Manifest:   defaultManifest("hello"),
+		Components: []TestComponent{hello},
+	},
+	Output: TestOutput{
+		Components: []string{"hello"},
+		Files:      hello.Output,
+	},
+}
+
+var serverModeAgent = TestCase{
+	Name:   "agent",
+	Config: defaultConfig("agent"),
+	Source: TestRepo{
+		Manifest:   defaultManifest(),
+		Components: []TestComponent{},
+	},
+	Output: TestOutput{
+		ActiveServices:   []string{},
+		InactiveServices: []string{},
+		Components:       []string{},
+		Files:            []TestFile{},
 	},
 }
 

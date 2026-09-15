@@ -8,7 +8,7 @@ import (
 	"context"
 
 	mock "github.com/stretchr/testify/mock"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 )
 
 // NewMockAttributesEngine creates a new instance of MockAttributesEngine. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -16,7 +16,8 @@ import (
 func NewMockAttributesEngine(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *MockAttributesEngine {
+},
+) *MockAttributesEngine {
 	mock := &MockAttributesEngine{}
 	mock.Mock.Test(t)
 

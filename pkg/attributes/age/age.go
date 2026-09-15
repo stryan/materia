@@ -11,7 +11,7 @@ import (
 
 	"filippo.io/age"
 	"github.com/BurntSushi/toml"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 )
 
 type AgeStore struct {

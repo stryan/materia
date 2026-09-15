@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"context"
@@ -10,12 +10,37 @@ import (
 	varlinkapi "primamateria.systems/materia/pkg/api"
 )
 
+type AgentConfig struct {
+	Socket string
+}
+
+func (c *AgentConfig) Validate() error {
+	return nil
+}
+
 type Agent struct {
 	socket string
 }
 
+func NewAgent(cfg AgentConfig) (*Agent, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	s := cfg.Socket
+	var err error
+	if s == "" {
+		s, err = SocketPath()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &Agent{
+		socket: s,
+	}, nil
+}
+
 func (a *Agent) Facts(ctx context.Context) error {
-	conn, err := varlink.NewConnection(ctx, "unix:"+a.socket)
+	conn, err := varlink.NewConnection(ctx, a.socket)
 	if err != nil {
 		return err
 	}
@@ -30,7 +55,7 @@ func (a *Agent) Facts(ctx context.Context) error {
 }
 
 func (a *Agent) Plan(ctx context.Context) error {
-	conn, err := varlink.NewConnection(ctx, "unix:"+a.socket)
+	conn, err := varlink.NewConnection(ctx, a.socket)
 	if err != nil {
 		return err
 	}
@@ -58,7 +83,7 @@ func (a *Agent) Plan(ctx context.Context) error {
 }
 
 func (a *Agent) Sync(ctx context.Context, revision *string) error {
-	conn, err := varlink.NewConnection(ctx, "unix:"+a.socket)
+	conn, err := varlink.NewConnection(ctx, a.socket)
 	if err != nil {
 		return err
 	}
@@ -71,7 +96,7 @@ func (a *Agent) Sync(ctx context.Context, revision *string) error {
 }
 
 func (a *Agent) Update(ctx context.Context) error {
-	conn, err := varlink.NewConnection(ctx, "unix:"+a.socket)
+	conn, err := varlink.NewConnection(ctx, a.socket)
 	if err != nil {
 		return err
 	}

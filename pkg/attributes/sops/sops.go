@@ -12,7 +12,7 @@ import (
 	"github.com/getsops/sops/v3/decrypt"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v3"
-	"primamateria.systems/materia/internal/attributes"
+	"primamateria.systems/materia/pkg/attributes"
 )
 
 type SopsStore struct {

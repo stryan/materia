@@ -38,6 +38,33 @@ func runMateriaCmd(ctx context.Context, tc testcontainers.Container, args ...str
 	return nil
 }
 
+func runMateriaServer(ctx context.Context, tc testcontainers.Container, testcase TestCase) error {
+	cfg := filepath.Join(testcase.Destination(), "config", "config.toml")
+	fullCmd := fmt.Sprintf("systemd-run --unit materia-server-%v materia -c %v server", testcase.Name, cfg)
+	code, output, err := runInContainer(ctx, tc, nil, "sh", "-c", fullCmd)
+	log.Info(output)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return fmt.Errorf("error running materia server: ec %v", code)
+	}
+	return nil
+}
+
+func stopMateriaServer(ctx context.Context, tc testcontainers.Container, testcase TestCase) error {
+	fullCmd := fmt.Sprintf("systemctl stop materia-server-%v ", testcase.Name)
+	code, output, err := runInContainer(ctx, tc, nil, "sh", "-c", fullCmd)
+	log.Info(output)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return fmt.Errorf("error stopping materia server: ec %v", code)
+	}
+	return nil
+}
+
 func fileExists(ctx context.Context, tc testcontainers.Container, path string) bool {
 	code, _, _ := runInContainer(ctx, tc, nil, "test", "-e", path)
 	return code == 0
@@ -134,6 +161,23 @@ func waitForServiceState(ctx context.Context, tc testcontainers.Container, name,
 		}
 		if time.Now().After(deadline) {
 			return fmt.Errorf("timeout waiting for %v to become %v", name, state)
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func waitForFile(ctx context.Context, tc testcontainers.Container, name string, state bool, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if fileExists(ctx, tc, name) == state {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			result := "present"
+			if !state {
+				result = "absent"
+			}
+			return fmt.Errorf("timeout waiting for %v to become %v", name, result)
 		}
 		time.Sleep(1 * time.Second)
 	}

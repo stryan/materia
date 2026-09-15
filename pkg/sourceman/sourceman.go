@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 
 	"charm.land/log/v2"
-	"primamateria.systems/materia/internal/repository"
-	"primamateria.systems/materia/internal/source/git"
-	"primamateria.systems/materia/internal/source/local"
-	"primamateria.systems/materia/internal/source/oci"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
+	"primamateria.systems/materia/pkg/repository"
 	"primamateria.systems/materia/pkg/source"
+	"primamateria.systems/materia/pkg/source/git"
+	"primamateria.systems/materia/pkg/source/local"
+	"primamateria.systems/materia/pkg/source/oci"
 )
 
 type SourceManConfig struct {

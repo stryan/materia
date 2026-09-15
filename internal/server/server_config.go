@@ -1,11 +1,11 @@
-package main
+package server
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/knadh/koanf/v2"
-	"primamateria.systems/materia/internal/materia"
+	"primamateria.systems/materia/internal/rpc"
 )
 
 type ServerConfig struct {
@@ -17,14 +17,6 @@ type ServerConfig struct {
 	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
 	UpdateSecret   string `koanf:"update_secret" toml:"update_secret"`
 	Socket         string `koanf:"socket" toml:"socket"`
-}
-
-type Server struct {
-	syncSecret                   string
-	Socket                       string
-	UpdateInterval, PlanInterval int
-	QuitOnError                  bool
-	materia                      *materia.Materia
 }
 
 func (c ServerConfig) Validate() error {
@@ -44,7 +36,7 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 }
 
 func DefaultServicesConfig() (*ServerConfig, error) {
-	socket, err := socketPath()
+	socket, err := rpc.SocketPath()
 	if err != nil {
 		return nil, err
 	}

@@ -3,8 +3,8 @@ package loader
 import (
 	"context"
 
-	"primamateria.systems/materia/internal/macros"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/macros"
 	"primamateria.systems/materia/pkg/manifests"
 )
 

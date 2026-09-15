@@ -1,13 +1,12 @@
 package executor
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/config"
+	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewExecutorConfig_TOML(t *testing.T) {
@@ -26,7 +25,7 @@ output_dir = ""
 	err = f.Close()
 	assert.Nil(t, err)
 
-	k, err := config.LoadConfigs(context.Background(), f.Name(), nil)
+	k, err := config.Load(f.Name(), nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewExecutorConfig(k)
@@ -48,7 +47,7 @@ func Test_NewExecutorConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_EXECUTOR__SERVICE_DIR", "/etc/systemd")
 	t.Setenv("MATERIA_EXECUTOR__OUTPUT_DIR", "")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewExecutorConfig(k)

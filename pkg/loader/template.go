@@ -5,9 +5,9 @@ import (
 	"context"
 	"text/template"
 
-	"primamateria.systems/materia/internal/attributes"
-	"primamateria.systems/materia/internal/macros"
+	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/macros"
 )
 
 type TemplateProcessorStage struct {

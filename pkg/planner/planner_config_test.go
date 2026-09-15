@@ -1,12 +1,11 @@
 package planner
 
 import (
-	"context"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"primamateria.systems/materia/internal/config"
+	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewPlannerConfig_TOML(t *testing.T) {
@@ -24,7 +23,7 @@ migrate_volumes = true
 	err = f.Close()
 	assert.Nil(t, err)
 
-	k, err := config.LoadConfigs(context.Background(), f.Name(), nil)
+	k, err := config.Load(f.Name(), nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewPlannerConfig(k)
@@ -44,7 +43,7 @@ func Test_NewPlannerConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_PLANNER__BACKUP_VOLUMES", "false")
 	t.Setenv("MATERIA_PLANNER__MIGRATE_VOLUMES", "true")
 
-	k, err := config.LoadConfigs(context.Background(), "", nil)
+	k, err := config.Load("", nil)
 	assert.Nil(t, err)
 
 	cfg, err := NewPlannerConfig(k)
