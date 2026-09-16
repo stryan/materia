@@ -251,7 +251,7 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("error writing plan: %w", err)
 			}
-			log.Infof("Plan generated succesfully: %v changes", plan.Size())
+			log.Infof("Plan generated successfully: %v changes", plan.Size())
 		}
 	}
 }
