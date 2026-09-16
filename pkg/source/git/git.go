@@ -20,6 +20,8 @@ import (
 	"primamateria.systems/materia/pkg/source"
 )
 
+var errRepoNeedsReset = errors.New("local repo needs reset")
+
 type GitSource struct {
 	activeBranch     string
 	defaultBranch    string
@@ -283,11 +285,10 @@ func (g *GitSource) fetchOrigin(ctx context.Context, repo *git.Repository, refSp
 	return nil
 }
 
-// createOrOpenRepo clones a new repo or opens an existing one. Returns the current revision (if existing repo)
+// createOrOpenRepo clones a new repo or opens an existing one.
 func (g *GitSource) createOrOpenRepo(ctx context.Context, opts *git.CloneOptions) (*git.Repository, string, error) {
 	r, err := git.PlainCloneContext(ctx, g.localRepository, false, opts)
 	if err == nil {
-		// fresh start, nothing else to do
 		return r, "", nil
 	}
 	if !errors.Is(err, git.ErrRepositoryAlreadyExists) {
@@ -299,29 +300,53 @@ func (g *GitSource) createOrOpenRepo(ctx context.Context, opts *git.CloneOptions
 		return nil, "", fmt.Errorf("failed to open repository: %w", err)
 	}
 
-	remote, err := r.Remote("origin") // TODO allow custom remotes
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get remote: %w", err)
+	oldRevision, err := g.checkRepoHealth(r)
+	if err == nil {
+		return r, oldRevision, nil
 	}
-	if slices.Contains(remote.Config().URLs, g.remoteRepository) {
-		head, err := r.Head()
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to get HEAD: %w", err)
-		}
-		return r, head.Hash().String(), nil
+	if !errors.Is(err, errRepoNeedsReset) {
+		return nil, "", err
 	}
+	log.Warn("local repo is corrupt, resetting: %v", err)
 
-	if !g.resetIfNeeded {
-		return nil, "", fmt.Errorf("local repo has different remote and reset is disabled")
-	}
-	if err := g.Clean(); err != nil {
-		return nil, "", fmt.Errorf("error cleaning repo: %w", err)
-	}
-	r, err = git.PlainCloneContext(ctx, g.localRepository, false, opts)
+	r, err = g.resetRepo(ctx, opts)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to clone after resetting: %w", err)
+		return nil, "", fmt.Errorf("failed to corrupt unusable repo: %w", err)
 	}
 	return r, "", nil
+}
+
+func (g *GitSource) checkRepoHealth(r *git.Repository) (string, error) {
+	remote, err := r.Remote("origin") // TODO allow custom remotes
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote: %w", err)
+	}
+	if !slices.Contains(remote.Config().URLs, g.remoteRepository) {
+		return "", fmt.Errorf("%w: remote URL doesn't match configured %q", errRepoNeedsReset, g.remoteRepository)
+	}
+
+	head, err := r.Head()
+	if err == nil {
+		return head.Hash().String(), nil
+	}
+	if errors.Is(err, plumbing.ErrReferenceNotFound) {
+		return "", fmt.Errorf("%w: HEAD unresolvable: %v", errRepoNeedsReset, err)
+	}
+	return "", fmt.Errorf("failed to get HEAD: %w", err)
+}
+
+func (g *GitSource) resetRepo(ctx context.Context, opts *git.CloneOptions) (*git.Repository, error) {
+	if !g.resetIfNeeded {
+		return nil, errors.New("resetting is disabled")
+	}
+	if err := g.Clean(); err != nil {
+		return nil, fmt.Errorf("error cleaning repo: %w", err)
+	}
+	r, err := git.PlainCloneContext(ctx, g.localRepository, false, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clone after resetting: %w", err)
+	}
+	return r, nil
 }
 
 func (g *GitSource) pull(ctx context.Context, r *git.Repository, target string) error {
