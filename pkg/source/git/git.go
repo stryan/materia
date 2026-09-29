@@ -87,6 +87,10 @@ func NewGitSource(c *Config) (*GitSource, error) {
 			Username: c.Username,
 			Password: c.Password,
 		}
+	} else if c.AuthToken != "" {
+		g.auth = &http.TokenAuth{
+			Token: c.AuthToken,
+		}
 	} else if proto == "ssh" {
 		// we want to try to find any private keys in $HOME/.ssh to use here
 		home, err := os.UserHomeDir()

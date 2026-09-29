@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 
+	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -12,6 +13,7 @@ type Config struct {
 	PrivateKey      string `koanf:"private_key" toml:"private_key" json:"private_key" yaml:"private_key"`
 	Username        string `toml:"username" json:"username" yaml:"username"`
 	Password        string `toml:"password" json:"password" yaml:"password"`
+	AuthToken       string `toml:"auth_token" json:"auth_token" yaml:"auth_token"`
 	KnownHosts      string `toml:"knownhosts" json:"knownhosts" yaml:"knownhosts"`
 	Insecure        bool   `koanf:"insecure" toml:"insecure" json:"insecure" yaml:"insecure"`
 	LocalRepository string `toml:"local_repository" json:"local_repository" yaml:"local_repository"`
@@ -23,13 +25,17 @@ func NewConfig(k *koanf.Koanf, localDir, remoteURL string) (*Config, error) {
 	var c Config
 
 	c.Branch = k.String("git.branch")
-	c.Default = k.String("git.default")
+	if k.Exists("git.default") {
+		log.Warn("DEPRECATION: git.default should be replaced with git.branch")
+		c.Default = k.String("git.default")
+	}
 	c.PrivateKey = k.String("git.private_key")
 	c.Insecure = k.Bool("git.insecure")
 	c.Username = k.String("git.username")
 	c.Password = k.String("git.password")
 	c.KnownHosts = k.String("git.knownhosts")
 	c.Careful = k.Bool("git.careful")
+	c.AuthToken = k.String("git.auth_token")
 	c.LocalRepository = localDir
 	c.URL = remoteURL
 	return &c, nil
@@ -41,12 +47,15 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("Branch: %v\n", c.Branch)
 	result += fmt.Sprintf("Known Hosts: %v\n", c.KnownHosts)
 	result += fmt.Sprintf("Allow Insecure: %v\n", c.Insecure)
-	result += fmt.Sprintf("Carreful mode: %v\n", c.Careful)
+	result += fmt.Sprintf("Careful mode: %v\n", c.Careful)
 	if c.PrivateKey != "" {
-		result += fmt.Sprintf("PrivateKey file: %v\n", c.PrivateKey)
+		result += fmt.Sprintf("Private Key file: %v\n", c.PrivateKey)
 	}
 	if c.Username != "" {
 		result += fmt.Sprintf("Username: %v\n", c.Username)
+	}
+	if c.AuthToken != "" {
+		result += "Using auth token"
 	}
 	return result
 }

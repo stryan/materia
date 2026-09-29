@@ -10,6 +10,7 @@ Best effort list of major changes and bugfixes
 - feat: most materia packages are now public. This will be stablized and documented better in 0.8 or 0.9.
     - This may also fix some bugs in server mode that (hopefully) no-one has noticed
 - feat: git repos can reset on corrupted HEAD
+- feat: git source supports `git.auth_token` for `Bearer: <token>` HTTP auth
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
