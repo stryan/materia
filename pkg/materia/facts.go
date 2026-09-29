@@ -2,6 +2,7 @@ package materia
 
 import (
 	"fmt"
+	"strings"
 )
 
 type FactsProvider interface {
@@ -11,31 +12,31 @@ type FactsProvider interface {
 }
 
 func (m *Materia) GetFacts(host bool) string {
-	var result string
-	result += "Facts\n"
-	result += fmt.Sprintf("Hostname: %v\n", m.Host.GetHostname())
-	result += "Roles: "
+	var result strings.Builder
+	result.WriteString("Facts\n")
+	result.WriteString(fmt.Sprintf("Hostname: %v\n", m.Host.GetHostname()))
+	result.WriteString("Roles: ")
 	for _, r := range m.Roles {
-		result += fmt.Sprintf("%v ", r)
+		result.WriteString(fmt.Sprintf("%v ", r))
 	}
 	assigned, err := m.GetAssignedComponents()
 	if err == nil {
-		result += "\nAssigned Components: "
+		result.WriteString("\nAssigned Components: ")
 		for _, v := range assigned {
-			result += fmt.Sprintf("%v ", v)
+			result.WriteString(fmt.Sprintf("%v ", v))
 		}
 	}
 	installed, err := m.Host.ListComponentNames()
 	if err == nil {
-		result += "\nInstalled Components: "
+		result.WriteString("\nInstalled Components: ")
 		for _, v := range installed {
-			result += fmt.Sprintf("%v ", v)
+			result.WriteString(fmt.Sprintf("%v ", v))
 		}
 	}
-	result += "\nNetworks: "
+	result.WriteString("\nNetworks: ")
 	for i, v := range m.Host.GetInterfaces() {
-		result += fmt.Sprintf("\nInterface %v: %v", i, v)
+		result.WriteString(fmt.Sprintf("\nInterface %v: %v", i, v))
 	}
 
-	return result
+	return result.String()
 }

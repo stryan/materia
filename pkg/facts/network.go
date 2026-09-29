@@ -38,8 +38,8 @@ func GetInterfaceIPs() (map[string]NetworkInterfaces, error) {
 				n.Ip6 = append(n.Ip6, ip.String())
 			}
 		}
-		n.Ip4 = sort.StringSlice(n.Ip4)
-		n.Ip6 = sort.StringSlice(n.Ip6)
+		sort.Strings(n.Ip4)
+		sort.Strings(n.Ip6)
 		results[i.Name] = n
 
 	}

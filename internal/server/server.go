@@ -76,7 +76,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	}
 	defer func() {
 		if err := m.Close(); err != nil {
-			log.Warn("error closing materia server: %w", err)
+			log.Warnf("error closing materia server: %v", err)
 		}
 	}()
 
