@@ -1,8 +1,14 @@
 # Goals being worked on
 - [ ] Increasing test coverage
-- [ ] Improve Service manifest definitions
+- [ ] Server mode improvements
+    - [ ] `facts` HTTP endpoint
+    - [ ] varlink API refinement
+    - [ ] `health` HTTP endpoint
+    - [ ] better logging
 
 # Potential future goals
+
+- [ ] Improve Service manifest definitions
 - [ ] Some type of in-repo per-host systemd override management
 - [ ] Smarted rollback
 - [ ] Remote components refinement

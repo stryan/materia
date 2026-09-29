@@ -11,7 +11,6 @@ import (
 type ServerConfig struct {
 	PlanInterval   int    `koanf:"plan_interval" toml:"plan_interval"`
 	UpdateInterval int    `koanf:"update_interval" toml:"update_interval"`
-	Hostname       string `koanf:"hostname" toml:"hostname"`
 	NotifyWebhook  string `koanf:"notify_webhook" toml:"notify_webhook"`
 	UpdateWebhook  bool   `koanf:"update_webhook" toml:"update_webhook"`
 	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
