@@ -11,7 +11,6 @@ import (
 var testConfig = &ServerConfig{
 	60,
 	120,
-	"foo",
 	"webhook",
 	true,
 	"destination",
