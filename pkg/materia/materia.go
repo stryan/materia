@@ -108,16 +108,16 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		}
 		if materiaContainer != nil {
 			if dataSrc, ok := materiaContainer.BindMounts[DefaultDataDir]; ok {
-				c.ExecutorConfig.MateriaDir = dataSrc.Source
+				ec.MateriaDir = dataSrc.Source
 			}
 			if quadSrc, ok := materiaContainer.BindMounts[DefaultQuadletDir]; ok {
-				c.ExecutorConfig.QuadletDir = quadSrc.Source
+				ec.QuadletDir = quadSrc.Source
 			}
 			if scriptSrc, ok := materiaContainer.BindMounts[DefaultScriptsDir]; ok {
-				c.ExecutorConfig.ScriptsDir = scriptSrc.Source
+				ec.ScriptsDir = scriptSrc.Source
 			}
 			if serviceSrc, ok := materiaContainer.BindMounts[DefaultServiceDir]; ok {
-				c.ExecutorConfig.ServiceDir = serviceSrc.Source
+				ec.ServiceDir = serviceSrc.Source
 			}
 
 		}
