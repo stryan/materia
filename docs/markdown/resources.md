@@ -2,8 +2,6 @@
 
 Resources are the files that actually get installed, removed, or updated by Materia. They exist in the Materia Repository as part of [components](./components.md).
 
-Resources are installed with the same permissions and ownership as the source.
-
 There are several kinds of resources broken up into two categories: Quadlet and Data resources.
 
 ## Resource Kinds
