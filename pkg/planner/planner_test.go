@@ -179,10 +179,10 @@ func Test_BuildComponentGraph(t *testing.T) {
 			ic := make([]*components.Component, 0, len(tt.installedComps))
 			ac := make([]*components.Component, 0, len(tt.assignedComps))
 			for _, i := range tt.installedComps {
-				ic = append(ic, components.NewComponent(i))
+				ic = append(ic, mustComponent(i))
 			}
 			for _, a := range tt.assignedComps {
-				ac = append(ac, components.NewComponent(a))
+				ac = append(ac, mustComponent(a))
 			}
 			graph, err := BuildComponentGraph(context.Background(), ic, ac)
 
@@ -1742,4 +1742,9 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 
 func Ptr[T any](v T) *T {
 	return &v
+}
+
+func mustComponent(name string) *components.Component {
+	comp, _ := components.NewComponent(name)
+	return comp
 }

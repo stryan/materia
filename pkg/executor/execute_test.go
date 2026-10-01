@@ -85,7 +85,7 @@ func TestExecute(t *testing.T) {
 		},
 		{
 			Todo:   actions.ActionReload,
-			Parent: components.NewComponent("root"),
+			Parent: mustComponent("root"),
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		},
 	}
@@ -315,4 +315,9 @@ func TestExecute_Services(t *testing.T) {
 func getDiffs(res1, res2 string) []diffmatchpatch.Diff {
 	dmp := diffmatchpatch.New()
 	return dmp.DiffMain(res1, res2, false)
+}
+
+func mustComponent(name string) *components.Component {
+	comp, _ := components.NewComponent(name)
+	return comp
 }

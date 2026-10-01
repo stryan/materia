@@ -252,7 +252,10 @@ func (m *Materia) Clean(ctx context.Context, force bool) error {
 		hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
 		comps := make([]*components.Component, 0, len(installedComps))
 		for _, name := range installedComps {
-			hostComponent := components.NewComponent(name)
+			hostComponent, err := components.NewComponent(name)
+			if err != nil {
+				return err
+			}
 			err = hostPipeline.Load(ctx, hostComponent)
 			if err != nil {
 				return fmt.Errorf("can't load host component %v: %w", name, err)
@@ -290,7 +293,10 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 		return errors.New("component not installed")
 	}
 	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
-	hostComponent := components.NewComponent(name)
+	hostComponent, err := components.NewComponent(name)
+	if err != nil {
+		return err
+	}
 	err = hostPipeline.Load(ctx, hostComponent)
 	if err != nil {
 		return fmt.Errorf("can't load host component %v: %w", name, err)
@@ -322,8 +328,11 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	hostPipeline := loader.NewHostComponentPipeline(m.Host, m.Host)
 	installedComponents := make([]*components.Component, 0, len(installedNames))
 	for _, n := range installedNames {
-		hostComponent := components.NewComponent(n)
-		err := hostPipeline.Load(ctx, hostComponent)
+		hostComponent, err := components.NewComponent(n)
+		if err != nil {
+			return nil, err
+		}
+		err = hostPipeline.Load(ctx, hostComponent)
 		if err != nil {
 			return nil, fmt.Errorf("can't load host component %v: %w", n, err)
 		}
@@ -331,7 +340,10 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	}
 	assignedComponents := make([]*components.Component, 0, len(assignedNames))
 	for _, n := range assignedNames {
-		sourceComponent := components.NewComponent(n)
+		sourceComponent, err := components.NewComponent(n)
+		if err != nil {
+			return nil, err
+		}
 		attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
 			Hostname:  m.Hostname,
 			Roles:     m.Roles,
@@ -411,7 +423,10 @@ func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string
 		extensions = append(extensions, extension)
 	}
 	sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macros, attrs, overrides, extensions)
-	sourceComponent := components.NewComponent(name)
+	sourceComponent, err := components.NewComponent(name)
+	if err != nil {
+		return nil, err
+	}
 	err = sourcePipeline.Load(ctx, sourceComponent)
 	if err != nil {
 		return nil, fmt.Errorf("can't load source component %v : %w", name, err)

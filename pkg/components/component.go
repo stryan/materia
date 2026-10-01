@@ -20,7 +20,7 @@ const DefaultComponentVersion = 1
 var (
 	ErrCorruptComponent = errors.New("error corrupt component")
 	ErrUnloadedManifest = errors.New("error unloaded manifest")
-	dropInDirRegex      = regexp.MustCompile(`^([a-zA-Z0-9_][a-zA-Z0-9_-]*-?\.)?[a-z]+\.d$`)
+	dropInDirRegex      = regexp.MustCompile(`^([a-zA-Z0-9_@][a-zA-Z0-9_@-]*-?\.)?[a-z]+\.d$`)
 )
 
 type Component struct {
@@ -54,13 +54,23 @@ type ComponentVersion struct {
 	Version int
 }
 
-func NewComponent(name string) *Component {
-	instance := ""
-	if strings.Contains(name, "@") {
-		split := strings.Split(name, "@")
-		name = split[0]
-		instance = split[1]
+func ValidateComponentName(name string) error {
+	if strings.Contains(name, "/") {
+		return errors.New("name can't have subpath")
 	}
+
+	if strings.Contains(name, "..") || strings.Contains(name, ".") {
+		return errors.New("name can't have . path(s)")
+	}
+
+	return nil
+}
+
+func NewComponent(name string) (*Component, error) {
+	if err := ValidateComponentName(name); err != nil {
+		return nil, err
+	}
+	name, instance, _ := strings.Cut(name, "@")
 	return &Component{
 		Name:           name,
 		Instance:       instance,
@@ -68,7 +78,7 @@ func NewComponent(name string) *Component {
 		Defaults:       make(map[string]any),
 		ServiceConfigs: NewServiceConfigSet(),
 		Resources:      NewResourceSet(),
-	}
+	}, nil
 }
 
 func NewRootComponent() *Component {
@@ -138,13 +148,14 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 	maps.Copy(c.Defaults, man.Defaults)
 	// TODO merge here?
 	c.Config = man.Settings
-	slices.Sort(man.Secrets)
+	secrets := slices.Clone(man.Secrets)
+	slices.Sort(secrets)
 	var secretResources []Resource
-	for _, s := range man.Secrets {
+	for _, s := range secrets {
 		secretResources = append(secretResources, Resource{
 			Path:     s,
 			Kind:     ResourceTypePodmanSecret,
-			Parent:   c.Name,
+			Parent:   c.InstanceName(),
 			Template: false,
 		})
 	}
@@ -206,7 +217,7 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) VersonData() (*bytes.Buffer, error) {
+func (c *Component) VersionData() (*bytes.Buffer, error) {
 	vd := make(map[string]any)
 	vd["Version"] = c.Version
 	buffer, err := toml.Parser().Marshal(vd)
