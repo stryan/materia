@@ -104,7 +104,10 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	if err != nil {
 		return nil, err
 	}
-	c := components.NewComponent(name)
+	c, err := components.NewComponent(name)
+	if err != nil {
+		return nil, err
+	}
 	c.State = components.StateFresh
 	c.Version = components.DefaultComponentVersion
 	log.Debugf("loading source component %v from path %v", c.Name, path)

@@ -100,8 +100,14 @@ func (r Resource) Validate() error {
 	if r.Path == "" {
 		return errors.New("resource without name")
 	}
+	if !filepath.IsLocal(r.Path) {
+		return fmt.Errorf("invalid resource path: %v", r.Path)
+	}
 	if r.Parent == "" {
 		return errors.New("resource without parent component")
+	}
+	if strings.Contains(r.Parent, "/") {
+		return fmt.Errorf("invalid parent: %v", r.Parent)
 	}
 	return nil
 }
@@ -128,19 +134,19 @@ func (r Resource) Service() string {
 	name := filepath.Base(r.Path)
 	switch r.Kind {
 	case ResourceTypeContainer:
-		return strings.ReplaceAll(name, ".container", ".service")
+		return strings.TrimSuffix(name, ".container") + ".service"
 	case ResourceTypeKube:
-		return strings.ReplaceAll(name, ".kube", ".service")
+		return strings.TrimSuffix(name, ".kube") + ".service"
 	case ResourceTypePod:
-		return strings.ReplaceAll(name, ".pod", "-pod.service")
+		return strings.TrimSuffix(name, ".pod") + "-pod.service"
 	case ResourceTypeNetwork:
-		return strings.ReplaceAll(name, ".network", "-network.service")
+		return strings.TrimSuffix(name, ".network") + "-network.service"
 	case ResourceTypeVolume:
-		return strings.ReplaceAll(name, ".volume", "-volume.service")
+		return strings.TrimSuffix(name, ".volume") + "-volume.service"
 	case ResourceTypeBuild:
-		return strings.ReplaceAll(name, ".build", "-build.service")
+		return strings.TrimSuffix(name, ".build") + "-build.service"
 	case ResourceTypeImage:
-		return strings.ReplaceAll(name, ".image", "-image.service")
+		return strings.TrimSuffix(name, ".image") + "-image.service"
 	case ResourceTypeService:
 		return r.Path
 	default:
@@ -149,21 +155,11 @@ func (r Resource) Service() string {
 }
 
 func (r Resource) IsQuadlet() bool {
-	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage, ResourceTypeAppFile, ResourceTypeDropin:
-		return true
-	default:
-		return false
-	}
+	return r.Kind.IsQuadlet()
 }
 
 func (r Resource) IsFile() bool {
-	switch r.Kind {
-	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeImage, ResourceTypeBuild, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService:
-		return true
-	default:
-		return false
-	}
+	return r.Kind.IsFile()
 }
 
 func groupForKind(t ResourceType) string {
@@ -267,12 +263,13 @@ func parseQuadletChunk(data string) (string, string, error) {
 			continue
 		}
 		if filename == "" {
-			if strings.HasPrefix(line, "# FileName") {
-				name := strings.Split(line, "=")
-				if len(name) < 2 || name[1] == "" {
+			// TODO check this
+			_, value, found := strings.Cut(line, "# FileName=")
+			if found {
+				if value == "" {
 					return "", "", errors.New("bad filename")
 				}
-				filename = name[1]
+				filename = strings.TrimSpace(value)
 			}
 			continue
 		}
@@ -299,8 +296,9 @@ func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error
 				Parent:     parent,
 				Kind:       ResourceTypeManifest,
 				Template:   false,
-				Content:    quadlet,
+				Content:    content,
 			}
+			result = append(result, res)
 			continue
 		}
 
@@ -349,4 +347,22 @@ func GetResourcesFromQuadletsFile(parent, quadletData string) ([]Resource, error
 		result = append(result, res)
 	}
 	return result, nil
+}
+
+func (t ResourceType) IsQuadlet() bool {
+	switch t {
+	case ResourceTypeContainer, ResourceTypeKube, ResourceTypeVolume, ResourceTypeNetwork, ResourceTypePod, ResourceTypeBuild, ResourceTypeImage, ResourceTypeAppFile, ResourceTypeDropin:
+		return true
+	default:
+		return false
+	}
+}
+
+func (t ResourceType) IsFile() bool {
+	switch t {
+	case ResourceTypeContainer, ResourceTypeFile, ResourceTypeKube, ResourceTypeManifest, ResourceTypeNetwork, ResourceTypePod, ResourceTypeImage, ResourceTypeBuild, ResourceTypeScript, ResourceTypeVolume, ResourceTypeService:
+		return true
+	default:
+		return false
+	}
 }

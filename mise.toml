@@ -32,7 +32,7 @@ run = "podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.s
 description = "Build image used for test container"
 sources = ["Containerfile.test", "go.mod", "go.sum", "install/systems.primamateria.materia.conf"]
 outputs = { auto = true } # maybe someday mise will support oci outputs
-run = "podman build -f Containerfile.test -t materia-testcontainer:latest ."
+run = "podman build -f Containerfile.test --platform linux/amd64 -t materia-testcontainer:latest ."
 
 [tasks.build]
 depends = ["generate", "build-arm64", "build-amd64"]
