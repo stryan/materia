@@ -67,7 +67,12 @@ func openComp(prefix string, c *components.Component) (*os.Root, error) {
 }
 
 func openRes(prefix string, res components.Resource) (*os.Root, error) {
-	return os.OpenRoot(filepath.Join(prefix, res.Parent))
+	parent, err := os.OpenRoot(prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = parent.Close() }()
+	return parent.OpenRoot(res.Parent)
 }
 
 func (r *HostComponentRepository) GetComponent(name string) (*components.Component, error) {
@@ -149,7 +154,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if d.Name() == "." || d.Name() == ".materia_managed" {
+		if fullPath == "." || fullPath == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
 			return nil
 		}
 
@@ -168,7 +173,16 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 }
 
 func (r *HostComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
-	return manifests.LoadComponentManifestFromFile(filepath.Join(r.dataPrefix, parent.InstanceName(), manifests.ComponentManifestFile))
+	root, err := openComp(r.dataPrefix, parent)
+	if err != nil {
+		return nil, err
+	}
+	content, err := root.ReadFile(manifests.ComponentManifestFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return manifests.LoadComponentManifestFromContent(content)
 }
 
 func (r *HostComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
@@ -219,7 +233,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 		if err != nil {
 			return err
 		}
-		if p == "." || p == ".component_version" || p == ".materia_managed" || tmpFileRegex.MatchString(p) {
+		if p == "." || p == ".component_version" || p == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
 			return nil
 		}
 		resources = append(resources, components.Resource{
@@ -342,11 +356,16 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	defer func() { _ = qpath.Close() }()
 
 	leftovers := []string{}
+	temps := []string{}
 	err = fs.WalkDir(dpath.FS(), ".", func(fullPath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if d.Name() == "." || d.Name() == ".component_version" || tmpFileRegex.MatchString(d.Name()) {
+		if d.Name() == "." || d.Name() == ".component_version" {
+			return nil
+		}
+		if !d.IsDir() && tmpFileRegex.MatchString(d.Name()) {
+			temps = append(temps, fullPath)
 			return nil
 		}
 
@@ -358,6 +377,12 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	})
 	if err != nil {
 		return err
+	}
+	for _, tmp := range temps {
+		err = dpath.Remove(tmp)
+		if err != nil {
+			return err
+		}
 	}
 	slices.Reverse(leftovers)
 	for _, leftoverDir := range leftovers {
@@ -407,7 +432,7 @@ func (r *HostComponentRepository) newResource(parent *components.Component, root
 		}
 		return res, nil
 	}
-	if rt.IsQuadlet() && rt != components.ResourceTypeDropin {
+	if isQuadlet && rt.IsQuadlet() && rt != components.ResourceTypeDropin {
 		data, err := root.ReadFile(path)
 		if err != nil {
 			return res, err
@@ -464,13 +489,13 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 
 	defer func() { _ = root.Close() }()
 	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
-		err := root.Mkdir(res.Path, resMode(res))
+		err := root.Mkdir(res.Path, res.GetMode())
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	return atomicWrite(root, res.Path, resMode(res), data)
+	return atomicWrite(root, res.Path, res.GetMode(), data)
 }
 
 func (r *HostComponentRepository) RemoveResource(res components.Resource) error {
@@ -485,11 +510,15 @@ func (r *HostComponentRepository) RemoveResource(res components.Resource) error 
 	if err != nil {
 		return err
 	}
+	defer func() { _ = root.Close() }()
 
 	return root.Remove(res.Path)
 }
 
 func (r *HostComponentRepository) ComponentExists(name string) (bool, error) {
+	if err := components.ValidateComponentName(name); err != nil {
+		return false, err
+	}
 	droot, err := r.dRoot()
 	if err != nil {
 		return false, err
@@ -605,24 +634,4 @@ func (r *HostComponentRepository) cleanData() error {
 
 func inQuadletDir(res components.Resource) bool {
 	return res.IsQuadlet() || res.Kind == components.ResourceTypeDropinDir
-}
-
-func resMode(res components.Resource) os.FileMode {
-	switch {
-	case res.Kind == components.ResourceTypeDropinDir || res.Kind == components.ResourceTypeDirectory:
-		return 0o755
-	case res.Kind == components.ResourceTypeScript:
-		return 0o755
-	case res.Mode != 0:
-		return normalizeMode(res.Mode)
-	default:
-		return 0o644
-	}
-}
-
-func normalizeMode(m fs.FileMode) fs.FileMode {
-	if m.Perm()&0o111 != 0 {
-		return 0o755
-	}
-	return 0o644
 }
