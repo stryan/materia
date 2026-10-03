@@ -348,23 +348,29 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		}
 		dmp := diffmatchpatch.New()
 		diffs := dmp.DiffMain(hostResource.Content, sourceRes.Content, false)
-		if diffs == nil {
+		modeChange := hostResource.Mode == sourceRes.GetMode()
+		if !hostResource.IsFile() {
+			modeChange = false
+		}
+		if diffs == nil && !modeChange {
 			continue
 		}
-		if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
-			diffActions = append(diffActions, actions.Action{
-				Todo:        actions.ActionUpdate,
-				Parent:      source,
-				Target:      conflictedResource, // TODO should we use source resource here?
-				DiffContent: diffs,
-			})
-			if conflictedResource.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
-				volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
-				if err != nil {
-					return diffActions, err
-				}
-				diffActions = append(diffActions, volumeMigrationActions...)
+		act := actions.Action{
+			Todo:        actions.ActionUpdate,
+			Parent:      source,
+			Target:      conflictedResource,
+			DiffContent: diffs,
+		}
+		hasDiffs := len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual
+		if hasDiffs || modeChange {
+			diffActions = append(diffActions, act)
+		}
+		if hasDiffs && conflictedResource.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
+			volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
+			if err != nil {
+				return diffActions, err
 			}
+			diffActions = append(diffActions, volumeMigrationActions...)
 		}
 
 	}
