@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/pkg/components"
@@ -55,14 +56,6 @@ type Action struct {
 	DiffContent []diffmatchpatch.Diff `json:"content" toml:"content"`
 	Priority    int                   `json:"priority" toml:"priority"`
 	Metadata    *ActionMetadata       `json:"metadata,omitempty" toml:"metadata,omitempty"`
-}
-
-type ActionMetadata struct {
-	ServiceTimeout    *int    `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
-	ServiceUntilState *string `json:"service_until_state,omitempty" toml:"service_until_state,omitempty"`
-	Command           *string `json:"command,omitempty" toml:"command,omitempty"`
-	VolumeName        *string `json:"volume_name,omitempty" toml:"volume_name,omitempty"`
-	OneshotName       *string `json:"oneshot_name,omitempty" toml:"oneshot_name,omitempty"`
 }
 
 func (a Action) Validate() error {
@@ -121,4 +114,93 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 		Target:   a.Target,
 		Priority: a.Priority,
 	})
+}
+
+type ActionMetadata struct {
+	ServiceTimeout    *int         `json:"service_timeout,omitempty" toml:"service_timeout,omitempty"`
+	ServiceUntilState *string      `json:"service_until_state,omitempty" toml:"service_until_state,omitempty"`
+	Command           *string      `json:"command,omitempty" toml:"command,omitempty"`
+	VolumeName        *string      `json:"volume_name,omitempty" toml:"volume_name,omitempty"`
+	OneshotName       *string      `json:"oneshot_name,omitempty" toml:"oneshot_name,omitempty"`
+	PrevMode          *fs.FileMode `toml:"prev_mode,omitempty" json:"prev_mode,omitempty"`
+}
+
+type MetadataOption func(*ActionMetadata)
+
+func WithPreviousMode(m fs.FileMode) MetadataOption {
+	return func(md *ActionMetadata) { md.PrevMode = new(m) }
+}
+
+func WithServiceTimeout(seconds int) MetadataOption {
+	return func(md *ActionMetadata) { md.ServiceTimeout = new(seconds) }
+}
+
+func WithOneshotName(name string) MetadataOption {
+	return func(md *ActionMetadata) { md.OneshotName = new(name) }
+}
+
+func WithServiceUntilState(state string) MetadataOption {
+	return func(md *ActionMetadata) { md.ServiceUntilState = new(state) }
+}
+
+func WithCommand(cmd string) MetadataOption {
+	return func(md *ActionMetadata) { md.Command = new(cmd) }
+}
+
+func WithVolumeName(name string) MetadataOption {
+	return func(md *ActionMetadata) { md.VolumeName = new(name) }
+}
+
+func (a Action) With(opts ...MetadataOption) Action {
+	var md ActionMetadata
+	if a.Metadata != nil {
+		md = *a.Metadata
+	}
+	for _, opt := range opts {
+		opt(&md)
+	}
+	a.Metadata = &md
+	return a
+}
+
+func (a Action) GetPrevMode() (fs.FileMode, bool) {
+	if a.Metadata == nil || a.Metadata.PrevMode == nil {
+		return 0, false
+	}
+	return *a.Metadata.PrevMode, true
+}
+
+func (a Action) GetServiceTimeout() (int, bool) {
+	if a.Metadata == nil || a.Metadata.ServiceTimeout == nil {
+		return 0, false
+	}
+	return *a.Metadata.ServiceTimeout, true
+}
+
+func (a Action) GetOneshotName() (string, bool) {
+	if a.Metadata == nil || a.Metadata.OneshotName == nil {
+		return "", false
+	}
+	return *a.Metadata.OneshotName, true
+}
+
+func (a Action) GetServiceUntilState() (string, bool) {
+	if a.Metadata == nil || a.Metadata.ServiceUntilState == nil {
+		return "", false
+	}
+	return *a.Metadata.ServiceUntilState, true
+}
+
+func (a Action) GetCommand() (string, bool) {
+	if a.Metadata == nil || a.Metadata.Command == nil {
+		return "", false
+	}
+	return *a.Metadata.Command, true
+}
+
+func (a Action) GetVolumeName() (string, bool) {
+	if a.Metadata == nil || a.Metadata.VolumeName == nil {
+		return "", false
+	}
+	return *a.Metadata.VolumeName, true
 }
