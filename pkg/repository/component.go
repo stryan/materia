@@ -177,6 +177,7 @@ func (r *HostComponentRepository) GetManifest(parent *components.Component) (*ma
 	if err != nil {
 		return nil, err
 	}
+	defer func() { _ = root.Close() }()
 	content, err := root.ReadFile(manifests.ComponentManifestFile)
 	if err != nil {
 		return nil, err
@@ -361,7 +362,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 		if err != nil {
 			return err
 		}
-		if d.Name() == "." || d.Name() == ".component_version" {
+		if d.Name() == "." || fullPath == ".component_version" {
 			return nil
 		}
 		if !d.IsDir() && tmpFileRegex.MatchString(d.Name()) {
