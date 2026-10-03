@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"slices"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/containers"
@@ -102,8 +101,6 @@ func (h *HostManager) ListInstalledComponents() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to list installed components: %w", err)
 	}
-
-	slices.Sort(installedComponents)
 	return installedComponents, nil
 }
 

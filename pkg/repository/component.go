@@ -313,7 +313,7 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) (err
 	if err := qroot.WriteFile(filepath.Join(c.InstanceName(), ".materia_managed"), nil, 0o644); err != nil {
 		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
 	}
-	// Version file last, so a half-installed component never looks installed.
+	// version file goes last
 	if err := atomicWrite(droot, filepath.Join(c.InstanceName(), ".component_version"), 0o644, vd.Bytes()); err != nil {
 		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
 	}
@@ -333,12 +333,7 @@ func (r *HostComponentRepository) UpdateComponent(c *components.Component) error
 		return err
 	}
 	defer func() { _ = dpath.Close() }()
-	err = atomicWrite(dpath, ".component_version", 0o644, vd.Bytes())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return atomicWrite(dpath, ".component_version", 0o644, vd.Bytes())
 }
 
 func (r *HostComponentRepository) RemoveComponent(c *components.Component) error {
@@ -490,11 +485,7 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 
 	defer func() { _ = root.Close() }()
 	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
-		err := root.Mkdir(res.Path, res.GetMode())
-		if err != nil {
-			return err
-		}
-		return nil
+		return root.Mkdir(res.Path, res.GetMode())
 	}
 	return atomicWrite(root, res.Path, res.GetMode(), data)
 }
@@ -595,7 +586,6 @@ func (r *HostComponentRepository) cleanQuadlets() error {
 		if !e.IsDir() {
 			continue
 		}
-		// Only touch directories Materia created.
 		_, err := root.Stat(filepath.Join(e.Name(), ".materia_managed"))
 		if err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {

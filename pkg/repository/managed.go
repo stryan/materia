@@ -34,7 +34,7 @@ func NewManagedDir(prefix string, mode os.FileMode) (*ManagedDir, error) {
 		log.Warn("couldn't clean stale temp files", "dir", abs, "err", err)
 	}
 
-	return &ManagedDir{abs, mode}, err
+	return &ManagedDir{abs, mode}, nil
 }
 
 func (m *ManagedDir) Install(ctx context.Context, path string, data []byte) error {
