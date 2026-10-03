@@ -16,6 +16,8 @@ import (
 	"primamateria.systems/materia/pkg/manifests"
 )
 
+var ErrNoRemoteDir = errors.New("no remote dir configured")
+
 type remote struct {
 	path, subpath string
 }
@@ -26,28 +28,43 @@ type RemoteComponentRegistry struct {
 	lock    sync.RWMutex
 }
 
-func NewRemoteComponentRegistry(remoteDir string) *RemoteComponentRegistry {
+func NewRemoteComponentRegistry(remoteDir string) (*RemoteComponentRegistry, error) {
+	if remoteDir != "" {
+		abs, err := filepath.Abs(remoteDir)
+		if err != nil {
+			return nil, err
+		}
+		remoteDir = abs
+	}
 	return &RemoteComponentRegistry{
 		root:    remoteDir,
 		remotes: map[string]remote{},
-	}
+	}, nil
 }
 
-func (r *RemoteComponentRegistry) ClonePath(name string) string {
-	return filepath.Join(r.root, "components", name)
+func (r *RemoteComponentRegistry) ClonePath(name string) (string, error) {
+	if err := components.ValidateComponentName(name); err != nil {
+		return "", err
+	}
+	dir, err := r.componentsDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, name), nil
 }
 
 // Needs a synced remote
 func (r *RemoteComponentRegistry) Register(name, subpath string) error {
-	if err := components.ValidateComponentName(name); err != nil {
+	path, err := r.ClonePath(name)
+	if err != nil {
 		return err
 	}
-	if _, err := resolveRemote(r.ClonePath(name), subpath); err != nil {
+	if _, err := resolveRemote(path, subpath); err != nil {
 		return fmt.Errorf("invalid remote component %v: %w", name, err)
 	}
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	r.remotes[name] = remote{r.ClonePath(name), subpath}
+	r.remotes[name] = remote{path, subpath}
 	return nil
 }
 
@@ -78,6 +95,13 @@ func resolveRemote(clone, subpath string) (string, error) {
 	if subpath != "" && !filepath.IsLocal(subpath) {
 		return "", fmt.Errorf("invalid subpath %q", subpath)
 	}
+	info, err := lstatSource(clone)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("remote clone %v is not a directory", clone)
+	}
 	dir := clone
 	for part := range strings.SplitSeq(filepath.ToSlash(subpath), "/") {
 		if part == "" || part == "." {
@@ -92,7 +116,7 @@ func resolveRemote(clone, subpath string) (string, error) {
 			return "", fmt.Errorf("subpath element %v is not a directory", dir)
 		}
 	}
-	info, err := lstatSource(filepath.Join(dir, manifests.ComponentManifestFile))
+	info, err = lstatSource(filepath.Join(dir, manifests.ComponentManifestFile))
 	if err != nil {
 		return "", err
 	}
@@ -103,10 +127,15 @@ func resolveRemote(clone, subpath string) (string, error) {
 }
 
 func (r *RemoteComponentRegistry) Prune() error {
-	if r.root == "" {
+	dir, err := r.componentsDir()
+	if errors.Is(err, ErrNoRemoteDir) {
 		return nil
 	}
-	root, err := os.OpenRoot(filepath.Join(r.root, "components"))
+	if err != nil {
+		return err
+	}
+
+	root, err := os.OpenRoot(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -146,17 +175,21 @@ func (r *RemoteComponentRegistry) Reset() {
 func (r *RemoteComponentRegistry) Clean() error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-
-	if r.root == "" {
-		return nil
-	}
-	root, err := os.OpenRoot(filepath.Join(r.root, "components"))
-	if errors.Is(err, fs.ErrNotExist) {
+	dir, err := r.componentsDir()
+	if errors.Is(err, ErrNoRemoteDir) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer func() { _ = root.Close() }()
-	return root.RemoveAll("components")
+
+	clear(r.remotes)
+	return os.RemoveAll(dir)
+}
+
+func (r *RemoteComponentRegistry) componentsDir() (string, error) {
+	if r.root == "" {
+		return "", ErrNoRemoteDir
+	}
+	return filepath.Join(r.root, "components"), nil
 }

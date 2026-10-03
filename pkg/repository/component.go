@@ -32,12 +32,12 @@ func NewHostComponentRepository(quadletPrefix, dataPrefix string) (*HostComponen
 	}
 	err = os.MkdirAll(dap, 0o755)
 	if err != nil {
-		return nil, fmt.Errorf("error creating ComponentRepository with data_prefix %v/%v: %w", dataPrefix, dap, err)
+		return nil, fmt.Errorf("error creating ComponentRepository with data_prefix %v / %v: %w", dataPrefix, dap, err)
 	}
 
 	err = os.MkdirAll(qp, 0o755)
 	if err != nil {
-		return nil, fmt.Errorf("error creating ComponentRepository with quadletPrefix %v/%v: %w", quadletPrefix, qp, err)
+		return nil, fmt.Errorf("error creating ComponentRepository with quadletPrefix %v / %v: %w", quadletPrefix, qp, err)
 	}
 	return &HostComponentRepository{
 		dataPrefix:    dap,
@@ -230,26 +230,39 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 		return nil, err
 	}
 	defer func() { _ = qpath.Close() }()
-	searchFunc := func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if p == "." || p == ".component_version" || p == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
+	searchFunc := func(addFunc func(path string) (components.Resource, error)) func(p string, d fs.DirEntry, err error) error {
+		return func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if p == "." || p == ".component_version" || p == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
+				return nil
+			}
+			newRes, err := addFunc(p)
+			if err != nil {
+				return err
+			}
+			resources = append(resources, newRes)
 			return nil
 		}
-		resources = append(resources, components.Resource{
-			Parent:   c.InstanceName(),
-			Path:     p,
-			Kind:     components.FindResourceType(p),
-			Template: components.IsTemplate(p),
-		})
-		return nil
 	}
-	err = fs.WalkDir(dpath.FS(), ".", searchFunc)
+	err = fs.WalkDir(dpath.FS(), ".", searchFunc(func(p string) (components.Resource, error) {
+		res, err := r.newResource(c, dpath, false, p)
+		if err != nil {
+			return components.Resource{}, err
+		}
+		return res, nil
+	}))
 	if err != nil {
 		return resources, err
 	}
-	err = fs.WalkDir(qpath.FS(), ".", searchFunc)
+	err = fs.WalkDir(qpath.FS(), ".", searchFunc(func(p string) (components.Resource, error) {
+		res, err := r.newResource(c, qpath, true, p)
+		if err != nil {
+			return components.Resource{}, err
+		}
+		return res, nil
+	}))
 	if err != nil {
 		return resources, err
 	}

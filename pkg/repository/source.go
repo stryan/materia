@@ -30,7 +30,11 @@ func NewSourceComponentRepository(sourceDir string, registry *RemoteComponentReg
 		return nil, err
 	}
 	if registry == nil {
-		registry = NewRemoteComponentRegistry("")
+		var err error
+		registry, err = NewRemoteComponentRegistry("")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &SourceComponentRepository{
@@ -107,7 +111,7 @@ func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 		if strings.HasPrefix(v.Name(), ".") {
 			continue
 		}
-		if v.IsDir() && v.Type()&fs.ModeSymlink != 0 {
+		if v.IsDir() || v.Type()&fs.ModeSymlink != 0 {
 			compPaths = append(compPaths, v.Name())
 		}
 	}
@@ -168,7 +172,7 @@ func (s *SourceComponentRepository) GetResource(parent *components.Component, na
 	for _, candidate := range []string{name, name + ".gotmpl"} {
 		p := filepath.Join(prefix, candidate)
 		if _, err := os.Lstat(p); err == nil {
-			return s.NewResource(parent, p) // NewResource strips the suffix and sets Template
+			return s.NewResource(parent, p)
 		} else if !errors.Is(err, fs.ErrNotExist) {
 			return components.Resource{}, err
 		}
@@ -207,6 +211,10 @@ func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*
 	defer func() { _ = root.Close() }()
 	mani, err := root.ReadFile(manifests.ComponentManifestFile)
 	if err != nil {
+		return nil, err
+	}
+	// make sure it's not a symlink
+	if _, err := lstatSource(filepath.Join(prefix, manifests.ComponentManifestFile)); err != nil {
 		return nil, err
 	}
 	return manifests.LoadComponentManifestFromContent(mani)

@@ -52,20 +52,26 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if c.CommandPodman {
 		cm, err = command.NewCommandManager(c.ContainersConfig)
 		if err != nil {
+			sm.Close()
 			return nil, fmt.Errorf("failed to create podman command manager: %w", err)
 		}
 	} else {
 		cm, err = native.NewNativeManager(ctx, c.ContainersConfig)
 		if err != nil {
+			sm.Close()
 			return nil, fmt.Errorf("failed to create native podman manager: %w", err)
 		}
 	}
 	scriptRepo, err := repository.NewManagedDir(c.ScriptsDir, 0o755)
 	if err != nil {
+		sm.Close()
+		cm.Close()
 		return nil, fmt.Errorf("failed to create script repo: %w", err)
 	}
 	serviceRepo, err := repository.NewManagedDir(c.ServicesDir, 0o644)
 	if err != nil {
+		sm.Close()
+		cm.Close()
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
 

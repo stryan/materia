@@ -74,8 +74,5 @@ func cleanupAtomicTemps(root *os.Root) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
 	return errors.Join(append(errs, err)...)
 }
