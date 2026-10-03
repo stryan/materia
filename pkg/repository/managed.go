@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -49,12 +50,16 @@ func (m *ManagedDir) Install(ctx context.Context, path string, data []byte) erro
 func (m *ManagedDir) Remove(ctx context.Context, path string) error {
 	root, err := os.OpenRoot(m.prefix)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, fs.ErrNotExist) {
 			// nothing to do
 			return nil
 		}
 		return err
 	}
 	defer func() { _ = root.Close() }()
-	return root.Remove(path)
+	err = root.Remove(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
 }

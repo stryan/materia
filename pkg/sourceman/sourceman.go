@@ -3,6 +3,7 @@ package sourceman
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"slices"
 
@@ -30,13 +31,15 @@ type sourcePlan struct {
 type SourceManager struct {
 	components.ComponentReader
 	sourceDir      string
-	remoteDir      string
 	remoteRegistry *repository.RemoteComponentRegistry
 	sources        []sourcePlan
 }
 
 func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
-	registry := repository.NewRemoteComponentRegistry(c.RemoteDir)
+	registry, err := repository.NewRemoteComponentRegistry(c.RemoteDir)
+	if err != nil {
+		return nil, err
+	}
 	repo, err := repository.NewSourceComponentRepository(c.SourceDir, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
@@ -44,7 +47,6 @@ func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 	return &SourceManager{
 		ComponentReader: repo,
 		sourceDir:       c.SourceDir,
-		remoteDir:       c.RemoteDir,
 		remoteRegistry:  registry,
 	}, nil
 }
@@ -70,7 +72,7 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 func (s *SourceManager) Rollback(ctx context.Context) error {
 	for _, src := range s.sources {
 		if !src.Inspect().SupportsRollback {
-			return fmt.Errorf("unable to rollback: unsupported source type: %v", src)
+			return fmt.Errorf("unable to rollback: unsupported source type: %v", src.Source)
 		}
 	}
 	for i, src := range s.sources {
@@ -127,15 +129,17 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 	}
 	s.remoteRegistry.Reset()
 	s.sources = slices.DeleteFunc(s.sources, func(p sourcePlan) bool { return !p.Primary })
-	for name, r := range man.Remotes {
+	remoteKeys := slices.Sorted(maps.Keys(man.Remotes))
+	for _, name := range remoteKeys {
+		r := man.Remotes[name]
 		if ok, _ := s.ComponentExists(name); ok {
 			log.Debugf("loading remote component that's shadowed by a local component: %v", name)
 		}
-		if err := components.ValidateComponentName(name); err != nil {
-			return err
-		}
 		var remoteSource source.Source
-		localpath := s.remoteRegistry.ClonePath(name)
+		localpath, err := s.remoteRegistry.ClonePath(name)
+		if err != nil {
+			return fmt.Errorf("invalid remote %v: %w", name, err)
+		}
 		if r.GitSource != nil {
 			r.GitSource.LocalRepository = localpath
 			remoteSource, err = git.NewGitSource(r.GitSource)
@@ -159,6 +163,9 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		}
 		if remoteSource == nil {
 			return fmt.Errorf("remote %v has no valid source config", name)
+		}
+		if r.Subpath != "" && !filepath.IsLocal(r.Subpath) {
+			return fmt.Errorf("invalid subpath %q", r.Subpath)
 		}
 		// Do initial sync here since we need the repository manifest downloaded before loading the remotes
 		// and will thus miss the initial Sync() call
