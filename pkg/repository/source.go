@@ -237,6 +237,7 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 	}
 	res := components.Resource{
 		Path:     resName,
+		Mode:     fileInfo.Mode().Perm(),
 		Parent:   parent.Name,
 		Template: components.IsTemplate(path),
 	}

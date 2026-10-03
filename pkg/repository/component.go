@@ -398,7 +398,7 @@ func (r *HostComponentRepository) newResource(parent *components.Component, root
 		return components.Resource{}, err
 	}
 	rt := components.FindResourceType(path)
-	res := components.Resource{Kind: rt, Path: path, Parent: parent.InstanceName()}
+	res := components.Resource{Kind: rt, Path: path, Mode: info.Mode().Perm(), Parent: parent.InstanceName()}
 	if info.IsDir() {
 		if isQuadlet && components.IsDropinDir(path) {
 			res.Kind = components.ResourceTypeDropinDir
@@ -453,11 +453,9 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	}
 
 	prefix := r.dataPrefix
-	mode := fs.FileMode(0o755) // TODO pull permissions from source dir
 
 	if inQuadletDir(res) {
 		prefix = r.quadletPrefix
-		mode = 0o644
 	}
 	root, err := openRes(prefix, res)
 	if err != nil {
@@ -466,13 +464,13 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 
 	defer func() { _ = root.Close() }()
 	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
-		err := root.Mkdir(res.Path, mode)
+		err := root.Mkdir(res.Path, resMode(res))
 		if err != nil {
 			return err
 		}
 		return nil
 	}
-	return atomicWrite(root, res.Path, mode, data)
+	return atomicWrite(root, res.Path, resMode(res), data)
 }
 
 func (r *HostComponentRepository) RemoveResource(res components.Resource) error {
@@ -607,4 +605,24 @@ func (r *HostComponentRepository) cleanData() error {
 
 func inQuadletDir(res components.Resource) bool {
 	return res.IsQuadlet() || res.Kind == components.ResourceTypeDropinDir
+}
+
+func resMode(res components.Resource) os.FileMode {
+	switch {
+	case res.Kind == components.ResourceTypeDropinDir || res.Kind == components.ResourceTypeDirectory:
+		return 0o755
+	case res.Kind == components.ResourceTypeScript:
+		return 0o755
+	case res.Mode != 0:
+		return normalizeMode(res.Mode)
+	default:
+		return 0o644
+	}
+}
+
+func normalizeMode(m fs.FileMode) fs.FileMode {
+	if m.Perm()&0o111 != 0 {
+		return 0o755
+	}
+	return 0o644
 }
