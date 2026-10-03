@@ -346,35 +346,38 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		if err != nil {
 			return diffActions, err
 		}
-		dmp := diffmatchpatch.New()
-		diffs := dmp.DiffMain(hostResource.Content, sourceRes.Content, false)
-		modeChange := hostResource.Mode == sourceRes.GetMode()
-		if !hostResource.IsFile() {
-			modeChange = false
-		}
-		if diffs == nil && !modeChange {
+
+		diffs := diffmatchpatch.New().DiffMain(hostResource.Content, sourceRes.Content, false)
+		hasDiffs := slices.ContainsFunc(diffs, func(d diffmatchpatch.Diff) bool {
+			return d.Type != diffmatchpatch.DiffEqual
+		})
+		modeChange := sourceRes.IsFile() && hostResource.Mode != sourceRes.GetMode()
+		if !hasDiffs && !modeChange {
 			continue
 		}
+		if diffs == nil {
+			diffs = []diffmatchpatch.Diff{}
+		}
+
 		act := actions.Action{
 			Todo:        actions.ActionUpdate,
 			Parent:      source,
-			Target:      conflictedResource,
+			Target:      sourceRes,
 			DiffContent: diffs,
 		}
-		hasDiffs := len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual
-		if hasDiffs || modeChange {
-			diffActions = append(diffActions, act)
+		if modeChange {
+			act = act.With(actions.WithPreviousMode(hostResource.Mode))
 		}
-		if hasDiffs && conflictedResource.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
+		diffActions = append(diffActions, act)
+
+		if hasDiffs && sourceRes.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
 			volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
 			if err != nil {
 				return diffActions, err
 			}
 			diffActions = append(diffActions, volumeMigrationActions...)
 		}
-
 	}
-
 	return diffActions, nil
 }
 
@@ -650,6 +653,10 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 	var result []actions.Action
 
 	for _, d := range resourceActions {
+		// quadlet mode changes don't matter, so never trigger off them
+		if _, modeOnly := d.GetPrevMode(); modeOnly && d.Target.IsQuadlet() {
+			continue
+		}
 		if updatedServiceActions, ok := triggers[d.Target.Path]; ok {
 			for _, v := range updatedServiceActions {
 				live, err := mgr.GetService(ctx, v.Target.Service())
