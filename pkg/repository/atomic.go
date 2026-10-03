@@ -69,9 +69,8 @@ func cleanupAtomicTemps(root *os.Root) error {
 			if errors.Is(err, os.ErrNotExist) {
 				// problem solved
 				return nil
-			} else {
-				errs = append(errs, err)
 			}
+			errs = append(errs, err)
 		}
 		return nil
 	})

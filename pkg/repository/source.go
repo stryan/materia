@@ -14,56 +14,82 @@ import (
 	"primamateria.systems/materia/pkg/manifests"
 )
 
-var ErrNeedHostRepository = errors.New("action can't be done on source repository")
+var (
+	ErrNeedHostRepository = errors.New("action can't be done on source repository")
+	ErrNoSymlink          = errors.New("symlinks are not allowed")
+)
 
 type SourceComponentRepository struct {
-	basedirs []string
+	srcCompDir string // /var/lib/materia/source
+	registry   *RemoteComponentRegistry
 }
 
-func NewSourceComponentRepository(sourceDirs ...string) (*SourceComponentRepository, error) {
-	for _, sourceDir := range sourceDirs {
-		if _, err := os.Stat(sourceDir); err != nil {
-			// we expect the source repos to be pre-created for us
-			return nil, err
-		}
+func NewSourceComponentRepository(sourceDir string, registry *RemoteComponentRegistry) (*SourceComponentRepository, error) {
+	if _, err := os.Stat(sourceDir); err != nil {
+		// we expect the source base dir to be pre-created for us
+		return nil, err
 	}
+	if registry == nil {
+		registry = NewRemoteComponentRegistry("")
+	}
+
 	return &SourceComponentRepository{
-		basedirs: sourceDirs,
+		srcCompDir: sourceDir,
+		registry:   registry,
 	}, nil
 }
 
-func (s SourceComponentRepository) getPrefix(name string) (string, error) {
-	for _, bd := range s.basedirs {
-		if _, err := os.Stat(filepath.Join(bd, "components", name)); err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
-			return "", err
-		} else {
-			return filepath.Join(bd, "components", name), nil
-		}
+func (s *SourceComponentRepository) getPrefix(name string) (string, error) {
+	name, _, _ = strings.Cut(name, "@") // source components can't be instanced anyway
+	if err := components.ValidateComponentName(name); err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("can't get prefix for resource %v", name)
+
+	// check source root first
+	sourceLocation := filepath.Join(s.srcCompDir, "components", name)
+	info, err := lstatSource(sourceLocation)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", err
+	}
+	if err == nil {
+		if !info.IsDir() {
+			return "", fmt.Errorf("stray resource in source repo: %v", name)
+		}
+		return sourceLocation, nil
+	}
+
+	// check registry
+	if path, found, err := s.registry.Resolve(name); err != nil {
+		return "", err
+	} else if found {
+		return path, nil
+	}
+
+	return "", fmt.Errorf("component %q: %w", name, fs.ErrNotExist)
 }
 
 func (s SourceComponentRepository) Validate() error {
-	if len(s.basedirs) < 1 {
+	if s.srcCompDir == "" && s.registry.Size() == 0 {
 		return errors.New("no search paths for source components")
 	}
 	return nil
 }
 
 func (s *SourceComponentRepository) ReadResource(res components.Resource) (string, error) {
-	if res.Kind == components.ResourceTypeDirectory {
+	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
 		return "", nil
 	}
 	prefix, err := s.getPrefix(res.Parent)
 	if err != nil {
 		return "", err
 	}
-	resPath := filepath.Join(prefix, res.Filepath())
+	root, err := os.OpenRoot(prefix)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = root.Close() }()
 
-	curFile, err := os.ReadFile(resPath)
+	curFile, err := root.ReadFile(res.Filepath())
 	if err != nil {
 		return "", err
 	}
@@ -72,28 +98,29 @@ func (s *SourceComponentRepository) ReadResource(res components.Resource) (strin
 
 func (s *SourceComponentRepository) ListComponentNames() ([]string, error) {
 	var compPaths []string
-	for _, bd := range s.basedirs {
-		entries, err := os.ReadDir(bd)
-		if err != nil {
-			return nil, err
+
+	entries, err := os.ReadDir(filepath.Join(s.srcCompDir, "components"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	for _, v := range entries {
+		if strings.HasPrefix(v.Name(), ".") {
+			continue
 		}
-		for _, v := range entries {
-			if v.IsDir() {
-				compPaths = append(compPaths, v.Name())
-			}
+		if v.IsDir() && v.Type()&fs.ModeSymlink != 0 {
+			compPaths = append(compPaths, v.Name())
 		}
 	}
+	compPaths = append(compPaths, s.registry.List()...)
 	slices.Sort(compPaths)
+	compPaths = slices.Compact(compPaths)
 	return compPaths, nil
 }
 
 func (s *SourceComponentRepository) Clean() error {
-	for _, bd := range s.basedirs {
-		if err := os.RemoveAll(bd); err != nil {
-			return err
-		}
-	}
-	return nil
+	cerr := os.RemoveAll(s.srcCompDir)
+	rerr := s.registry.Clean()
+	return errors.Join(cerr, rerr)
 }
 
 func (s *SourceComponentRepository) GetComponent(name string) (*components.Component, error) {
@@ -111,105 +138,61 @@ func (s *SourceComponentRepository) GetComponent(name string) (*components.Compo
 	c.State = components.StateFresh
 	c.Version = components.DefaultComponentVersion
 	log.Debugf("loading source component %v from path %v", c.Name, path)
-	scripts := 0
 
-	secretResources := []components.Resource{}
-	manifestPath := filepath.Join(path, manifests.ComponentManifestFile)
-	if _, err := os.Stat(manifestPath); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, components.ErrCorruptComponent
-		}
-		return nil, err
-	}
-	err = filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.Name() == c.Name || d.Name() == manifests.ComponentManifestFile {
-			return nil
-		}
-		if strings.Contains(fullPath, ".git") {
-			return nil
-		}
-		newRes, err := s.NewResource(c, fullPath)
-		if err != nil {
-			return err
-		}
-		return c.Resources.Add(newRes)
-	})
+	resources, err := s.loadResources(c, path)
 	if err != nil {
 		return nil, err
 	}
-	if scripts != 0 && scripts != 2 {
-		return nil, errors.New("scripted component is missing install or cleanup")
-	}
-	for _, s := range secretResources {
-		err := c.Resources.Add(s)
+	for _, r := range resources {
+		err := c.Resources.Add(r)
 		if err != nil {
 			return nil, err
 		}
 	}
-	manifestResource, err := s.NewResource(c, manifestPath)
-	if err != nil {
-		return nil, err
+	if !c.Resources.Contains(manifests.ComponentManifestFile) {
+		return nil, components.ErrCorruptComponent
 	}
+	// secrets are added on Manifest application, so we're done here
 
-	return c, c.Resources.Add(manifestResource)
+	return c, nil
 }
 
 func (s *SourceComponentRepository) GetResource(parent *components.Component, name string) (components.Resource, error) {
-	if parent == nil || name == "" {
+	if parent == nil || name == "" || !filepath.IsLocal(name) {
 		return components.Resource{}, errors.New("invalid parent or resource")
 	}
 	prefix, err := s.getPrefix(parent.Name)
 	if err != nil {
 		return components.Resource{}, err
 	}
-	resourcePath := filepath.Join(prefix, name)
-	return s.NewResource(parent, resourcePath)
+	for _, candidate := range []string{name, name + ".gotmpl"} {
+		p := filepath.Join(prefix, candidate)
+		if _, err := os.Lstat(p); err == nil {
+			return s.NewResource(parent, p) // NewResource strips the suffix and sets Template
+		} else if !errors.Is(err, fs.ErrNotExist) {
+			return components.Resource{}, err
+		}
+	}
+	return components.Resource{}, fmt.Errorf("resource %q: %w", name, fs.ErrNotExist)
 }
 
 func (s *SourceComponentRepository) ListResources(c *components.Component) ([]components.Resource, error) {
 	if c == nil {
 		return []components.Resource{}, errors.New("invalid parent or resource")
 	}
-	resources := []components.Resource{}
 	dataPath, err := s.getPrefix(c.Name)
 	if err != nil {
-		return resources, err
+		return nil, err
 	}
-	searchFunc := func(fullPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.Name() == c.Name || d.Name() == ".component_version" || d.Name() == ".materia_managed" {
-			return nil
-		}
-		resName, err := filepath.Rel(dataPath, fullPath)
-		if err != nil {
-			return err
-		}
-		newRes := components.Resource{
-			Parent:   c.Name,
-			Path:     resName,
-			Kind:     components.FindResourceType(resName),
-			Template: components.IsTemplate(resName),
-		}
-		resources = append(resources, newRes)
-
-		return nil
-	}
-	err = filepath.WalkDir(dataPath, searchFunc)
-	if err != nil {
-		return resources, err
-	}
-	return resources, nil
+	return s.loadResources(c, dataPath)
 }
 
 func (s *SourceComponentRepository) ComponentExists(name string) (bool, error) {
 	_, err := s.getPrefix(name)
-	return (err == nil), err
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*manifests.ComponentManifest, error) {
@@ -217,8 +200,16 @@ func (s *SourceComponentRepository) GetManifest(parent *components.Component) (*
 	if err != nil {
 		return nil, err
 	}
-
-	return manifests.LoadComponentManifestFromFile(filepath.Join(prefix, manifests.ComponentManifestFile))
+	root, err := os.OpenRoot(prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	mani, err := root.ReadFile(manifests.ComponentManifestFile)
+	if err != nil {
+		return nil, err
+	}
+	return manifests.LoadComponentManifestFromContent(mani)
 }
 
 func (s *SourceComponentRepository) NewResource(parent *components.Component, path string) (components.Resource, error) {
@@ -231,7 +222,7 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 	if err != nil {
 		return components.Resource{}, err
 	}
-	fileInfo, err := os.Stat(path)
+	fileInfo, err := lstatSource(path)
 	if err != nil {
 		return components.Resource{}, err
 	}
@@ -242,9 +233,52 @@ func (s *SourceComponentRepository) NewResource(parent *components.Component, pa
 		Template: components.IsTemplate(path),
 	}
 	if fileInfo.IsDir() {
-		res.Kind = components.ResourceTypeDirectory
+		if components.IsDropinDir(resName) {
+			res.Kind = components.ResourceTypeDropinDir
+		} else {
+			res.Kind = components.ResourceTypeDirectory
+		}
 	} else {
-		res.Kind = components.FindResourceType(path)
+		res.Kind = components.FindResourceType(resName)
 	}
 	return res, nil
+}
+
+func (s *SourceComponentRepository) loadResources(c *components.Component, path string) ([]components.Resource, error) {
+	var out []components.Resource
+	err := filepath.WalkDir(path, func(fullPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if fullPath == path {
+			return nil
+		}
+		if d.Name() == ".git" {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		res, err := s.NewResource(c, fullPath)
+		if err != nil {
+			return err
+		}
+		out = append(out, res)
+		return nil
+	})
+	return out, err
+}
+
+func lstatSource(path string) (fs.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0:
+		return nil, fmt.Errorf("invalid path %v: %w", path, ErrNoSymlink)
+	case !info.Mode().IsRegular() && !info.IsDir():
+		return nil, fmt.Errorf("unsupported file type %v: %v", info.Mode().Type(), path)
+	}
+	return info, nil
 }

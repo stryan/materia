@@ -2,10 +2,9 @@ package sourceman
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
+	"slices"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/components"
@@ -30,20 +29,23 @@ type sourcePlan struct {
 
 type SourceManager struct {
 	components.ComponentReader
-	sourceDir string
-	remoteDir string
-	sources   []sourcePlan
+	sourceDir      string
+	remoteDir      string
+	remoteRegistry *repository.RemoteComponentRegistry
+	sources        []sourcePlan
 }
 
 func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
+	registry := repository.NewRemoteComponentRegistry(c.RemoteDir)
+	repo, err := repository.NewSourceComponentRepository(c.SourceDir, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
 	return &SourceManager{
-		ComponentReader: sourceRepo,
+		ComponentReader: repo,
 		sourceDir:       c.SourceDir,
 		remoteDir:       c.RemoteDir,
+		remoteRegistry:  registry,
 	}, nil
 }
 
@@ -52,8 +54,7 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 		o := &source.SyncOpts{}
 		if src.Opts != nil {
 			o = src.Opts
-		}
-		if opts != nil {
+		} else if opts != nil {
 			o = opts
 		}
 		report, err := src.Sync(ctx, *o)
@@ -67,9 +68,9 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 }
 
 func (s *SourceManager) Rollback(ctx context.Context) error {
-	for _, s := range s.sources {
-		if !s.Inspect().SupportsRollback {
-			return fmt.Errorf("unable to rollback: unsupported source type: %v", s)
+	for _, src := range s.sources {
+		if !src.Inspect().SupportsRollback {
+			return fmt.Errorf("unable to rollback: unsupported source type: %v", src)
 		}
 	}
 	for i, src := range s.sources {
@@ -110,7 +111,7 @@ func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts
 }
 
 func (s *SourceManager) LoadManifest(filename string) (*manifests.MateriaManifest, error) {
-	manifestLocation := filepath.Join(s.sourceDir, manifests.MateriaManifestFile)
+	manifestLocation := filepath.Join(s.sourceDir, filename)
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
@@ -124,9 +125,17 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	s.remoteRegistry.Reset()
+	s.sources = slices.DeleteFunc(s.sources, func(p sourcePlan) bool { return !p.Primary })
 	for name, r := range man.Remotes {
+		if ok, _ := s.ComponentExists(name); ok {
+			log.Debugf("loading remote component that's shadowed by a local component: %v", name)
+		}
+		if err := components.ValidateComponentName(name); err != nil {
+			return err
+		}
 		var remoteSource source.Source
-		localpath := filepath.Join(s.remoteDir, "components", name)
+		localpath := s.remoteRegistry.ClonePath(name)
 		if r.GitSource != nil {
 			r.GitSource.LocalRepository = localpath
 			remoteSource, err = git.NewGitSource(r.GitSource)
@@ -160,42 +169,20 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if r.Subpath != "" {
-			localpath = filepath.Join(localpath, r.Subpath)
-		}
-		if _, err := os.Stat(filepath.Join(localpath, manifests.ComponentManifestFile)); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("invalid remote component %v", err)
-			}
-			return fmt.Errorf("cannot determine remote component validity: %w", err)
+		if err := s.remoteRegistry.Register(name, r.Subpath); err != nil {
+			return err
 		}
 		if err := s.AddSource(remoteSource, &source.SyncOpts{
-			Subpath: r.Subpath,
+			Revision: r.Revision,
+			Subpath:  r.Subpath,
 		}, report, false); err != nil {
 			return fmt.Errorf("unable to add remote component source %v: %w", name, err)
 		}
 
 	}
-	// remove old remote components to keep things tidy
-	entries, err := os.ReadDir(filepath.Join(s.remoteDir, "components"))
-	if err != nil {
-		return err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			if _, ok := man.Remotes[v.Name()]; !ok {
-				log.Debugf("Removing old remote component %v", v.Name())
-				err := os.RemoveAll(filepath.Join(s.remoteDir, "components", v.Name()))
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+	return s.remoteRegistry.Prune()
 }
 
 func (s *SourceManager) Clean() error {
-	// TODO
-	return nil
+	return s.ComponentReader.Clean()
 }
