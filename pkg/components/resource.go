@@ -3,6 +3,7 @@ package components
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 
 type Resource struct {
 	Path       string       `json:"path" toml:"path"`
+	Mode       fs.FileMode  `json:"mode" toml:"mode"`
 	HostObject string       `json:"host_object" toml:"host_object"`
 	Parent     string       `json:"parent" toml:"parent"`
 	Kind       ResourceType `json:"kind" toml:"kind"`
