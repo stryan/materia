@@ -4,14 +4,14 @@ on:
   push:
     tags: [v*.*.*]
 env:
-  REGISTRY_USER: ${{ github.actor }}
-  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_TOKEN }}
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
-  GITHUB_REPOSITORY: stryan/materia
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  CONTAINER_HOST: unix:///var/run/podman/podman.sock
+  FNOX_PROFILE: ci
+  FNOX_AGE_KEY: ${{secrets.MATERIA_AGE_KEY}}
   RYUK_CONTAINER_PRIVILEGED: true
+  DOCKER_HOST: unix:///var/run/podman/podman.sock
+  CONTAINER_HOST: unix:///var/run/podman/podman.sock
+  BUILDAH_ISOLATION: chroot
 jobs:
   # Build job
   build-and-release:
@@ -37,11 +37,10 @@ jobs:
       - name: Run integration tests
         run: mise run integration -k
       - name: Login to registry
-        run: echo "${{ secrets.REGISTRY_TOKEN }}" | podman login "${{ vars.FORGE }}"
-          -u "${{ gitea.actor }}" --password-stdin
+        run: fnox get REGISTRY_TOKEN | podman login "${{ vars.FORGE }}" -u "$(fnox
+          get REGISTRY_USER)" --password-stdin
       - name: Login to ghcr registry
-        run: echo "${{ secrets.GH_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}"
-          --password-stdin
+        run: fnox get GH_TOKEN | podman login ghcr.io -u "$(fnox get GH_USER)" --password-stdin
       - name: Build container image and release
         run: mise run ci-release ${{ github.ref_name }}
       - name: Cleanup leftover containers

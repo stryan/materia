@@ -1,12 +1,9 @@
-[env]
-# DOCKER_HOST="unix:///var/run/podman/podman.sock"
-# CONTAINER_HOST="unix:///var/run/podman/podman.sock"
-CGO_ENABLE = "0"
-BUILDAH_ISOLATION="chroot"
+[tools]
+fnox = "latest"
 
 [vars]
 image_registry = "${IMAGE_REGISTRY:-}"
-gh_repo = "stryan/materia"
+gh_mirror = "stryan/materia"
 
 [tasks.ci-build]
 description = "Build and test for CI"
@@ -34,7 +31,7 @@ usage = '''
 '''
 run = [
   "git remote add mirror git@github.com:stryan/materia", #need this for gh
-  "mise run ci-buildah --stable ${usage_tag?} {{vars.IMAGE_REGISTRY}} ghcr.io/stryan",
+  "mise run ci-buildah --stable ${usage_tag?} {{vars.image_registry}} {{vars.gh_mirror}}",
   "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
@@ -72,16 +69,6 @@ run = '''
       fi
     done
   fi
-  # if [ -n "$usage_tag" ]; then
-  #   buildah manifest push --all materia docker://{{vars.image_registry}}/materia:"$usage_tag"
-  #   if [[ "${usage_stable}" == "true" ]]; then
-  #     buildah manifest push --all materia docker://{{vars.image_registry}}/materia:stable
-  #   fi
-  #   buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:"$usage_tag"
-  #   if [[ "${usage_stable}" == "true" ]]; then
-  #     buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:stable
-  #   fi
-  # fi
 '''
 
 
