@@ -15,7 +15,7 @@ on:
       - go.sum
   pull_request:
     branches: [master]
-  workflow_dispath:
+  workflow_dispatch:
 env:
   IMAGE_REGISTRY: ${{ vars.FORGE }}/${{ github.actor }}
   MISE_ENV: ci
