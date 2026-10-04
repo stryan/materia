@@ -28,8 +28,11 @@ type sourcePlan struct {
 	Report  *source.SyncReport
 }
 
+type srcMaker func(r manifests.RemoteComponentConfig, dest string) (source.Source, error)
+
 type SourceManager struct {
 	components.ComponentReader
+	maker          srcMaker
 	sourceDir      string
 	remoteRegistry *repository.RemoteComponentRegistry
 	sources        []sourcePlan
@@ -48,6 +51,7 @@ func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
 		ComponentReader: repo,
 		sourceDir:       c.SourceDir,
 		remoteRegistry:  registry,
+		maker:           DefaultSourceMaker,
 	}, nil
 }
 
@@ -135,35 +139,15 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		if ok, _ := s.ComponentExists(name); ok {
 			log.Debugf("loading remote component that's shadowed by a local component: %v", name)
 		}
-		var remoteSource source.Source
 		localpath, err := s.remoteRegistry.ClonePath(name)
 		if err != nil {
 			return fmt.Errorf("invalid remote %v: %w", name, err)
 		}
-		if r.GitSource != nil {
-			r.GitSource.LocalRepository = localpath
-			remoteSource, err = git.NewGitSource(r.GitSource)
-			if err != nil {
-				return fmt.Errorf("invalid git source: %w", err)
-			}
+		remoteSource, err := s.maker(r, localpath)
+		if err != nil {
+			return fmt.Errorf("unable to construct remote %v: %w", name, err)
 		}
-		if r.FileSource != nil {
-			r.FileSource.Destination = localpath
-			remoteSource, err = local.NewLocalFileSource(r.FileSource)
-			if err != nil {
-				return fmt.Errorf("invalid file source: %w", err)
-			}
-		}
-		if r.OciSource != nil {
-			r.OciSource.LocalRepository = localpath
-			remoteSource, err = oci.NewOCISource(r.OciSource)
-			if err != nil {
-				return fmt.Errorf("invalid oci source: %w", err)
-			}
-		}
-		if remoteSource == nil {
-			return fmt.Errorf("remote %v has no valid source config", name)
-		}
+
 		if r.Subpath != "" && !filepath.IsLocal(r.Subpath) {
 			return fmt.Errorf("invalid subpath %q", r.Subpath)
 		}
@@ -192,4 +176,35 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 
 func (s *SourceManager) Clean() error {
 	return s.ComponentReader.Clean()
+}
+
+func DefaultSourceMaker(r manifests.RemoteComponentConfig, localpath string) (source.Source, error) {
+	var remoteSource source.Source
+	var err error
+
+	if r.GitSource != nil {
+		r.GitSource.LocalRepository = localpath
+		remoteSource, err = git.NewGitSource(r.GitSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid git source: %w", err)
+		}
+	}
+	if r.FileSource != nil {
+		r.FileSource.Destination = localpath
+		remoteSource, err = local.NewLocalFileSource(r.FileSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid file source: %w", err)
+		}
+	}
+	if r.OciSource != nil {
+		r.OciSource.LocalRepository = localpath
+		remoteSource, err = oci.NewOCISource(r.OciSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid oci source: %w", err)
+		}
+	}
+	if remoteSource == nil {
+		return nil, fmt.Errorf("no valid source config")
+	}
+	return remoteSource, nil
 }

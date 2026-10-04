@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -63,6 +61,10 @@ func ValidateComponentName(name string) error {
 
 	if strings.Contains(name, "..") || strings.Contains(name, ".") {
 		return errors.New("name can't have . path(s)")
+	}
+
+	if strings.Count(name, "@") > 1 {
+		return errors.New("too many @'s'")
 	}
 
 	return nil
@@ -333,26 +335,4 @@ func IsDropinDir(file string) bool {
 
 func IsTemplate(file string) bool {
 	return strings.HasSuffix(file, ".gotmpl")
-}
-
-func (r Resource) GetMode() os.FileMode {
-	switch {
-	case r.Kind == ResourceTypeDropinDir || r.Kind == ResourceTypeDirectory:
-		return 0o755
-	case r.IsQuadlet():
-		return 0o644
-	case r.Kind == ResourceTypeScript:
-		return 0o755
-	case r.Mode != 0:
-		return normalizeMode(r.Mode)
-	default:
-		return 0o644
-	}
-}
-
-func normalizeMode(m fs.FileMode) fs.FileMode {
-	if m.Perm()&0o111 != 0 {
-		return 0o755
-	}
-	return 0o644
 }
