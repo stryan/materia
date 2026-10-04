@@ -11,7 +11,14 @@ RUN mkdir -p /root/.ssh && \
 	chmod 0700 /root/.ssh && \
 	touch /root/.ssh/known_hosts
 
-RUN zypper in -y podman && zypper clean
+RUN set -e; \
+    for i in 1 2 3; do \
+      zypper -n ref -f && zypper -n in podman && ok=1 && break; \
+      echo "zypper attempt $i failed, retrying"; \
+      zypper -n clean -a; sleep 20; \
+    done; \
+    [ "${ok:-}" = 1 ]; \
+    zypper -n clean -a
 
 COPY ./bin/materia-${TARGETARCH} /app/materia
 
