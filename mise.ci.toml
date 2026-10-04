@@ -44,6 +44,10 @@ run = '''
     buildah manifest rm materia 2>/dev/null || true # clear old manifest from buildah cache
   fi
   buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
+  buildah manifest annotate --index \
+    --annotation org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets" \
+    --annotation org.opencontainers.image.licenses="GPL-3.0-only" \
+    materia
   if [[ "${usage_test}" == "true" ]]; then
     host_arch="$(go env GOARCH)"
     ctr="$(buildah from --pull=never --arch "$host_arch" localhost/materia:latest)" # grab the image for the runner arch from the manifest
