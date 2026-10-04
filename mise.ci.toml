@@ -1,11 +1,11 @@
 [env]
-DOCKER_HOST="unix:///var/run/podman/podman.sock"
-CONTAINER_HOST="unix:///var/run/podman/podman.sock"
+# DOCKER_HOST="unix:///var/run/podman/podman.sock"
+# CONTAINER_HOST="unix:///var/run/podman/podman.sock"
 CGO_ENABLE = "0"
 BUILDAH_ISOLATION="chroot"
 
 [vars]
-image_registry = "${IMAGE_REGISTRY}"
+image_registry = "${IMAGE_REGISTRY:-}"
 gh_repo = "stryan/materia"
 
 [tasks.ci-build]
@@ -30,10 +30,11 @@ description = "Build images for release"
 tools.gh = "latest"
 usage = '''
   arg "<tag>" help = "Tag to push"
+  arg "[repos]" help = "Repositorys to push to" var=#true
 '''
 run = [
   "git remote add mirror git@github.com:stryan/materia", #need this for gh
-  "mise run ci-buildah --stable ${usage_tag?}",
+  "mise run ci-buildah --stable ${usage_tag?} {{vars.IMAGE_REGISTRY}} ghcr.io/stryan",
   "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
@@ -42,20 +43,45 @@ run = [
 depends = ["build-amd64", "build-arm64"]
 usage = '''
   arg "[tag]" help = "Tag to push, omit to build only without pushing"
+  arg "[repos]" help = "Repositorys to push to" var=#true
   flag "-s --stable" help="Make this release a stable release" default=#false
+  flag "-t --test" negate="--no-test" help="Test if the image can be run with buildah run" default=#true
+  flag "-c --clear" negate="--no-clear" help="Clear buildah cache of previous materia manifests" default=#true
 '''
 run = '''
-  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
-  if [ -n "$usage_tag" ]; then
-    buildah manifest push --all materia docker://{{vars.image_registry}}/materia:"$usage_tag"
-    if [[ "${usage_stable}" == "true" ]]; then
-      buildah manifest push --all materia docker://{{vars.image_registry}}/materia:stable
-    fi
-    buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:"$usage_tag"
-    if [[ "${usage_stable}" == "true" ]]; then
-      buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:stable
-    fi
+  if [[ "${usage_clear}" == "true" ]]; then
+    buildah manifest rm materia 2>/dev/null || true # clear old manifest from buildah cache
   fi
+  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
+  if [[ "${usage_test}" == "true" ]]; then
+    host_arch="$(go env GOARCH)"
+    ctr="$(buildah from --pull=never --arch "$host_arch" localhost/materia:latest)" # grab the image for the runner arch from the manifest
+    trap 'buildah rm "$ctr" >/dev/null 2>&1 || true' EXIT # trap to catch mise's term signal and remove the above image on failure
+    buildah run "$ctr" -- /app/materia version
+    buildah run "$ctr" -- /app/materia --help
+  fi
+  if [ -n "$usage_tag" ]; then
+    if [ -z "${usage_repos}" ]; then
+      echo "a tag was given but no repos to push to" >&2
+      exit 1
+    fi
+    for repo in ${usage_repos}; do
+      buildah manifest push --all materia docker://${repo}/materia:"$usage_tag"
+      if [[ "${usage_stable}" == "true" ]]; then
+        buildah manifest push --all materia docker://${repo}/materia:stable
+      fi
+    done
+  fi
+  # if [ -n "$usage_tag" ]; then
+  #   buildah manifest push --all materia docker://{{vars.image_registry}}/materia:"$usage_tag"
+  #   if [[ "${usage_stable}" == "true" ]]; then
+  #     buildah manifest push --all materia docker://{{vars.image_registry}}/materia:stable
+  #   fi
+  #   buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:"$usage_tag"
+  #   if [[ "${usage_stable}" == "true" ]]; then
+  #     buildah manifest push --all materia docker://ghcr.io/{{vars.gh_repo}}:stable
+  #   fi
+  # fi
 '''
 
 

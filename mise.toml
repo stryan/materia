@@ -26,7 +26,7 @@ releasedir = "./release"
 [tasks.container]
 depends = ["build", "lint", "test"]
 env = { LDFLAGS = '-ldflags="-w -s"' }
-run = "podman build -f Containerfile.ci --platform=linux/amd64 -t primamateria.systems/materia:latest ."
+run = "podman build -f Containerfile.ci -t primamateria.systems/materia:latest ."
 
 [tasks.build-test-container]
 description = "Build image used for test container"
