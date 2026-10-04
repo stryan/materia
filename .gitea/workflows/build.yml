@@ -59,7 +59,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             mise ci-buildah
           else
-            mise ci-buildah latest
+            mise ci-buildah latest ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia
           fi
       - name: Cleanup leftover containers
         if: always()

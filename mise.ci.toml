@@ -1,40 +1,34 @@
 [tools]
 fnox = "latest"
+"github:git-pkgs/forge" = "latest"
 
-[vars]
-image_registry = "${IMAGE_REGISTRY:-}"
-gh_mirror = "stryan/materia"
-
-[tasks.ci-build]
-description = "Build and test for CI"
-depends = ["build", "test", "integration -k"]
-
-[tasks.ci-image]
-description = "Build CI image"
+[tasks.ci-release-forge]
+depends = ["build-amd64", "build-arm64"]
+description = "Generate a release"
 usage = '''
-  arg "[tag]" help = "Tag to push, omit to build only without pushing"
+	arg "<tag>" help = "Tag to generate release for"
+	flag "-h --host <host>" help = "Host for forge"
 '''
 run = '''
-  if [ -n "$usage_tag" ]; then
-    docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 --push -t {{vars.image_registry}}/materia:"$usage_tag" -t ghcr.io/stryan/materia:"$usage_tag" .
-  else
-    docker buildx build -f Containerfile.ci --platform linux/arm64,linux/amd64 .
-  fi
-'''
+	set -euo pipefail
+	f() {
+	  if [ -n "${usage_host:-}" ]; then
+	    forge --host "$usage_host" "$@"
+	  else
+	    forge "$@"
+	  fi
+	}
 
-[tasks.ci-release]
-description = "Build images for release"
-tools.gh = "latest"
-usage = '''
-  arg "<tag>" help = "Tag to push"
-  arg "[repos]" help = "Repositorys to push to" var=#true
+
+
+	git archive --format=tar.gz -o /tmp/materia-${usage_tag}-src.tar.gz --prefix=materia/ ${usage_tag?}
+
+	f release create --tag ${usage_tag?} --draft --body "$(cat CHANGELOG.md)"
+	f release upload ${usage_tag?} /tmp/materia-${usage_tag}-src.tar.gz
+	for file in bin/*; do
+		f release upload ${usage_tag?} "$file"
+	done
 '''
-run = [
-  "git remote add mirror git@github.com:stryan/materia", #need this for gh
-  "mise run ci-buildah --stable ${usage_tag?} {{vars.image_registry}} {{vars.gh_mirror}}",
-  "fnox x -- gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
-  "git remote rm mirror",
-]
 
 [tasks.ci-buildah]
 depends = ["build-amd64", "build-arm64"]
@@ -63,9 +57,9 @@ run = '''
       exit 1
     fi
     for repo in ${usage_repos}; do
-      buildah manifest push --all materia docker://${repo}/materia:"$usage_tag"
+      buildah manifest push --all materia docker://${repo}:"$usage_tag"
       if [[ "${usage_stable}" == "true" ]]; then
-        buildah manifest push --all materia docker://${repo}/materia:stable
+        buildah manifest push --all materia docker://${repo}:stable
       fi
     done
   fi
