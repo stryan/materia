@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"slices"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/containers"
@@ -47,26 +46,32 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	}
 	sm, err := services.NewServices(ctx, c.ServicesConfig)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to create systemd manager: %w", err)
 	}
 	var cm containers.ContainerManager
 	if c.CommandPodman {
 		cm, err = command.NewCommandManager(c.ContainersConfig)
 		if err != nil {
+			sm.Close()
 			return nil, fmt.Errorf("failed to create podman command manager: %w", err)
 		}
 	} else {
 		cm, err = native.NewNativeManager(ctx, c.ContainersConfig)
 		if err != nil {
+			sm.Close()
 			return nil, fmt.Errorf("failed to create native podman manager: %w", err)
 		}
 	}
-	scriptRepo, err := repository.NewFileRepository(c.ScriptsDir)
+	scriptRepo, err := repository.NewManagedDir(c.ScriptsDir, 0o755)
 	if err != nil {
+		sm.Close()
+		cm.Close()
 		return nil, fmt.Errorf("failed to create script repo: %w", err)
 	}
-	serviceRepo, err := repository.NewFileRepository(c.ServicesDir)
+	serviceRepo, err := repository.NewManagedDir(c.ServicesDir, 0o644)
 	if err != nil {
+		sm.Close()
+		cm.Close()
 		return nil, fmt.Errorf("failed to create service repo: %w", err)
 	}
 
@@ -102,8 +107,6 @@ func (h *HostManager) ListInstalledComponents() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to list installed components: %w", err)
 	}
-
-	slices.Sort(installedComponents)
 	return installedComponents, nil
 }
 

@@ -16,6 +16,8 @@ Container and Pod units will be restarted automatically when their associated fi
 
 The following file types are quadlets: `.container`,`.volume`,`.pod`,`.network`,`.build`,`.image` and `.kube`.
 
+Quadlet resources are installed with `0o644` permissions by default.
+
 ### Data Resources
 
 These are installed into the Materia data directory and consist of everything that *isn't* a Quadlet file.
@@ -23,6 +25,8 @@ These are installed into the Materia data directory and consist of everything th
 All Data resources are installed to the data directory, but some are installed to other locations as indicated.
 
 By default most Data Resources are considered generic `File` type. The following special exceptions are denoted by their file type:
+
+Data resources are installed with `0o644` permissions by default. If a data resource is a script or has the executable bit set in its source, it will be installed as `0o755`.
 
 #### Scripts
 Scripts are resources that end in `.sh` OR are manually specified as a script in the Component Manifest.

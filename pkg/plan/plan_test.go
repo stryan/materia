@@ -16,13 +16,13 @@ func clearRegistry() {
 	for k := range compRegistry {
 		delete(compRegistry, k)
 	}
-	compRegistry["root"] = components.NewComponent("root")
+	compRegistry["root"] = mustComponent("root")
 }
 
 func reload() actions.Action {
 	c, ok := compRegistry["root"]
 	if !ok {
-		c = components.NewComponent("root")
+		c = mustComponent("root")
 		c.State = components.StateRoot
 		compRegistry["root"] = c
 	}
@@ -38,7 +38,7 @@ func reload() actions.Action {
 func act(compname string, todo actions.ActionType, resName string, prio int) actions.Action {
 	c, ok := compRegistry[compname]
 	if !ok {
-		c = components.NewComponent(compname)
+		c = mustComponent(compname)
 		compRegistry[compname] = c
 	}
 	var res components.Resource
@@ -270,4 +270,9 @@ func Test_Plan(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustComponent(name string) *components.Component {
+	comp, _ := components.NewComponent(name)
+	return comp
 }

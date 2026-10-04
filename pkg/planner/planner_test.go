@@ -2,7 +2,9 @@ package planner
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -179,10 +181,10 @@ func Test_BuildComponentGraph(t *testing.T) {
 			ic := make([]*components.Component, 0, len(tt.installedComps))
 			ac := make([]*components.Component, 0, len(tt.assignedComps))
 			for _, i := range tt.installedComps {
-				ic = append(ic, components.NewComponent(i))
+				ic = append(ic, mustComponent(i))
 			}
 			for _, a := range tt.assignedComps {
-				ac = append(ac, components.NewComponent(a))
+				ac = append(ac, mustComponent(a))
 			}
 			graph, err := BuildComponentGraph(context.Background(), ic, ac)
 
@@ -619,6 +621,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 		opts         PlannerConfig
 		setup        func(host *mocks.MockHostManager, stale, fresh *components.Component)
 		want         []actions.Action
+		validate     func([]actions.Action) error
 		wantErr      bool
 	}{
 		{
@@ -725,6 +728,69 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "happy-path/mode-change-data",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelperWithMode("hello", "hello", "hello", os.FileMode(0o755)),
+				),
+				ServiceConfigs: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello", "hello", "hello"),
+				),
+				ServiceConfigs: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want: []actions.Action{
+				planHelper(actions.ActionUpdate, "hello", "hello"),
+			},
+			wantErr: false,
+			validate: func(steps []actions.Action) error {
+				for _, v := range steps {
+					if v.Todo == actions.ActionUpdate {
+						_, ok := v.GetPrevMode()
+						if !ok {
+							return errors.New("no previous mode")
+						}
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name: "happy-path/mode-change-quadlet",
+			stale: &components.Component{
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelperWithMode("hello.container", "hello", "[Container]\nImage=hello", os.FileMode(0o755)),
+				),
+				ServiceConfigs: newServSet(),
+			},
+			fresh: &components.Component{
+				Name:  "hello",
+				State: components.StateFresh,
+				Resources: newResSet(
+					resourceHelper("MANIFEST.toml", "hello", ""),
+					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
+				),
+				ServiceConfigs: newServSet(),
+			},
+			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
+			},
+			want:    []actions.Action{},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -747,6 +813,9 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				}
 				assert.Equal(t, v.Todo, got[k].Todo)
 				assert.Equal(t, v.Target.Path, got[k].Target.Path)
+			}
+			if tt.validate != nil {
+				assert.NoError(t, tt.validate(got))
 			}
 		})
 	}
@@ -1567,6 +1636,21 @@ func resourceHelper(name, parent, content string) components.Resource {
 	result.Parent = parent
 	result.Kind = components.FindResourceType(result.Path)
 	result.Content = content
+	result.Mode = result.GetMode()
+	if result.Kind != components.ResourceTypeImage && result.Kind != components.ResourceTypeBuild {
+		result.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(result.Path), filepath.Ext(result.Path)))
+	}
+	return result
+}
+
+func resourceHelperWithMode(name, parent, content string, mode os.FileMode) components.Resource {
+	var result components.Resource
+	result.Path = strings.TrimSuffix(name, ".gotmpl")
+	result.Template = components.IsTemplate(name)
+	result.Parent = parent
+	result.Kind = components.FindResourceType(result.Path)
+	result.Content = content
+	result.Mode = mode
 	if result.Kind != components.ResourceTypeImage && result.Kind != components.ResourceTypeBuild {
 		result.HostObject = fmt.Sprintf("systemd-%v", strings.TrimSuffix(filepath.Base(result.Path), filepath.Ext(result.Path)))
 	}
@@ -1742,4 +1826,9 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 
 func Ptr[T any](v T) *T {
 	return &v
+}
+
+func mustComponent(name string) *components.Component {
+	comp, _ := components.NewComponent(name)
+	return comp
 }

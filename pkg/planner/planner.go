@@ -346,29 +346,38 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		if err != nil {
 			return diffActions, err
 		}
-		dmp := diffmatchpatch.New()
-		diffs := dmp.DiffMain(hostResource.Content, sourceRes.Content, false)
-		if diffs == nil {
+
+		diffs := diffmatchpatch.New().DiffMain(hostResource.Content, sourceRes.Content, false)
+		hasDiffs := slices.ContainsFunc(diffs, func(d diffmatchpatch.Diff) bool {
+			return d.Type != diffmatchpatch.DiffEqual
+		})
+		modeChange := sourceRes.IsFile() && hostResource.Mode != sourceRes.GetMode()
+		if !hasDiffs && !modeChange {
 			continue
 		}
-		if len(diffs) > 1 || diffs[0].Type != diffmatchpatch.DiffEqual {
-			diffActions = append(diffActions, actions.Action{
-				Todo:        actions.ActionUpdate,
-				Parent:      source,
-				Target:      conflictedResource, // TODO should we use source resource here?
-				DiffContent: diffs,
-			})
-			if conflictedResource.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
-				volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
-				if err != nil {
-					return diffActions, err
-				}
-				diffActions = append(diffActions, volumeMigrationActions...)
-			}
+		if diffs == nil {
+			diffs = []diffmatchpatch.Diff{}
 		}
 
-	}
+		act := actions.Action{
+			Todo:        actions.ActionUpdate,
+			Parent:      source,
+			Target:      sourceRes,
+			DiffContent: diffs,
+		}
+		if modeChange {
+			act = act.With(actions.WithPreviousMode(hostResource.Mode))
+		}
+		diffActions = append(diffActions, act)
 
+		if hasDiffs && sourceRes.Kind == components.ResourceTypeVolume && opts.MigrateVolumes {
+			volumeMigrationActions, err := generateVolumeMigrationActions(ctx, mgr, source, conflictedResource)
+			if err != nil {
+				return diffActions, err
+			}
+			diffActions = append(diffActions, volumeMigrationActions...)
+		}
+	}
 	return diffActions, nil
 }
 
@@ -644,6 +653,10 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 	var result []actions.Action
 
 	for _, d := range resourceActions {
+		// quadlet mode changes don't matter, so never trigger off them
+		if _, modeOnly := d.GetPrevMode(); modeOnly && d.Target.IsQuadlet() {
+			continue
+		}
 		if updatedServiceActions, ok := triggers[d.Target.Path]; ok {
 			for _, v := range updatedServiceActions {
 				live, err := mgr.GetService(ctx, v.Target.Service())

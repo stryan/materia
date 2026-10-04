@@ -25,3 +25,11 @@ packages:
     config:
       all: true
       dir: pkg/mocks
+  primamateria.systems/materia/pkg/source:
+    config:
+      all: true
+      dir: pkg/mocks
+  primamateria.systems/materia/pkg/planner:
+    config:
+      all: true
+      dir: pkg/mocks

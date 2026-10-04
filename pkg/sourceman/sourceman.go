@@ -2,10 +2,10 @@ package sourceman
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
+	"maps"
 	"path/filepath"
+	"slices"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/components"
@@ -28,22 +28,30 @@ type sourcePlan struct {
 	Report  *source.SyncReport
 }
 
+type srcMaker func(r manifests.RemoteComponentConfig, dest string) (source.Source, error)
+
 type SourceManager struct {
 	components.ComponentReader
-	sourceDir string
-	remoteDir string
-	sources   []sourcePlan
+	maker          srcMaker
+	sourceDir      string
+	remoteRegistry *repository.RemoteComponentRegistry
+	sources        []sourcePlan
 }
 
 func NewSourceManager(c *SourceManConfig) (*SourceManager, error) {
-	sourceRepo, err := repository.NewSourceComponentRepository(c.SourceDir, c.RemoteDir)
+	registry, err := repository.NewRemoteComponentRegistry(c.RemoteDir)
+	if err != nil {
+		return nil, err
+	}
+	repo, err := repository.NewSourceComponentRepository(c.SourceDir, registry)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create source component repo: %w", err)
 	}
 	return &SourceManager{
-		ComponentReader: sourceRepo,
+		ComponentReader: repo,
 		sourceDir:       c.SourceDir,
-		remoteDir:       c.RemoteDir,
+		remoteRegistry:  registry,
+		maker:           DefaultSourceMaker,
 	}, nil
 }
 
@@ -52,8 +60,7 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 		o := &source.SyncOpts{}
 		if src.Opts != nil {
 			o = src.Opts
-		}
-		if opts != nil {
+		} else if opts != nil {
 			o = opts
 		}
 		report, err := src.Sync(ctx, *o)
@@ -67,9 +74,9 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 }
 
 func (s *SourceManager) Rollback(ctx context.Context) error {
-	for _, s := range s.sources {
-		if !s.Inspect().SupportsRollback {
-			return fmt.Errorf("unable to rollback: unsupported source type: %v", s)
+	for _, src := range s.sources {
+		if !src.Inspect().SupportsRollback {
+			return fmt.Errorf("unable to rollback: unsupported source type: %v", src.Source)
 		}
 	}
 	for i, src := range s.sources {
@@ -110,7 +117,7 @@ func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts
 }
 
 func (s *SourceManager) LoadManifest(filename string) (*manifests.MateriaManifest, error) {
-	manifestLocation := filepath.Join(s.sourceDir, manifests.MateriaManifestFile)
+	manifestLocation := filepath.Join(s.sourceDir, filename)
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
 		return nil, fmt.Errorf("error loading manifest: %w", err)
@@ -124,32 +131,25 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for name, r := range man.Remotes {
-		var remoteSource source.Source
-		localpath := filepath.Join(s.remoteDir, "components", name)
-		if r.GitSource != nil {
-			r.GitSource.LocalRepository = localpath
-			remoteSource, err = git.NewGitSource(r.GitSource)
-			if err != nil {
-				return fmt.Errorf("invalid git source: %w", err)
-			}
+	s.remoteRegistry.Reset()
+	s.sources = slices.DeleteFunc(s.sources, func(p sourcePlan) bool { return !p.Primary })
+	remoteKeys := slices.Sorted(maps.Keys(man.Remotes))
+	for _, name := range remoteKeys {
+		r := man.Remotes[name]
+		if ok, _ := s.ComponentExists(name); ok {
+			log.Debugf("loading remote component that's shadowed by a local component: %v", name)
 		}
-		if r.FileSource != nil {
-			r.FileSource.Destination = localpath
-			remoteSource, err = local.NewLocalFileSource(r.FileSource)
-			if err != nil {
-				return fmt.Errorf("invalid file source: %w", err)
-			}
+		localpath, err := s.remoteRegistry.ClonePath(name)
+		if err != nil {
+			return fmt.Errorf("invalid remote %v: %w", name, err)
 		}
-		if r.OciSource != nil {
-			r.OciSource.LocalRepository = localpath
-			remoteSource, err = oci.NewOCISource(r.OciSource)
-			if err != nil {
-				return fmt.Errorf("invalid oci source: %w", err)
-			}
+		remoteSource, err := s.maker(r, localpath)
+		if err != nil {
+			return fmt.Errorf("unable to construct remote %v: %w", name, err)
 		}
-		if remoteSource == nil {
-			return fmt.Errorf("remote %v has no valid source config", name)
+
+		if r.Subpath != "" && !filepath.IsLocal(r.Subpath) {
+			return fmt.Errorf("invalid subpath %q", r.Subpath)
 		}
 		// Do initial sync here since we need the repository manifest downloaded before loading the remotes
 		// and will thus miss the initial Sync() call
@@ -160,42 +160,51 @@ func (s *SourceManager) LoadRemotes(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if r.Subpath != "" {
-			localpath = filepath.Join(localpath, r.Subpath)
-		}
-		if _, err := os.Stat(filepath.Join(localpath, manifests.ComponentManifestFile)); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("invalid remote component %v", err)
-			}
-			return fmt.Errorf("cannot determine remote component validity: %w", err)
+		if err := s.remoteRegistry.Register(name, r.Subpath); err != nil {
+			return err
 		}
 		if err := s.AddSource(remoteSource, &source.SyncOpts{
-			Subpath: r.Subpath,
+			Revision: r.Revision,
+			Subpath:  r.Subpath,
 		}, report, false); err != nil {
 			return fmt.Errorf("unable to add remote component source %v: %w", name, err)
 		}
 
 	}
-	// remove old remote components to keep things tidy
-	entries, err := os.ReadDir(filepath.Join(s.remoteDir, "components"))
-	if err != nil {
-		return err
-	}
-	for _, v := range entries {
-		if v.IsDir() {
-			if _, ok := man.Remotes[v.Name()]; !ok {
-				log.Debugf("Removing old remote component %v", v.Name())
-				err := os.RemoveAll(filepath.Join(s.remoteDir, "components", v.Name()))
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+	return s.remoteRegistry.Prune()
 }
 
 func (s *SourceManager) Clean() error {
-	// TODO
-	return nil
+	return s.ComponentReader.Clean()
+}
+
+func DefaultSourceMaker(r manifests.RemoteComponentConfig, localpath string) (source.Source, error) {
+	var remoteSource source.Source
+	var err error
+
+	if r.GitSource != nil {
+		r.GitSource.LocalRepository = localpath
+		remoteSource, err = git.NewGitSource(r.GitSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid git source: %w", err)
+		}
+	}
+	if r.FileSource != nil {
+		r.FileSource.Destination = localpath
+		remoteSource, err = local.NewLocalFileSource(r.FileSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid file source: %w", err)
+		}
+	}
+	if r.OciSource != nil {
+		r.OciSource.LocalRepository = localpath
+		remoteSource, err = oci.NewOCISource(r.OciSource)
+		if err != nil {
+			return nil, fmt.Errorf("invalid oci source: %w", err)
+		}
+	}
+	if remoteSource == nil {
+		return nil, fmt.Errorf("no valid source config")
+	}
+	return remoteSource, nil
 }
