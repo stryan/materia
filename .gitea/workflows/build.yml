@@ -46,8 +46,8 @@ jobs:
         run: mise run test
       - name: Build binaries
         run: mise run build
-      # - name: Run integration tests
-      #   run: mise run integration -k
+      - name: Run integration tests
+        run: mise run integration -k
       - name: Login to registry
         run: mise x -- fnox get REGISTRY_TOKEN | podman login "${{ vars.FORGE }}"
           -u "$(mise x -- fnox get REGISTRY_USER)" --password-stdin
