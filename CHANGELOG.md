@@ -11,6 +11,9 @@ Best effort list of major changes and bugfixes
     - This may also fix some bugs in server mode that (hopefully) no-one has noticed
 - feat: git repos can reset on corrupted HEAD
 - feat: git source supports `git.auth_token` for `Bearer: <token>` HTTP auth
+- refactor: rewrote file management backend
+    - Files are now installed with consistent permissions and using `os.Root` to prevent symlink/path escapping
+    - You may notice an initial wave of `Update` actions as materia fixes installed file permissions. Note that changing permissions does count as a normal update action, so all triggered effects (container restarts,etc) will still occur
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
