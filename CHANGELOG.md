@@ -14,6 +14,7 @@ Best effort list of major changes and bugfixes
 - refactor: rewrote file management backend
     - Files are now installed with consistent permissions and using `os.Root` to prevent symlink/path escapping
     - You may notice an initial wave of `Update` actions as materia fixes installed file permissions. Note that changing permissions does count as a normal update action, so all triggered effects (container restarts,etc) will still occur
+- feat/refactor: The `materia` container image is now built from `podman/stable` instead of `tumbleweed/bci:latest`
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
