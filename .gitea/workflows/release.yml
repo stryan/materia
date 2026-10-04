@@ -37,10 +37,11 @@ jobs:
       - name: Run integration tests
         run: mise run integration -k
       - name: Login to registry
-        run: fnox get REGISTRY_TOKEN | podman login "${{ vars.FORGE }}" -u "$(fnox
-          get REGISTRY_USER)" --password-stdin
+        run: mise x -- fnox get REGISTRY_TOKEN | podman login "${{ vars.FORGE }}"
+          -u "$(mise x -- fnox get REGISTRY_USER)" --password-stdin
       - name: Login to ghcr registry
-        run: fnox get GH_TOKEN | podman login ghcr.io -u "$(fnox get GH_USER)" --password-stdin
+        run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
+          get GH_USER)" --password-stdin
       - name: Build container image and release
         run: mise run ci-release ${{ github.ref_name }}
       - name: Cleanup leftover containers

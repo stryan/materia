@@ -32,7 +32,7 @@ usage = '''
 run = [
   "git remote add mirror git@github.com:stryan/materia", #need this for gh
   "mise run ci-buildah --stable ${usage_tag?} {{vars.image_registry}} {{vars.gh_mirror}}",
-  "gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
+  "fnox x -- gh release create ${usage_tag?} -d -F CHANGELOG.md --generate-notes ./bin/materia*",
   "git remote rm mirror",
 ]
 
