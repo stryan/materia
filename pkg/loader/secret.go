@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
 )
@@ -25,6 +26,7 @@ func (s *SecretInjectorStage) Process(ctx context.Context, comp *components.Comp
 			if !ok {
 				// no attribute, no secret
 				// not an error since some attributes may be conditional
+				log.Debug("Secret has no matching attribute, not installing", "component", comp.Name, "secret", r.Path)
 				comp.Resources.Delete(r.Path)
 				continue
 			}
