@@ -55,6 +55,9 @@ jobs:
         run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
           get GH_USER)" --password-stdin
       - name: Build container image
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASS }}
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             mise ci-buildah

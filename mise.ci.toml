@@ -42,7 +42,7 @@ usage = '''
   flag "--no-sign" help = "Skip cosign signing"
 '''
 run = '''
-  #!/bin/env bash
+  #!/usr/bin/env bash
   set -euo pipefail
   tmpdir=$(mktemp -d); ctr=""
   trap 'rm -rf "$tmpdir"; [ -z "$ctr" ] || buildah rm "$ctr" >/dev/null 2>&1 || true' EXIT # trap to cleanup on sigint

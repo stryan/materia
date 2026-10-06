@@ -11,7 +11,7 @@ sops = "latest"
 experimental = true
 
 [env]
-DOCKER_HOST="unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
+DOCKER_HOST = "unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
 
 [vars]
 CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
@@ -28,7 +28,12 @@ run = "podman build -f Containerfile.ci -t primamateria.systems/materia:latest .
 
 [tasks.build-test-container]
 description = "Build image used for test container"
-sources = ["Containerfile.test", "go.mod", "go.sum", "install/systems.primamateria.materia.conf"]
+sources = [
+  "Containerfile.test",
+  "go.mod",
+  "go.sum",
+  "install/systems.primamateria.materia.conf",
+]
 outputs = { auto = true } # maybe someday mise will support oci outputs
 run = "podman build -f Containerfile.test --platform linux/amd64 -t materia-testcontainer:latest ."
 
@@ -37,13 +42,13 @@ depends = ["generate", "build-arm64", "build-amd64"]
 
 [tasks.fmt]
 depends = ["generate"]
-sources = ["go.mod", "go.sum", "**/*.go"]
+sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = { auto = true }
 run = "golangci-lint fmt ./cmd/... ./internal/... ./pkg/..."
 
 [tasks.lint]
 depends = ["generate"]
-sources = ["go.mod", "go.sum", "**/*.go"]
+sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = { auto = true }
 run = "golangci-lint run ./cmd/... ./internal/... ./pkg/..."
 
@@ -71,7 +76,13 @@ run = """
 
 [tasks.generate]
 description = "Run go:generate"
-sources = ["go.mod", "go.sum", "**/*.go", ".mockery.yml","pkg/api/systems.primamateria.materia.varlink"]
+sources = [
+  "**/*.go",
+  ".mockery.yml",
+  "go.mod",
+  "go.sum",
+  "pkg/api/systems.primamateria.materia.varlink",
+]
 outputs = { auto = true }
 run = [
   "go generate ./...",
@@ -83,14 +94,12 @@ run = [
 depends = ["build-materia-amd64"]
 
 [tasks.build-arm64]
-depends = [
-  "build-materia-arm64",
-]
+depends = ["build-materia-arm64"]
 
 [tasks.build-materia-arm64]
 depends = ["lint"]
 description = "Build the project for arm64"
-sources = ["go.mod", "go.sum", "**/*.go"]
+sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-arm64"]
 env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
 run = 'go build -tags "{{vars.NOCGO}}" -ldflags="{{vars.LDFLAGS}}" -o bin/materia-arm64 ./cmd/materia/'
@@ -98,7 +107,7 @@ run = 'go build -tags "{{vars.NOCGO}}" -ldflags="{{vars.LDFLAGS}}" -o bin/materi
 [tasks.build-materia-amd64]
 depends = ["lint"]
 description = "Build the project for amd64"
-sources = ["go.mod", "go.sum", "**/*.go"]
+sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-amd64"]
 env = { GOOS = "linux", GOARCH = "amd64", CGO_ENABLED = 0 }
 run = 'go build -tags "{{vars.NOCGO}}" -ldflags="{{vars.LDFLAGS}}" -o bin/materia-amd64 ./cmd/materia/'
@@ -119,7 +128,7 @@ usage = '''
   arg "[version]" help="Manually specify version being released"
 '''
 run = '''
-  #!/bin/env bash
+  #!/usr/bin/env bash
   set -euo pipefail
   VERSION=${usage_version:-$(git describe --exact-match --tags --match 'v[0-9]*' HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD)}
   epoch=$(git log -1 --format=%ct HEAD)
@@ -146,7 +155,7 @@ tools.cosign = "latest"
 description = "SHA checksums and cosign the release tarballs"
 dir = "{{vars.releasedir}}"
 run = '''
-	#!/bin/env bash
+	#!/usr/bin/env bash
 	set -euo pipefail
 	sha256sum $(ls | grep -v -e '^SHA256SUMS' -e '\.asc$' -e '\.bundle$') > SHA256SUMS
 	cosign sign-blob --yes --key env://COSIGN_PRIVATE_KEY --bundle SHA256SUMS.cosign.bundle SHA256SUMS
@@ -160,10 +169,10 @@ usage = '''
   arg "<repo>" help="Repo to sign at"
 '''
 run = '''
-	#!/bin/env bash
+	#!/usr/bin/env bash
 	set -euo pipefail
 	digest=$(<"${usage_digestfile?}")
-	cosign sign --yes --recursive --key env://COSIGN_PRIVATE_KEY {{usage.repo}}@"$digest"
+	cosign sign --yes --recursive --key env://COSIGN_PRIVATE_KEY "${usage_repo?}@$digest"
 	cosign verify --key cosign.pub "${usage_repo?}@$digest" >/dev/null
 '''
 
@@ -173,7 +182,7 @@ run = "govulncheck ./..."
 
 [tasks.integration]
 tools.age = "latest"
-depends = [ "build", "build-test-container"]
+depends = ["build", "build-test-container"]
 usage = '''
   arg "[test]" help="Test to run"
   flag "-k --keep" help="Keep container after running" default=#false
