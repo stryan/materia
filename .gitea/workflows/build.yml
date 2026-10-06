@@ -54,6 +54,8 @@ jobs:
       - name: Login to ghcr registry
         run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
           get GH_USER)" --password-stdin
+      - name: Copy Registry auths for cosign
+        run: cat /run/containers/0/auth.json > ~/.docker/config.json
       - name: Build container image
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
