@@ -1,6 +1,7 @@
 [profiles]
 
 [profiles.ci]
+default_provider = "ci-age"
 
 [providers.ci-age]
 type = "age"

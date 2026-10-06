@@ -42,10 +42,15 @@ jobs:
       - name: Login to ghcr registry
         run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
           get GH_USER)" --password-stdin
+      - name: Copy Registry auths for cosign
+        run: cat /run/containers/0/auth.json > ~/.docker/config.json
       - name: Build and push container images
         run: mise run ci-buildah ${{ github.ref_name }} ${IMAGE_REGISTRY}/materia
           ghcr.io/stryan/materia
       - name: Generate Github release
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASS }}
         run: |
           export GITHUB_TOKEN="$(mise x -- fnox get GH_TOKEN)"
           mise r ci-release-forge --host github.com ${{ github.ref_name }}

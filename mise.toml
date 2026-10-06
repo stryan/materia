@@ -1,6 +1,5 @@
 [tools]
 go = "1.27"
-age = "latest"
 "go:golang.org/x/tools/cmd/stringer" = "latest"
 "go:github.com/varlink/go/cmd/varlink-go-interface-generator" = "latest"
 golangci-lint = "2.13.2"
@@ -18,9 +17,9 @@ DOCKER_HOST="unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podma
 CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
 PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
 LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
-AGEKEY = "age1s2sc3dz0vrcmungswpxwnett7ayvzmfuke8vw0w3te36l742kpqs6kg606"
 NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
-releasedir = "./release"
+releasedir = "./dist"
+release_archs = "amd64 arm64"
 
 [tasks.container]
 depends = ["build", "lint", "test"]
@@ -109,46 +108,71 @@ description = "generate manpages"
 dir = "docs"
 tools.pandoc = "latest"
 run = [
-  "mkdir -p output/{{vars.CURRENTBRANCH}}/man",
-  "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o output/{{vars.CURRENTBRANCH}}/man/\"$(basename ${0%.md})\"' {} \\; ",
+  "rm -rf output/man && mkdir -p output/man",
+  "find . -iname \"*.*.md\" -type f -exec sh -c 'pandoc \"${0}\" -f commonmark_x -s -t man -o output/man/\"$(basename ${0%.md})\"' {} \\; ",
 ]
 
 [tasks.release-tar]
 description = "generate release tarballs"
-depends = ["lint", "test", "build", "docs"]
+depends = ["build", "docs"]
 usage = '''
-  arg "<version>" help="Version to release" default="latest"
+  arg "[version]" help="Manually specify version being released"
 '''
-run = [
-  "mkdir -p {{vars.releasedir}}/bin {{vars.releasedir}}/man/man1 {{vars.releasedir}}/man/man5",
-  "cp ./README.md {{vars.releasedir}}/ ",
-  "cp ./LICENSE {{vars.releasedir}}/",
-  "cp docs/output/{{vars.CURRENTBRANCH}}/man/*.1 {{vars.releasedir}}/man/man1/",
-  "cp docs/output/{{vars.CURRENTBRANCH}}/man/*.5 {{vars.releasedir}}/man/man5/",
-  "cp bin/materia-amd64 {{vars.releasedir}}/bin/materia",
-  "tar -czvf ./materia-${usage_version?}-amd64.tar.gz -C {{vars.releasedir}} .",
-  "rm {{vars.releasedir}}/bin/materia",
-  "cp bin/materia-arm64 {{vars.releasedir}}/bin/materia",
-  "tar -czvf ./materia-${usage_version?}-arm64.tar.gz -C {{vars.releasedir}} .",
-]
+run = '''
+  #!/bin/env bash
+  set -euo pipefail
+  VERSION=${usage_version:-$(git describe --exact-match --tags --match 'v[0-9]*' HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD)}
+  epoch=$(git log -1 --format=%ct HEAD)
+  rm -rf {{vars.releasedir}} && mkdir -p {{vars.releasedir}}
+  for arch in {{vars.release_archs}}; do
+    tmpdir=$(mktemp -d)
+    chmod 755 "$tmpdir"
+    mkdir -p "$tmpdir"/bin "$tmpdir"/man/man1 "$tmpdir"/man/man5
+    cp ./README.md "$tmpdir"/
+    cp ./LICENSE "$tmpdir"/
+    cp docs/output/man/*.1 "$tmpdir"/man/man1/
+    cp docs/output/man/*.5 "$tmpdir"/man/man5/
+    cp install/systems.primamateria.materia.conf "$tmpdir"/
+    cp bin/materia-$arch "$tmpdir"/bin/materia
+    tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
+      -cf - -C "$tmpdir" . | gzip -n > "{{vars.releasedir}}/materia-$VERSION-$arch.tar.gz"
+    rm -rf "$tmpdir"
+  done
+  git archive --format=tar.gz -o {{vars.releasedir}}/materia-$VERSION-src.tar.gz --prefix="materia-${VERSION#v}/" $VERSION
+'''
 
-[tasks.github-release]
-description = "Generate github release"
-depends = ["lint", "test", "build"]
-usage = '''
-  arg "<version>" help="Version to release"
+[tasks.release-sign-tar]
+tools.cosign = "latest"
+description = "SHA checksums and cosign the release tarballs"
+dir = "{{vars.releasedir}}"
+run = '''
+	#!/bin/env bash
+	set -euo pipefail
+	sha256sum $(ls | grep -v -e '^SHA256SUMS' -e '\.asc$' -e '\.bundle$') > SHA256SUMS
+	cosign sign-blob --yes --key env://COSIGN_PRIVATE_KEY --bundle SHA256SUMS.cosign.bundle SHA256SUMS
 '''
-tools.gh = "latest"
-run = [
-  "mise task run release-tar ${usage_version?}",
-  "gh release create ${usage_version?} --generate-notes ./materia-${usage_version?}-amd64.tar.gz ./materia-${usage_version?}-arm64.tar.gz ./bin/materia*",
-]
+
+[tasks.release-sign-image]
+tools.cosign = "latest"
+description = "Cosign image from digest file"
+usage = '''
+  arg "<digestfile>" help="Digest file path"
+  arg "<repo>" help="Repo to sign at"
+'''
+run = '''
+	#!/bin/env bash
+	set -euo pipefail
+	digest=$(<"${usage_digestfile?}")
+	cosign sign --yes --recursive --key env://COSIGN_PRIVATE_KEY {{usage.repo}}@"$digest"
+	cosign verify --key cosign.pub "${usage_repo?}@$digest" >/dev/null
+'''
 
 [tasks.vulncheck]
 tools = { "go:golang.org/x/vuln/cmd/govulncheck" = "latest" }
 run = "govulncheck ./..."
 
 [tasks.integration]
+tools.age = "latest"
 depends = [ "build", "build-test-container"]
 usage = '''
   arg "[test]" help="Test to run"

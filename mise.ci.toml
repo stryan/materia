@@ -1,13 +1,15 @@
 [tools]
 fnox = "latest"
+pandoc = "latest"
 "github:git-pkgs/forge" = "latest"
 
 [tasks.ci-release-forge]
-depends = ["build-amd64", "build-arm64"]
+depends = [ { task = "release-tar", args = ["{{usage.tag}}"]}]
 description = "Generate a release"
 usage = '''
 	arg "<tag>" help = "Tag to generate release for"
 	flag "-h --host <host>" help = "Host for forge"
+	flag "--no-sign" help = "Skip cosign signing"
 '''
 run = '''
 	set -euo pipefail
@@ -19,13 +21,12 @@ run = '''
 	  fi
 	}
 
-
-
-	git archive --format=tar.gz -o /tmp/materia-${usage_tag}-src.tar.gz --prefix=materia/ ${usage_tag?}
+	if [ "${usage_no_sign:-false}" != "true" ]; then
+		mise r release-sign-tar
+	fi
 
 	f release create --tag ${usage_tag?} --draft --body "$(cat CHANGELOG.md)"
-	f release upload ${usage_tag?} /tmp/materia-${usage_tag}-src.tar.gz
-	for file in bin/*; do
+	for file in {{vars.releasedir}}/*; do
 		f release upload ${usage_tag?} "$file"
 	done
 '''
@@ -38,8 +39,13 @@ usage = '''
   flag "-s --stable" help="Make this release a stable release" default=#false
   flag "-t --test" negate="--no-test" help="Test if the image can be run with buildah run" default=#true
   flag "-c --clear" negate="--no-clear" help="Clear buildah cache of previous materia manifests" default=#true
+  flag "--no-sign" help = "Skip cosign signing"
 '''
 run = '''
+  #!/bin/env bash
+  set -euo pipefail
+  tmpdir=$(mktemp -d); ctr=""
+  trap 'rm -rf "$tmpdir"; [ -z "$ctr" ] || buildah rm "$ctr" >/dev/null 2>&1 || true' EXIT # trap to cleanup on sigint
   if [[ "${usage_clear}" == "true" ]]; then
     buildah manifest rm materia 2>/dev/null || true # clear old manifest from buildah cache
   fi
@@ -51,19 +57,21 @@ run = '''
   if [[ "${usage_test}" == "true" ]]; then
     host_arch="$(go env GOARCH)"
     ctr="$(buildah from --pull=never --arch "$host_arch" localhost/materia:latest)" # grab the image for the runner arch from the manifest
-    trap 'buildah rm "$ctr" >/dev/null 2>&1 || true' EXIT # trap to catch mise's term signal and remove the above image on failure
     buildah run "$ctr" -- /app/materia version
     buildah run "$ctr" -- /app/materia --help
   fi
-  if [ -n "$usage_tag" ]; then
-    if [ -z "${usage_repos}" ]; then
+  if [ -n "${usage_tag:-}" ]; then
+    if [ -z "${usage_repos:-}" ]; then
       echo "a tag was given but no repos to push to" >&2
       exit 1
     fi
     for repo in ${usage_repos}; do
-      buildah manifest push --all materia docker://${repo}:"$usage_tag"
+      buildah manifest push --all --digestfile "$tmpdir"/image.digest materia docker://${repo}:"$usage_tag"
       if [[ "${usage_stable}" == "true" ]]; then
         buildah manifest push --all materia docker://${repo}:stable
+      fi
+      if [ "${usage_no_sign:-false}" != "true" ]; then
+        mise r release-sign-image "$tmpdir"/image.digest $repo
       fi
     done
   fi

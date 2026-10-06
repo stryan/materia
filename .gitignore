@@ -9,4 +9,5 @@ test_repo/
 scripts/vm/auth/*
 docs/output
 release/
+dist/
 *.tar.gz
