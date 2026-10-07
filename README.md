@@ -89,6 +89,12 @@ See [install](./install/) for example Quadlets.
 
 **latest**: Latest push to master
 
+### Validating Installations
+
+Container images and binaries are signed with Cosign starting with v0.8. The latter attaches signed signature bundles on each release.
+
+The cosign public key is available at `./cosign.pub` and on the [main project website](https://primamateria.systems/cosign.pub).
+
 # Contributing
 
 Questions or bug reports are welcome! Please start a Discussion versus opening an Issue, as Materia does bug tracking outside of Github using [git-bug](https://github.com/git-bug/git-bug). You can also submit bugs/suggestions or ask questions in the [Matrix room](https://matrix.to/#/#materia:saintnet.tech).
