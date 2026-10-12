@@ -139,15 +139,13 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	} else {
 		log.Info("skipping background plan since no timer is configured")
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		log.Infof("starting to listen on socket %v", spath)
 		if err := vserv.Listen(ctx, spath, 0); err != nil {
 			log.Fatal(err)
 		}
 		log.Debug("shutdown varlink listener")
-	}()
+	})
 	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
 	}

@@ -6,8 +6,10 @@ import (
 	"os"
 )
 
+const factsNamespace = "host"
+
 type HostCollector struct {
-	hostname string
+	Hostname string
 }
 
 type HostFacts struct {
@@ -20,7 +22,7 @@ func (h *HostCollector) Namespace() string {
 }
 
 func (h *HostCollector) Collect(_ context.Context, _ *Facts) (any, error) {
-	hostname := h.hostname
+	hostname := h.Hostname
 	var err error
 	if hostname == "" {
 		hostname, err = os.Hostname()
@@ -36,4 +38,8 @@ func (h *HostCollector) Collect(_ context.Context, _ *Facts) (any, error) {
 		Hostname:   hostname,
 		Interfaces: networks,
 	}, nil
+}
+
+func ToHostFacts(f *Facts) (HostFacts, error) {
+	return GetTypedFacts[HostFacts](f, factsNamespace)
 }

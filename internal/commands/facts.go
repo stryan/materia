@@ -27,6 +27,6 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error 
 		fmt.Printf("Fact %v: %v", arg, fact)
 		return nil
 	}
-	fmt.Println(m.GetFacts(host))
+	fmt.Println(m.GetFacts(ctx))
 	return nil
 }

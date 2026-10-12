@@ -18,7 +18,12 @@ type VarlinkServer struct {
 
 func (s *VarlinkServer) Facts(ctx context.Context, c varlinkapi.VarlinkCall, hostOnly bool) error {
 	log.Info("generating facts on request")
-	return c.ReplyFacts(ctx, s.materia.GetFacts(hostOnly))
+	// TODO use raw not getfacts
+	facts, err := s.materia.GetFacts(ctx)
+	if err != nil {
+		return err
+	}
+	return c.ReplyFacts(ctx, facts)
 }
 
 func (s *VarlinkServer) Plan(ctx context.Context, c varlinkapi.VarlinkCall) error {
