@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+
+	"charm.land/log/v2"
 )
 
 var ErrFactNotFound = errors.New("fact not found")
@@ -92,7 +94,13 @@ func (f *Facts) LookupString(key string) (any, error) {
 	if _, ok := f.rawFacts[p[0]]; !ok {
 		// not in an existing namespace, try defaulting to host
 		// TODO add deprecation warning
-		p = append(Path{"host"}, p...)
+		log.Warnf("DEPRECATED: %v is a deprecated top_level fact name, switch to fact namespaces", p[0])
+		if p[0] == "interface" {
+			p = append(Path{"host", "interfaces"}, p[1:]...)
+		} else {
+			p = append(Path{"host"}, p...)
+		}
+		log.Warnf("auto converting to fact path %v", p)
 	}
 	return f.Lookup(p)
 }
