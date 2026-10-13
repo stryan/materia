@@ -7,9 +7,8 @@ import (
 )
 
 type NetworkInterfaces struct {
-	Name string
-	Ip4  []string
-	Ip6  []string
+	Ip4 []string
+	Ip6 []string
 }
 
 func GetInterfaceIPs() (map[string]NetworkInterfaces, error) {

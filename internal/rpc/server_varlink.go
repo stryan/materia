@@ -23,7 +23,7 @@ func (s *VarlinkServer) Facts(ctx context.Context, c varlinkapi.VarlinkCall, pat
 	log.Info("generating facts on request")
 	snap, err := facts.Collect(ctx, s.materia.Collectors...)
 	if err != nil {
-		return fmt.Errorf("unable to get facts: %w", err)
+		return c.ReplyFactsFailed(ctx, fmt.Errorf("unable to get facts: %w", err).Error())
 	}
 
 	var out any = snap.Snapshot()
