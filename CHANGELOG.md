@@ -16,6 +16,15 @@ Best effort list of major changes and bugfixes
     - You may notice an initial wave of `Update` actions as materia fixes installed file permissions. Note that changing permissions does count as a normal update action, so all triggered effects (container restarts,etc) will still occur
 - feat/refactor: The `materia` container image is now built from `podman/stable` instead of `tumbleweed/bci:latest`
 - ci: release tarballs and images are now signed via cosign. Public key for validation is in the repo and the main primamateria.systems website
+- feat/rework: Redid `facts` generation. Facts are now denoted in dotted-path format.
+    - Existing facts and their new versions:
+        - `hostname` -> `materia.hostname`
+        - `interfacts` -> `host.interfaces`
+    - New facts
+        - `host.hostname`: hostname as the OS sees its
+        - `materia.roles`: Assigned roles
+        - `materia.assigned_components`: Assigned components
+        - `materia.installed_components`: Installed components
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
