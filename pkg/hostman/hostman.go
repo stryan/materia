@@ -9,7 +9,6 @@ import (
 	"primamateria.systems/materia/pkg/containers"
 	"primamateria.systems/materia/pkg/containers/command"
 	"primamateria.systems/materia/pkg/containers/native"
-	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/repository"
 	"primamateria.systems/materia/pkg/services"
 )
@@ -29,7 +28,6 @@ type HostmanConfig struct {
 type HostManager struct {
 	containers.ContainerManager
 	*services.ServiceManager
-	*facts.HostFactsManager
 	*repository.HostComponentRepository
 	Scripts Repository
 	Units   Repository
@@ -39,10 +37,6 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	hostRepo, err := repository.NewHostComponentRepository(c.QuadletDir, filepath.Join(c.DataDir, "components"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
-	}
-	factsm, err := facts.NewHostFacts()
-	if err != nil {
-		return nil, fmt.Errorf("error generating facts: %w", err)
 	}
 	sm, err := services.NewServices(ctx, c.ServicesConfig)
 	if err != nil {
@@ -78,7 +72,6 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	return &HostManager{
 		cm,
 		sm,
-		factsm,
 		hostRepo,
 		scriptRepo,
 		serviceRepo,

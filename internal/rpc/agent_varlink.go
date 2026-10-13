@@ -39,18 +39,22 @@ func NewAgent(cfg AgentConfig) (*Agent, error) {
 	}, nil
 }
 
-func (a *Agent) Facts(ctx context.Context) error {
+func (a *Agent) Facts(ctx context.Context, path *string) error {
 	conn, err := varlink.NewConnection(ctx, a.socket)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = conn.Close() }()
 
-	facts, err := varlinkapi.Facts().Call(ctx, conn, false)
+	factsJson, err := varlinkapi.Facts().Call(ctx, conn, path)
 	if err != nil {
 		return err
 	}
-	fmt.Println(facts)
+	facts, err := json.MarshalIndent(factsJson, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(facts))
 	return nil
 }
 

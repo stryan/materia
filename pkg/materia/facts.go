@@ -1,41 +1,88 @@
 package materia
 
 import (
+	"context"
+	"errors"
 	"fmt"
+
+	"primamateria.systems/materia/pkg/facts"
+	"primamateria.systems/materia/pkg/manifests"
 )
 
-type FactsProvider interface {
-	Lookup(string) (any, error)
-	GetHostname() string
-	GetInterfaces() []string
+const factsNamespace = "materia"
+
+type compLister interface {
+	ListInstalledComponents() ([]string, error)
 }
 
-func (m *Materia) GetFacts(host bool) string {
-	var result string
-	result += "Facts\n"
-	result += fmt.Sprintf("Hostname: %v\n", m.Host.GetHostname())
-	result += "Roles: "
-	for _, r := range m.Roles {
-		result += fmt.Sprintf("%v ", r)
+type MateriaCollector struct {
+	hostname   string // gotta pass this in since it needs to be stable but overridden by configs
+	config     *MateriaConfig
+	manifest   *manifests.MateriaManifest
+	hostLister compLister
+}
+
+type MateriaFacts struct {
+	Hostname            string   `json:"hostname" toml:"hostname"`
+	Roles               []string `json:"roles" toml:"roles"`
+	AssignedComponents  []string `json:"assigned_components" toml:"assigned_components"`
+	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
+}
+
+func (c *MateriaCollector) Namespace() string {
+	return factsNamespace
+}
+
+func (c *MateriaCollector) Validate() error {
+	if c.config == nil {
+		return errors.New("need config")
 	}
-	assigned, err := m.GetAssignedComponents()
-	if err == nil {
-		result += "\nAssigned Components: "
-		for _, v := range assigned {
-			result += fmt.Sprintf("%v ", v)
-		}
+	if c.manifest == nil {
+		return errors.New("need manifest")
 	}
-	installed, err := m.Host.ListComponentNames()
-	if err == nil {
-		result += "\nInstalled Components: "
-		for _, v := range installed {
-			result += fmt.Sprintf("%v ", v)
-		}
+	if c.hostLister == nil {
+		return errors.New("need host component lister")
 	}
-	result += "\nNetworks: "
-	for i, v := range m.Host.GetInterfaces() {
-		result += fmt.Sprintf("\nInterface %v: %v", i, v)
+	if c.hostname == "" && c.config.Hostname == "" {
+		return errors.New("need hostname")
+	}
+	return nil
+}
+
+func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, error) {
+	res := MateriaFacts{
+		Hostname: c.hostname,
+	}
+	if c.config.Hostname != "" {
+		res.Hostname = c.config.Hostname
+	}
+	roles, err := GetRoles(c.config, c.manifest, res.Hostname)
+	if err != nil {
+		return nil, err
+	}
+	res.Roles = roles
+	assigned, err := GetAssignedComponents2(c.manifest, res.Hostname, roles)
+	if err != nil {
+		return nil, err
+	}
+	res.AssignedComponents = assigned
+	installed, err := c.hostLister.ListInstalledComponents()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list installed components: %w", err)
+	}
+	res.InstalledComponents = installed
+
+	if res.AssignedComponents == nil {
+		res.AssignedComponents = []string{}
 	}
 
-	return result
+	if res.InstalledComponents == nil {
+		res.InstalledComponents = []string{}
+	}
+
+	return res, nil
+}
+
+func ToMateriaFacts(f *facts.Facts) (MateriaFacts, error) {
+	return facts.GetTypedFacts[MateriaFacts](f, factsNamespace)
 }

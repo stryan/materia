@@ -47,11 +47,9 @@ See materia-config(5) and materia-repository(5) for more details.
 Dump the active configuration to stdout in a human readable format
 
 #### facts [flags]
-Display host facts and role information
+Display facts known to materia, such as hostname, network interfaces, component status, etc.
 
 ##### **Flags**
-
-**--host** : return only *host* facts, instead of requiring a repository
 
 **--fact, -f [factname]** :  Lookup a specific fact by name
 
@@ -117,7 +115,7 @@ Run commands against materia server over a unix socket
 
 ##### Subcommands
 
-**facts**: Return list of host facts
+**facts**: Return list of host facts, accepts same arguments as `facts` command.
 
 **sync:** Perform a repository sync
 

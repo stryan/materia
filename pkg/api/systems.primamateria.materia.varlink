@@ -1,7 +1,11 @@
 interface systems.primamateria.materia
 
-# Returns host facts. Use hostOnly to ignore facts related to role
-method Facts(hostOnly: bool) -> (facts: string)
+# Returns the facts materia collected. Can call for a specific fact path
+# e.g. host.hostname or host.interface."enp3s0.20".ip4. Leave empty for everything.
+method Facts(path: ?string) -> (facts: object)
+
+error FactsFailed(message: string)
+error FactNotFound(path: string)
 
 # Returns the current plan. empty=true means no changes pending.
 method Plan() -> (plan: string, len: int)

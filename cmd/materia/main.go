@@ -76,12 +76,8 @@ func main() {
 			},
 			{
 				Name:  "facts",
-				Usage: "Display host facts",
+				Usage: "Display facts",
 				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "host",
-						Usage: "Return only host facts (i.e. no assigned roles)",
-					},
 					&cli.StringFlag{
 						Name:    "fact",
 						Usage:   "Lookup a fact",
@@ -89,13 +85,12 @@ func main() {
 					},
 				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
-					host := cCtx.Bool("host")
 					arg := cCtx.String("fact")
 					k, err := config.Load(configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					return commands.RunFacts(ctx, k, host, arg)
+					return commands.RunFacts(ctx, k, arg)
 				},
 			},
 			{
@@ -284,13 +279,22 @@ func main() {
 					{
 						Name:  "facts",
 						Usage: "Request facts",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "fact",
+								Usage:   "Lookup a fact",
+								Aliases: []string{"f"},
+							},
+						},
+
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
+							arg := cCtx.String("fact")
 							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
 							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
 							}
-							return agent.Facts(ctx)
+							return agent.Facts(ctx, &arg)
 						},
 					},
 					{

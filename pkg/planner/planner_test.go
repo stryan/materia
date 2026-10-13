@@ -1692,7 +1692,7 @@ func TestPlan(t *testing.T) {
 		ServiceConfigs: newServSet(),
 		Version:        components.DefaultComponentVersion,
 	}
-	plan, err := p.Plan(ctx, "localhost", []*components.Component{}, []*components.Component{helloComp})
+	plan, err := p.Plan(ctx, []*components.Component{}, []*components.Component{helloComp})
 	assert.NoError(t, err)
 	for k, v := range plan.Steps() {
 		expected := expected[k]
@@ -1741,7 +1741,7 @@ func TestPlanOnlyResourcesFreshComponentReload(t *testing.T) {
 		Version: components.DefaultComponentVersion,
 	}
 
-	got, err := p.Plan(ctx, "localhost", nil, []*components.Component{component})
+	got, err := p.Plan(ctx, nil, []*components.Component{component})
 	require.NoError(t, err)
 
 	expectedTargets := []components.Resource{

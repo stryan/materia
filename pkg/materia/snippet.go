@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/macros"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -38,7 +39,7 @@ func loadDefaultSnippets() []*macros.Snippet {
 	}
 }
 
-func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*macros.Snippet) macros.MacroMap {
+func loadDefaultMacros(c *MateriaConfig, host HostManager, f *facts.Facts, snippets map[string]*macros.Snippet) macros.MacroMap {
 	return func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
 			"m_dataDir": func(arg string) (string, error) {
@@ -57,7 +58,7 @@ func loadDefaultMacros(c *MateriaConfig, host HostManager, snippets map[string]*
 				return c.ExecutorConfig.ServiceDir, nil
 			},
 			"m_facts": func(arg string) (any, error) {
-				return host.Lookup(arg)
+				return f.LookupString(arg)
 			},
 			"m_default": func(arg string, def string) string {
 				val, ok := vars[arg]

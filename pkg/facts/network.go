@@ -7,9 +7,8 @@ import (
 )
 
 type NetworkInterfaces struct {
-	Name string
-	Ip4  []string
-	Ip6  []string
+	Ip4 []string `json:"ip4" toml:"ip4"`
+	Ip6 []string `json:"ip6" toml:"ip6"`
 }
 
 func GetInterfaceIPs() (map[string]NetworkInterfaces, error) {
@@ -38,8 +37,8 @@ func GetInterfaceIPs() (map[string]NetworkInterfaces, error) {
 				n.Ip6 = append(n.Ip6, ip.String())
 			}
 		}
-		n.Ip4 = sort.StringSlice(n.Ip4)
-		n.Ip6 = sort.StringSlice(n.Ip6)
+		sort.Strings(n.Ip4)
+		sort.Strings(n.Ip6)
 		results[i.Name] = n
 
 	}

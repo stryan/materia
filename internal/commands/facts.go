@@ -3,15 +3,22 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"charm.land/log/v2"
+	"github.com/BurntSushi/toml"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/pkg/facts"
 )
 
-func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error {
+func RunFacts(ctx context.Context, k *koanf.Koanf, arg string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
+	}
+	snap, err := facts.Collect(ctx, m.Collectors...)
+	if err != nil {
+		return fmt.Errorf("unable to get facts: %w", err)
 	}
 
 	defer func() {
@@ -20,13 +27,11 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error 
 		}
 	}()
 	if arg != "" {
-		fact, err := m.Host.Lookup(arg)
+		fact, err := snap.LookupString(arg)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Fact %v: %v", arg, fact)
-		return nil
+		return toml.NewEncoder(os.Stdout).Encode(fact)
 	}
-	fmt.Println(m.GetFacts(host))
-	return nil
+	return toml.NewEncoder(os.Stdout).Encode(snap.Snapshot())
 }
