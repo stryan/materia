@@ -61,7 +61,7 @@ func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, 
 		return nil, err
 	}
 	res.Roles = roles
-	assigned, err := GetAssignedComponents2(c.manifest, res.Hostname, roles)
+	assigned, err := GetAssignedComponents(c.manifest, res.Hostname, roles)
 	if err != nil {
 		return nil, err
 	}

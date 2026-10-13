@@ -217,7 +217,7 @@ func GetRoles(c *MateriaConfig, man *manifests.MateriaManifest, hostname string)
 	return roles, nil
 }
 
-func GetAssignedComponents2(mani *manifests.MateriaManifest, hostname string, roles []string) ([]string, error) {
+func GetAssignedComponents(mani *manifests.MateriaManifest, hostname string, roles []string) ([]string, error) {
 	var assignedComponents []string
 	hostComps, ok := mani.Hosts["all"]
 	if ok {
