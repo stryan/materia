@@ -6,12 +6,17 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/pkg/facts"
 )
 
 func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
+	}
+	snap, err := facts.Collect(ctx, m.Collectors...)
+	if err != nil {
+		return fmt.Errorf("unable to get facts: %w", err)
 	}
 
 	defer func() {
@@ -20,7 +25,7 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error 
 		}
 	}()
 	if arg != "" {
-		fact, err := m.Host.Lookup(arg)
+		fact, err := snap.LookupString(arg)
 		if err != nil {
 			return err
 		}

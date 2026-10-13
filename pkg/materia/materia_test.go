@@ -14,7 +14,6 @@ func TestNew(t *testing.T) {
 	hm := mocks.NewMockHostManager(t)
 	sm := mocks.NewMockSourceManager(t)
 	sm.EXPECT().LoadManifest(manifests.MateriaManifestFile).Return(&manifests.MateriaManifest{}, nil)
-	hm.EXPECT().GetHostname().Return("localhost")
 	engine := mem.NewMemoryEngine()
 	m, err := New(context.Background(), &MateriaConfig{
 		QuadletDir: "/tmp/materia/quadlets",

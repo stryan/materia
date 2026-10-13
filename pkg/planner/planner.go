@@ -36,7 +36,7 @@ func NewPlanner(conf PlannerConfig, host HostStateManager) *Planner {
 	return &Planner{conf, host}
 }
 
-func (p *Planner) Plan(ctx context.Context, hostname string, installedComponents, assignedComponents []*components.Component) (*plan.Plan, error) {
+func (p *Planner) Plan(ctx context.Context, installedComponents, assignedComponents []*components.Component) (*plan.Plan, error) {
 	installedCompNames := make([]string, 0, len(installedComponents))
 	for _, c := range installedComponents {
 		installedCompNames = append(installedCompNames, c.Name)

@@ -55,16 +55,17 @@ type compLister interface {
 }
 
 type MateriaCollector struct {
-	hostname   string
+	hostname   string // gotta pass this in since it needs to be stable but overridden by configs
 	config     *MateriaConfig
 	manifest   *manifests.MateriaManifest
 	hostLister compLister
 }
 
 type MateriaFacts struct {
-	Roles               []string
-	AssignedComponents  []string
-	InstalledComponents []string
+	Hostname            string   `json:"hostname" toml:"hostname"`
+	Roles               []string `json:"roles" toml:"roles"`
+	AssignedComponents  []string `json:"assigned_components" toml:"assigned_components"`
+	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
 }
 
 func (c *MateriaCollector) Namespace() string {
@@ -72,12 +73,15 @@ func (c *MateriaCollector) Namespace() string {
 }
 
 func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, error) {
-	res := MateriaFacts{}
-	roles, err := GetRoles(c.config, c.manifest, c.hostname)
+	res := MateriaFacts{
+		Hostname: c.hostname,
+	}
+	roles, err := GetRoles(c.config, c.manifest, res.Hostname)
 	if err != nil {
 		return nil, err
 	}
-	assigned, err := GetAssignedComponents2(c.manifest, c.hostname, roles)
+	res.Roles = roles
+	assigned, err := GetAssignedComponents2(c.manifest, res.Hostname, roles)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +91,14 @@ func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, 
 		return nil, fmt.Errorf("unable to list installed components: %w", err)
 	}
 	res.InstalledComponents = installed
+
+	if res.AssignedComponents == nil {
+		res.AssignedComponents = []string{}
+	}
+
+	if res.InstalledComponents == nil {
+		res.InstalledComponents = []string{}
+	}
 
 	return res, nil
 }

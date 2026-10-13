@@ -45,7 +45,6 @@ type HostManager interface {
 	ContainerManager
 	components.ComponentReader
 	components.ComponentWriter
-	FactsProvider
 	ServiceManager
 	ListInstalledComponents() ([]string, error)
 	InstallScript(context.Context, string, []byte) error

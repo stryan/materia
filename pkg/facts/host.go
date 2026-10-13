@@ -8,13 +8,11 @@ import (
 
 const factsNamespace = "host"
 
-type HostCollector struct {
-	Hostname string
-}
+type HostCollector struct{}
 
 type HostFacts struct {
-	Hostname   string
-	Interfaces map[string]NetworkInterfaces
+	Hostname   string                       `json:"hostname" toml:"hostname"`
+	Interfaces map[string]NetworkInterfaces `json:"interfaces" toml:"interfaces"`
 }
 
 func (h *HostCollector) Namespace() string {
@@ -22,19 +20,16 @@ func (h *HostCollector) Namespace() string {
 }
 
 func (h *HostCollector) Collect(_ context.Context, _ *Facts) (any, error) {
-	hostname := h.Hostname
 	var err error
-	if hostname == "" {
-		hostname, err = os.Hostname()
-		if err != nil {
-			return nil, fmt.Errorf("error getting hostname: %w", err)
-		}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, fmt.Errorf("error getting hostname: %w", err)
 	}
 	networks, err := GetInterfaceIPs()
 	if err != nil {
 		return nil, fmt.Errorf("error getting network interfaces: %w", err)
 	}
-	return &HostFacts{
+	return HostFacts{
 		Hostname:   hostname,
 		Interfaces: networks,
 	}, nil
@@ -42,4 +37,11 @@ func (h *HostCollector) Collect(_ context.Context, _ *Facts) (any, error) {
 
 func ToHostFacts(f *Facts) (HostFacts, error) {
 	return GetTypedFacts[HostFacts](f, factsNamespace)
+}
+
+func ResolveHostname(override string) (string, error) {
+	if override != "" {
+		return override, nil
+	}
+	return os.Hostname()
 }
