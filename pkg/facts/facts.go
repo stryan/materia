@@ -3,6 +3,7 @@ package facts
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 )
@@ -31,28 +32,26 @@ func GetTypedFacts[T any](f *Facts, namespace string) (T, error) {
 func (f *Facts) Snapshot() map[string]any { return f.typedFacts }
 
 func (f *Facts) Keys() []string {
-	var out []string
-	var walk func(prefix Path, node any)
-	walk = func(prefix Path, node any) {
-		child := func(seg string) Path {
-			return append(prefix[:len(prefix):len(prefix)], seg)
+	keys := getLeaves(nil, f.rawFacts)
+	sort.Strings(keys)
+	return keys
+}
+
+func getLeaves(prefix Path, node any) []string {
+	var keys []string
+	switch n := node.(type) {
+	case map[string]any:
+		for k, v := range n {
+			keys = append(keys, getLeaves(slices.Concat(prefix, Path{k}), v)...)
 		}
-		switch n := node.(type) {
-		case map[string]any:
-			for k, v := range n {
-				walk(child(k), v)
-			}
-		case []any:
-			for i, v := range n {
-				walk(child(strconv.Itoa(i)), v)
-			}
-		default:
-			out = append(out, prefix.String())
+	case []any:
+		for i, v := range n {
+			keys = append(keys, getLeaves(slices.Concat(prefix, Path{strconv.Itoa(i)}), v)...)
 		}
+	default:
+		keys = append(keys, prefix.String())
 	}
-	walk(nil, f.rawFacts)
-	sort.Strings(out)
-	return out
+	return keys
 }
 
 func (f *Facts) Lookup(path Path) (any, error) {
@@ -70,7 +69,10 @@ func (f *Facts) Lookup(path Path) (any, error) {
 		case []any:
 			idx, err := strconv.Atoi(index)
 			if err != nil {
-				return nil, fmt.Errorf("%w: expected slice, got %v", ErrFactNotFound, index)
+				return nil, fmt.Errorf("%w: expected facts slice index, got %v", ErrFactNotFound, index)
+			}
+			if idx < 0 || idx > len(node) {
+				return nil, fmt.Errorf("%w: facts index %v out of bounds for facts slice (%v)", ErrFactNotFound, idx, len(node))
 			}
 			cur = node[idx]
 		// we dug too deep

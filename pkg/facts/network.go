@@ -7,8 +7,8 @@ import (
 )
 
 type NetworkInterfaces struct {
-	Ip4 []string
-	Ip6 []string
+	Ip4 []string `json:"ip_4" toml:"ip_4"`
+	Ip6 []string `json:"ip_6" toml:"ip_6"`
 }
 
 func GetInterfaceIPs() (map[string]NetworkInterfaces, error) {

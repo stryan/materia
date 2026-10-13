@@ -2,6 +2,7 @@ package materia
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"primamateria.systems/materia/pkg/facts"
@@ -32,9 +33,28 @@ func (c *MateriaCollector) Namespace() string {
 	return factsNamespace
 }
 
+func (c *MateriaCollector) Validate() error {
+	if c.config == nil {
+		return errors.New("need config")
+	}
+	if c.manifest == nil {
+		return errors.New("need manifest")
+	}
+	if c.hostLister == nil {
+		return errors.New("need host component lister")
+	}
+	if c.hostname == "" && c.config.Hostname == "" {
+		return errors.New("need hostname")
+	}
+	return nil
+}
+
 func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, error) {
 	res := MateriaFacts{
 		Hostname: c.hostname,
+	}
+	if c.config.Hostname != "" {
+		res.Hostname = c.config.Hostname
 	}
 	roles, err := GetRoles(c.config, c.manifest, res.Hostname)
 	if err != nil {

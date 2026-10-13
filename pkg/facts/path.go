@@ -1,6 +1,7 @@
 package facts
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -19,6 +20,9 @@ func (p Path) String() string {
 }
 
 func ParsePath(key string) (Path, error) {
+	if key == "" {
+		return nil, errors.New("empty fact path")
+	}
 	var out Path
 	var cur strings.Builder
 	quoted := false
