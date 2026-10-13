@@ -3,13 +3,15 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"charm.land/log/v2"
+	"github.com/BurntSushi/toml"
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/pkg/facts"
 )
 
-func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error {
+func RunFacts(ctx context.Context, k *koanf.Koanf, arg string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
@@ -29,9 +31,7 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, host bool, arg string) error 
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Fact %v: %v", arg, fact)
-		return nil
+		return toml.NewEncoder(os.Stdout).Encode(fact)
 	}
-	fmt.Println(m.GetFacts(ctx))
-	return nil
+	return toml.NewEncoder(os.Stdout).Encode(snap.Snapshot())
 }

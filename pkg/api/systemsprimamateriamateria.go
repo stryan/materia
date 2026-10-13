@@ -11,6 +11,26 @@ import (
 
 // Generated type declarations
 
+type FactsFailed struct {
+	Message string `json:"message"`
+}
+
+func (e FactsFailed) Error() string {
+	s := "systems.primamateria.materia.FactsFailed"
+	s += fmt.Sprintf("(Message: %v)", e.Message)
+	return s
+}
+
+type FactNotFound struct {
+	Path string `json:"path"`
+}
+
+func (e FactNotFound) Error() string {
+	s := "systems.primamateria.materia.FactNotFound"
+	s += fmt.Sprintf("(Path: %v)", e.Path)
+	return s
+}
+
 type SyncFailed struct {
 	Message string `json:"message"`
 }
@@ -46,6 +66,28 @@ func (e ExecutionFailed) Error() string {
 func Dispatch_Error(err error) error {
 	if e, ok := err.(*varlink.Error); ok {
 		switch e.Name {
+		case "systems.primamateria.materia.FactsFailed":
+			errorRawParameters := e.Parameters.(*json.RawMessage)
+			if errorRawParameters == nil {
+				return e
+			}
+			var param FactsFailed
+			err := json.Unmarshal(*errorRawParameters, &param)
+			if err != nil {
+				return e
+			}
+			return &param
+		case "systems.primamateria.materia.FactNotFound":
+			errorRawParameters := e.Parameters.(*json.RawMessage)
+			if errorRawParameters == nil {
+				return e
+			}
+			var param FactNotFound
+			err := json.Unmarshal(*errorRawParameters, &param)
+			if err != nil {
+				return e
+			}
+			return &param
 		case "systems.primamateria.materia.SyncFailed":
 			errorRawParameters := e.Parameters.(*json.RawMessage)
 			if errorRawParameters == nil {
@@ -86,13 +128,14 @@ func Dispatch_Error(err error) error {
 
 // Generated client method calls
 
-// Returns host facts. Use hostOnly to ignore facts related to role
+// Returns the facts materia collected. Can call for a specific fact path
+// e.g. host.hostname or host.interface."enp3s0.20".ip4. Leave empty for everything.
 type Facts_methods struct{}
 
 func Facts() Facts_methods { return Facts_methods{} }
 
-func (m Facts_methods) Call(ctx context.Context, c *varlink.Connection, hostOnly_in_ bool) (facts_out_ string, err_ error) {
-	receive, err_ := m.Send(ctx, c, 0, hostOnly_in_)
+func (m Facts_methods) Call(ctx context.Context, c *varlink.Connection, path_in_ *string) (facts_out_ json.RawMessage, err_ error) {
+	receive, err_ := m.Send(ctx, c, 0, path_in_)
 	if err_ != nil {
 		return
 	}
@@ -100,18 +143,18 @@ func (m Facts_methods) Call(ctx context.Context, c *varlink.Connection, hostOnly
 	return
 }
 
-func (m Facts_methods) Send(ctx context.Context, c *varlink.Connection, flags uint64, hostOnly_in_ bool) (func(ctx context.Context) (string, uint64, error), error) {
+func (m Facts_methods) Send(ctx context.Context, c *varlink.Connection, flags uint64, path_in_ *string) (func(ctx context.Context) (json.RawMessage, uint64, error), error) {
 	var in struct {
-		HostOnly bool `json:"hostOnly"`
+		Path *string `json:"path,omitempty"`
 	}
-	in.HostOnly = hostOnly_in_
+	in.Path = path_in_
 	receive, err := c.Send(ctx, "systems.primamateria.materia.Facts", in, flags)
 	if err != nil {
 		return nil, err
 	}
-	return func(context.Context) (facts_out_ string, flags uint64, err error) {
+	return func(context.Context) (facts_out_ json.RawMessage, flags uint64, err error) {
 		var out struct {
-			Facts string `json:"facts"`
+			Facts json.RawMessage `json:"facts"`
 		}
 		flags, err = receive(ctx, &out)
 		if err != nil {
@@ -123,18 +166,18 @@ func (m Facts_methods) Send(ctx context.Context, c *varlink.Connection, flags ui
 	}, nil
 }
 
-func (m Facts_methods) Upgrade(ctx context.Context, c *varlink.Connection, hostOnly_in_ bool) (func(ctx context.Context) (facts_out_ string, flags uint64, conn varlink.ReadWriterContext, err_ error), error) {
+func (m Facts_methods) Upgrade(ctx context.Context, c *varlink.Connection, path_in_ *string) (func(ctx context.Context) (facts_out_ json.RawMessage, flags uint64, conn varlink.ReadWriterContext, err_ error), error) {
 	var in struct {
-		HostOnly bool `json:"hostOnly"`
+		Path *string `json:"path,omitempty"`
 	}
-	in.HostOnly = hostOnly_in_
+	in.Path = path_in_
 	receive, err := c.Upgrade(ctx, "systems.primamateria.materia.Facts", in)
 	if err != nil {
 		return nil, err
 	}
-	return func(context.Context) (facts_out_ string, flags uint64, conn varlink.ReadWriterContext, err error) {
+	return func(context.Context) (facts_out_ json.RawMessage, flags uint64, conn varlink.ReadWriterContext, err error) {
 		var out struct {
-			Facts string `json:"facts"`
+			Facts json.RawMessage `json:"facts"`
 		}
 		flags, conn, err = receive(ctx, &out)
 		if err != nil {
@@ -310,7 +353,7 @@ func (m Update_methods) Upgrade(ctx context.Context, c *varlink.Connection) (fun
 // Generated service interface with all methods
 
 type systemsprimamateriamateriaInterface interface {
-	Facts(ctx context.Context, c VarlinkCall, hostOnly_ bool) error
+	Facts(ctx context.Context, c VarlinkCall, path_ *string) error
 	Plan(ctx context.Context, c VarlinkCall) error
 	Sync(ctx context.Context, c VarlinkCall, revision_ *string) error
 	Update(ctx context.Context, c VarlinkCall) error
@@ -321,6 +364,18 @@ type systemsprimamateriamateriaInterface interface {
 type VarlinkCall struct{ varlink.Call }
 
 // Generated reply methods for all varlink errors
+
+func (c *VarlinkCall) ReplyFactsFailed(ctx context.Context, message_ string) error {
+	var out FactsFailed
+	out.Message = message_
+	return c.ReplyError(ctx, "systems.primamateria.materia.FactsFailed", &out)
+}
+
+func (c *VarlinkCall) ReplyFactNotFound(ctx context.Context, path_ string) error {
+	var out FactNotFound
+	out.Path = path_
+	return c.ReplyError(ctx, "systems.primamateria.materia.FactNotFound", &out)
+}
 
 func (c *VarlinkCall) ReplySyncFailed(ctx context.Context, message_ string) error {
 	var out SyncFailed
@@ -344,9 +399,9 @@ func (c *VarlinkCall) ReplyExecutionFailed(ctx context.Context, message_ string,
 
 // Generated reply methods for all varlink methods
 
-func (c *VarlinkCall) ReplyFacts(ctx context.Context, facts_ string) error {
+func (c *VarlinkCall) ReplyFacts(ctx context.Context, facts_ json.RawMessage) error {
 	var out struct {
-		Facts string `json:"facts"`
+		Facts json.RawMessage `json:"facts"`
 	}
 	out.Facts = facts_
 	return c.Reply(ctx, &out)
@@ -376,8 +431,9 @@ func (c *VarlinkCall) ReplyUpdate(ctx context.Context, steps_ int64) error {
 
 // Generated dummy implementations for all varlink methods
 
-// Returns host facts. Use hostOnly to ignore facts related to role
-func (s *VarlinkInterface) Facts(ctx context.Context, c VarlinkCall, hostOnly_ bool) error {
+// Returns the facts materia collected. Can call for a specific fact path
+// e.g. host.hostname or host.interface."enp3s0.20".ip4. Leave empty for everything.
+func (s *VarlinkInterface) Facts(ctx context.Context, c VarlinkCall, path_ *string) error {
 	return c.ReplyMethodNotImplemented(ctx, "systems.primamateria.materia.Facts")
 }
 
@@ -403,13 +459,13 @@ func (s *VarlinkInterface) VarlinkDispatch(ctx context.Context, call varlink.Cal
 	switch methodname {
 	case "Facts":
 		var in struct {
-			HostOnly bool `json:"hostOnly"`
+			Path *string `json:"path,omitempty"`
 		}
 		err := call.GetParameters(&in)
 		if err != nil {
 			return call.ReplyInvalidParameter(ctx, "parameters")
 		}
-		return s.systemsprimamateriamateriaInterface.Facts(ctx, VarlinkCall{call}, in.HostOnly)
+		return s.systemsprimamateriamateriaInterface.Facts(ctx, VarlinkCall{call}, in.Path)
 
 	case "Plan":
 		return s.systemsprimamateriamateriaInterface.Plan(ctx, VarlinkCall{call})
@@ -443,8 +499,12 @@ func (s *VarlinkInterface) VarlinkGetName() string {
 func (s *VarlinkInterface) VarlinkGetDescription() string {
 	return `interface systems.primamateria.materia
 
-# Returns host facts. Use hostOnly to ignore facts related to role
-method Facts(hostOnly: bool) -> (facts: string)
+# Returns the facts materia collected. Can call for a specific fact path
+# e.g. host.hostname or host.interface."enp3s0.20".ip4. Leave empty for everything.
+method Facts(path: ?string) -> (facts: object)
+
+error FactsFailed(message: string)
+error FactNotFound(path: string)
 
 # Returns the current plan. empty=true means no changes pending.
 method Plan() -> (plan: string, len: int)

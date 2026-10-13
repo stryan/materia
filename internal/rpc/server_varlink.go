@@ -2,11 +2,14 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 
 	"charm.land/log/v2"
 	"github.com/varlink/go/varlink"
 	varlinkapi "primamateria.systems/materia/pkg/api"
+	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/source"
 )
@@ -16,14 +19,31 @@ type VarlinkServer struct {
 	varlinkapi.VarlinkInterface
 }
 
-func (s *VarlinkServer) Facts(ctx context.Context, c varlinkapi.VarlinkCall, hostOnly bool) error {
+func (s *VarlinkServer) Facts(ctx context.Context, c varlinkapi.VarlinkCall, path *string) error {
 	log.Info("generating facts on request")
-	// TODO use raw not getfacts
-	facts, err := s.materia.GetFacts(ctx)
+	snap, err := facts.Collect(ctx, s.materia.Collectors...)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get facts: %w", err)
 	}
-	return c.ReplyFacts(ctx, facts)
+
+	var out any = snap.Snapshot()
+	if path != nil && *path != "" {
+		v, err := snap.LookupString(*path)
+		if err != nil {
+			if errors.Is(err, facts.ErrFactNotFound) {
+				return c.ReplyFactNotFound(ctx, *path)
+			}
+			return c.ReplyFactsFailed(ctx, err.Error())
+		}
+		// need to make sure it's still an object for the varlink api contract
+		out = map[string]any{"path": *path, "value": v}
+	}
+
+	jsonFacts, err := json.Marshal(out)
+	if err != nil {
+		return c.ReplyFactsFailed(ctx, err.Error())
+	}
+	return c.ReplyFacts(ctx, jsonFacts)
 }
 
 func (s *VarlinkServer) Plan(ctx context.Context, c varlinkapi.VarlinkCall) error {
