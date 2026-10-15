@@ -40,7 +40,7 @@ func RunPlan(ctx context.Context, k *koanf.Koanf, quiet bool, format string) err
 			return fmt.Errorf("unsupported output format")
 		}
 	}
-	err = m.SavePlan(plan, "plan.toml")
+	err = m.SavePlan(ctx, plan)
 	if err != nil {
 		return fmt.Errorf("error writing plan: %w", err)
 	}

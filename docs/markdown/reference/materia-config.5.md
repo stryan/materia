@@ -80,7 +80,7 @@ Directory where materia keeps local cache of source repository. Defaults to `MAT
 
 #### `MATERIA_OUTPUT_DIR`/**output_dir**
 
-Directory where materia outputs `lastrun` and `plan` files. Defaults to `MATERIA_DATA_DIR/output`
+Directory where materia outputs `lastrun`,`lastplan`, and other output state files. Defaults to `MATERIA_DATA_DIR/output`
 
 #### `MATERIA_QUADLET_DIR`/**quadlet_dir**
 

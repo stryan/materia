@@ -466,7 +466,7 @@ func Test_ServerMode_AutoPlan(t *testing.T) {
 	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", true, 30*time.Second))
 
 	require.NoError(t, checkTestCase(ctx, tc, testcase)) // technically we could save the lastplan.toml as an output file and verify here
-	require.NoError(t, waitForFile(ctx, tc, "/var/lib/materia/output/plan.toml", true, 30*time.Second))
+	require.NoError(t, waitForFile(ctx, tc, "/var/lib/materia/output/lastplan.toml", true, 30*time.Second))
 
 	require.NoError(t, stopMateriaServer(ctx, tc, testcase), "unable to stop server")
 	require.NoError(t, waitForFile(ctx, tc, "/run/materia/materia.sock", false, 30*time.Second))

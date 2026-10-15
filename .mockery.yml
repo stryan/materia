@@ -9,11 +9,11 @@ recursive: false
 template: testify
 pkgname: mocks
 packages:
-  primamateria.systems/materia/internal/materia:
+  primamateria.systems/materia/pkg/materia:
     config:
       all: true
       dir: pkg/mocks
-  primamateria.systems/materia/internal/attributes:
+  primamateria.systems/materia/pkg/attributes:
     config:
       all: true
       dir: pkg/mocks

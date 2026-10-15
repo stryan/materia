@@ -28,6 +28,12 @@ type sourcePlan struct {
 	Report  *source.SyncReport
 }
 
+type SourceReport struct {
+	Primary     bool   `json:"primary" toml:"primary"`
+	OldRevision string `json:"old_revision" toml:"old_revision"`
+	NewRevision string `json:"new_revision" toml:"new_revision"`
+}
+
 type srcMaker func(r manifests.RemoteComponentConfig, dest string) (source.Source, error)
 
 type SourceManager struct {
@@ -71,6 +77,20 @@ func (s *SourceManager) Sync(ctx context.Context, opts *source.SyncOpts) error {
 		s.sources[i] = src
 	}
 	return nil
+}
+
+func (s *SourceManager) Report(ctx context.Context) map[string]source.SyncReport {
+	result := make(map[string]source.SyncReport)
+	for _, src := range s.sources {
+		if src.Report != nil {
+			key := src.String()
+			if src.Primary {
+				key = "materia"
+			}
+			result[key] = *src.Report
+		}
+	}
+	return result
 }
 
 func (s *SourceManager) Rollback(ctx context.Context) error {

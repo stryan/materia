@@ -1,4 +1,4 @@
-package repository
+package atomic
 
 import (
 	"crypto/rand"
@@ -10,7 +10,7 @@ import (
 	"regexp"
 )
 
-func atomicWrite(root *os.Root, path string, mode os.FileMode, content []byte) (err error) {
+func Write(root *os.Root, path string, mode os.FileMode, content []byte) (err error) {
 	// make sure the parent actually exists first
 	dir := filepath.Dir(path)
 	if dir != "." {
@@ -49,9 +49,9 @@ func atomicWrite(root *os.Root, path string, mode os.FileMode, content []byte) (
 	return root.Rename(tmp, path)
 }
 
-var tmpFileRegex = regexp.MustCompile(`^\..+\.[0-9a-f]{12}\.materia_tmp$`)
+var TmpFileRegex = regexp.MustCompile(`^\..+\.[0-9a-f]{12}\.materia_tmp$`)
 
-func cleanupAtomicTemps(root *os.Root) error {
+func CleanupTemps(root *os.Root) error {
 	var errs []error
 	rfs := root.FS()
 
@@ -59,7 +59,7 @@ func cleanupAtomicTemps(root *os.Root) error {
 		if err != nil {
 			return err
 		}
-		if e.IsDir() || !tmpFileRegex.MatchString(e.Name()) {
+		if e.IsDir() || !TmpFileRegex.MatchString(e.Name()) {
 			return nil
 		}
 

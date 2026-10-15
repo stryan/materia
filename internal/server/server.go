@@ -18,6 +18,7 @@ import (
 	"primamateria.systems/materia/internal/rpc"
 	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
+	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/source"
 )
 
@@ -104,7 +105,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		<-c
 		log.Info("trying to shutdown cleanly")
 		serverClose()
-		err = vserv.Shutdown()
+		err := vserv.Shutdown()
 		if err != nil {
 			log.Warn("error closing socket", "error", err)
 		}
@@ -115,7 +116,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		go func() {
 			log.Info("Starting background update")
 			defer wg.Done()
-			err = serv.backgroundSync(ctx)
+			err := serv.backgroundSync(ctx)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -129,7 +130,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		go func() {
 			log.Info("Starting background plan validation")
 			defer wg.Done()
-			err = serv.backgroundPlan(ctx)
+			err := serv.backgroundPlan(ctx)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -169,6 +170,26 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	return nil
 }
 
+// reused between background and foreground sync
+func (s *Server) execute(ctx context.Context, plan *plan.Plan) (materia.ExecutionReport, error) {
+	rep, err := s.materia.Execute(ctx, plan)
+	serr := s.materia.SaveExecution(ctx, plan, rep)
+	if serr != nil {
+		log.Warnf("unable to save execution report: %v", err)
+	}
+	return rep, err
+}
+
+// reused between background and foreground sync
+func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
+	aplan, err := s.materia.Plan(ctx)
+	serr := s.materia.SavePlan(ctx, aplan)
+	if serr != nil {
+		log.Warnf("unable to save execution plan: %v", err)
+	}
+	return aplan, err
+}
+
 func (s *Server) backgroundSync(ctx context.Context) error {
 	log.Info("executing background sync")
 	ticker := time.NewTicker(time.Duration(s.UpdateInterval) * time.Second)
@@ -187,7 +208,7 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 				}
 				break
 			}
-			plan, err := s.materia.Plan(ctx)
+			plan, err := s.plan(ctx)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
 					return fmt.Errorf("execution failed to generate plan %w; plus the notification failed: %w", err, nerr)
@@ -197,20 +218,10 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 				}
 				break
 			}
-			rep, err := s.materia.Execute(ctx, plan)
+			rep, err := s.execute(ctx, plan)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
-				}
-				if s.QuitOnError {
-					return err
-				}
-				break
-			}
-			err = s.materia.SavePlan(plan, "lastrun.toml")
-			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("failed to save lastrun: %v", err)); nerr != nil {
-					return fmt.Errorf("last run saving failed %w; plus the notification failed: %w", err, nerr)
 				}
 				if s.QuitOnError {
 					return err
@@ -234,7 +245,7 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			plan, err := s.materia.Plan(ctx)
+			plan, err := s.plan(ctx)
 			if err != nil {
 				if nerr := s.notify(ctx, fmt.Sprintf("invalid plan: %v", err)); nerr != nil {
 					return fmt.Errorf("plan generation failed with %w; plus the notification failed: %w", err, nerr)
@@ -243,11 +254,6 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 					return err
 				}
 				break
-			}
-
-			err = s.materia.SavePlan(plan, "plan.toml")
-			if err != nil {
-				return fmt.Errorf("error writing plan: %w", err)
 			}
 			log.Infof("Plan generated successfully: %v changes", plan.Size())
 		}
@@ -296,7 +302,7 @@ func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	plan, err := s.materia.Plan(ctx)
+	plan, err := s.plan(ctx)
 	if err != nil {
 		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
 			log.Warnf("execution failed to generate plan %v; plus the notification failed: %v", err, nerr)
@@ -306,20 +312,10 @@ func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	rep, err := s.materia.Execute(ctx, plan)
+	rep, err := s.execute(ctx, plan)
 	if err != nil {
 		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
 			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
-		}
-		if s.QuitOnError {
-			log.Fatal("quitting...")
-		}
-		return
-	}
-	err = s.materia.SavePlan(plan, "lastrun.toml")
-	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("failed to save lastrun: %v", err)); nerr != nil {
-			log.Warnf("last run saving failed %v; plus the notification failed: %v", err, nerr)
 		}
 		if s.QuitOnError {
 			log.Fatal("quitting...")

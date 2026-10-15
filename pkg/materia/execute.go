@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/executor"
@@ -21,7 +22,10 @@ func (e *ErrNeedRollbackType) Error() string {
 }
 
 type ExecutionReport struct {
+	Timestamp      time.Time
 	StepsCompleted int
+	TotalSteps     int
+	Error          error
 }
 
 // Execute always returns StepsCompleted in its ExecutionReport, even if it errors out
@@ -35,19 +39,28 @@ func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (ExecutionRepor
 	if err := m.lock(ctx); err != nil {
 		return ExecutionReport{}, fmt.Errorf("unable to get materia dbus lock: %v", err)
 	}
+
+	startTime := time.Now()
 	defer m.unlock()
 	steps, err := m.Executor.Execute(ctx, aplan)
 	report := ExecutionReport{
+		Timestamp:      startTime,
 		StepsCompleted: steps,
+		TotalSteps:     aplan.Size(),
 	}
-	if m.Rollback {
-		if aErr, ok := errors.AsType[*executor.ErrServiceUnhealthy](err); ok {
-			return report, &ErrNeedRollbackType{aErr}
-		}
-		if aErr, ok := errors.AsType[*executor.ErrFinalStateUnhealthy](err); ok {
-			return report, &ErrNeedRollbackType{aErr}
-		}
+
+	var rollbackErr error
+	if aErr, ok := errors.AsType[*executor.ErrServiceUnhealthy](err); ok {
+		rollbackErr = &ErrNeedRollbackType{aErr}
 	}
+	if aErr, ok := errors.AsType[*executor.ErrFinalStateUnhealthy](err); ok {
+		rollbackErr = &ErrNeedRollbackType{aErr}
+	}
+	if m.Rollback && rollbackErr != nil {
+		report.Error = rollbackErr
+		return report, rollbackErr
+	}
+	report.Error = err
 	return report, err
 }
 

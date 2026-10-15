@@ -16,8 +16,7 @@ import (
 func NewMockAttributesEngine(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *MockAttributesEngine {
+}) *MockAttributesEngine {
 	mock := &MockAttributesEngine{}
 	mock.Mock.Test(t)
 

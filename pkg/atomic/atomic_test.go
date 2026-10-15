@@ -1,4 +1,4 @@
-package repository
+package atomic
 
 import (
 	"io/fs"
@@ -21,7 +21,7 @@ func TestAtomicWrite(t *testing.T) {
 
 	t.Run("smoketest", func(t *testing.T) {
 		r := root(t)
-		require.NoError(t, atomicWrite(r, "foo.txt", 0o755, []byte("hi")))
+		require.NoError(t, Write(r, "foo.txt", 0o755, []byte("hi")))
 		assert.Equal(t, os.FileMode(0o755), perm(t, filepath.Join(r.Name(), "foo.txt")))
 		res, err := r.ReadFile("foo.txt")
 		require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestAtomicWrite(t *testing.T) {
 		old := syscall.Umask(0o077)
 		t.Cleanup(func() { syscall.Umask(old) })
 		r := root(t)
-		require.NoError(t, atomicWrite(r, "x.sh", 0o755, []byte("hi")))
+		require.NoError(t, Write(r, "x.sh", 0o755, []byte("hi")))
 		assert.Equal(t, os.FileMode(0o755), perm(t, filepath.Join(r.Name(), "x.sh")))
 	})
 
@@ -41,7 +41,7 @@ func TestAtomicWrite(t *testing.T) {
 		path := writeFile(t, r.Name(), "test.txt", "hello world", 0o755)
 		rel, err := filepath.Rel(r.Name(), path)
 		require.NoError(t, err)
-		require.NoError(t, atomicWrite(r, rel, 0o644, []byte("hello")))
+		require.NoError(t, Write(r, rel, 0o644, []byte("hello")))
 		res, err := r.ReadFile("test.txt")
 		require.NoError(t, err)
 		assert.Equal(t, []byte("hello"), res)
@@ -55,7 +55,7 @@ func TestAtomicWrite_FailedRenameLeavesNoTemp(t *testing.T) {
 	t.Cleanup(func() { _ = r.Close() })
 	require.NoError(t, r.Mkdir("foo", 0o755))
 	require.NoError(t, r.WriteFile("foo/test.txt", []byte("hello"), 0o644))
-	require.Error(t, atomicWrite(r, "foo", 0o644, []byte("wrong")))
+	require.Error(t, Write(r, "foo", 0o644, []byte("wrong")))
 }
 
 func Test_CleanupAtomicTemps(t *testing.T) {
@@ -66,7 +66,7 @@ func Test_CleanupAtomicTemps(t *testing.T) {
 	require.NoError(t, r.WriteFile(".foo.0123456789ab.materia_tmp", []byte{}, 0o644))
 	require.NoError(t, r.WriteFile("bar/.foo.0123456789ab.materia_tmp", []byte{}, 0o644))
 	require.NoError(t, r.WriteFile(".x.tmp", []byte{}, 0o644))
-	require.NoError(t, cleanupAtomicTemps(r))
+	require.NoError(t, CleanupTemps(r))
 	_, err = r.Stat(".foo.0123456789ab.materia_tmp")
 	require.ErrorIs(t, err, fs.ErrNotExist)
 	_, err = r.Stat("bar/.foo.0123456789ab.materia_tmp")

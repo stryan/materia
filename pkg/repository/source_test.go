@@ -97,3 +97,12 @@ func (f *srcFixture) remote(t *testing.T, name, subpath string) string {
 	writeFile(t, filepath.Join(clone, subpath), manifests.ComponentManifestFile, "", 0o644)
 	return clone
 }
+
+func writeFile(t *testing.T, root, rel, content string, mode os.FileMode) string {
+	t.Helper()
+	p := filepath.Join(root, rel)
+	require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+	require.NoError(t, os.WriteFile(p, []byte(content), mode))
+	require.NoError(t, os.Chmod(p, mode))
+	return p
+}

@@ -13,5 +13,12 @@ type SourceManager interface {
 	LoadManifest(string) (*manifests.MateriaManifest, error)
 	AddSource(source.Source, *source.SyncOpts, *source.SyncReport, bool) error
 	Sync(context.Context, *source.SyncOpts) error
+	Report(context.Context) map[string]source.SyncReport
 	Rollback(context.Context) error
+}
+
+type SourceSyncReport struct {
+	Name          string
+	StartRevision string
+	EndRevision   string
 }

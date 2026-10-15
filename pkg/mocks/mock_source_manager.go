@@ -642,6 +642,59 @@ func (_c *MockSourceManager_ReadResource_Call) RunAndReturn(run func(resource co
 	return _c
 }
 
+// Report provides a mock function for the type MockSourceManager
+func (_mock *MockSourceManager) Report(context1 context.Context) map[string]source.SyncReport {
+	ret := _mock.Called(context1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Report")
+	}
+
+	var r0 map[string]source.SyncReport
+	if returnFunc, ok := ret.Get(0).(func(context.Context) map[string]source.SyncReport); ok {
+		r0 = returnFunc(context1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]source.SyncReport)
+		}
+	}
+	return r0
+}
+
+// MockSourceManager_Report_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Report'
+type MockSourceManager_Report_Call struct {
+	*mock.Call
+}
+
+// Report is a helper method to define mock.On call
+//   - context1 context.Context
+func (_e *MockSourceManager_Expecter) Report(context1 any) *MockSourceManager_Report_Call {
+	return &MockSourceManager_Report_Call{Call: _e.mock.On("Report", context1)}
+}
+
+func (_c *MockSourceManager_Report_Call) Run(run func(context1 context.Context)) *MockSourceManager_Report_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSourceManager_Report_Call) Return(stringToSyncReport map[string]source.SyncReport) *MockSourceManager_Report_Call {
+	_c.Call.Return(stringToSyncReport)
+	return _c
+}
+
+func (_c *MockSourceManager_Report_Call) RunAndReturn(run func(context1 context.Context) map[string]source.SyncReport) *MockSourceManager_Report_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Rollback provides a mock function for the type MockSourceManager
 func (_mock *MockSourceManager) Rollback(context1 context.Context) error {
 	ret := _mock.Called(context1)

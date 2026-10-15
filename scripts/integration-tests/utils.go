@@ -70,6 +70,12 @@ func fileExists(ctx context.Context, tc testcontainers.Container, path string) b
 	return code == 0
 }
 
+func fileGlobExists(ctx context.Context, tc testcontainers.Container, pattern string) bool {
+	const script = `for f in $1; do [ -e "$f" ] && exit 0; done; exit 1`
+	code, _, _ := runInContainer(ctx, tc, nil, "sh", "-c", script, "sh", pattern)
+	return code == 0
+}
+
 func getFile(ctx context.Context, c testcontainers.Container, path string) ([]byte, error) {
 	reader, err := c.CopyFileFromContainer(ctx, path)
 	if err != nil {
@@ -168,8 +174,12 @@ func waitForServiceState(ctx context.Context, tc testcontainers.Container, name,
 
 func waitForFile(ctx context.Context, tc testcontainers.Container, name string, state bool, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
+	checkFunc := fileExists
+	if strings.Contains(name, "*") {
+		checkFunc = fileGlobExists
+	}
 	for {
-		if fileExists(ctx, tc, name) == state {
+		if checkFunc(ctx, tc, name) == state {
 			return nil
 		}
 		if time.Now().After(deadline) {

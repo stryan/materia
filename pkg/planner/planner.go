@@ -562,12 +562,13 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 	for _, s := range stoppedServiceActions {
 		startAction := actions.Action{
 			Target: s.Target,
-		}
-		startAction.Todo = actions.ActionStart
-		startAction.Parent = parent
-		startAction.Priority = 5
-		startAction.Metadata = &actions.ActionMetadata{
-			ServiceUntilState: stateToPointer(services.StateActive),
+
+			Todo:     actions.ActionStart,
+			Parent:   parent,
+			Priority: 5,
+			Metadata: &actions.ActionMetadata{
+				ServiceUntilState: stateToPointer(services.StateActive),
+			},
 		}
 		diffActions = append(diffActions, startAction)
 	}

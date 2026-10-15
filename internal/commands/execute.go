@@ -11,6 +11,7 @@ import (
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
+	"primamateria.systems/materia/pkg/plan"
 )
 
 func RunUpdate(ctx context.Context, k *koanf.Koanf, quiet bool) error {
@@ -23,17 +24,25 @@ func RunUpdate(ctx context.Context, k *koanf.Koanf, quiet bool) error {
 			log.Warn("error closing materia: %w", err)
 		}
 	}()
-	plan, err := m.Plan(ctx)
+	aplan, err := m.Plan(ctx)
 	if err != nil {
 		return err
 	}
 	if !quiet {
-		fmt.Println(plan.Pretty())
+		fmt.Println(aplan.Pretty())
 	}
-	rep, err := m.Execute(ctx, plan)
+	saveReport := func(p *plan.Plan, rep materia.ExecutionReport) {
+		// always save the execution plan
+		err := m.SaveExecution(ctx, p, rep)
+		if err != nil {
+			log.Warnf("unable to save execution report: %v", err)
+		}
+	}
+	rep, err := m.Execute(ctx, aplan)
+	saveReport(aplan, rep)
 	if err != nil {
 		if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); !ok {
-			log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(plan.Steps()))
+			log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(aplan.Steps()))
 			return err
 		} else {
 			err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
@@ -45,25 +54,26 @@ func RunUpdate(ctx context.Context, k *koanf.Koanf, quiet bool) error {
 				return err
 			}
 			// re-use plan so we save the rolled-back plan outside of this block
-			oldPlan := plan
-			plan, err = m.Plan(ctx)
+			oldPlan := aplan
+			aplan, err = m.Plan(ctx)
 			if err != nil {
 				return err
 			}
 			if !quiet {
-				fmt.Println(plan.Pretty())
+				fmt.Println(aplan.Pretty())
 			}
-			rep2, err := m.Execute(ctx, plan)
+			rep2, err := m.Execute(ctx, aplan)
+			saveReport(aplan, rep2)
 			if err != nil {
-				log.Warnf("post-rollback: %v/%v steps completed", rep2.StepsCompleted, len(plan.Steps()))
+				log.Warnf("post-rollback: %v/%v steps completed", rep2.StepsCompleted, len(aplan.Steps()))
 				return err
 			}
 			if !quiet {
-				fmt.Printf("Original Plan:\n %v\nRollback Plan:\n %v\n", oldPlan.Pretty(), plan.Pretty())
+				fmt.Printf("Original Plan:\n %v\nRollback Plan:\n %v\n", oldPlan.Pretty(), aplan.Pretty())
 			}
 		}
 	}
-	err = m.SavePlan(plan, "lastrun.toml")
+	err = m.SavePlan(ctx, aplan)
 	if err != nil {
 		return fmt.Errorf("error writing plan: %w", err)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/pkg/atomic"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -138,7 +139,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if fullPath == "." || fullPath == ".component_version" || fullPath == manifests.ComponentManifestFile || tmpFileRegex.MatchString(d.Name()) {
+		if fullPath == "." || fullPath == ".component_version" || fullPath == manifests.ComponentManifestFile || atomic.TmpFileRegex.MatchString(d.Name()) {
 			return nil
 		}
 		newRes, err := r.newResource(oldComp, dpath, false, fullPath)
@@ -154,7 +155,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if fullPath == "." || fullPath == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
+		if fullPath == "." || fullPath == ".materia_managed" || atomic.TmpFileRegex.MatchString(d.Name()) {
 			return nil
 		}
 
@@ -235,7 +236,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 			if err != nil {
 				return err
 			}
-			if p == "." || p == ".component_version" || p == ".materia_managed" || tmpFileRegex.MatchString(d.Name()) {
+			if p == "." || p == ".component_version" || p == ".materia_managed" || atomic.TmpFileRegex.MatchString(d.Name()) {
 				return nil
 			}
 			newRes, err := addFunc(p)
@@ -327,7 +328,7 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) (err
 		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
 	}
 	// version file goes last
-	if err := atomicWrite(droot, filepath.Join(c.InstanceName(), ".component_version"), 0o644, vd.Bytes()); err != nil {
+	if err := atomic.Write(droot, filepath.Join(c.InstanceName(), ".component_version"), 0o644, vd.Bytes()); err != nil {
 		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
 	}
 	return nil
@@ -346,7 +347,7 @@ func (r *HostComponentRepository) UpdateComponent(c *components.Component) error
 		return err
 	}
 	defer func() { _ = dpath.Close() }()
-	return atomicWrite(dpath, ".component_version", 0o644, vd.Bytes())
+	return atomic.Write(dpath, ".component_version", 0o644, vd.Bytes())
 }
 
 func (r *HostComponentRepository) RemoveComponent(c *components.Component) error {
@@ -373,7 +374,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 		if d.Name() == "." || fullPath == ".component_version" {
 			return nil
 		}
-		if !d.IsDir() && tmpFileRegex.MatchString(d.Name()) {
+		if !d.IsDir() && atomic.TmpFileRegex.MatchString(d.Name()) {
 			temps = append(temps, fullPath)
 			return nil
 		}
@@ -500,7 +501,7 @@ func (r *HostComponentRepository) InstallResource(res components.Resource, data 
 	if res.Kind == components.ResourceTypeDirectory || res.Kind == components.ResourceTypeDropinDir {
 		return root.Mkdir(res.Path, res.GetMode())
 	}
-	return atomicWrite(root, res.Path, res.GetMode(), data)
+	return atomic.Write(root, res.Path, res.GetMode(), data)
 }
 
 func (r *HostComponentRepository) RemoveResource(res components.Resource) error {

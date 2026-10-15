@@ -8,12 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"time"
 
 	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
-	"github.com/sergi/go-diff/diffmatchpatch"
-	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
@@ -26,6 +23,7 @@ import (
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/planner"
+	"primamateria.systems/materia/pkg/repository"
 	"primamateria.systems/materia/pkg/services"
 )
 
@@ -44,6 +42,8 @@ type Materia struct {
 	Rollback       bool
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
+	Output         *repository.ManagedDir
+	OutputMax      int
 	defaultTimeout int
 	appMode        bool
 	debug          bool
@@ -160,6 +160,10 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 	if c.RollbackConfig != nil {
 		rollback = c.RollbackConfig.Kind != ""
 	}
+	outdir, err := repository.NewManagedDir(c.OutputDir, 0o644)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create output dir:%w", err)
+	}
 	return &Materia{
 		Host:           hm,
 		Hostname:       hostname,
@@ -169,6 +173,8 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		defaultTimeout: sc.Timeout,
 		Vault:          attributes,
 		OutputDir:      c.OutputDir,
+		Output:         outdir,
+		OutputMax:      5,
 		appMode:        c.AppMode,
 		snippets:       snips,
 		macroGetter: func(f *facts.Facts) macros.MacroMap {
@@ -478,53 +484,6 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 
 func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
 	return m.Host.PurgeComponentByName(name)
-}
-
-type planOutput struct {
-	Timestamp        time.Time `toml:"timestamp"`
-	Plan             []string  `toml:"plan"`
-	ChangedResources []change
-}
-
-type change struct {
-	ResourceName, Before, After string
-}
-
-func (m *Materia) SavePlan(p *plan.Plan, outputfile string) error {
-	path := filepath.Join(m.OutputDir, outputfile)
-	planOutput := planOutput{
-		Timestamp: time.Now(),
-		Plan:      p.PrettyLines(),
-	}
-	for _, a := range p.Steps() {
-		if a.Todo == actions.ActionUpdate {
-			dmp := diffmatchpatch.New()
-			before := dmp.DiffText1(a.DiffContent)
-			after := dmp.DiffText2(a.DiffContent)
-			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
-				ResourceName: a.Target.Path,
-				Before:       before,
-				After:        after,
-			})
-		}
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("unable to create file %s: %w", path, err)
-	}
-	defer func() {
-		err := file.Close()
-		if err != nil {
-			log.Warn("error closing plan file: %v", err)
-		}
-	}()
-
-	err = toml.NewEncoder(file).Encode(planOutput)
-	if err != nil {
-		return fmt.Errorf("failed to encode plan to TOML: %w", err)
-	}
-	return nil
 }
 
 func (m *Materia) Close() error {

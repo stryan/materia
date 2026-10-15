@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"charm.land/log/v2"
+	"primamateria.systems/materia/pkg/atomic"
 )
 
 type ManagedDir struct {
@@ -31,7 +32,7 @@ func NewManagedDir(prefix string, mode os.FileMode) (*ManagedDir, error) {
 	}
 	defer func() { _ = root.Close() }()
 	// cleanup any previous runs
-	if err := cleanupAtomicTemps(root); err != nil {
+	if err := atomic.CleanupTemps(root); err != nil {
 		log.Warn("couldn't clean stale temp files", "dir", abs, "err", err)
 	}
 
@@ -44,7 +45,29 @@ func (m *ManagedDir) Install(ctx context.Context, path string, data []byte) erro
 		return err
 	}
 	defer func() { _ = root.Close() }()
-	return atomicWrite(root, path, m.mode, data)
+	return atomic.Write(root, path, m.mode, data)
+}
+
+func (m *ManagedDir) Rename(ctx context.Context, path, newPath string) error {
+	root, err := os.OpenRoot(m.prefix)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Close() }()
+	return root.Rename(path, newPath)
+}
+
+func (m *ManagedDir) Exists(ctx context.Context, path string) (bool, error) {
+	root, err := os.OpenRoot(m.prefix)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = root.Close() }()
+	_, err = root.Stat(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, err
+	}
+	return err == nil, nil
 }
 
 func (m *ManagedDir) Remove(ctx context.Context, path string) error {
