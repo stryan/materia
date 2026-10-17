@@ -24,3 +24,7 @@ The following facts are available:
 * `assigned_components`: what components are assigned to the host
 
 * `installed_components`: what components are currently installed.
+
+* `last_revision`: The last revision successfully applied; relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`)
+
+* `last_run`: The last run time; relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`)
