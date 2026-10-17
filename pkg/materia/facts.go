@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"time"
 
+	"github.com/BurntSushi/toml"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -15,11 +18,18 @@ type compLister interface {
 	ListInstalledComponents() ([]string, error)
 }
 
+type outputLister interface {
+	List(context.Context, string, string) ([]string, error)
+	Get(context.Context, string) ([]byte, error)
+	Exists(context.Context, string) (bool, error)
+}
+
 type MateriaCollector struct {
 	hostname   string // gotta pass this in since it needs to be stable but overridden by configs
 	config     *MateriaConfig
 	manifest   *manifests.MateriaManifest
 	hostLister compLister
+	OutputDir  outputLister
 }
 
 type MateriaFacts struct {
@@ -27,6 +37,9 @@ type MateriaFacts struct {
 	Roles               []string `json:"roles" toml:"roles"`
 	AssignedComponents  []string `json:"assigned_components" toml:"assigned_components"`
 	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
+	LastRun             string   `json:"last_run" toml:"last_run"`
+	LastRevision        string   `json:"last_revision" toml:"last_revision"`
+	LastRunSuccesful    bool     `json:"last_run_succesful" toml:"last_run_succesful"`
 }
 
 func (c *MateriaCollector) Namespace() string {
@@ -49,7 +62,7 @@ func (c *MateriaCollector) Validate() error {
 	return nil
 }
 
-func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, error) {
+func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any, error) {
 	res := MateriaFacts{
 		Hostname: c.hostname,
 	}
@@ -78,6 +91,36 @@ func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, 
 
 	if res.InstalledComponents == nil {
 		res.InstalledComponents = []string{}
+	}
+	if c.OutputDir != nil {
+		runfiles, err := c.OutputDir.List(ctx, "", "lastrun")
+		if err != nil {
+			return nil, err
+		}
+		if len(runfiles) > 0 {
+			// sort and flip so newest is first
+			slices.Sort(runfiles)
+			slices.Reverse(runfiles)
+
+			lastRunFile := runfiles[0]
+			exist, err := c.OutputDir.Exists(ctx, lastRunFile)
+			if err != nil {
+				return nil, err
+			}
+			if exist {
+				data, err := c.OutputDir.Get(ctx, lastRunFile)
+				if err != nil {
+					return nil, err
+				}
+				var out executionOutput
+				if _, err := toml.Decode(string(data), &out); err != nil {
+					return nil, err
+				}
+				res.LastRevision = out.EndRevision
+				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
+				res.LastRunSuccesful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
+			}
+		}
 	}
 
 	return res, nil

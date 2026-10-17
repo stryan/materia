@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/atomic"
@@ -57,6 +58,35 @@ func (m *ManagedDir) Rename(ctx context.Context, path, newPath string) error {
 	return root.Rename(path, newPath)
 }
 
+// List(ctx context.Context,path,prefix string) where path is the subpath to start at
+// and prefix is a what the filenames need to start with
+func (m *ManagedDir) List(ctx context.Context, subpath, prefix string) ([]string, error) {
+	root, err := os.OpenRoot(m.prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	rfs := root.FS()
+	rootpath := subpath
+	if rootpath == "" {
+		rootpath = "."
+	}
+	var result []string
+	err = fs.WalkDir(rfs, rootpath, func(path string, e fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if strings.HasPrefix(e.Name(), prefix) {
+			result = append(result, e.Name())
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (m *ManagedDir) Exists(ctx context.Context, path string) (bool, error) {
 	root, err := os.OpenRoot(m.prefix)
 	if err != nil {
@@ -85,4 +115,13 @@ func (m *ManagedDir) Remove(ctx context.Context, path string) error {
 		return nil
 	}
 	return err
+}
+
+func (m *ManagedDir) Get(ctx context.Context, path string) ([]byte, error) {
+	root, err := os.OpenRoot(m.prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(path)
 }
