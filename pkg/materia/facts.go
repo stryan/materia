@@ -4,7 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"slices"
+	"time"
 
+	"github.com/BurntSushi/toml"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -15,11 +20,16 @@ type compLister interface {
 	ListInstalledComponents() ([]string, error)
 }
 
+type outputLister interface {
+	List(context.Context, string, string) ([]string, error)
+}
+
 type MateriaCollector struct {
 	hostname   string // gotta pass this in since it needs to be stable but overridden by configs
 	config     *MateriaConfig
 	manifest   *manifests.MateriaManifest
 	hostLister compLister
+	OutputDir  outputLister
 }
 
 type MateriaFacts struct {
@@ -27,6 +37,8 @@ type MateriaFacts struct {
 	Roles               []string `json:"roles" toml:"roles"`
 	AssignedComponents  []string `json:"assigned_components" toml:"assigned_components"`
 	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
+	LastRun             string   `json:"last_run" toml:"last_run"`
+	LastRevision        string   `json:"last_revision" toml:"last_revision"`
 }
 
 func (c *MateriaCollector) Namespace() string {
@@ -49,7 +61,7 @@ func (c *MateriaCollector) Validate() error {
 	return nil
 }
 
-func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, error) {
+func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any, error) {
 	res := MateriaFacts{
 		Hostname: c.hostname,
 	}
@@ -78,6 +90,31 @@ func (c *MateriaCollector) Collect(_ context.Context, accum *facts.Facts) (any, 
 
 	if res.InstalledComponents == nil {
 		res.InstalledComponents = []string{}
+	}
+	if c.OutputDir != nil {
+		runfiles, err := c.OutputDir.List(ctx, "", "lastrun")
+		if err != nil {
+			return nil, err
+		}
+		if len(runfiles) > 0 {
+			// sort and flip so newest is first
+			slices.Sort(runfiles)
+			slices.Reverse(runfiles)
+
+			lastRunFile := runfiles[0]
+			_, err = os.Stat(lastRunFile)
+			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+			if err == nil {
+				var out executionOutput
+				if _, err := toml.DecodeFile(lastRunFile, &out); err != nil {
+					return nil, err
+				}
+				res.LastRevision = out.EndRevision
+				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
+			}
+		}
 	}
 
 	return res, nil

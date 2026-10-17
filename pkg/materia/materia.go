@@ -185,7 +185,7 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		Notifier: n,
 		Collectors: []facts.Collector{
 			&facts.HostCollector{},
-			&MateriaCollector{hostname, c, man, hm},
+			&MateriaCollector{hostname, c, man, hm, outdir},
 		},
 		Lock:     l,
 		Rollback: rollback,
