@@ -77,7 +77,7 @@ func (m *ManagedDir) List(ctx context.Context, subpath, prefix string) ([]string
 			return err
 		}
 		if strings.HasPrefix(e.Name(), prefix) {
-			result = append(result, filepath.Join(m.prefix, e.Name()))
+			result = append(result, e.Name())
 		}
 		return nil
 	})
@@ -115,4 +115,13 @@ func (m *ManagedDir) Remove(ctx context.Context, path string) error {
 		return nil
 	}
 	return err
+}
+
+func (m *ManagedDir) Get(ctx context.Context, path string) ([]byte, error) {
+	root, err := os.OpenRoot(m.prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	return root.ReadFile(path)
 }

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
 	"slices"
 	"time"
 
@@ -22,6 +20,8 @@ type compLister interface {
 
 type outputLister interface {
 	List(context.Context, string, string) ([]string, error)
+	Get(context.Context, string) ([]byte, error)
+	Exists(context.Context, string) (bool, error)
 }
 
 type MateriaCollector struct {
@@ -39,6 +39,7 @@ type MateriaFacts struct {
 	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
 	LastRun             string   `json:"last_run" toml:"last_run"`
 	LastRevision        string   `json:"last_revision" toml:"last_revision"`
+	LastRunSuccesful    bool     `json:"last_run_succesful" toml:"last_run_succesful"`
 }
 
 func (c *MateriaCollector) Namespace() string {
@@ -102,17 +103,22 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 			slices.Reverse(runfiles)
 
 			lastRunFile := runfiles[0]
-			_, err = os.Stat(lastRunFile)
-			if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			exist, err := c.OutputDir.Exists(ctx, lastRunFile)
+			if err != nil {
 				return nil, err
 			}
-			if err == nil {
+			if exist {
+				data, err := c.OutputDir.Get(ctx, lastRunFile)
+				if err != nil {
+					return nil, err
+				}
 				var out executionOutput
-				if _, err := toml.DecodeFile(lastRunFile, &out); err != nil {
+				if _, err := toml.Decode(string(data), &out); err != nil {
 					return nil, err
 				}
 				res.LastRevision = out.EndRevision
 				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
+				res.LastRunSuccesful = (out.Completed == out.Steps)
 			}
 		}
 	}

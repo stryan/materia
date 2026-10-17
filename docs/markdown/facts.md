@@ -25,6 +25,8 @@ The following facts are available:
 
 * `installed_components`: what components are currently installed.
 
-* `last_revision`: The last revision successfully applied; relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`)
+* `last_revision`: The last revision applied. Relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`). This fact existing does not mean the revision was fully applied, just that it is the last attempted.
 
-* `last_run`: The last run time; relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`)
+* `last_run`: The last run time. Relies on `materia`'s output directory existing (by default `MATERIA_DIR/output`)
+
+* `last_run_succesful`: Whether the last run was successful e.g. all expected steps were completed

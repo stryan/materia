@@ -26,7 +26,11 @@ Best effort list of major changes and bugfixes
         - `materia.assigned_components`: Assigned components
         - `materia.installed_components`: Installed components
 - feat: generate a $OUTPUTDIR/last-run.toml file on `materia update` or `materia server update`. Up to five last-plan and last-run files are stored.
-- feat: facts `materia.output` now shows last applied revision and timestamp
+- feat: facts `materia.output` now shows last applied revision and timestamp and whether it was succesful:
+    - New facts:
+        - `materia.last_revision`
+        - `materia.last_run`
+        - `materia.last_run_succesful`
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly
