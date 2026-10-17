@@ -118,7 +118,7 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 				}
 				res.LastRevision = out.EndRevision
 				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
-				res.LastRunSuccesful = (out.Completed == -1) || (out.Completed == out.Steps)
+				res.LastRunSuccesful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
 			}
 		}
 	}

@@ -27,8 +27,8 @@ type executionOutput struct {
 	StartRevision string `json:"start_revision" toml:"start_revision"`
 	EndRevision   string `json:"end_revision" toml:"end_revision"`
 
-	Steps     int `json:"steps" toml:"steps"`
-	Completed int `json:"completed" toml:"completed"`
+	TotalSteps     int `json:"total_steps" toml:"total_steps"`
+	CompletedSteps int `json:"completed_steps" toml:"completed_steps"`
 }
 
 type change struct {
@@ -53,8 +53,8 @@ func (m *Materia) SaveExecution(ctx context.Context, p *plan.Plan, report Execut
 
 		Plan: p,
 
-		Steps:     report.TotalSteps,
-		Completed: report.StepsCompleted,
+		TotalSteps:     report.TotalSteps,
+		CompletedSteps: report.StepsCompleted,
 	}
 
 	found := false

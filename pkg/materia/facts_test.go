@@ -148,10 +148,10 @@ func TestMateriaCollector_Collect(t *testing.T) {
 				lister.EXPECT().ListInstalledComponents().Return([]string{}, nil)
 				fakeOut := mocks.NewMockoutputLister(t)
 				out := executionOutput{
-					Timestamp:   presentday,
-					EndRevision: "latest",
-					Steps:       1,
-					Completed:   0,
+					Timestamp:      presentday,
+					EndRevision:    "latest",
+					TotalSteps:     1,
+					CompletedSteps: 0,
 				}
 				outData, err := toml.Marshal(out)
 				require.Nil(t, err)
