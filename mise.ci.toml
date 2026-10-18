@@ -15,9 +15,9 @@ run = '''
 	set -euo pipefail
 	f() {
 	  if [ -n "${usage_host:-}" ]; then
-	    forge --host "$usage_host" "$@"
+	    fnox x -- forge --host "$usage_host" "$@"
 	  else
-	    forge "$@"
+	    fnox x -- forge "$@"
 	  fi
 	}
 
