@@ -16,6 +16,7 @@ type ServerConfig struct {
 	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
 	UpdateSecret   string `koanf:"update_secret" toml:"update_secret"`
 	Socket         string `koanf:"socket" toml:"socket"`
+	QuitOnError    bool   `koanf:"quit_on_error" toml:"quit_on_error"`
 }
 
 func (c ServerConfig) Validate() error {

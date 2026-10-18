@@ -59,3 +59,7 @@ What URL the update webhook listens on. Defaults to `:6284/webhook`
 What Unix socket to listen on for the Varlink API.
 
 Defaults to `unix:/run/materia/materia.sock` for root and `unix:/run/UID/materia/materia.sock` for rootless.
+
+#### `MATERIA_SERVER__QUIT_ON_ERROR`/**server.quit_on_error**
+
+Whether the server should quit on error. Defaults to false.

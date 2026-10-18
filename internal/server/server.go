@@ -87,6 +87,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		Socket:         conf.Socket,
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
+		QuitOnError:    conf.QuitOnError,
 		materia:        m,
 	}
 	spath := serv.Socket
@@ -158,6 +159,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		wg.Add(1)
 		go func() {
 			log.Info("starting with update webhook")
+			defer wg.Done()
 			http.HandleFunc("/webhook", serv.updateHookHandler)
 			err := http.ListenAndServe(url, nil)
 			if err != nil {
@@ -175,7 +177,7 @@ func (s *Server) execute(ctx context.Context, plan *plan.Plan) (materia.Executio
 	rep, err := s.materia.Execute(ctx, plan)
 	serr := s.materia.SaveExecution(ctx, plan, rep)
 	if serr != nil {
-		log.Warnf("unable to save execution report: %v", err)
+		log.Warnf("unable to save execution report: %v", serr)
 	}
 	return rep, err
 }
@@ -185,7 +187,7 @@ func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
 	aplan, err := s.materia.Plan(ctx)
 	serr := s.materia.SavePlan(ctx, aplan)
 	if serr != nil {
-		log.Warnf("unable to save execution plan: %v", err)
+		log.Warnf("unable to save execution plan: %v", serr)
 	}
 	return aplan, err
 }

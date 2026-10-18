@@ -16,6 +16,7 @@ var testConfig = &ServerConfig{
 	"destination",
 	"secret",
 	"/run/sock",
+	false,
 }
 
 func Test_NewConfig_TOML(t *testing.T) {
