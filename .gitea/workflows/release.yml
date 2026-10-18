@@ -44,12 +44,22 @@ jobs:
           get GH_USER)" --password-stdin
       - name: Copy Registry auths for cosign
         run: mkdir -p ~/.docker && cat /run/containers/0/auth.json > ~/.docker/config.json
+      - name: Check release canidate status
+        id: check-rc
+        # Sets output to 'true' if tag contains '-rc', otherwise 'false'
+        run: |
+          if [[ "${{ github.ref_name }}" == *"-rc"* ]]; then
+            echo "is_rc=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_rc=false" >> $GITHUB_OUTPUT
+          fi
       - name: Build and push container images
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASS }}
-        run: mise run ci-buildah ${{ github.ref_name }} ${IMAGE_REGISTRY}/materia
-          ghcr.io/stryan/materia
+          STABLE_FLAG: ${{ steps.check-rc.outputs.is_rc == 'false' && '--stable' || '' }}
+        run: |
+          mise run ci-buildah $STABLE_FLAG ${{ github.ref_name }} ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia
       - name: Generate Github release
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
