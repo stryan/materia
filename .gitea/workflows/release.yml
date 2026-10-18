@@ -69,7 +69,7 @@ jobs:
           RC_FLAG: ${{ steps.check-rc.outputs.is_rc == 'false' && '--prerelease' || '' }}
         run: |
           export GITHUB_TOKEN="$(mise x -- fnox get GH_TOKEN)"
-          mise r ci-release-forge $RC_FLAG --host github.com --repo stryan/materia ${{ github.ref_name }}
+          mise r ci-release-gh $RC_FLAG --host github.com --repo stryan/materia ${{ github.ref_name }}
       - name: Cleanup leftover containers
         if: always()
         run: mise run clean-test-containers

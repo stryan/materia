@@ -3,6 +3,45 @@ fnox = "latest"
 pandoc = "latest"
 "github:git-pkgs/forge" = "latest"
 
+[tasks.ci-release-gh]
+depends = [ { task = "release-tar", args = ["{{usage.tag}}"]}]
+tools.gh = "latest"
+description = "Generate a release using gh"
+usage = '''
+	arg "<tag>" help = "Tag to generate release for"
+	flag "-h --host <host>" help = "Host for gh (e.g. github.com)"
+	flag "-r --repo <repo>" help = "Repo for gh (owner/repo)"
+	flag "--no-sign" help = "Skip cosign signing"
+	flag "--prerelease" help="Set pre-release status"
+'''
+run = '''
+	#!/usr/bin/env bash
+	set -euo pipefail
+
+	gh_args=()
+	if [ -n "${usage_repo:-}" ]; then
+		repo="$usage_repo"
+		if [ -n "${usage_host:-}" ]; then
+			repo="${usage_host}/${repo}"
+		fi
+		gh_args+=("-R" "$repo")
+	fi
+
+	{% if not usage.no_sign %}
+	mise r release-sign-tar
+	{% endif %}
+
+	release_args=(--verify-tag --draft --title "${usage_tag?}" --notes-file CHANGELOG.md)
+	{% if usage.prerelease %}
+	release_args+=(--prerelease)
+	{% endif %}
+
+	gh release create "${usage_tag?}" \
+		{{vars.releasedir}}/* \
+		"${release_args[@]}" \
+		${gh_args[@]+"${gh_args[@]}"}
+'''
+
 [tasks.ci-release-forge]
 depends = [ { task = "release-tar", args = ["{{usage.tag}}"]}]
 description = "Generate a release"
@@ -24,7 +63,7 @@ run = '''
 		if [ -n "${usage_repo:-}" ]; then
 			args+=("--repo" "$usage_repo")
 		fi
-		forge "${args[@]}" "$@"
+		./forge "${args[@]}" "$@"
 	}
 
 	{% if not usage.no_sign %}
@@ -40,7 +79,7 @@ run = '''
 	done
 	# set it to draft status
 	f release edit --tag ${usage_tag?} --draft
-	{% if usage.pre_release %}
+	{% if usage.prerelease %}
 	f release edit --tag ${usage_tag?} --prerelease
 	{% endif %}
 '''
