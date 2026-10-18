@@ -51,6 +51,14 @@ Best effort list of major changes and bugfixes
     - `server.update_webhook` requires `server.update_secret` or `server.token`
     - `update_secret` or `token` checks are disabled by setting `server.url` to `localhost*`
 - feat: new `/facts` webhook for server mode. Requires `server.token` to be enabled.
+- feat: new `/health` endpoint, automatically enabled when any other webhook is enabled or if `server.health` is `true`.
+    - returns:
+    ~~~json
+        {
+            "health":"ok",
+            "timestamp":"current time"
+        }
+    ~~~
 
 
 ## 0.7.2

@@ -16,6 +16,7 @@ var testConfig = &ServerConfig{
 	NotifyWebhook:  "webhook",
 	UpdateWebhook:  true,
 	FactsWebhook:   false,
+	Health:         true,
 	UpdateUrl:      "destination",
 	Url:            "dest",
 	UpdateSecret:   "secret",

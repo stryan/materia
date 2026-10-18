@@ -138,7 +138,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		return err
 	})
 
-	if conf.UpdateWebhook || conf.FactsWebhook {
+	if conf.HasWebhook() {
 		url := conf.Url
 		if url == "" {
 			url = ":6284"
@@ -157,6 +157,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 				authFunc := serv.validateToken()
 				mux.Handle("/facts", authFunc(http.HandlerFunc(serv.factsHookHandler(gctx))))
 			}
+			// Health is always enabled if the config has a webhook endpoint
+			mux.Handle("/health", http.HandlerFunc(healthHandler))
 			srv := &http.Server{
 				Addr:              url,
 				Handler:           mux,
@@ -323,13 +325,6 @@ func (s *Server) updateHookHandler(ctx context.Context) func(w http.ResponseWrit
 
 func (s *Server) factsHookHandler(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Info("facts request",
-			"remote", r.RemoteAddr,
-			"method", r.Method,
-			"ua", r.UserAgent(),
-			"xff", r.Header.Get("X-Forwarded-For"),
-			"proto", r.Proto,
-		)
 		if r.Method != http.MethodGet {
 			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 			return
@@ -361,4 +356,23 @@ func (s *Server) notifyOnFailure(ctx context.Context, what string, err error) er
 		return err
 	}
 	return nil
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	response := map[string]any{
+		"health":    "ok",
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Warnf("health check error: %v", err)
+	}
 }

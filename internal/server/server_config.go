@@ -16,6 +16,7 @@ type ServerConfig struct {
 	NotifyWebhook  string `koanf:"notify_webhook" toml:"notify_webhook"`
 	UpdateWebhook  bool   `koanf:"update_webhook" toml:"update_webhook"`
 	FactsWebhook   bool   `koanf:"facts_webhook" toml:"facts_webhook"`
+	Health         bool   `koanf:"health" toml:"health"`
 	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
 	Url            string `koanf:"url" toml:"url"`
 	UpdateSecret   string `koanf:"update_secret" toml:"update_secret"`
@@ -57,7 +58,14 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	if c.UpdateUrl != "" && c.Url == "" {
 		c.Url = c.UpdateUrl
 	}
+	if c.FactsWebhook || c.UpdateWebhook {
+		c.Health = true
+	}
 	return c, err
+}
+
+func (c ServerConfig) HasWebhook() bool {
+	return c.FactsWebhook || c.Health || c.UpdateWebhook
 }
 
 func DefaultServicesConfig() (*ServerConfig, error) {

@@ -28,6 +28,10 @@ How long (in seconds) for `materia server` to wait before running a `materia upd
 
 How long (in seconds) for `materia server` to wait before running a `materia plan`.
 
+### `MATERIA_SERVER__HEALTH`/`server.health`
+
+Whether to enable the `/health` endpoint. Defaults to `true` if either `server.update_webhook` or `server.facts_webhook` is true.
+
 #### `MATERIA_SERVER__NOTIFY_WEBHOOK`/**server.notify_webhook**
 
 Where to send webhook notifications on plan/update failure.
@@ -45,6 +49,10 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
     "secret": "pre-shared secret: server.secret"
 }
 ~~~
+
+#### `MATERIA_SERVER__FACTS_WEBHOOK`/**server.facts_webhook**
+
+True/false. Whether to enable the HTTP `/facts` listener. Accepts GETs with `Bearer token` authentication and returns all facts current known as JSON.
 
 ### MATERIA_SERVER__TOKEN/**server.token**
 
