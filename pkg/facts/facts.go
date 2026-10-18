@@ -1,6 +1,7 @@
 package facts
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -103,4 +104,8 @@ func (f *Facts) LookupString(key string) (any, error) {
 		log.Warnf("auto converting to fact path %v", p)
 	}
 	return f.Lookup(p)
+}
+
+func (f *Facts) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f.rawFacts)
 }

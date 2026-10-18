@@ -14,6 +14,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
+	"golang.org/x/sync/errgroup"
 	"primamateria.systems/materia/internal/commands"
 	"primamateria.systems/materia/internal/rpc"
 	"primamateria.systems/materia/pkg/materia"
@@ -24,10 +25,13 @@ import (
 
 type Server struct {
 	syncSecret                   string
+	token                        string
 	Socket                       string
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
 	materia                      *materia.Materia
+	cancel                       context.CancelCauseFunc
+	mu                           sync.Mutex
 }
 
 func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
@@ -56,8 +60,8 @@ func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*mate
 }
 
 func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
-	ctx, serverClose := context.WithCancel(ctx)
-	defer serverClose()
+	ctx, serverClose := context.WithCancelCause(ctx)
+	defer serverClose(nil)
 	log.Info("Starting server mode")
 	conf, err := NewConfig(k)
 	if err != nil {
@@ -88,6 +92,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		PlanInterval:   conf.PlanInterval,
 		UpdateInterval: conf.UpdateInterval,
 		QuitOnError:    conf.QuitOnError,
+		token:          conf.Token,
+		cancel:         serverClose,
 		materia:        m,
 	}
 	spath := serv.Socket
@@ -96,80 +102,91 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	}
 	vserv, err := rpc.NewVarlinkServer(ctx, m, version)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	var wg sync.WaitGroup
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGTERM, os.Interrupt)
-	go func() {
-		<-c
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
+	g, gctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		<-gctx.Done()
+		stop()
 		log.Info("trying to shutdown cleanly")
-		serverClose()
-		err := vserv.Shutdown()
-		if err != nil {
-			log.Warn("error closing socket", "error", err)
-		}
-		log.Info("Shutdown varlink server")
-	}()
+		return vserv.Shutdown()
+	})
+
 	if conf.UpdateInterval > 0 {
-		wg.Add(1)
-		go func() {
-			log.Info("Starting background update")
-			defer wg.Done()
-			err := serv.backgroundSync(ctx)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Debug("shutdown background update")
-		}()
+		g.Go(func() error { return serv.backgroundUpdate(gctx) })
 	} else {
 		log.Info("skipping background update since no timer is configured")
 	}
-	if conf.PlanInterval != 0 {
-		wg.Add(1)
-		go func() {
-			log.Info("Starting background plan validation")
-			defer wg.Done()
-			err := serv.backgroundPlan(ctx)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Debug("shutdown background plan")
-		}()
 
+	if conf.PlanInterval != 0 {
+		g.Go(func() error { return serv.backgroundPlan(gctx) })
 	} else {
 		log.Info("skipping background plan since no timer is configured")
 	}
-	wg.Go(func() {
-		log.Infof("starting to listen on socket %v", spath)
-		if err := vserv.Listen(ctx, spath, 0); err != nil {
-			log.Fatal(err)
+
+	g.Go(func() error {
+		log.Infof("starting to listen on varlink socket %v", spath)
+		err := vserv.Listen(gctx, spath, 0)
+		if gctx.Err() != nil { // this is a cancellation error
+			return nil
 		}
-		log.Debug("shutdown varlink listener")
-	})
-	if err := serv.notify(ctx, "server started"); err != nil {
 		return err
-	}
-	if conf.UpdateWebhook {
-		url := conf.UpdateUrl
+	})
+
+	if conf.UpdateWebhook || conf.FactsWebhook {
+		url := conf.Url
 		if url == "" {
 			url = ":6284"
 		}
-		wg.Add(1)
-		go func() {
-			log.Info("starting with update webhook")
-			defer wg.Done()
-			http.HandleFunc("/webhook", serv.updateHookHandler)
-			err := http.ListenAndServe(url, nil)
-			if err != nil {
-				log.Fatal(err)
+		g.Go(func() error {
+			log.Info("starting webhook server")
+			mux := http.NewServeMux()
+			if conf.UpdateWebhook {
+				authFunc := serv.validateSyncSecret()
+				if conf.Token != "" {
+					authFunc = serv.validateToken()
+				}
+				mux.Handle("/webhook", authFunc(http.HandlerFunc(serv.updateHookHandler(gctx))))
 			}
-		}()
+			if conf.FactsWebhook {
+				authFunc := serv.validateToken()
+				mux.Handle("/facts", authFunc(http.HandlerFunc(serv.factsHookHandler(gctx))))
+			}
+			srv := &http.Server{
+				Addr:              url,
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				MaxHeaderBytes:    1 << 16,
+			}
+			go func() {
+				<-gctx.Done()
+				sctx, c := context.WithTimeout(context.Background(), 10*time.Second)
+				defer c()
+				_ = srv.Shutdown(sctx)
+			}()
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				return err
+			}
+			log.Info("shutdown webhook server")
+			return nil
+		})
 	}
-	wg.Wait()
-
-	return nil
+	if err := serv.notify(ctx, "server started"); err != nil {
+		log.Warn(err)
+	}
+	gerr := g.Wait()
+	serv.mu.Lock() // make sure we end everthing sequentially
+	defer serv.mu.Unlock()
+	if cause := context.Cause(ctx); cause != nil && !errors.Is(cause, context.Canceled) {
+		return cause
+	}
+	return gerr
 }
 
 // reused between background and foreground sync
@@ -192,48 +209,49 @@ func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
 	return aplan, err
 }
 
-func (s *Server) backgroundSync(ctx context.Context) error {
-	log.Info("executing background sync")
+func (s *Server) update(ctx context.Context, opts *source.SyncOpts) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.materia.Source.Sync(ctx, opts)
+	if err != nil {
+		return fmt.Errorf("unable to sync sources: %w", err)
+	}
+	plan, err := s.plan(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to generate plan: %w", err)
+	}
+
+	// last chance to bail cleanly
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	rep, err := s.execute(context.WithoutCancel(ctx), plan)
+	if err != nil {
+		return fmt.Errorf("unable to execute, %v/%v steps completed: %w", rep.StepsCompleted, rep.TotalSteps, err)
+	}
+	if rep.StepsCompleted == -1 {
+		log.Info("Update ran; no changes made")
+	} else {
+		log.Infof("Update ran; Steps completed: %v/%v", rep.StepsCompleted, rep.TotalSteps)
+	}
+	return nil
+}
+
+func (s *Server) backgroundUpdate(ctx context.Context) error {
+	log.Info("executing background update loop")
 	ticker := time.NewTicker(time.Duration(s.UpdateInterval) * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			err := s.materia.Source.Sync(ctx, nil)
+			err := s.update(ctx, nil)
 			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to sync sources: %v", err)); nerr != nil {
-					return fmt.Errorf("execution failed to sync sources %w; plus the notification failed: %w", err, nerr)
+				if nerr := s.notifyOnFailure(ctx, "failed to update", err); nerr != nil {
+					return nerr
 				}
-				if s.QuitOnError {
-					return err
-				}
-				break
-			}
-			plan, err := s.plan(ctx)
-			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
-					return fmt.Errorf("execution failed to generate plan %w; plus the notification failed: %w", err, nerr)
-				}
-				if s.QuitOnError {
-					return err
-				}
-				break
-			}
-			rep, err := s.execute(ctx, plan)
-			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
-					return fmt.Errorf("execution failed %w; plus the notification failed: %w", err, nerr)
-				}
-				if s.QuitOnError {
-					return err
-				}
-				break
-			}
-			if rep.StepsCompleted == -1 {
-				log.Info("Sync ran; no changes made")
-			} else {
-				log.Infof("Sync ran; Steps completed: %v", rep.StepsCompleted)
 			}
 		}
 	}
@@ -242,18 +260,20 @@ func (s *Server) backgroundSync(ctx context.Context) error {
 func (s *Server) backgroundPlan(ctx context.Context) error {
 	log.Info("generating plan for validation")
 	ticker := time.NewTicker(time.Duration(s.PlanInterval) * time.Second)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			plan, err := s.plan(ctx)
-			if err != nil {
-				if nerr := s.notify(ctx, fmt.Sprintf("invalid plan: %v", err)); nerr != nil {
-					return fmt.Errorf("plan generation failed with %w; plus the notification failed: %w", err, nerr)
-				}
-				if s.QuitOnError {
-					return err
+			plan, cerr := func() (*plan.Plan, error) {
+				s.mu.Lock()
+				defer s.mu.Unlock()
+				return s.plan(ctx)
+			}()
+			if cerr != nil {
+				if nerr := s.notifyOnFailure(ctx, "failed to generate plan", cerr); nerr != nil {
+					return nerr
 				}
 				break
 			}
@@ -273,60 +293,72 @@ type UpdatePayload struct {
 	Secret   string
 }
 
-func (s *Server) updateHookHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
+func (s *Server) updateHookHandler(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
 
-	var payload UpdatePayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid payload json", http.StatusBadRequest)
-		return
+		var payload UpdatePayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "invalid payload json", http.StatusBadRequest)
+			return
+		}
+		opts := &source.SyncOpts{
+			Revision: payload.Revision,
+		}
+		w.WriteHeader(http.StatusAccepted)
+		go func() {
+			err := s.update(ctx, opts)
+			if err != nil {
+				if nerr := s.notifyOnFailure(ctx, "update failed", err); nerr != nil {
+					s.cancel(nerr)
+					return
+				}
+			}
+		}()
 	}
-	if s.syncSecret != "" && s.syncSecret != payload.Secret {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
+}
 
-	opts := &source.SyncOpts{
-		Revision: payload.Revision,
+func (s *Server) factsHookHandler(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Info("facts request",
+			"remote", r.RemoteAddr,
+			"method", r.Method,
+			"ua", r.UserAgent(),
+			"xff", r.Header.Get("X-Forwarded-For"),
+			"proto", r.Proto,
+		)
+		if r.Method != http.MethodGet {
+			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+			return
+		}
+		facts, err := commands.GetFacts(ctx, s.materia)
+		if err != nil {
+			http.Error(w, "unable to generate facts", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		if err := json.NewEncoder(w).Encode(facts); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
-	w.WriteHeader(http.StatusOK)
-	ctx := context.Background()
-	err := s.materia.Source.Sync(ctx, opts)
-	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to sync sources: %v", err)); nerr != nil {
-			log.Warnf("execution failed to sync sources %v; plus the notification failed: %v", err, nerr)
-		}
-		if s.QuitOnError {
-			log.Fatal("quitting...")
-		}
-		return
+}
+
+func (s *Server) notifyOnFailure(ctx context.Context, what string, err error) error {
+	if ctx.Err() != nil && errors.Is(err, context.Canceled) {
+		return nil // shutting down, not a real failure
 	}
-	plan, err := s.plan(ctx)
-	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed to generate plan: %v", err)); nerr != nil {
-			log.Warnf("execution failed to generate plan %v; plus the notification failed: %v", err, nerr)
-		}
-		if s.QuitOnError {
-			log.Fatal("quitting...")
-		}
-		return
+	nctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	if nerr := s.notify(nctx, fmt.Sprintf("%s: %v", what, err)); nerr != nil {
+		log.Warnf("notification failed: %v, original error: %v", nerr, err)
 	}
-	rep, err := s.execute(ctx, plan)
-	if err != nil {
-		if nerr := s.notify(ctx, fmt.Sprintf("Execution failed: %v, %v/%v steps completed", err, rep.StepsCompleted, plan.Size())); nerr != nil {
-			log.Warnf("execution failed %v; plus the notification failed: %v", err, nerr)
-		}
-		if s.QuitOnError {
-			log.Fatal("quitting...")
-		}
-		return
+	if s.QuitOnError {
+		return err
 	}
-	if rep.StepsCompleted == -1 {
-		log.Info("Update ran; no changes made")
-	} else {
-		log.Infof("Update ran; Steps completed: %v", rep.StepsCompleted)
-	}
+	return nil
 }

@@ -2,13 +2,16 @@ package planner
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewPlannerConfig_TOML(t *testing.T) {
+	clearMateriaEnv(t)
 	f, err := os.CreateTemp(t.TempDir(), "*.toml")
 	assert.Nil(t, err)
 	_, err = f.WriteString(`
@@ -37,6 +40,7 @@ migrate_volumes = true
 }
 
 func Test_NewPlannerConfig_Env(t *testing.T) {
+	clearMateriaEnv(t)
 	t.Setenv("MATERIA_PLANNER__ONLY_RESOURCES", "true")
 	t.Setenv("MATERIA_PLANNER__CLEANUP_QUADLETS", "true")
 	t.Setenv("MATERIA_PLANNER__CLEANUP_VOLUMES", "true")
@@ -54,4 +58,16 @@ func Test_NewPlannerConfig_Env(t *testing.T) {
 	assert.Equal(t, true, cfg.CleanupVolumes)
 	assert.Equal(t, false, cfg.BackupVolumes)
 	assert.Equal(t, true, cfg.MigrateVolumes)
+}
+
+func clearMateriaEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "MATERIA_") {
+			t.Setenv(name, "")
+			err := os.Unsetenv(name)
+			require.Nil(t, err)
+		}
+	}
 }

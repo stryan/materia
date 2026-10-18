@@ -5,6 +5,12 @@ Best effort list of major changes and bugfixes
 ## Deprecations
 
 - The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
+- The following server settings are deprecated:
+    - `server.update_url`: replaced with `server.url`
+    - `server.update_secret`: replaced with `Bearer token` auth with `server.token`
+- The following facts are deprecated:
+    - `hostname`: replaced with `host.hostname`
+    - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
 - feat: most materia packages are now public. This will be stablized and documented better in 0.8 or 0.9.
@@ -19,18 +25,33 @@ Best effort list of major changes and bugfixes
 - feat/rework: Redid `facts` generation. Facts are now denoted in dotted-path format.
     - Existing facts and their new versions:
         - `hostname` -> `materia.hostname`
-        - `interfacts` -> `host.interfaces`
+        - `interface` -> `host.interfaces`
     - New facts
         - `host.hostname`: hostname as the OS sees its
         - `materia.roles`: Assigned roles
         - `materia.assigned_components`: Assigned components
         - `materia.installed_components`: Installed components
-- feat: generate a $OUTPUTDIR/last-run.toml file on `materia update` or `materia server update`. Up to five last-plan and last-run files are stored.
+- feat: generate a $OUTPUTDIR/lastrun.toml file on `materia update` or `materia server update`. Up to five last-plan and last-run files are stored.
+    - If you have existing `lastrun.toml` files, you need to remove them before running `materia facts`.
 - feat: facts `materia.output` now shows last applied revision and timestamp and whether it was succesful:
     - New facts:
         - `materia.last_revision`
         - `materia.last_run`
         - `materia.last_run_succesful`
+- feat: server mode supports new `server.token` for `Bearer: token` style authentication:
+    - example:
+    ~~~ bash
+    curl -v -X GET localhost:6284/facts \                                                                                                                                                                                                                                        12:17:19 AM
+         -H "Authorization: Bearer secret" \
+         -H "Accept: application/json"
+    ~~~
+    - this replaces the now deprecated `server.update_secret`.
+- feat: other server config changes:
+    - `server.url`: replaces `server.update_url`
+    - `server.update_webhook` requires `server.update_secret` or `server.token`
+    - `update_secret` or `token` checks are disabled by setting `server.url` to `localhost*`
+- feat: new `/facts` webhook for server mode. Requires `server.token` to be enabled.
+
 
 ## 0.7.2
 - bugfix: git sources now sync fully divergent branches correctly

@@ -2,13 +2,16 @@ package containers
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewContainersConfig_TOML(t *testing.T) {
+	clearMateriaEnv(t)
 	f, err := os.CreateTemp(t.TempDir(), "*.toml")
 	assert.Nil(t, err)
 	_, err = f.WriteString(`
@@ -33,6 +36,7 @@ compression = "zstd"
 }
 
 func Test_NewContainersConfig_Env(t *testing.T) {
+	clearMateriaEnv(t)
 	t.Setenv("MATERIA_CONTAINERS__REMOTE", "true")
 	t.Setenv("MATERIA_CONTAINERS__SECRETS_PREFIX", "custom-")
 	t.Setenv("MATERIA_CONTAINERS__COMPRESSION", "zstd")
@@ -94,5 +98,17 @@ func Test_ContainersConfig_Validate(t *testing.T) {
 				assert.NoError(t, tt.cfg.Validate())
 			}
 		})
+	}
+}
+
+func clearMateriaEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "MATERIA_") {
+			t.Setenv(name, "")
+			err := os.Unsetenv(name)
+			require.Nil(t, err)
+		}
 	}
 }

@@ -32,7 +32,7 @@ How long (in seconds) for `materia server` to wait before running a `materia pla
 
 Where to send webhook notifications on plan/update failure.
 
-This has been replaced by the materia-config-notify.5 config.
+**DEPRECATED**: This has been replaced by the materia-config-notify.5 config.
 
 #### `MATERIA_SERVER__UPDATE_WEBHOOK`/**server.update_webhook**
 
@@ -46,13 +46,25 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
 }
 ~~~
 
+### MATERIA_SERVER__TOKEN/**server.token**
+
+Pre-shared secret to use as a `Bearer token` header.
+
 #### `MATERIA_SERVER__UPDATE_SECRET`/**server.update_secret**
 
 Pre-shared secret for basic security on update webhook
 
+**DEPRECATED**: Use `server.token` instead
+
+#### `MATERIA_SERVER__URL`/**server.url**
+
+What URL the webhooks listen on. Defaults to `:6284/webhook|facts`
+
 #### `MATERIA_SERVER__UPDATE_URL`/**server.update_url**
 
 What URL the update webhook listens on. Defaults to `:6284/webhook`
+
+**DEPRECATED**: use `server.url` instead
 
 #### `MATERIA_SERVER__SOCKET`/**server.socket**
 

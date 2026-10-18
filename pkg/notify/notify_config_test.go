@@ -2,13 +2,16 @@ package notify
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewConfig_TOML(t *testing.T) {
+	clearMateriaEnv(t)
 	f, err := os.CreateTemp(t.TempDir(), "*.toml")
 	assert.Nil(t, err)
 	_, err = f.WriteString(`
@@ -37,6 +40,7 @@ rollback = "https://example.com/otherwebhook"
 }
 
 func Test_NewConfig_Env(t *testing.T) {
+	clearMateriaEnv(t)
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__UPDATE", "https://example.com/webhook")
 	t.Setenv("MATERIA_NOTIFY__TRIGGERS__ROLLBACK", "https://example.com/otherwebhook")
 
@@ -66,4 +70,16 @@ func Test_InvalidConfig(t *testing.T) {
 	cfg, err := NewConfig(k)
 	assert.Nil(t, err)
 	assert.Error(t, cfg.Validate(), "expected invalid config")
+}
+
+func clearMateriaEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "MATERIA_") {
+			t.Setenv(name, "")
+			err := os.Unsetenv(name)
+			require.Nil(t, err)
+		}
+	}
 }

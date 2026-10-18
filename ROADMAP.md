@@ -1,7 +1,7 @@
 # Goals being worked on
 - [ ] Increasing test coverage
 - [ ] Server mode improvements
-    - [ ] `facts` HTTP endpoint
+    - [x] `facts` HTTP endpoint
     - [ ] varlink API refinement
     - [ ] `health` HTTP endpoint
     - [ ] better logging

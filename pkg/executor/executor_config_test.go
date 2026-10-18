@@ -2,14 +2,17 @@ package executor
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/pkg/config"
 )
 
 func Test_NewExecutorConfig_TOML(t *testing.T) {
+	clearMateriaEnv(t)
 	f, err := os.CreateTemp(t.TempDir(), "*.toml")
 	assert.Nil(t, err)
 	_, err = f.WriteString(`
@@ -40,6 +43,7 @@ output_dir = ""
 }
 
 func Test_NewExecutorConfig_Env(t *testing.T) {
+	clearMateriaEnv(t)
 	t.Setenv("MATERIA_EXECUTOR__CLEANUP_COMPONENTS", "true")
 	t.Setenv("MATERIA_EXECUTOR__MATERIA_DIR", "foo")
 	t.Setenv("MATERIA_EXECUTOR__QUADLET_DIR", "bar")
@@ -74,4 +78,16 @@ func TestNewExecutorConfigDefaultsInvalid(t *testing.T) {
 	assert.Equal(t, "", config.ServiceDir)
 	assert.Equal(t, "", config.OutputDir)
 	assert.Error(t, config.Validate(), "invalid config was valid")
+}
+
+func clearMateriaEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.HasPrefix(name, "MATERIA_") {
+			t.Setenv(name, "")
+			err := os.Unsetenv(name)
+			require.Nil(t, err)
+		}
+	}
 }
