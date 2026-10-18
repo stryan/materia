@@ -68,7 +68,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASS }}
         run: |
           export GITHUB_TOKEN="$(mise x -- fnox get GH_TOKEN)"
-          mise r ci-release-forge --host github.com ${{ github.ref_name }}
+          mise r ci-release-forge --host github.com --repo stryan/materia ${{ github.ref_name }}
       - name: Cleanup leftover containers
         if: always()
         run: mise run clean-test-containers

@@ -9,21 +9,26 @@ description = "Generate a release"
 usage = '''
 	arg "<tag>" help = "Tag to generate release for"
 	flag "-h --host <host>" help = "Host for forge"
+	flag "-r --repo <repo>" help = "Repo for forge."
 	flag "--no-sign" help = "Skip cosign signing"
 '''
 run = '''
+	#!/usr/bin/env bash
 	set -euo pipefail
 	f() {
-	  if [ -n "${usage_host:-}" ]; then
-	    fnox x -- forge --host "$usage_host" "$@"
-	  else
-	    fnox x -- forge "$@"
-	  fi
+		local args=()
+		if [ -n "${usage_host:-}" ]; then
+			args+=("--host" "$usage_host")
+		fi
+		if [ -n "${usage_repo:-}" ]; then
+			args+=("--repo" "$usage_repo")
+		fi
+		forge "${args[@]}" "$@"
 	}
 
-	if [ "${usage_no_sign:-false}" != "true" ]; then
-		mise r release-sign-tar
-	fi
+	{% if not usage.no_sign %}
+	mise r release-sign-tar
+	{% endif %}
 
 	f release create --tag ${usage_tag?} --draft --body "$(cat CHANGELOG.md)"
 	for file in {{vars.releasedir}}/*; do
