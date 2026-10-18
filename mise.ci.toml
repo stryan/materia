@@ -11,6 +11,7 @@ usage = '''
 	flag "-h --host <host>" help = "Host for forge"
 	flag "-r --repo <repo>" help = "Repo for forge."
 	flag "--no-sign" help = "Skip cosign signing"
+	flag "--prerelease" help="Set pre-release status"
 '''
 run = '''
 	#!/usr/bin/env bash
@@ -30,10 +31,18 @@ run = '''
 	mise r release-sign-tar
 	{% endif %}
 
-	f release create --tag ${usage_tag?} --draft --body "$(cat CHANGELOG.md)"
+	# create the release un-drafted so we can upload assets to it
+	# fix if/when forge supports uploading to drafted github releases
+	f release create --tag ${usage_tag?} --body "$(cat CHANGELOG.md)"
 	for file in {{vars.releasedir}}/*; do
+		echo "$file"
 		f release upload ${usage_tag?} "$file"
 	done
+	# set it to draft status
+	f release edit --tag ${usage_tag?} --draft
+	{% if usage.pre_release %}
+	f release edit --tag ${usage_tag?} --prerelease
+	{% endif %}
 '''
 
 [tasks.ci-buildah]
