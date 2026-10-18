@@ -30,6 +30,8 @@ jobs:
         run: |
           mise trust
           mise install
+      - name: Install Alpine/Runner deps
+        run: apk add --no-cache tar gzip
       - name: Run unit tests
         run: mise run test
       - name: Build binaries
