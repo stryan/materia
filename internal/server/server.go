@@ -153,7 +153,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 				}
 				mux.Handle("/webhook", authFunc(http.HandlerFunc(serv.updateHookHandler(gctx))))
 			}
-			if conf.FactsWebhook {
+			if conf.FactsEndpoint {
 				authFunc := serv.validateToken()
 				mux.Handle("/facts", authFunc(http.HandlerFunc(serv.factsHookHandler(gctx))))
 			}

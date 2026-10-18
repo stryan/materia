@@ -15,7 +15,7 @@ var testConfig = &ServerConfig{
 	UpdateInterval: 120,
 	NotifyWebhook:  "webhook",
 	UpdateWebhook:  true,
-	FactsWebhook:   false,
+	FactsEndpoint:  false,
 	Health:         true,
 	UpdateUrl:      "destination",
 	Url:            "dest",
@@ -36,7 +36,7 @@ update_interval = 120
 hostname = "foo"
 notify_webhook = "webhook"
 update_webhook = true
-facts_webhook = false
+facts_endpoint = false
 update_url = "destination"
 url = "dest"
 update_secret = "secret"
@@ -62,7 +62,7 @@ func Test_NewConfig_Env(t *testing.T) {
 	t.Setenv("MATERIA_SERVER__NOTIFY_WEBHOOK", "webhook")
 	t.Setenv("MATERIA_SERVER__URL", "dest")
 	t.Setenv("MATERIA_SERVER__UPDATE_WEBHOOK", "true")
-	t.Setenv("MATERIA_SERVER__FACTS_WEBHOOK", "false")
+	t.Setenv("MATERIA_SERVER__FACTS_ENDPOINT", "false")
 	t.Setenv("MATERIA_SERVER__UPDATE_URL", "destination")
 	t.Setenv("MATERIA_SERVER__UPDATE_SECRET", "secret")
 	t.Setenv("MATERIA_SERVER__TOKEN", "token")

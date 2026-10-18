@@ -3,8 +3,9 @@
 - [ ] Server mode improvements
     - [x] `facts` HTTP endpoint
     - [ ] varlink API refinement
-    - [ ] `health` HTTP endpoint
+    - [x] `health` HTTP endpoint
     - [ ] better logging
+    - [ ] standardize config names (`update_webhook` -> `update_endpoint`)
 
 # The Road to 1.0 (TBD)
 - [ ] OpenBao as attrributes engine, or some equivalent

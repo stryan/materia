@@ -30,7 +30,7 @@ How long (in seconds) for `materia server` to wait before running a `materia pla
 
 ### `MATERIA_SERVER__HEALTH`/`server.health`
 
-Whether to enable the `/health` endpoint. Defaults to `true` if either `server.update_webhook` or `server.facts_webhook` is true.
+Whether to enable the `/health` endpoint. Defaults to `true` if either `server.update_webhook` or `server.facts_endpoint` is true.
 
 #### `MATERIA_SERVER__NOTIFY_WEBHOOK`/**server.notify_webhook**
 
@@ -50,7 +50,7 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
 }
 ~~~
 
-#### `MATERIA_SERVER__FACTS_WEBHOOK`/**server.facts_webhook**
+#### `MATERIA_SERVER__FACTS_ENDPOINT`/**server.facts_endpoint**
 
 True/false. Whether to enable the HTTP `/facts` listener. Accepts GETs with `Bearer token` authentication and returns all facts current known as JSON.
 

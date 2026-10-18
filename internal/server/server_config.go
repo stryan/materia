@@ -15,7 +15,7 @@ type ServerConfig struct {
 	UpdateInterval int    `koanf:"update_interval" toml:"update_interval"`
 	NotifyWebhook  string `koanf:"notify_webhook" toml:"notify_webhook"`
 	UpdateWebhook  bool   `koanf:"update_webhook" toml:"update_webhook"`
-	FactsWebhook   bool   `koanf:"facts_webhook" toml:"facts_webhook"`
+	FactsEndpoint  bool   `koanf:"facts_endpoint" toml:"facts_endpoint"`
 	Health         bool   `koanf:"health" toml:"health"`
 	UpdateUrl      string `koanf:"update_url" toml:"update_url"`
 	Url            string `koanf:"url" toml:"url"`
@@ -34,7 +34,7 @@ func (c ServerConfig) Validate() error {
 	factsHookProtected := (c.Token != "")
 	isLocalHost := strings.HasPrefix(c.Url, "localhost")
 
-	if c.FactsWebhook && !factsHookProtected && !isLocalHost {
+	if c.FactsEndpoint && !factsHookProtected && !isLocalHost {
 		errs = append(errs, errors.New("facts webhook enabled with no security and not on localhost"))
 	}
 	if c.UpdateWebhook && !updateHookProtected && !isLocalHost {
@@ -58,14 +58,14 @@ func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
 	if c.UpdateUrl != "" && c.Url == "" {
 		c.Url = c.UpdateUrl
 	}
-	if c.FactsWebhook || c.UpdateWebhook {
+	if c.FactsEndpoint || c.UpdateWebhook {
 		c.Health = true
 	}
 	return c, err
 }
 
 func (c ServerConfig) HasWebhook() bool {
-	return c.FactsWebhook || c.Health || c.UpdateWebhook
+	return c.FactsEndpoint || c.Health || c.UpdateWebhook
 }
 
 func DefaultServicesConfig() (*ServerConfig, error) {
