@@ -10,6 +10,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/pkg/actions"
+	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/plan"
 )
 
@@ -87,6 +88,10 @@ func (m *Materia) SavePlan(ctx context.Context, p *plan.Plan) error {
 		if a.Todo == actions.ActionUpdate {
 			before := dmp.DiffText1(a.DiffContent)
 			after := dmp.DiffText2(a.DiffContent)
+			if a.Target.Kind == components.ResourceTypePodmanSecret {
+				before = "[redacted]"
+				after = "[redacted ]"
+			}
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
 				ResourceName: a.Target.Path,
 				Before:       before,
