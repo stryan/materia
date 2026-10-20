@@ -4,10 +4,18 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"primamateria.systems/materia/pkg/actions"
+	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/mocks"
+	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/repository"
+	"primamateria.systems/materia/pkg/source"
 )
 
 func TestMateria_rotateOutput(t *testing.T) {
@@ -73,6 +81,91 @@ func TestMateria_rotateOutput(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_SavePlan_NoSecrets(t *testing.T) {
+	testdir := t.TempDir()
+	om, err := repository.NewManagedDir(testdir, 0o755)
+	require.Nil(t, err)
+	m := Materia{Output: om}
+	secretRes := components.Resource{
+		Path:    "test-secret",
+		Parent:  "johncena",
+		Kind:    components.ResourceTypePodmanSecret,
+		Content: "you-cant-see-me",
+	}
+	p := plan.NewPlan()
+	require.Nil(t, p.Add(actions.Action{
+		Todo: actions.ActionInstall,
+		Parent: &components.Component{
+			Name: "johncena",
+		},
+		Target:   secretRes,
+		Metadata: &actions.ActionMetadata{},
+	}))
+
+	require.Nil(t, p.Add(actions.Action{
+		Todo: actions.ActionUpdate,
+		Parent: &components.Component{
+			Name: "johncena",
+		},
+		Target:   secretRes,
+		Metadata: &actions.ActionMetadata{},
+	}))
+
+	require.Nil(t, m.SavePlan(t.Context(), p))
+	output, err := os.ReadFile(filepath.Join(testdir, "lastplan.toml"))
+	require.Nil(t, err)
+	require.False(t, strings.Contains(string(output), "you-cant-see-me"))
+	require.True(t, strings.Contains(string(output), "[redacted]"))
+}
+
+func Test_SaveOutput_NoSecrets(t *testing.T) {
+	testdir := t.TempDir()
+	om, err := repository.NewManagedDir(testdir, 0o755)
+	require.Nil(t, err)
+	osm := mocks.NewMockSourceManager(t)
+	osm.EXPECT().Report(mock.Anything).Return(map[string]source.SyncReport{
+		"materia": {
+			OldRevision: "old",
+			NewRevision: "new",
+		},
+	})
+	m := Materia{Output: om, Source: osm}
+	secretRes := components.Resource{
+		Path:    "test-secret",
+		Parent:  "johncena",
+		Kind:    components.ResourceTypePodmanSecret,
+		Content: "you-cant-see-me",
+	}
+	p := plan.NewPlan()
+	require.Nil(t, p.Add(actions.Action{
+		Todo: actions.ActionInstall,
+		Parent: &components.Component{
+			Name: "johncena",
+		},
+		Target:   secretRes,
+		Metadata: &actions.ActionMetadata{},
+	}))
+
+	require.Nil(t, p.Add(actions.Action{
+		Todo: actions.ActionUpdate,
+		Parent: &components.Component{
+			Name: "johncena",
+		},
+		Target:   secretRes,
+		Metadata: &actions.ActionMetadata{},
+	}))
+
+	require.Nil(t, m.SaveExecution(t.Context(), p, ExecutionReport{
+		Timestamp:      time.Now(),
+		StepsCompleted: 2,
+		TotalSteps:     2,
+	}))
+
+	output, err := os.ReadFile(filepath.Join(testdir, "lastrun.toml"))
+	require.Nil(t, err)
+	require.False(t, strings.Contains(string(output), "you-cant-see-me"))
 }
 
 func fileExists(filename string) bool {

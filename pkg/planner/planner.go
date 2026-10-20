@@ -346,12 +346,20 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		if err != nil {
 			return diffActions, err
 		}
-
-		diffs := diffmatchpatch.New().DiffMain(hostResource.Content, sourceRes.Content, false)
-		hasDiffs := slices.ContainsFunc(diffs, func(d diffmatchpatch.Diff) bool {
-			return d.Type != diffmatchpatch.DiffEqual
-		})
-		modeChange := sourceRes.IsFile() && hostResource.Mode != sourceRes.GetMode()
+		var diffs []diffmatchpatch.Diff
+		hasDiffs := false
+		modeChange := false
+		if sourceRes.Kind == components.ResourceTypePodmanSecret {
+			hasDiffs = sourceRes.Content != hostResource.Content
+			// Podman Secrets don't need diff storage, never persist
+			diffs = []diffmatchpatch.Diff{}
+		} else {
+			diffs = diffmatchpatch.New().DiffMain(hostResource.Content, sourceRes.Content, false)
+			hasDiffs = slices.ContainsFunc(diffs, func(d diffmatchpatch.Diff) bool {
+				return d.Type != diffmatchpatch.DiffEqual
+			})
+			modeChange = sourceRes.IsFile() && hostResource.Mode != sourceRes.GetMode()
+		}
 		if !hasDiffs && !modeChange {
 			continue
 		}

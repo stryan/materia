@@ -18,7 +18,7 @@ type Resource struct {
 	Parent     string       `json:"parent" toml:"parent"`
 	Kind       ResourceType `json:"kind" toml:"kind"`
 	Template   bool         `json:"template" toml:"template"`
-	Content    string
+	Content    string       `json:"-" toml:"-"` // Content should never be persisted to disk, only diffs
 }
 
 //go:generate stringer -type ResourceType -trimprefix ResourceType
@@ -115,7 +115,7 @@ func (r Resource) Validate() error {
 	return nil
 }
 
-func (r *Resource) String() string {
+func (r Resource) String() string {
 	return fmt.Sprintf("{r %v/%v %v %v }", r.Parent, r.Path, r.Kind, r.Template)
 }
 

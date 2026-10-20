@@ -78,7 +78,7 @@ func (a Action) Validate() error {
 	return nil
 }
 
-func (a *Action) String() string {
+func (a Action) String() string {
 	name := "<parent>"
 	if a.Parent != nil {
 		name = a.Parent.InstanceName()

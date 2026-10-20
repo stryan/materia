@@ -90,7 +90,7 @@ func (m *Materia) SavePlan(ctx context.Context, p *plan.Plan) error {
 			after := dmp.DiffText2(a.DiffContent)
 			if a.Target.Kind == components.ResourceTypePodmanSecret {
 				before = "[redacted]"
-				after = "[redacted ]"
+				after = "[redacted]"
 			}
 			planOutput.ChangedResources = append(planOutput.ChangedResources, change{
 				ResourceName: a.Target.Path,
