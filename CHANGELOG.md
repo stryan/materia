@@ -59,6 +59,8 @@ Best effort list of major changes and bugfixes
             "timestamp":"current time"
         }
     ~~~
+- bugfix: `lastplan`/`lastrun` files can no longer include un-redacted podman secrets. Thanks shirome on Matrix!
+    - The planner no longer contains Podman secrets contents at all, even in memory, so this should not happen again
 
 
 ## 0.7.2
