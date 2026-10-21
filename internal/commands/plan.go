@@ -70,30 +70,3 @@ func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) err
 
 	return nil
 }
-
-type ValidationSetup struct {
-	Component string
-	Roles     []string
-}
-
-func ValidateCmd(ctx context.Context, k *koanf.Koanf, cfg ValidationSetup, verbose bool) error {
-	m, err := SetupFromCli(ctx, k)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := m.Close(); err != nil {
-			log.Warnf("error closing materia: %v", err)
-		}
-	}()
-
-	plan, err := m.PlanComponent(ctx, cfg.Component, cfg.Roles)
-	if err != nil {
-		return err
-	}
-	if verbose {
-		fmt.Println(plan.Pretty())
-	}
-	fmt.Println("OK")
-	return nil
-}

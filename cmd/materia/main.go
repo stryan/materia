@@ -182,7 +182,7 @@ func main() {
 			},
 			{
 				Name:  "validate",
-				Usage: "Validate a component/repo for a given host/role",
+				Usage: "Validate a component/role/repo for a given host",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "component",
@@ -190,9 +190,10 @@ func main() {
 						Usage:   "component to validate",
 					},
 					&cli.StringFlag{
-						Name:    "hostname",
-						Aliases: []string{"n"},
-						Usage:   "hostname to use for facts generation",
+						Name:     "hostname",
+						Aliases:  []string{"n"},
+						Usage:    "hostname to use for facts generation",
+						Required: true,
 					},
 					&cli.StringFlag{
 						Name:    "source",
@@ -215,22 +216,16 @@ func main() {
 					hostname := cCtx.String("hostname")
 					roles := cCtx.StringSlice("roles")
 					source := cCtx.String("source")
-					if hostname == "" && roles == nil {
-						return errors.New("validate needs at least one of hostname or roles specified")
-					}
 
 					if source == "" {
 						source = "./"
 					}
 					cliflags["source.url"] = fmt.Sprintf("file://%v", source)
-					if hostname != "" {
-						cliflags["hostname"] = hostname
-					}
 					k, err := config.Load(configFile, cliflags)
 					if err != nil {
 						return err
 					}
-					return commands.ValidateCmd(ctx, k, commands.ValidationSetup{Component: comp, Roles: roles}, cCtx.Bool("verbose"))
+					return commands.ValidateComponentCmd(ctx, k, commands.ValidationSetup{Hostname: hostname, Component: comp, Roles: roles}, cCtx.Bool("verbose"))
 				},
 			},
 			{

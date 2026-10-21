@@ -63,6 +63,7 @@ Best effort list of major changes and bugfixes
     - The planner no longer contains Podman secrets contents at all, even in memory, so this should not happen again
 - feat: server and cli use same internal commands. Server now supports rollback
 - chore: upgrade to Go 1.27.3
+- feat/chore: rework `materia validate` to use new facts system
 
 
 ## 0.7.2

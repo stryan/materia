@@ -385,6 +385,7 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 			return nil, fmt.Errorf("unable to lookup attributes for %v:, %w", n, err)
 		}
 		overrides := make([]*manifests.ComponentManifest, 0)
+		extensions := make([]*manifests.ComponentManifest, 0)
 		override, err := m.Manifest.GetComponentOverride(mfacts.Hostname, n)
 		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 			return nil, fmt.Errorf("unable to get component overrides: %w", err)
@@ -392,7 +393,6 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 		if override != nil {
 			overrides = append(overrides, override)
 		}
-		extensions := make([]*manifests.ComponentManifest, 0)
 		extension, err := m.Manifest.GetComponentExtension(mfacts.Hostname, n)
 		if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
 			return nil, fmt.Errorf("unable to get component extensions: %w", err)
@@ -421,56 +421,6 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 	}
 	planValidator := plan.NewDefaultValidationPipeline(installedNames)
 	return actionPlan, planValidator.Validate(actionPlan)
-}
-
-func (m *Materia) PlanComponent(ctx context.Context, name string, roles []string) (*plan.Plan, error) {
-	if name == "" && len(roles) == 0 {
-		return nil, errors.New("need component name or roles to plan")
-	}
-
-	snap, err := facts.Collect(ctx, m.Collectors...)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get facts: %w", err)
-	}
-	mfacts, err := ToMateriaFacts(snap)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get materia facts: %w", err)
-	}
-	attrs, err := m.Vault.Lookup(ctx, attributes.AttributesFilter{
-		Hostname:  mfacts.Hostname,
-		Roles:     roles,
-		Component: name,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("unable to lookup attributes: %w", err)
-	}
-
-	overrides := make([]*manifests.ComponentManifest, 0)
-	override, err := m.Manifest.GetComponentOverride(mfacts.Hostname, name)
-	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
-		return nil, fmt.Errorf("unable to get component overrides: %w", err)
-	}
-	if override != nil {
-		overrides = append(overrides, override)
-	}
-	extensions := make([]*manifests.ComponentManifest, 0)
-	extension, err := m.Manifest.GetComponentExtension(mfacts.Hostname, name)
-	if err != nil && !errors.Is(err, manifests.ErrComponentNotAssignedToHost) {
-		return nil, fmt.Errorf("unable to get component extensions: %w", err)
-	}
-	if extension != nil {
-		extensions = append(extensions, extension)
-	}
-	sourcePipeline := loader.NewSourceComponentPipeline(m.Source, m.macroGetter(snap), attrs, overrides, extensions)
-	sourceComponent, err := components.NewComponent(name)
-	if err != nil {
-		return nil, err
-	}
-	err = sourcePipeline.Load(ctx, sourceComponent)
-	if err != nil {
-		return nil, fmt.Errorf("can't load source component %v : %w", name, err)
-	}
-	return m.Planner.Plan(ctx, []*components.Component{}, []*components.Component{sourceComponent})
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {

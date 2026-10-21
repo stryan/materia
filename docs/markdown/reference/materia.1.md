@@ -86,17 +86,25 @@ Remove a specific component. Note this does not remove it from the repository ma
 **component**: Name of the component to remove
 
 #### validate [flags]
-   Validates a plan can be generated for given hosts/roles.
+   (EXPERIMENTAL)
+
+   Validates a plan can be generated for a hostname. You can specify a specific component or role(s) to test, otherwise defaults to full repo.
+
+   Caveat: Since this may be run on a host with different services then the live host, service information is unreliable.
+
+   Note: Outside of the overrides specified below, this command will use whatever is current configured for materia in your current environment.
+   Make sure you can access whatever attributes vaults you need locally.
+
 
 ##### **Flags**
 
-**--component, -c <name>**: Component to validate. If not specified, use what is definined in the repositories `MANIFEST.toml`
+**--hostname, -n <hostname>**: Required. Hostname to use
+
+**--component, -c <name>**: Component to validate. If not specified, use what is defined in the repositories `MANIFEST.toml` for the given host/roles combination
 
 **--source, -s <path>**: Repository source directory, overrides `MATERIA_SOURCE__URL`
 
-**--roles, -r <roles>**: Roles for facts generation (can be specified multiple time for multiple roles)
-
-**--hostname, -n <hostname>**: Manually assigned hostname
+**--roles, -r <roles>**: Roles for facts generation (can be specified multiple time for multiple roles).
 
 **--verbose, -v**: Show extra detail
 
