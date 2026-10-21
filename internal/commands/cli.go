@@ -9,7 +9,7 @@ import (
 	"primamateria.systems/materia/pkg/materia"
 )
 
-func RunDumpConfig(ctx context.Context, k *koanf.Koanf) error {
+func ConfigCmd(ctx context.Context, k *koanf.Koanf) error {
 	c, err := materia.NewConfig(k)
 	if err != nil {
 		log.Fatal(err)

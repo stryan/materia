@@ -6,19 +6,42 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
+	"primamateria.systems/materia/pkg/facts"
+	"primamateria.systems/materia/pkg/materia"
+	"primamateria.systems/materia/pkg/plan"
 )
 
-func RunPlan(ctx context.Context, k *koanf.Koanf, quiet bool, format string) error {
+// shared between cli and server
+func RunPlan(ctx context.Context, m *materia.Materia, facts *facts.Facts) (*plan.Plan, error) {
+	var err error
+	if facts == nil {
+		facts, err = m.Facts(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	plan, err := m.Plan(ctx, facts)
+	if err != nil {
+		return nil, fmt.Errorf("error planning actions: %w", err)
+	}
+	return plan, nil
+}
+
+func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := m.Close(); err != nil {
-			log.Warn("error closing materia: %w", err)
+			log.Warnf("error closing materia: %v", err)
 		}
 	}()
-	plan, err := m.Plan(ctx)
+	facts, err := m.Facts(ctx)
+	if err != nil {
+		return err
+	}
+	plan, err := RunPlan(ctx, m, facts)
 	if err != nil {
 		return fmt.Errorf("error planning actions: %w", err)
 	}
@@ -53,14 +76,14 @@ type ValidationSetup struct {
 	Roles     []string
 }
 
-func RunValidate(ctx context.Context, k *koanf.Koanf, cfg ValidationSetup, verbose bool) error {
+func ValidateCmd(ctx context.Context, k *koanf.Koanf, cfg ValidationSetup, verbose bool) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := m.Close(); err != nil {
-			log.Warn("error closing materia: %w", err)
+			log.Warnf("error closing materia: %v", err)
 		}
 	}()
 

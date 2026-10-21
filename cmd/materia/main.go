@@ -71,7 +71,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunDumpConfig(ctx, k)
+					return commands.ConfigCmd(ctx, k)
 				},
 			},
 			{
@@ -90,7 +90,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunFacts(ctx, k, arg)
+					return commands.FactsCmd(ctx, k, arg)
 				},
 			},
 			{
@@ -130,7 +130,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunPlan(ctx, k, quiet, format)
+					return commands.PlanCmd(ctx, k, quiet, format)
 				},
 			},
 			{
@@ -161,7 +161,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunUpdate(ctx, k, quiet)
+					return commands.UpdateCmd(ctx, k, quiet)
 				},
 			},
 			{
@@ -177,7 +177,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunRemove(ctx, k, comp)
+					return commands.RemoveCmd(ctx, k, comp)
 				},
 			},
 			{
@@ -230,7 +230,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunValidate(ctx, k, commands.ValidationSetup{Component: comp, Roles: roles}, cCtx.Bool("verbose"))
+					return commands.ValidateCmd(ctx, k, commands.ValidationSetup{Component: comp, Roles: roles}, cCtx.Bool("verbose"))
 				},
 			},
 			{
@@ -249,7 +249,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunDoctor(ctx, k, remove)
+					return commands.DoctorCmd(ctx, k, remove)
 				},
 			},
 			{
@@ -367,7 +367,7 @@ func main() {
 					if err != nil {
 						return err
 					}
-					return commands.RunClean(ctx, k, force)
+					return commands.CleanCmd(ctx, k, force)
 				},
 			},
 			{

@@ -331,7 +331,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	return err
 }
 
-func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
+func (m *Materia) Facts(ctx context.Context) (*facts.Facts, error) {
 	if err := m.lock(ctx); err != nil {
 		return nil, fmt.Errorf("unable to get materia dbus lock: %v", err)
 	}
@@ -340,6 +340,14 @@ func (m *Materia) Plan(ctx context.Context) (*plan.Plan, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to get facts: %w", err)
 	}
+	return snap, nil
+}
+
+func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, error) {
+	if err := m.lock(ctx); err != nil {
+		return nil, fmt.Errorf("unable to get materia dbus lock: %v", err)
+	}
+	defer m.unlock()
 	mfacts, err := ToMateriaFacts(snap)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get materia facts: %w", err)

@@ -14,73 +14,80 @@ import (
 	"primamateria.systems/materia/pkg/plan"
 )
 
-func RunUpdate(ctx context.Context, k *koanf.Koanf, quiet bool) error {
+func executeAndSave(ctx context.Context, m *materia.Materia, p *plan.Plan) (materia.ExecutionReport, error) {
+	rep, err := m.Execute(ctx, p)
+	if serr := m.SaveExecution(ctx, p, rep); serr != nil {
+		log.Warnf("unable to save execution report: %v", serr)
+	}
+	return rep, err
+}
+
+// RunExecute always returns the final plan executed (which may differ due to rollback), the final plans report, and any errors
+// Shared between cli and server
+func RunExecute(ctx context.Context, m *materia.Materia, aplan *plan.Plan) (*plan.Plan, materia.ExecutionReport, error) {
+	report, err := executeAndSave(ctx, m, aplan)
+	if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); ok {
+		// Need to run rollback
+		err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
+		if err != nil {
+			log.Warnf("rolling back but failed to send rollback notification: %v", err)
+		}
+		err = m.Source.Rollback(ctx)
+		if err != nil {
+			return aplan, report, fmt.Errorf("rollback failed: %w", err)
+		}
+		// pass nil facts to force a fresh facts gathering
+		rollbackPlan, err := RunPlan(ctx, m, nil)
+		if err != nil {
+			return aplan, report, fmt.Errorf("rollback plan generation failed: %w", err)
+		}
+		rollbackReport, err := executeAndSave(ctx, m, rollbackPlan)
+		if err != nil {
+			return rollbackPlan, rollbackReport, fmt.Errorf("rollback execution failed: %w", err)
+		}
+		return rollbackPlan, rollbackReport, nil
+	}
+	if err != nil {
+		return aplan, report, err
+	}
+	return aplan, report, nil
+}
+
+func UpdateCmd(ctx context.Context, k *koanf.Koanf, quiet bool) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := m.Close(); err != nil {
-			log.Warn("error closing materia: %w", err)
+			log.Warnf("error closing materia: %v", err)
 		}
 	}()
-	aplan, err := m.Plan(ctx)
+	facts, err := m.Facts(ctx)
+	if err != nil {
+		return err
+	}
+	aplan, err := RunPlan(ctx, m, facts)
 	if err != nil {
 		return err
 	}
 	if !quiet {
 		fmt.Println(aplan.Pretty())
 	}
-	saveReport := func(p *plan.Plan, rep materia.ExecutionReport) {
-		// always save the execution plan
-		err := m.SaveExecution(ctx, p, rep)
-		if err != nil {
-			log.Warnf("unable to save execution report: %v", err)
-		}
+	// From this point on we log or concatenate errors
+	finalPlan, report, exErr := RunExecute(ctx, m, aplan)
+	if exErr != nil {
+		log.Warnf("Execution: %v/%v steps completed", report.StepsCompleted, report.TotalSteps)
 	}
-	rep, err := m.Execute(ctx, aplan)
-	saveReport(aplan, rep)
-	if err != nil {
-		if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); !ok {
-			log.Warnf("%v/%v steps completed", rep.StepsCompleted, len(aplan.Steps()))
-			return err
-		} else {
-			err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
-			if err != nil {
-				return fmt.Errorf("needed rollback but failed to send rollback notification: %w", err)
-			}
-			err = m.Source.Rollback(ctx)
-			if err != nil {
-				return err
-			}
-			// re-use plan so we save the rolled-back plan outside of this block
-			oldPlan := aplan
-			aplan, err = m.Plan(ctx)
-			if err != nil {
-				return err
-			}
-			if !quiet {
-				fmt.Println(aplan.Pretty())
-			}
-			rep2, err := m.Execute(ctx, aplan)
-			saveReport(aplan, rep2)
-			if err != nil {
-				log.Warnf("post-rollback: %v/%v steps completed", rep2.StepsCompleted, len(aplan.Steps()))
-				return err
-			}
-			if !quiet {
-				fmt.Printf("Original Plan:\n %v\nRollback Plan:\n %v\n", oldPlan.Pretty(), aplan.Pretty())
-			}
-		}
+	// may want to compare plan values in the future and not just that its the same pointer
+	if !quiet && finalPlan != aplan {
+		fmt.Printf("Rollback plan:\n%v", finalPlan.Pretty())
 	}
-	err = m.SavePlan(ctx, aplan)
-	if err != nil {
-		return fmt.Errorf("error writing plan: %w", err)
-	}
-	return nil
+	saveErr := m.SavePlan(ctx, finalPlan)
+	return errors.Join(exErr, saveErr)
 }
 
-func RunRemove(ctx context.Context, k *koanf.Koanf, comp string) error {
+func RemoveCmd(ctx context.Context, k *koanf.Koanf, comp string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
@@ -102,7 +109,7 @@ func RunRemove(ctx context.Context, k *koanf.Koanf, comp string) error {
 	return nil
 }
 
-func RunClean(ctx context.Context, k *koanf.Koanf, force bool) error {
+func CleanCmd(ctx context.Context, k *koanf.Koanf, force bool) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err

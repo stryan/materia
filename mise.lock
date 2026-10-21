@@ -69,89 +69,49 @@ url_api = "https://api.github.com/repos/sigstore/cosign/releases/assets/50328620
 provenance = "cosign"
 
 [[tools.go]]
-version = "1.27.1"
+version = "1.27.3"
 backend = "core:go"
 
 [tools.go."platforms.linux-arm64"]
-checksum = "sha256:3450b45a3f9ee8568792736a5c5e70a1f2e9b36c35a8f74958c03e51d7d92bec"
-url = "https://dl.google.com/go/go1.27.1.linux-arm64.tar.gz"
-
-[tools.go."platforms.linux-arm64-musl"]
-checksum = "sha256:3450b45a3f9ee8568792736a5c5e70a1f2e9b36c35a8f74958c03e51d7d92bec"
-url = "https://dl.google.com/go/go1.27.1.linux-arm64.tar.gz"
+checksum = "sha256:a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49"
+url = "https://dl.google.com/go/go1.27.3.linux-arm64.tar.gz"
 
 [tools.go."platforms.linux-x64"]
-checksum = "sha256:63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445"
-url = "https://dl.google.com/go/go1.27.1.linux-amd64.tar.gz"
-
-[tools.go."platforms.linux-x64-musl"]
-checksum = "sha256:63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445"
-url = "https://dl.google.com/go/go1.27.1.linux-amd64.tar.gz"
+checksum = "sha256:65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+url = "https://dl.google.com/go/go1.27.3.linux-amd64.tar.gz"
 
 [tools.go."platforms.macos-arm64"]
-checksum = "sha256:ee215d57e0ec269c60cc9ceca68e6bda321ba9ee5afe24f4b0988703c2d87d12"
-url = "https://dl.google.com/go/go1.27.1.darwin-arm64.tar.gz"
-
-[tools.go."platforms.macos-x64"]
-checksum = "sha256:8f8f52c6649542cf027bbc9b9c68d1ec042f9f34808a40413f0b8b3f66f3caa4"
-url = "https://dl.google.com/go/go1.27.1.darwin-amd64.tar.gz"
-
-[tools.go."platforms.windows-x64"]
-checksum = "sha256:a3911b5e0e1b1053f25ed0675f4c1c6aad1e2bfcf253df2b9be4caabd2edd95d"
-url = "https://dl.google.com/go/go1.27.1.windows-amd64.zip"
+checksum = "sha256:dd3908cf20959d798c1e06ebe5b72213f0505ce01373b40ce3110975a6cd99c2"
+url = "https://dl.google.com/go/go1.27.3.darwin-arm64.tar.gz"
 
 [[tools."go:github.com/varlink/go/cmd/varlink-go-interface-generator"]]
 version = "0.4.0"
 backend = "go:github.com/varlink/go/cmd/varlink-go-interface-generator"
 
 [[tools."go:golang.org/x/tools/cmd/stringer"]]
-version = "0.49.0"
+version = "0.52.0"
 backend = "go:golang.org/x/tools/cmd/stringer"
 
 [[tools.golangci-lint]]
-version = "2.13.2"
+version = "2.15.0"
 backend = "aqua:golangci/golangci-lint"
 
 [tools.golangci-lint."platforms.linux-arm64"]
-checksum = "sha256:a2a4e0065aa41be71f7c5ac90f271b61751331e5d04314e62afe4027855f0893"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995442"
-provenance = "github-attestations"
-
-[tools.golangci-lint."platforms.linux-arm64-musl"]
-checksum = "sha256:a2a4e0065aa41be71f7c5ac90f271b61751331e5d04314e62afe4027855f0893"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995442"
+checksum = "sha256:b4d8f17068b35ee6060cc2f69a16fb48740d706fbba81661c318649c114a6998"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132775"
 provenance = "github-attestations"
 
 [tools.golangci-lint."platforms.linux-x64"]
-checksum = "sha256:2277d43b98ec0054280f2ac26b53268bae97682444678a59a657dd565da021d6"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995333"
-provenance = "github-attestations"
-
-[tools.golangci-lint."platforms.linux-x64-musl"]
-checksum = "sha256:2277d43b98ec0054280f2ac26b53268bae97682444678a59a657dd565da021d6"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995333"
+checksum = "sha256:9b7fe6a6bf6334b98decf8d86b11415ea7889afdabdd1959fdce23af2a9ebcea"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132535"
 provenance = "github-attestations"
 
 [tools.golangci-lint."platforms.macos-arm64"]
-checksum = "sha256:f4bf83f0b64f055c42b28fc9a38861839f69c096e61c788e72dfaae412011789"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995398"
-provenance = "github-attestations"
-
-[tools.golangci-lint."platforms.macos-x64"]
-checksum = "sha256:8a13aaf9cbbb1dee52824e862cf0d0720e5bb97c1f4260d1e51623a09492b57b"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-darwin-amd64.tar.gz"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995222"
-provenance = "github-attestations"
-
-[tools.golangci-lint."platforms.windows-x64"]
-checksum = "sha256:4735fdc8e84a0cfb7a15a1c364a650942f88215e0d36c674ebc4024f7b554524"
-url = "https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-windows-amd64.zip"
-url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/532995335"
+checksum = "sha256:d1e409481a8ca846c4bc97e781eb5cb1bd5c23353a0b3977a1cbda1b1b6447d5"
+url = "https://github.com/golangci/golangci-lint/releases/download/v2.15.0/golangci-lint-2.15.0-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/647132534"
 provenance = "github-attestations"
 
 [[tools.gotestsum]]
@@ -187,43 +147,23 @@ checksum = "sha256:fd5a6dc69e46a0970593e70d85a7e75f16714e9c61d6d72ccc324eb82df5b
 url = "https://github.com/gotestyourself/gotestsum/releases/download/v1.13.0/gotestsum_1.13.0_windows_amd64.tar.gz"
 
 [[tools.mockery]]
-version = "3.7.4"
+version = "3.8.1"
 backend = "aqua:vektra/mockery"
 
 [tools.mockery."platforms.linux-arm64"]
-checksum = "sha256:fe591f9ef5ada76c3dee4b8f451aad6748d002e9713fab4bad26b194ff826c4b"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865870"
-
-[tools.mockery."platforms.linux-arm64-musl"]
-checksum = "sha256:fe591f9ef5ada76c3dee4b8f451aad6748d002e9713fab4bad26b194ff826c4b"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865870"
+checksum = "sha256:d1f481f3a6e9868dd3ad65da265238ee109ab3a5dd7508958d5811953696f452"
+url = "https://github.com/vektra/mockery/releases/download/v3.8.1/mockery_3.8.1_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/632915757"
 
 [tools.mockery."platforms.linux-x64"]
-checksum = "sha256:d5eef52e238a4262b78ab5a93811826a8bfcff7b0128133c6597e3bf2f0f7337"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865868"
-
-[tools.mockery."platforms.linux-x64-musl"]
-checksum = "sha256:d5eef52e238a4262b78ab5a93811826a8bfcff7b0128133c6597e3bf2f0f7337"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Linux_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865868"
+checksum = "sha256:953c7d38b58dd6398b1c595f27caf8bbf27e9b733b49c404d2e124e86d2ae72a"
+url = "https://github.com/vektra/mockery/releases/download/v3.8.1/mockery_3.8.1_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/632915756"
 
 [tools.mockery."platforms.macos-arm64"]
-checksum = "sha256:d7043f5bb9d836629d48e11cd627fad8ed600578c489fa7632f9ce273e104f78"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865867"
-
-[tools.mockery."platforms.macos-x64"]
-checksum = "sha256:285ba8a23d835c11fa787cf76f8bd80c6f50cdc4e5b0f106580f877b4d8053df"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Darwin_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865883"
-
-[tools.mockery."platforms.windows-x64"]
-checksum = "sha256:2c68f48c0b8107a8e9bbae01931e9e4d0b3f4fbd034e4bca6d44fc1f50c57c8f"
-url = "https://github.com/vektra/mockery/releases/download/v3.7.4/mockery_3.7.4_Windows_x86_64.tar.gz"
-url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/525865866"
+checksum = "sha256:303a794484243906b37da0c37056f974bf94278c2e10d7b1372e6bd53a2d5034"
+url = "https://github.com/vektra/mockery/releases/download/v3.8.1/mockery_3.8.1_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/vektra/mockery/releases/assets/632915806"
 
 [[tools.sops]]
 version = "3.13.3"

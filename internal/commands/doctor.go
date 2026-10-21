@@ -9,7 +9,7 @@ import (
 	"primamateria.systems/materia/pkg/materia"
 )
 
-func RunDoctor(ctx context.Context, k *koanf.Koanf, remove bool) error {
+func DoctorCmd(ctx context.Context, k *koanf.Koanf, remove bool) error {
 	c, err := materia.NewConfig(k)
 	if err != nil {
 		return err

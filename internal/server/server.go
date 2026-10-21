@@ -192,18 +192,8 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 }
 
 // reused between background and foreground sync
-func (s *Server) execute(ctx context.Context, plan *plan.Plan) (materia.ExecutionReport, error) {
-	rep, err := s.materia.Execute(ctx, plan)
-	serr := s.materia.SaveExecution(ctx, plan, rep)
-	if serr != nil {
-		log.Warnf("unable to save execution report: %v", serr)
-	}
-	return rep, err
-}
-
-// reused between background and foreground sync
 func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
-	aplan, err := s.materia.Plan(ctx)
+	aplan, err := commands.RunPlan(ctx, s.materia, nil)
 	serr := s.materia.SavePlan(ctx, aplan)
 	if serr != nil {
 		log.Warnf("unable to save execution plan: %v", serr)
@@ -228,12 +218,14 @@ func (s *Server) update(ctx context.Context, opts *source.SyncOpts) error {
 		return err
 	}
 
-	rep, err := s.execute(context.WithoutCancel(ctx), plan)
+	finalPlan, rep, err := commands.RunExecute(context.WithoutCancel(ctx), s.materia, plan)
 	if err != nil {
 		return fmt.Errorf("unable to execute, %v/%v steps completed: %w", rep.StepsCompleted, rep.TotalSteps, err)
 	}
 	if rep.StepsCompleted == -1 {
 		log.Info("Update ran; no changes made")
+	} else if finalPlan != plan {
+		log.Info("Update ran but rolled back. Steps completed: %v/%v", rep.StepsCompleted, rep.TotalSteps)
 	} else {
 		log.Infof("Update ran; Steps completed: %v/%v", rep.StepsCompleted, rep.TotalSteps)
 	}
@@ -329,7 +321,7 @@ func (s *Server) factsHookHandler(ctx context.Context) func(w http.ResponseWrite
 			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 			return
 		}
-		facts, err := commands.GetFacts(ctx, s.materia)
+		facts, err := commands.RunFacts(ctx, s.materia)
 		if err != nil {
 			http.Error(w, "unable to generate facts", http.StatusInternalServerError)
 			return

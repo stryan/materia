@@ -12,7 +12,7 @@ import (
 	"primamateria.systems/materia/pkg/materia"
 )
 
-func RunFacts(ctx context.Context, k *koanf.Koanf, arg string) error {
+func FactsCmd(ctx context.Context, k *koanf.Koanf, arg string) error {
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, arg string) error {
 			log.Warnf("error closing materia: %v", err)
 		}
 	}()
-	snap, err := GetFacts(ctx, m)
+	snap, err := RunFacts(ctx, m)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func RunFacts(ctx context.Context, k *koanf.Koanf, arg string) error {
 	return toml.NewEncoder(os.Stdout).Encode(snap.Snapshot())
 }
 
-func GetFacts(ctx context.Context, m *materia.Materia) (*facts.Facts, error) {
+func RunFacts(ctx context.Context, m *materia.Materia) (*facts.Facts, error) {
 	snap, err := facts.Collect(ctx, m.Collectors...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get facts: %w", err)

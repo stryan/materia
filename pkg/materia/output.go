@@ -79,6 +79,9 @@ func (m *Materia) SaveExecution(ctx context.Context, p *plan.Plan, report Execut
 }
 
 func (m *Materia) SavePlan(ctx context.Context, p *plan.Plan) error {
+	if p == nil {
+		return errors.New("can't save a nonexistent plan")
+	}
 	planOutput := planOutput{
 		Timestamp: time.Now(),
 		Plan:      p.PrettyLines(),

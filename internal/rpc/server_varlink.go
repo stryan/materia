@@ -8,6 +8,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/varlink/go/varlink"
+	"primamateria.systems/materia/internal/commands"
 	varlinkapi "primamateria.systems/materia/pkg/api"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/materia"
@@ -48,7 +49,7 @@ func (s *VarlinkServer) Facts(ctx context.Context, c varlinkapi.VarlinkCall, pat
 
 func (s *VarlinkServer) Plan(ctx context.Context, c varlinkapi.VarlinkCall) error {
 	log.Info("generating a plan on request")
-	plan, err := s.materia.Plan(ctx)
+	plan, err := commands.RunPlan(ctx, s.materia, nil)
 	if err != nil {
 		return c.ReplyPlanFailed(ctx, err.Error())
 	}
@@ -78,7 +79,7 @@ func (s *VarlinkServer) Sync(ctx context.Context, c varlinkapi.VarlinkCall, revi
 
 func (s *VarlinkServer) Update(ctx context.Context, c varlinkapi.VarlinkCall) error {
 	log.Info("running update on request")
-	plan, err := s.materia.Plan(ctx)
+	plan, err := commands.RunPlan(ctx, s.materia, nil)
 	if err != nil {
 		return c.ReplyPlanFailed(ctx, err.Error())
 	}
