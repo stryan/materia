@@ -13,7 +13,7 @@ Note that as this is a new and relatively small project these policies may chang
 ## AI Policy
 Submissions using LLMs for the submitted code must indicate as such, preferably using the `Assisted-by` header as documented in the [Fedora AI-Assisted Contributions Policy](https://docs.fedoraproject.org/en-US/council/policy/ai-contribution-policy/). They will be evaluated on a case-by-case basis. Small contributions or minor documentation updates are more likely to be allowed than large contributions.
 
-Merge request, feature requests, and bug reports must be created by humans. Automatically generated issue reports or merge requests will not be accepted. Violators will be banned.
+Merge request, feature requests,discussions, bug reports, and any other non-code interaction must be created by humans. Automatically generated issue reports or merge requests will not be accepted. Violators will be banned.
 
 ## Contributing and testing code
 
