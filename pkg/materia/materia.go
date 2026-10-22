@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
@@ -211,11 +212,11 @@ func (m *Materia) unlock() {
 	}
 }
 
-func GetRoles(c *MateriaConfig, man *manifests.MateriaManifest, hostname string) ([]string, error) {
+func GetRoles(ctx context.Context, c *MateriaConfig, man *manifests.MateriaManifest, hostname string) ([]string, error) {
 	roles := c.Roles
 	var err error
 	if len(roles) == 0 {
-		roles, err = getRolesFromManifest(man, hostname)
+		roles, err = getRolesFromManifest(ctx, man, hostname)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load roles from manifest: %w", err)
 		}
@@ -243,11 +244,16 @@ func GetAssignedComponents(mani *manifests.MateriaManifest, hostname string, rol
 	return assignedComponents, nil
 }
 
-func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]string, error) {
+func getRolesFromManifest(ctx context.Context, man *manifests.MateriaManifest, hostname string) ([]string, error) {
 	var roles []string
 	if man.RoleCommand != "" {
 		roleStruct := struct{ Roles []string }{}
-		cmd := exec.Command(man.RoleCommand)
+		argv := strings.Fields(man.RoleCommand)
+		if len(argv) == 0 {
+			return nil, errors.New("roles command is empty")
+		}
+
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		res, err := cmd.Output()
 		if err != nil {
 			return nil, fmt.Errorf("unable to execute roles command: %w", err)

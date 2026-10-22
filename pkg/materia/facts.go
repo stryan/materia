@@ -69,7 +69,7 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 	if c.config.Hostname != "" {
 		res.Hostname = c.config.Hostname
 	}
-	roles, err := GetRoles(c.config, c.manifest, res.Hostname)
+	roles, err := GetRoles(ctx, c.config, c.manifest, res.Hostname)
 	if err != nil {
 		return nil, err
 	}
