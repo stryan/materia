@@ -50,9 +50,9 @@ func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) err
 		case "text":
 			if plan.Empty() {
 				fmt.Println("No changes made")
-				return nil
+			} else {
+				fmt.Println(plan.Pretty())
 			}
-			fmt.Println(plan.Pretty())
 		case "json":
 			jsonPlan, err := plan.ToJson()
 			if err != nil {

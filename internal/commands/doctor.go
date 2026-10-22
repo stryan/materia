@@ -28,6 +28,7 @@ func DoctorCmd(ctx context.Context, k *koanf.Koanf, remove bool) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = hm.Close() }()
 	corrupted, err := hm.ValidateComponents()
 	if err != nil {
 		return err

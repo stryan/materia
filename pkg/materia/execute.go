@@ -37,7 +37,7 @@ func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (ExecutionRepor
 	}()
 
 	if err := m.lock(ctx); err != nil {
-		return ExecutionReport{}, fmt.Errorf("unable to get materia dbus lock: %v", err)
+		return ExecutionReport{}, err
 	}
 
 	startTime := time.Now()

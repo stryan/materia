@@ -197,7 +197,7 @@ func (m *Materia) lock(ctx context.Context) error {
 		return nil
 	}
 	if err := m.Lock.LockOrWait(ctx); err != nil {
-		return fmt.Errorf("unable to get materia dbus lock: %v", err)
+		return fmt.Errorf("unable to get materia lock: %w", err)
 	}
 	return nil
 }
@@ -207,7 +207,7 @@ func (m *Materia) unlock() {
 		return
 	}
 	if err := m.Lock.Unlock(); err != nil {
-		log.Warn("error unlocking after execute: %w", err)
+		log.Warnf("error unlocking after execute: %v", err)
 	}
 }
 
@@ -238,6 +238,7 @@ func GetAssignedComponents(mani *manifests.MateriaManifest, hostname string, rol
 			assignedComponents = append(assignedComponents, mani.Roles[v].Components...)
 		}
 	}
+	slices.Sort(assignedComponents)
 	slices.Sort(assignedComponents)
 	return assignedComponents, nil
 }
@@ -333,7 +334,7 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 
 func (m *Materia) Facts(ctx context.Context) (*facts.Facts, error) {
 	if err := m.lock(ctx); err != nil {
-		return nil, fmt.Errorf("unable to get materia dbus lock: %v", err)
+		return nil, err
 	}
 	defer m.unlock()
 	snap, err := facts.Collect(ctx, m.Collectors...)
@@ -345,7 +346,7 @@ func (m *Materia) Facts(ctx context.Context) (*facts.Facts, error) {
 
 func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, error) {
 	if err := m.lock(ctx); err != nil {
-		return nil, fmt.Errorf("unable to get materia dbus lock: %v", err)
+		return nil, err
 	}
 	defer m.unlock()
 	mfacts, err := ToMateriaFacts(snap)
@@ -447,12 +448,12 @@ func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
 func (m *Materia) Close() error {
 	if m.Lock != nil {
 		if err := m.Lock.Close(); err != nil {
-			log.Warn("error closing dbus lock connection: %w", err)
+			log.Warnf("error closing dbus lock connection: %v", err)
 		}
 	}
 
 	if err := m.Host.Close(); err != nil {
-		log.Warn("error closing host manager: %w", err)
+		log.Warnf("error closing host manager: %v", err)
 	}
 	return nil
 }

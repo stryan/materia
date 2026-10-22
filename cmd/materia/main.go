@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"charm.land/log/v2"
 	"github.com/urfave/cli/v3"
@@ -51,14 +52,16 @@ func main() {
 				Required: false,
 				Sources:  cli.EnvVars("MATERIA_NOSYNC"),
 				Action: func(ctx context.Context, cm *cli.Command, b bool) error {
-					cliflags["nosync"] = true
+					cliflags["nosync"] = b
 					return nil
 				},
 			},
 		},
 		Before: func(ctx context.Context, c *cli.Command) (context.Context, error) {
-			if _, err := os.Stat("/etc/materia/config.toml"); err == nil {
-				configFile = "/etc/materia/config.toml"
+			if configFile == "" {
+				if _, err := os.Stat("/etc/materia/config.toml"); err == nil {
+					configFile = "/etc/materia/config.toml"
+				}
 			}
 			return ctx, nil
 		},
@@ -198,7 +201,7 @@ func main() {
 					&cli.StringFlag{
 						Name:    "source",
 						Aliases: []string{"s"},
-						Usage:   "Repo source directory",
+						Usage:   "Repo source directory. Defaults to .",
 					},
 					&cli.StringSliceFlag{
 						Name:    "roles",
@@ -220,7 +223,12 @@ func main() {
 					if source == "" {
 						source = "./"
 					}
-					cliflags["source.url"] = fmt.Sprintf("file://%v", source)
+					path, err := filepath.Abs(source)
+					if err != nil {
+						return err
+					}
+					cliflags["source.url"] = fmt.Sprintf("file://%v", path)
+					cliflags["source.kind"] = "local"
 					k, err := config.Load(configFile, cliflags)
 					if err != nil {
 						return err
@@ -283,13 +291,17 @@ func main() {
 						},
 
 						Action: func(ctx context.Context, cCtx *cli.Command) error {
-							arg := cCtx.String("fact")
+							var arg *string
+							query := cCtx.String("fact")
+							if query != "" {
+								arg = &query
+							}
 							cfg := rpc.AgentConfig{Socket: cCtx.String("socket")}
 							agent, err := rpc.NewAgent(cfg)
 							if err != nil {
 								return err
 							}
-							return agent.Facts(ctx, &arg)
+							return agent.Facts(ctx, arg)
 						},
 					},
 					{

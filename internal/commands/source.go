@@ -60,7 +60,7 @@ func BuildSource(k *koanf.Koanf) (source.Source, error) {
 			return nil, fmt.Errorf("invalid OCI source: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("invalid source kind: %v", sourceConfig.URL)
+		return nil, fmt.Errorf("invalid source kind %v for %v", sourceConfig.Kind, sourceConfig.URL)
 	}
 	return source, nil
 }
