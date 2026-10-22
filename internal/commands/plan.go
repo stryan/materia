@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"charm.land/log/v2"
@@ -28,6 +29,9 @@ func RunPlan(ctx context.Context, m *materia.Materia, facts *facts.Facts) (*plan
 }
 
 func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) error {
+	if format != "text" && format != "json" {
+		return errors.New("invalid output format")
+	}
 	m, err := SetupFromCli(ctx, k)
 	if err != nil {
 		return err
@@ -43,7 +47,7 @@ func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) err
 	}
 	plan, err := RunPlan(ctx, m, facts)
 	if err != nil {
-		return fmt.Errorf("error planning actions: %w", err)
+		return err
 	}
 	if !quiet {
 		switch format {
@@ -58,7 +62,7 @@ func PlanCmd(ctx context.Context, k *koanf.Koanf, quiet bool, format string) err
 			if err != nil {
 				return fmt.Errorf("error converting to json: %w", err)
 			}
-			fmt.Printf("%s", string(jsonPlan))
+			fmt.Printf("%s\n", string(jsonPlan))
 		default:
 			return fmt.Errorf("unsupported output format")
 		}

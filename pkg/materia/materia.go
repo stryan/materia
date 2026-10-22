@@ -266,6 +266,10 @@ func getRolesFromManifest(man *manifests.MateriaManifest, hostname string) ([]st
 }
 
 func (m *Materia) Clean(ctx context.Context, force bool) error {
+	if err := m.lock(ctx); err != nil {
+		return err
+	}
+	defer m.unlock()
 	if !force {
 		installedComps, err := m.Host.ListComponentNames()
 		if err != nil {
@@ -441,7 +445,7 @@ func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
 	return invalidComps, nil
 }
 
-func (m *Materia) PurgeComponenet(ctx context.Context, name string) error {
+func (m *Materia) PurgeComponent(ctx context.Context, name string) error {
 	return m.Host.PurgeComponentByName(name)
 }
 

@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"charm.land/log/v2"
@@ -37,10 +36,5 @@ func FactsCmd(ctx context.Context, k *koanf.Koanf, arg string) error {
 }
 
 func RunFacts(ctx context.Context, m *materia.Materia) (*facts.Facts, error) {
-	snap, err := facts.Collect(ctx, m.Collectors...)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get facts: %w", err)
-	}
-
-	return snap, nil
+	return m.Facts(ctx)
 }

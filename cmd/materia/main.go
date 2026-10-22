@@ -29,14 +29,14 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "config",
-				Usage:       "Specifed TOML config file",
+				Usage:       "Specified TOML config file",
 				Required:    false,
 				Destination: &configFile,
 				Aliases:     []string{"c"},
 				Sources:     cli.EnvVars("MATERIA_CONFIG"),
 				Action: func(ctx context.Context, cCtx *cli.Command, v string) error {
 					if v == "" {
-						return errors.New("config file passed wihout value")
+						return errors.New("config file passed without value")
 					}
 					if _, err := os.Stat(v); err != nil && os.IsNotExist(err) {
 						return errors.New("config file not found")

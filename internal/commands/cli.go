@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/pkg/materia"
@@ -12,7 +11,7 @@ import (
 func ConfigCmd(ctx context.Context, k *koanf.Koanf) error {
 	c, err := materia.NewConfig(k)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	fmt.Println(c)
 	return nil
