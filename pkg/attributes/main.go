@@ -67,13 +67,13 @@ func SortedVaultFiles(ctx context.Context, f AttributesFilter, vaultfiles, gener
 			return nil, ctx.Err()
 		default:
 		}
-		if strings.Contains(v, f.Hostname) {
+		if strings.HasPrefix(v, f.Hostname) {
 			hostFiles = append(hostFiles, v)
 			continue
 		}
 		hasRole := false
 		for _, r := range f.Roles {
-			if strings.Contains(v, r) {
+			if strings.HasPrefix(v, r) {
 				roleFiles = append(roleFiles, v)
 				hasRole = true
 			}

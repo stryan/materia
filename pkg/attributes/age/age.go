@@ -62,8 +62,6 @@ func NewAgeStore(c Config, sourceDir string) (*AgeStore, error) {
 }
 
 func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (map[string]any, error) {
-	attrs := attributes.AttributeVault{}
-
 	results := make(map[string]any)
 	var files []string
 	var err error
@@ -76,6 +74,7 @@ func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (m
 		}
 	}
 	for _, v := range files {
+		var attrs attributes.AttributeVault
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -85,6 +84,7 @@ func (a *AgeStore) Lookup(ctx context.Context, f attributes.AttributesFilter) (m
 		if err != nil {
 			return nil, err
 		}
+		defer func() { _ = file.Close() }()
 		decrypted, err := age.Decrypt(file, a.identities...)
 		if err != nil {
 			return nil, fmt.Errorf("unable to decrypt age file %v: %w", v, err)
