@@ -62,18 +62,19 @@ func ExtractVaultAttributes(results map[string]any, vault AttributeVault, filter
 func SortedVaultFiles(ctx context.Context, f AttributesFilter, vaultfiles, generalVaults []string) ([]string, error) {
 	var hostFiles, roleFiles, generalFiles []string
 	for _, v := range vaultfiles {
+		path := filepath.Base(v)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		if strings.HasPrefix(v, f.Hostname) {
+		if strings.HasPrefix(path, f.Hostname) {
 			hostFiles = append(hostFiles, v)
 			continue
 		}
 		hasRole := false
 		for _, r := range f.Roles {
-			if strings.HasPrefix(v, r) {
+			if strings.HasPrefix(path, r) {
 				roleFiles = append(roleFiles, v)
 				hasRole = true
 			}
@@ -81,7 +82,7 @@ func SortedVaultFiles(ctx context.Context, f AttributesFilter, vaultfiles, gener
 		if hasRole {
 			continue
 		}
-		if slices.Contains(generalVaults, filepath.Base(v)) {
+		if slices.Contains(generalVaults, path) {
 			generalFiles = append(generalFiles, v)
 			continue
 		}

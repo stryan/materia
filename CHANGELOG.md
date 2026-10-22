@@ -13,7 +13,7 @@ Best effort list of major changes and bugfixes
     - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
-- feat: most materia packages are now public. This will be stablized and documented better in 0.8 or 0.9.
+- feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.
     - This may also fix some bugs in server mode that (hopefully) no-one has noticed
 - feat: git repos can reset on corrupted HEAD
 - feat: git source supports `git.auth_token` for `Bearer: <token>` HTTP auth
@@ -33,7 +33,7 @@ Best effort list of major changes and bugfixes
         - `materia.installed_components`: Installed components
 - feat: generate a $OUTPUTDIR/lastrun.toml file on `materia update` or `materia server update`. Up to five last-plan and last-run files are stored.
     - If you have existing `lastrun.toml` files, you need to remove them before running `materia facts`.
-- feat: facts `materia.output` now shows last applied revision and timestamp and whether it was succesful:
+- feat: facts `materia` now shows last applied revision and timestamp and whether it was successful:
     - New facts:
         - `materia.last_revision`
         - `materia.last_run`
