@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.1
+date: October 2026
 author: stryan
 ---
 
@@ -25,7 +25,7 @@ Presented in `environmental variable`/**TOML config line option** format.
 
 #### `MATERIA_SOURCE__KIND` / **source.kind**
 
-Remote source repository kind. Supported values: `git`,`file`,`oci`.
+Remote source repository kind. Supported values: `git`,`local`,`oci`.
 
 If left empty materia will guess based off the provided URL. Otherwise the specified `source.url` will be provided directly to the source provider.
 

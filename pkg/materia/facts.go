@@ -39,7 +39,7 @@ type MateriaFacts struct {
 	InstalledComponents []string `json:"installed_components" toml:"installed_components"`
 	LastRun             string   `json:"last_run" toml:"last_run"`
 	LastRevision        string   `json:"last_revision" toml:"last_revision"`
-	LastRunSuccesful    bool     `json:"last_run_succesful" toml:"last_run_succesful"`
+	LastRunSuccessful   bool     `json:"last_run_succesful" toml:"last_run_successful"`
 }
 
 func (c *MateriaCollector) Namespace() string {
@@ -118,7 +118,7 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 				}
 				res.LastRevision = out.EndRevision
 				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
-				res.LastRunSuccesful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
+				res.LastRunSuccessful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
 			}
 		}
 	}

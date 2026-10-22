@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE-LOCAL
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.1
+date: October 2026
 author: stryan
 ---
 
@@ -16,7 +16,7 @@ materia-source-local - Configuration for Materia Local Repository Source
 
 ## Description
 
-Configures a local directory as a the source for the Materia repository
+Configures a local directory as a source for the Materia repository
 
 
 ### Options

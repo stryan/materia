@@ -2,8 +2,8 @@
 title: MATERIA
 section: 1
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.0
+date: October 2026
 author: stryan
 ---
 
@@ -56,7 +56,7 @@ Display facts known to materia, such as hostname, network interfaces, component 
 #### plan [flags]
    Generate and display an deployment plan.
 
-   Saves plan to `MATERIA_OUTPUT`/`plan.toml` as well as outputs to stdout (if quiet is not set).
+   Saves plan to `MATERIA_OUTPUT`/`lastplan.toml` as well as outputs to stdout (if quiet is not set).
 
 ##### **Flags**
 

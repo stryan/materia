@@ -4,7 +4,7 @@ Best effort list of major changes and bugfixes
 
 ## Deprecations
 
-- The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
+- The `file` source has been renamed to `local` to prevent settings collisions with the `file` attributes engine. Setting the `SOURCE_KIND` to `file` will work until after `0.8` is released. This is a straight rename; no other settings to be adjusted besides replacing `file` with `local`.
 - The following server settings are deprecated:
     - `server.update_url`: replaced with `server.url`
     - `server.update_secret`: replaced with `Bearer token` auth with `server.token`
@@ -13,6 +13,8 @@ Best effort list of major changes and bugfixes
     - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
+
+## 0.8.0
 - feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.
     - This may also fix some bugs in server mode that (hopefully) no-one has noticed
 - feat: git repos can reset on corrupted HEAD

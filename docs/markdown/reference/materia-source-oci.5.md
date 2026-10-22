@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE-OCI
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.1
+date: October 2026
 author: stryan
 ---
 

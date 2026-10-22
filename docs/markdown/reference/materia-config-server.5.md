@@ -2,8 +2,8 @@
 title: MATERIA-CONFIG-SERVER
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.0
+date: October 2026
 author: stryan
 ---
 
@@ -50,11 +50,13 @@ True/false. Whether to enable the HTTP `/webhook` listener. Accepts POST'ed JSON
 }
 ~~~
 
+Note: `secret` is deprecated and will be replaced with `server.token`
+
 #### `MATERIA_SERVER__FACTS_ENDPOINT`/**server.facts_endpoint**
 
 True/false. Whether to enable the HTTP `/facts` listener. Accepts GETs with `Bearer token` authentication and returns all facts current known as JSON.
 
-### MATERIA_SERVER__TOKEN/**server.token**
+### `MATERIA_SERVER__TOKEN`/**server.token**
 
 Pre-shared secret to use as a `Bearer token` header.
 

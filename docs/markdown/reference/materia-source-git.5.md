@@ -2,8 +2,8 @@
 title: MATERIA-SOURCE-GIT
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.0
+date: October 2026
 author: stryan
 ---
 
@@ -40,6 +40,10 @@ Private key used for SSH-based git operations
 #### `MATERIA_GIT__USERNAME`, `MATERIA_GIT__PASSWORD`/ **git.username/git.password**
 
 Username and password used for HTTP-based git operations
+
+#### `MATERIA_GIT__AUTH_TOKEN`/ **git.auth_token**
+
+`Bearer: token` to pass for HTTP Git operations
 
 #### `MATERIA_GIT__KNOWNHOSTS`/ **git.knownhosts**
 

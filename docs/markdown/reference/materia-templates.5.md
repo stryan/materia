@@ -2,8 +2,8 @@
 title: MATERIA-TEMPLATES
 section: 5
 header: User Manual
-footer: materia 0.7.1
-date: August 2026
+footer: materia 0.8.0
+date: October 2026
 author: stryan
 ---
 
@@ -41,13 +41,17 @@ Reference the components **data directory**. Often used for templating bind moun
 Lookup a fact about the host.
 
 The following facts are available:
-   `hostname`: Return the hostname of the target host.
-   `interface`: Return information about the provided interface.
-     `interface.eth0` would return all IP addresses for the interface `eth0`
-     `interface.eth0.ip4` or `interface.eth0.ip6` would return all IPv4 or IPv6 addresses for the interface `eth0`.
-     `interface.eth0.ip4.0` Would return the first IPv4 address for the interface `eth0`
+    `host.hostname:` The hosts reported (not configured in Materia) hostname
+    `host.interfaces:` All network interfaces on the host and their IPv4/IPv6 addresses
+    `materia.hostname:` The configured hostname, if any
+    `materia.roles:` What roles the host has
+    `materia.assigned_components:` What components are assigned to the host
+    `materia.installed_components:` What components are already installed
+    `materia.last_revision:` The last source revision used in an update operation
+    `materia.last_run:` When the last update opperation occured
+    `materia.last_run_successful` Whether the last update operation was successful.
 
-   Example: `PublishPort={{ m_facts "interface.tailscale0.ip4.0" }}:{{.port}}:{{.port}}` would template as `PublishPort=<tailscale interface IP address>:<port attribute>:<port attribute>`
+   Example: `PublishPort={{ m_facts "host.interfaces.tailscale0.ip4.0" }}:{{.port}}:{{.port}}` would template as `PublishPort=<tailscale interface IP address>:<port attribute>:<port attribute>`
 
 #### **m_default "attribute" "value"**
 
