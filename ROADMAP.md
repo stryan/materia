@@ -1,11 +1,13 @@
 # Goals being worked on
 - [ ] Increasing test coverage
 - [ ] Server mode improvements
-    - [x] `facts` HTTP endpoint
     - [ ] varlink API refinement
-    - [x] `health` HTTP endpoint
     - [ ] better logging
     - [ ] standardize config names (`update_webhook` -> `update_endpoint`)
+    - [ ] Prometheus compatible logging option
+- [ ] `service` rollback settings
+    - [ ] stabilization window
+    - [ ] server mode retry limit?
 
 # The Road to 1.0 (TBD)
 - [ ] OpenBao as attrributes engine, or some equivalent
@@ -13,6 +15,7 @@
 - [ ] Remote components refinement
 - [ ] Add rootless integration tests
 - [ ] Public varlink API
+- [ ] Component Namspacing
 
 
 # Other Potential future goals
