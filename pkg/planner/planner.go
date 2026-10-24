@@ -584,22 +584,19 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 }
 
 func serviceActionWithMetadata(parent *components.Component, targetSrc components.Resource, s manifests.ServiceResourceConfig, a actions.ActionType) actions.Action {
-	metadata := &actions.ActionMetadata{}
+	act := actions.Action{
+		Todo:   a,
+		Parent: parent,
+		Target: targetSrc,
+	}
 	if s.Timeout != 0 {
-		to := s.Timeout
-		metadata.ServiceTimeout = &to
+		act = act.With(actions.WithServiceTimeout(s.Timeout))
 	}
 	if s.Oneshot {
-		endState := services.StateInternalWildcard
-		endStr := string(endState)
-		metadata.ServiceUntilState = &endStr
+		endState := string(services.StateInternalWildcard)
+		act = act.With(actions.WithServiceUntilState(endState))
 	}
-	return actions.Action{
-		Todo:     a,
-		Parent:   parent,
-		Target:   targetSrc,
-		Metadata: metadata,
-	}
+	return act
 }
 
 func getLiveService(ctx context.Context, mgr HostStateManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {

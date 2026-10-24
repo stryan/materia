@@ -22,6 +22,12 @@ func (e *ErrFinalStateUnhealthy) Error() string {
 	return fmt.Sprintf("Execute in unhealthy state: Expected %v, Actual%v", e.Expected, e.Actual)
 }
 
+type serviceComparison struct {
+	service  string
+	expected services.ServiceState
+	timeout  int
+}
+
 type Executor struct {
 	ExecutorConfig
 	host           Host
@@ -40,7 +46,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 	if plan.Empty() {
 		return -1, nil
 	}
-	lastAction := make(map[string]actions.ActionType)
+	lastAction := make(map[string]actions.Action)
 	expectedServices := make(services.ServicesSlice)
 	steps := 0
 	// Execute actions
@@ -58,40 +64,56 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 					continue
 				}
 			}
-			lastAction[v.Target.Service()] = v.Todo
+			lastAction[v.Target.Service()] = v
 		}
 
 		steps++
 	}
 
 	// verify services are in their expected end state (i.e. the result of the last service change command)
+	serviceDiffs := make([]serviceComparison, 0, len(expectedServices))
 	for k, v := range lastAction {
 		serv, err := e.host.GetService(ctx, k)
 		if err != nil {
-			if errors.Is(err, services.ErrServiceNotFound) && v == actions.ActionStop {
+			if errors.Is(err, services.ErrServiceNotFound) && v.Todo == actions.ActionStop {
 				// nothing to do if the service is fully gone
 				continue
 			}
 			return steps, fmt.Errorf("unable to get service %v for final check: %w", k, err)
 		}
-		switch v {
+		finalState := services.StateUnknown
+		timeout := e.defaultTimeout
+		if dynamicTimeout, ok := v.GetServiceTimeout(); ok {
+			timeout = dynamicTimeout
+		}
+		switch v.Todo {
 		case actions.ActionRestart, actions.ActionStart, actions.ActionReload:
-			expectedServices[serv.Name] = services.StateActive
+			finalState = services.StateActive
 		case actions.ActionStop:
-			expectedServices[serv.Name] = services.StateInactive
+			finalState = services.StateInactive
 		case actions.ActionEnable, actions.ActionDisable:
 		default:
 			return steps, fmt.Errorf("unknown service action state: %v", v)
+		}
+		if finalState != "" {
+			expectedServices[serv.Name] = finalState
+			serviceDiffs = append(serviceDiffs, serviceComparison{
+				service:  serv.Name,
+				expected: finalState,
+				timeout:  timeout,
+			})
 		}
 	}
 	finalServices := make(services.ServicesSlice)
 	var servWG sync.WaitGroup
 	badState := false
-	for serv, state := range expectedServices {
+	for _, v := range serviceDiffs {
+		serv := v.service
+		state := v.expected
 		servWG.Add(1)
 		go func(serv string, state services.ServiceState) {
 			defer servWG.Done()
-			err := e.host.WaitUntilState(ctx, serv, state, e.defaultTimeout) // TODO dynamically adjust timeout
+			err := e.host.WaitUntilState(ctx, serv, state, v.timeout)
 			if err == nil {
 				finalServices[serv] = state
 				return

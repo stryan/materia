@@ -13,6 +13,8 @@ Best effort list of major changes and bugfixes
     - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
+- feat: executor respects dynamic service timeouts when waiting for services to stabilize
+    - This is to help cover situations where a service starts -> fails -> restarts via systemd -> stabilizes
 
 ## 0.8.0
 - feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.
