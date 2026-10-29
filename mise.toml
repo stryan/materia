@@ -163,12 +163,12 @@ run = '''
 
 	echo "installing to {{usage.dest}}{{usage.prefix}}"
 
-	# install -Dm755 bin/materia        -t "${{usage.dest}}{{usage.prefix}}/bin"
-	# install -Dm644 man/man1/materia.1 -t "${{usage.dest}}{{usage.prefix}}/share/man/man1"
-	# install -Dm644 man/man5/*.5       -t "${{usage.dest}}{{usage.prefix}}/share/man/man5"
-	# install -Dm644 README.md          -t "${{usage.dest}}{{usage.prefix}}/share/doc/materia"
-	# install -Dm644 LICENSE            -t "${{usage.dest}}{{usage.prefix}}/share/licenses/materia"
-	# install -Dm644 systems.primamateria.materia.conf -t "${{usage.dest}}/usr/share/dbus-1/system.d"
+	install -Dm755 bin/materia        -t "${{usage.dest}}{{usage.prefix}}/bin"
+	install -Dm644 man/man1/materia.1 -t "${{usage.dest}}{{usage.prefix}}/share/man/man1"
+	install -Dm644 man/man5/*.5       -t "${{usage.dest}}{{usage.prefix}}/share/man/man5"
+	install -Dm644 README.md          -t "${{usage.dest}}{{usage.prefix}}/share/doc/materia"
+	install -Dm644 LICENSE            -t "${{usage.dest}}{{usage.prefix}}/share/licenses/materia"
+	install -Dm644 systems.primamateria.materia.conf -t "${{usage.dest}}/usr/share/dbus-1/system.d"
 '''
 
 [tasks.release-sign-tar]
