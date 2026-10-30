@@ -179,7 +179,7 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		appMode:        c.AppMode,
 		snippets:       snips,
 		macroGetter: func(f *facts.Facts) macros.MacroMap {
-			return loadDefaultMacros(c, hm, f, snips)
+			return loadDefaultMacros(c, ec, hm, f, snips)
 		},
 		Executor: e,
 		Planner:  p,

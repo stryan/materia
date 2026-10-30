@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/macros"
 	"primamateria.systems/materia/pkg/manifests"
@@ -39,23 +40,24 @@ func loadDefaultSnippets() []*macros.Snippet {
 	}
 }
 
-func loadDefaultMacros(c *MateriaConfig, host HostManager, f *facts.Facts, snippets map[string]*macros.Snippet) macros.MacroMap {
+// TODO refactor out MateriaConfig, Hostmanager and replace with actual important structs (Containers Manager and more Facts)
+func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostManager, f *facts.Facts, snippets map[string]*macros.Snippet) macros.MacroMap {
 	return func(vars map[string]any) template.FuncMap {
 		return template.FuncMap{
 			"m_dataDir": func(arg string) (string, error) {
-				return filepath.Join(filepath.Join(c.ExecutorConfig.MateriaDir, "components"), arg), nil
+				return filepath.Join(filepath.Join(ec.MateriaDir, "components"), arg), nil
 			},
 			"m_quadletDir": func(arg string) (string, error) {
-				return filepath.Join(filepath.Join(c.ExecutorConfig.QuadletDir, "components"), arg), nil
+				return filepath.Join(filepath.Join(ec.QuadletDir, "components"), arg), nil
 			},
 			"m_outputDir": func(arg string) (string, error) {
-				return c.ExecutorConfig.OutputDir, nil
+				return ec.OutputDir, nil
 			},
 			"m_scriptsDir": func(_ string) (string, error) {
-				return c.ExecutorConfig.ScriptsDir, nil
+				return ec.ScriptsDir, nil
 			},
 			"m_serviceDir": func(_ string) (string, error) {
-				return c.ExecutorConfig.ServiceDir, nil
+				return ec.ServiceDir, nil
 			},
 			"m_facts": func(arg string) (any, error) {
 				return f.LookupString(arg)
