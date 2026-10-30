@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/mocks"
 )
 
@@ -12,7 +13,7 @@ func Test_secretEnv(t *testing.T) {
 	hm.EXPECT().SecretName("mysecret").Return("materia-mysecret")
 	hm.EXPECT().SecretName("db_password").Return("materia-db_password")
 
-	macros := loadDefaultMacros(&MateriaConfig{}, hm, nil, nil)(nil)
+	macros := loadDefaultMacros(&MateriaConfig{}, executor.ExecutorConfig{}, hm, nil, nil)(nil)
 
 	tests := []struct {
 		name string
@@ -37,7 +38,7 @@ func Test_secretMount(t *testing.T) {
 	hm.EXPECT().SecretName("mysecret").Return("materia-mysecret")
 	hm.EXPECT().SecretName("tls_cert").Return("materia-tls_cert")
 
-	macros := loadDefaultMacros(&MateriaConfig{}, hm, nil, nil)(nil)
+	macros := loadDefaultMacros(&MateriaConfig{}, executor.ExecutorConfig{}, hm, nil, nil)(nil)
 
 	tests := []struct {
 		name string
@@ -59,7 +60,7 @@ func Test_secretMount(t *testing.T) {
 
 func Test_m_default(t *testing.T) {
 	hm := mocks.NewMockHostManager(t)
-	macros := loadDefaultMacros(&MateriaConfig{}, hm, nil, nil)(map[string]any{"existing": "value"})
+	macros := loadDefaultMacros(&MateriaConfig{}, executor.ExecutorConfig{}, hm, nil, nil)(map[string]any{"existing": "value"})
 
 	tests := []struct {
 		name    string
@@ -81,7 +82,7 @@ func Test_m_default(t *testing.T) {
 
 func Test_exists(t *testing.T) {
 	hm := mocks.NewMockHostManager(t)
-	macros := loadDefaultMacros(&MateriaConfig{}, hm, nil, nil)(map[string]any{"existing": "value"})
+	macros := loadDefaultMacros(&MateriaConfig{}, executor.ExecutorConfig{}, hm, nil, nil)(map[string]any{"existing": "value"})
 
 	tests := []struct {
 		name    string
