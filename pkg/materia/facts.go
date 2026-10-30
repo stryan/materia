@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/manifests"
@@ -114,11 +115,21 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 				}
 				var out executionOutput
 				if _, err := toml.Decode(string(data), &out); err != nil {
+					if _, ok := errors.AsType[toml.ParseError](err); ok {
+						// try the old `SavePlan` format
+						var oldOut oldPlanOutput
+						if _, err := toml.Decode(string(data), &oldOut); err != nil {
+							// Malformed modern output, return the error
+							return nil, err
+						}
+						log.Warnf("%v is in the old 0.7.X format saved plan format; deleting.", lastRunFile)
+					}
 					return nil, err
+				} else {
+					res.LastRevision = out.EndRevision
+					res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
+					res.LastRunSuccessful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
 				}
-				res.LastRevision = out.EndRevision
-				res.LastRun = out.Timestamp.UTC().Format(time.RFC3339)
-				res.LastRunSuccessful = (out.CompletedSteps == -1) || (out.CompletedSteps >= out.TotalSteps)
 			}
 		}
 	}
@@ -128,4 +139,15 @@ func (c *MateriaCollector) Collect(ctx context.Context, accum *facts.Facts) (any
 
 func ToMateriaFacts(f *facts.Facts) (MateriaFacts, error) {
 	return facts.GetTypedFacts[MateriaFacts](f, factsNamespace)
+}
+
+// DEPRECATED: Remove in >=0.8.1
+type oldPlanOutput struct {
+	Timestamp        time.Time `toml:"timestamp"`
+	Plan             []string  `toml:"plan"`
+	ChangedResources []oldChange
+}
+
+type oldChange struct {
+	ResourceName, Before, After string
 }

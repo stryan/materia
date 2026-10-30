@@ -15,6 +15,9 @@ Best effort list of major changes and bugfixes
 ## Upcoming
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize
     - This is to help cover situations where a service starts -> fails -> restarts via systemd -> stabilizes
+- bugfix: Fix `materia.rootless` macro paths by passing executor config directly to macros.
+    - this applies to all directory macros like `m_dataDir`, `m_outputDir`, etc.
+- qol: `lastrun.toml` files in the previous saved plan format will be deleted upon facts collection instead of returning an error.
 
 ## 0.8.0
 - feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.
