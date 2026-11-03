@@ -14,9 +14,9 @@ import (
 )
 
 type HostmanConfig struct {
-	Hostname string
-	containers.ContainersConfig
-	services.ServicesConfig
+	Hostname      string
+	ContainersCfg containers.ContainersConfig
+	ServicesCfg   services.ServicesConfig
 
 	DataDir       string
 	QuadletDir    string
@@ -38,19 +38,19 @@ func NewHostManager(ctx context.Context, c *HostmanConfig) (*HostManager, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create host component repo: %w", err)
 	}
-	sm, err := services.NewServices(ctx, c.ServicesConfig)
+	sm, err := services.NewServices(ctx, c.ServicesCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create systemd manager: %w", err)
 	}
 	var cm containers.ContainerManager
 	if c.CommandPodman {
-		cm, err = command.NewCommandManager(c.ContainersConfig)
+		cm, err = command.NewCommandManager(c.ContainersCfg)
 		if err != nil {
 			sm.Close()
 			return nil, fmt.Errorf("failed to create podman command manager: %w", err)
 		}
 	} else {
-		cm, err = native.NewNativeManager(ctx, c.ContainersConfig)
+		cm, err = native.NewNativeManager(ctx, c.ContainersCfg)
 		if err != nil {
 			sm.Close()
 			return nil, fmt.Errorf("failed to create native podman manager: %w", err)

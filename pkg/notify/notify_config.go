@@ -58,7 +58,13 @@ func DefaultNotifyConfig() NotifyConfig {
 
 func (c NotifyConfig) String() string {
 	var sb strings.Builder
-	for k, v := range c.Triggers {
+	keys := make([]string, 0, len(c.Triggers))
+	for k := range c.Triggers {
+		keys = append(keys, k)
+	}
+
+	for _, k := range keys {
+		v := c.Triggers[k]
 		fmt.Fprintf(&sb, "%v: %v\n", k, v)
 	}
 	return sb.String()

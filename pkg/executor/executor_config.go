@@ -23,14 +23,11 @@ func (e ExecutorConfig) String() string {
 }
 
 func NewExecutorConfig(k *koanf.Koanf) (ExecutorConfig, error) {
-	ec, err := DefaultExecutorConfig()
-	if err != nil {
-		return ExecutorConfig{}, err
-	}
+	ec := ExecutorConfig{}
 	if err := k.UnmarshalWithConf("executor", &ec, koanf.UnmarshalConf{}); err != nil {
 		return ExecutorConfig{}, fmt.Errorf("unable to create executor config: %w", err)
 	}
-	return ec, err
+	return ec, nil
 }
 
 func (e ExecutorConfig) Validate() error {
@@ -52,11 +49,7 @@ func (e ExecutorConfig) Validate() error {
 	return nil
 }
 
-func DefaultExecutorConfig() (ExecutorConfig, error) {
-	user, err := user.Current()
-	if err != nil {
-		return ExecutorConfig{}, err
-	}
+func DefaultExecutorConfig(user *user.User) (ExecutorConfig, error) {
 	dirs, err := dirs.DefaultMateriaDirs(user)
 	if err != nil {
 		return ExecutorConfig{}, err

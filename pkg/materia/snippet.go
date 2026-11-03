@@ -48,7 +48,7 @@ func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostMa
 				return filepath.Join(filepath.Join(ec.MateriaDir, "components"), arg), nil
 			},
 			"m_quadletDir": func(arg string) (string, error) {
-				return filepath.Join(filepath.Join(ec.QuadletDir, "components"), arg), nil
+				return filepath.Join(filepath.Join(ec.QuadletDir), arg), nil
 			},
 			"m_outputDir": func(arg string) (string, error) {
 				return ec.OutputDir, nil
@@ -74,7 +74,7 @@ func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostMa
 				return ok
 			},
 			"isRoot": func(_ string) bool {
-				return c.User.Username == "root" || !c.Rootless
+				return c.User.Username == "root" && !c.Rootless
 			},
 			"secretEnv": func(args ...string) string {
 				if len(args) == 0 {

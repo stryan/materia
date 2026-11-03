@@ -35,13 +35,13 @@ func NewFromConfig(ctx context.Context, c *MateriaConfig, src source.Source) (*M
 		return nil, fmt.Errorf("error creating base directories: %w", err)
 	}
 	hmc := &hostman.HostmanConfig{
-		Hostname:         c.Hostname,
-		DataDir:          c.MateriaDir,
-		QuadletDir:       c.QuadletDir,
-		ScriptsDir:       c.ScriptsDir,
-		ServicesDir:      c.ServiceDir,
-		ContainersConfig: c.ContainersConfig,
-		ServicesConfig:   c.ServicesConfig,
+		Hostname:      c.Hostname,
+		DataDir:       c.MateriaDir,
+		QuadletDir:    c.QuadletDir,
+		ScriptsDir:    c.ScriptsDir,
+		ServicesDir:   c.ServiceDir,
+		ContainersCfg: c.ContainersConfig,
+		ServicesCfg:   c.ServicesConfig,
 	}
 	smc := &sourceman.SourceManConfig{
 		SourceDir: c.SourceDir,

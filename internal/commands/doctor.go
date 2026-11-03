@@ -15,14 +15,14 @@ func DoctorCmd(ctx context.Context, k *koanf.Koanf, remove bool) error {
 		return err
 	}
 	hmc := &hostman.HostmanConfig{
-		Hostname:         c.Hostname,
-		DataDir:          c.MateriaDir,
-		QuadletDir:       c.QuadletDir,
-		ScriptsDir:       c.ScriptsDir,
-		ServicesDir:      c.ServiceDir,
-		ServicesConfig:   c.ServicesConfig,
-		ContainersConfig: c.ContainersConfig,
-		CommandPodman:    c.CommandPodman,
+		Hostname:      c.Hostname,
+		DataDir:       c.MateriaDir,
+		QuadletDir:    c.QuadletDir,
+		ScriptsDir:    c.ScriptsDir,
+		ServicesDir:   c.ServiceDir,
+		ServicesCfg:   c.ServicesConfig,
+		ContainersCfg: c.ContainersConfig,
+		CommandPodman: c.CommandPodman,
 	}
 	hm, err := hostman.NewHostManager(ctx, hmc)
 	if err != nil {

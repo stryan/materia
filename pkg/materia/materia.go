@@ -15,7 +15,6 @@ import (
 	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
-	"primamateria.systems/materia/pkg/dirs"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/loader"
@@ -98,19 +97,26 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 			}
 		}
 		if materiaContainer != nil {
-			if dataSrc, ok := materiaContainer.BindMounts[dirs.DefaultDataDir]; ok {
+			if dataSrc, ok := materiaContainer.BindMounts[c.MateriaDir]; ok {
 				ec.MateriaDir = dataSrc.Source
+				ec.OutputDir = filepath.Join(dataSrc.Source, "output")
 			}
-			if quadSrc, ok := materiaContainer.BindMounts[dirs.DefaultQuadletDir]; ok {
+			if rel, err := filepath.Rel(c.MateriaDir, c.OutputDir); err == nil && filepath.IsLocal(rel) {
+				ec.OutputDir = filepath.Join(ec.MateriaDir, rel)
+			} else {
+				if outputSrc, ok := materiaContainer.BindMounts[c.OutputDir]; ok {
+					ec.OutputDir = outputSrc.Source
+				}
+			}
+			if quadSrc, ok := materiaContainer.BindMounts[c.QuadletDir]; ok {
 				ec.QuadletDir = quadSrc.Source
 			}
-			if scriptSrc, ok := materiaContainer.BindMounts[dirs.DefaultScriptsDir]; ok {
+			if scriptSrc, ok := materiaContainer.BindMounts[c.ScriptsDir]; ok {
 				ec.ScriptsDir = scriptSrc.Source
 			}
-			if serviceSrc, ok := materiaContainer.BindMounts[dirs.DefaultServiceDir]; ok {
+			if serviceSrc, ok := materiaContainer.BindMounts[c.ServiceDir]; ok {
 				ec.ServiceDir = serviceSrc.Source
 			}
-
 		}
 	}
 

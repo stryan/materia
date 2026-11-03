@@ -48,8 +48,10 @@ type MateriaConfig struct {
 }
 
 func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
-	var c MateriaConfig
-	var err error
+	c, err := DefaultConfig()
+	if err != nil {
+		return nil, err
+	}
 	c.SourceDir = k.String("source_dir")
 	c.Debug = k.Bool("debug")
 	c.Hostname = k.String("hostname")
@@ -141,8 +143,46 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if c.OutputDir == "" {
 		c.OutputDir = mdirs.Output
 	}
+	c.syncExecutorDirs()
 
-	return &c, nil
+	return c, nil
+}
+
+func DefaultConfig() (*MateriaConfig, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
+	mdirs, err := dirs.DefaultMateriaDirs(currentUser)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &MateriaConfig{
+		Debug:            false,
+		MateriaDir:       mdirs.Data,
+		QuadletDir:       mdirs.Quadlets,
+		ServiceDir:       mdirs.Services,
+		ScriptsDir:       mdirs.Scripts,
+		SourceDir:        mdirs.Source,
+		OutputDir:        mdirs.Output,
+		RemoteDir:        mdirs.Remote,
+		NoSync:           false,
+		Lock:             "",
+		AppMode:          false,
+		Rootless:         false,
+		Attributes:       "",
+		CommandPodman:    false,
+		PlannerConfig:    planner.DefaultPlannerConfig(),
+		ExecutorConfig:   executor.ExecutorConfig{},
+		ServicesConfig:   services.DefaultServicesConfig(),
+		ContainersConfig: containers.DefaultContainersConfig(),
+		NotifyConfig:     notify.DefaultNotifyConfig(),
+		RollbackConfig:   DefaultRollbackConfig(),
+		User:             currentUser,
+	}
+	c.syncExecutorDirs()
+	return c, nil
 }
 
 func (c *MateriaConfig) Validate() error {
@@ -166,6 +206,15 @@ func (c *MateriaConfig) Validate() error {
 	}
 	if err := c.RollbackConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid rollback config: %w", err)
+	}
+	if err := c.ServicesConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid services config: %w", err)
+	}
+	if err := c.ContainersConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid containers config: %w", err)
+	}
+	if err := c.NotifyConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid notify config: %w", err)
 	}
 	return nil
 }
@@ -204,6 +253,8 @@ func (c *MateriaConfig) String() string {
 	result += fmt.Sprintf("%v", c.PlannerConfig.String())
 	result += "\nExecutor Config: \n"
 	result += fmt.Sprintf("%v", c.ExecutorConfig.String())
+	result += "\nNotify Config: \n"
+	result += fmt.Sprintf("%v", c.NotifyConfig.String())
 	result += "\nAttributes Config\n"
 	if c.Attributes != "" {
 		result += fmt.Sprintf("Manually Specified Engine: %v\n", c.Attributes)
@@ -222,4 +273,22 @@ func (c *MateriaConfig) String() string {
 	}
 
 	return result
+}
+
+func (c *MateriaConfig) syncExecutorDirs() {
+	if c.ExecutorConfig.MateriaDir == "" {
+		c.ExecutorConfig.MateriaDir = c.MateriaDir
+	}
+	if c.ExecutorConfig.QuadletDir == "" {
+		c.ExecutorConfig.QuadletDir = c.QuadletDir
+	}
+	if c.ExecutorConfig.ScriptsDir == "" {
+		c.ExecutorConfig.ScriptsDir = c.ScriptsDir
+	}
+	if c.ExecutorConfig.ServiceDir == "" {
+		c.ExecutorConfig.ServiceDir = c.ServiceDir
+	}
+	if c.ExecutorConfig.OutputDir == "" {
+		c.ExecutorConfig.OutputDir = c.OutputDir
+	}
 }

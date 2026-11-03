@@ -38,7 +38,7 @@ func DefaultMateriaDirs(u *user.User) (MateriaDirs, error) {
 	sourcePath := DefaultSourceDir
 	outputPath := DefaultOutputDir
 	remotePath := DefaultRemoteDir
-	if u.Username != "root" {
+	if u != nil && u.Username != "root" {
 		home := u.HomeDir
 		var found bool
 		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
