@@ -42,7 +42,7 @@ func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*mate
 	materia.SetupLogger(c)
 
 	if sc.NotifyWebhook != "" {
-		c.NotifyConfig = &notify.NotifyConfig{
+		c.NotifyConfig = notify.NotifyConfig{
 			Triggers: map[string]string{notify.NotifyUpdate: sc.NotifyWebhook},
 		}
 	}

@@ -3,61 +3,47 @@ package materia
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/user"
-	"path/filepath"
 
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/pkg/attributes/age"
 	fileattrs "primamateria.systems/materia/pkg/attributes/file"
 	"primamateria.systems/materia/pkg/attributes/sops"
 	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/dirs"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/planner"
 	"primamateria.systems/materia/pkg/services"
 )
 
-var (
-	DefaultDataDir    = "/var/lib/materia"
-	DefaultQuadletDir = "/etc/containers/systemd"
-	// TODO once we can determine whether /var and /root are on the same filesystem switch this to a /var/lib/materia path and systemctl-link them in
-	// otherwise, defer to usual /etc location to work out of the box with MicroOS
-	DefaultServiceDir = "/etc/systemd/system"
-	DefaultScriptsDir = "/usr/local/bin"
-
-	DefaultSourceDir = filepath.Join(DefaultDataDir, "source")
-	DefaultRemoteDir = filepath.Join(DefaultDataDir, "remote")
-	DefaultOutputDir = filepath.Join(DefaultDataDir, "output")
-)
-
 type MateriaConfig struct {
-	Debug            bool                         `toml:"debug"`
-	UseStdout        bool                         `toml:"use_stdout"`
-	Hostname         string                       `toml:"hostname"`
-	Roles            []string                     `toml:"roles"`
-	MateriaDir       string                       `toml:"materia_dir"`
-	QuadletDir       string                       `toml:"quadlet_dir"`
-	ServiceDir       string                       `toml:"service_dir"`
-	ScriptsDir       string                       `toml:"scripts_dir"`
-	SourceDir        string                       `toml:"source_dir"`
-	OutputDir        string                       `toml:"output_dir"`
-	RemoteDir        string                       `toml:"remote_dir"`
-	NoSync           bool                         `toml:"nosync"`
-	Lock             string                       `toml:"lock"`
-	AppMode          bool                         `toml:"appmode"`
-	Rootless         bool                         `toml:"rootless"`
-	Attributes       string                       `toml:"attributes"`
-	CommandPodman    bool                         `toml:"podman_command"`
-	AgeConfig        *age.Config                  `toml:"age"`
-	FileConfig       *fileattrs.Config            `toml:"file"`
-	SopsConfig       *sops.Config                 `toml:"sops"`
-	PlannerConfig    *planner.PlannerConfig       `toml:"planner"`
-	ExecutorConfig   *executor.ExecutorConfig     `toml:"executor"`
-	ServicesConfig   *services.ServicesConfig     `toml:"services"`
-	ContainersConfig *containers.ContainersConfig `toml:"containers"`
-	NotifyConfig     *notify.NotifyConfig         `toml:"notify"`
-	RollbackConfig   *RollbackConfig              `toml:"rollback"`
+	Debug            bool                        `toml:"debug"`
+	UseStdout        bool                        `toml:"use_stdout"`
+	Hostname         string                      `toml:"hostname"`
+	Roles            []string                    `toml:"roles"`
+	MateriaDir       string                      `toml:"materia_dir"`
+	QuadletDir       string                      `toml:"quadlet_dir"`
+	ServiceDir       string                      `toml:"service_dir"`
+	ScriptsDir       string                      `toml:"scripts_dir"`
+	SourceDir        string                      `toml:"source_dir"`
+	OutputDir        string                      `toml:"output_dir"`
+	RemoteDir        string                      `toml:"remote_dir"`
+	NoSync           bool                        `toml:"nosync"`
+	Lock             string                      `toml:"lock"`
+	AppMode          bool                        `toml:"appmode"`
+	Rootless         bool                        `toml:"rootless"`
+	Attributes       string                      `toml:"attributes"`
+	CommandPodman    bool                        `toml:"podman_command"`
+	AgeConfig        *age.Config                 `toml:"age"`
+	FileConfig       *fileattrs.Config           `toml:"file"`
+	SopsConfig       *sops.Config                `toml:"sops"`
+	PlannerConfig    planner.PlannerConfig       `toml:"planner"`
+	ExecutorConfig   executor.ExecutorConfig     `toml:"executor"`
+	ServicesConfig   services.ServicesConfig     `toml:"services"`
+	ContainersConfig containers.ContainersConfig `toml:"containers"`
+	NotifyConfig     notify.NotifyConfig         `toml:"notify"`
+	RollbackConfig   RollbackConfig              `toml:"rollback"`
 	User             *user.User
 }
 
@@ -130,65 +116,31 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.User = currentUser
 	c.Rootless = k.Bool("rootless")
 	c.CommandPodman = k.Bool("podman_command")
-
-	dataPath := DefaultDataDir
-	quadletPath := DefaultQuadletDir
-	servicePath := DefaultServiceDir
-	scriptsPath := DefaultScriptsDir
-
-	sourcePath := DefaultSourceDir
-	outputPath := DefaultOutputDir
-	remotePath := DefaultRemoteDir
-
-	if c.User.Username != "root" {
-		home := c.User.HomeDir
-		var found bool
-		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
-		if !found {
-			quadletPath = filepath.Join(home, ".config", "containers", "systemd")
-		} else {
-			quadletPath = filepath.Join(conf, "containers", "systemd")
-		}
-		datadir, found := os.LookupEnv("XDG_DATA_HOME")
-		if !found {
-			dataPath = filepath.Join(home, ".local", "share")
-			servicePath = filepath.Join(home, ".local", "share", "systemd", "user")
-		} else {
-			dataPath = datadir
-			servicePath = filepath.Join(datadir, "systemd", "user")
-		}
-		dataPath = filepath.Join(dataPath, "materia")
-		scriptsPath = filepath.Join(home, ".local", "bin")
-		sourcePath = filepath.Join(dataPath, "source")
-		outputPath = filepath.Join(dataPath, "output")
-		remotePath = filepath.Join(dataPath, "remote")
+	mdirs, err := dirs.DefaultMateriaDirs(currentUser)
+	if err != nil {
+		return nil, err
 	}
 	if c.MateriaDir == "" {
-		c.MateriaDir = dataPath
+		c.MateriaDir = mdirs.Data
 	}
 	if c.QuadletDir == "" {
-		c.QuadletDir = quadletPath
+		c.QuadletDir = mdirs.Quadlets
 	}
 	if c.ServiceDir == "" {
-		c.ServiceDir = servicePath
+		c.ServiceDir = mdirs.Services
 	}
 	if c.ScriptsDir == "" {
-		c.ScriptsDir = scriptsPath
+		c.ScriptsDir = mdirs.Scripts
 	}
 	if c.SourceDir == "" {
-		c.SourceDir = sourcePath
+		c.SourceDir = mdirs.Source
 	}
 	if c.RemoteDir == "" {
-		c.RemoteDir = remotePath
+		c.RemoteDir = mdirs.Remote
 	}
 	if c.OutputDir == "" {
-		c.OutputDir = outputPath
+		c.OutputDir = mdirs.Output
 	}
-	c.ExecutorConfig.MateriaDir = c.MateriaDir
-	c.ExecutorConfig.QuadletDir = c.QuadletDir
-	c.ExecutorConfig.ScriptsDir = c.ScriptsDir
-	c.ExecutorConfig.ServiceDir = c.ServiceDir
-	c.ExecutorConfig.OutputDir = c.OutputDir
 
 	return &c, nil
 }
@@ -206,20 +158,14 @@ func (c *MateriaConfig) Validate() error {
 	if c.SourceDir == "" {
 		return errors.New("need source directory")
 	}
-	if c.PlannerConfig != nil {
-		if err := c.PlannerConfig.Validate(); err != nil {
-			return fmt.Errorf("invalid planner config: %w", err)
-		}
+	if err := c.PlannerConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid planner config: %w", err)
 	}
-	if c.ExecutorConfig != nil {
-		if err := c.ExecutorConfig.Validate(); err != nil {
-			return fmt.Errorf("invalid executor config: %w", err)
-		}
+	if err := c.ExecutorConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid executor config: %w", err)
 	}
-	if c.RollbackConfig != nil {
-		if err := c.RollbackConfig.Validate(); err != nil {
-			return fmt.Errorf("invalid rollback config: %w", err)
-		}
+	if err := c.RollbackConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid rollback config: %w", err)
 	}
 	return nil
 }
@@ -248,28 +194,16 @@ func (c *MateriaConfig) String() string {
 	} else {
 		result += "Lock mode: None\n"
 	}
-	if c.RollbackConfig != nil {
-		result += fmt.Sprintf("Rollback mode: %v\n", c.RollbackConfig.Kind)
-	} else {
-		result += "Rollback mode: None\n"
-	}
+	result += c.RollbackConfig.String()
 	result += fmt.Sprintf("Rootless mode: %v\n", c.Rootless)
-	if c.ContainersConfig != nil {
-		result += "\nContainers Config: \n"
-		result += fmt.Sprintf("%v", c.ContainersConfig.String())
-	}
-	if c.ServicesConfig != nil {
-		result += "\nServices Config: \n"
-		result += fmt.Sprintf("%v", c.ServicesConfig.String())
-	}
-	if c.PlannerConfig != nil {
-		result += "\nPlanner Config: \n"
-		result += fmt.Sprintf("%v", c.PlannerConfig.String())
-	}
-	if c.ExecutorConfig != nil {
-		result += "\nExecutor Config: \n"
-		result += fmt.Sprintf("%v", c.ExecutorConfig.String())
-	}
+	result += "\nContainers Config: \n"
+	result += fmt.Sprintf("%v", c.ContainersConfig.String())
+	result += "\nServices Config: \n"
+	result += fmt.Sprintf("%v", c.ServicesConfig.String())
+	result += "\nPlanner Config: \n"
+	result += fmt.Sprintf("%v", c.PlannerConfig.String())
+	result += "\nExecutor Config: \n"
+	result += fmt.Sprintf("%v", c.ExecutorConfig.String())
 	result += "\nAttributes Config\n"
 	if c.Attributes != "" {
 		result += fmt.Sprintf("Manually Specified Engine: %v\n", c.Attributes)

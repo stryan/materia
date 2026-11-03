@@ -38,7 +38,7 @@ func (s Service) Started() bool {
 	return s.State == StateActive
 }
 
-func (s *Service) fillFromProperties(props map[string]interface{}) error {
+func (s *Service) fillFromProperties(props map[string]any) error {
 	jobState, ok := props["ActiveState"].(string)
 	if !ok {
 		return fmt.Errorf("invalid active state: %v", props["ActiveState"])
@@ -70,7 +70,7 @@ const (
 	ServiceReloadService
 )
 
-func NewServices(ctx context.Context, cfg *ServicesConfig) (*ServiceManager, error) {
+func NewServices(ctx context.Context, cfg ServicesConfig) (*ServiceManager, error) {
 	var sm ServiceManager
 	var err error
 	currentUser, err := user.Current()

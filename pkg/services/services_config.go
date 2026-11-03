@@ -12,21 +12,27 @@ type ServicesConfig struct {
 	DbusSocket     string `toml:"dbus_socket" koanf:"dbus_socket"`
 }
 
-func NewServicesConfig(k *koanf.Koanf) (*ServicesConfig, error) {
+func NewServicesConfig(k *koanf.Koanf) (ServicesConfig, error) {
 	c := DefaultServicesConfig()
-	err := k.UnmarshalWithConf("services", c, koanf.UnmarshalConf{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to create services config: %w", err)
+	if err := k.UnmarshalWithConf("services", &c, koanf.UnmarshalConf{}); err != nil {
+		return ServicesConfig{}, fmt.Errorf("unable to create services config: %w", err)
 	}
 	return c, nil
 }
 
-func (c *ServicesConfig) String() string {
+func (c ServicesConfig) String() string {
 	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
 }
 
-func DefaultServicesConfig() *ServicesConfig {
-	return &ServicesConfig{
+func (c ServicesConfig) Validate() error {
+	if c.Timeout < 0 {
+		return fmt.Errorf("invalid services timeout: %v", c.Timeout)
+	}
+	return nil
+}
+
+func DefaultServicesConfig() ServicesConfig {
+	return ServicesConfig{
 		Timeout:        90,
 		DryrunQuadlets: false,
 		DbusSocket:     "",

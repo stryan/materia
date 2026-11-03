@@ -16,7 +16,7 @@ type NativeManager struct {
 	conn context.Context // stores the podman connection
 }
 
-func NewNativeManager(ctx context.Context, cfg *containers.ContainersConfig) (*NativeManager, error) {
+func NewNativeManager(ctx context.Context, cfg containers.ContainersConfig) (*NativeManager, error) {
 	p := &NativeManager{
 		secretsPrefix: cfg.SecretsPrefix,
 		compression:   cfg.Compression,

@@ -15,8 +15,8 @@ import (
 
 type HostmanConfig struct {
 	Hostname string
-	*containers.ContainersConfig
-	*services.ServicesConfig
+	containers.ContainersConfig
+	services.ServicesConfig
 
 	DataDir       string
 	QuadletDir    string

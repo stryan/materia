@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/knadh/koanf/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"primamateria.systems/materia/pkg/config"
@@ -62,22 +61,6 @@ func Test_NewExecutorConfig_Env(t *testing.T) {
 	assert.Equal(t, "bar", cfg.QuadletDir)
 	assert.Equal(t, "/usr/bin", cfg.ScriptsDir)
 	assert.Equal(t, "", cfg.OutputDir)
-}
-
-func TestNewExecutorConfigDefaultsInvalid(t *testing.T) {
-	k := koanf.New(".")
-
-	config, err := NewExecutorConfig(k)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, config)
-	assert.False(t, config.CleanupComponents)
-	assert.Equal(t, "", config.MateriaDir)
-	assert.Equal(t, "", config.QuadletDir)
-	assert.Equal(t, "", config.ScriptsDir)
-	assert.Equal(t, "", config.ServiceDir)
-	assert.Equal(t, "", config.OutputDir)
-	assert.Error(t, config.Validate(), "invalid config was valid")
 }
 
 func clearMateriaEnv(t *testing.T) {

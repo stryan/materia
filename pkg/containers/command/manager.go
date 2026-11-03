@@ -17,7 +17,7 @@ type CommandManager struct {
 	remote        bool
 }
 
-func NewCommandManager(cfg *containers.ContainersConfig) (*CommandManager, error) {
+func NewCommandManager(cfg containers.ContainersConfig) (*CommandManager, error) {
 	p := &CommandManager{
 		secretsPrefix: cfg.SecretsPrefix,
 		remote:        cfg.Remote,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"primamateria.systems/materia/pkg/attributes/mem"
+	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/mocks"
 )
@@ -21,6 +22,14 @@ func TestNew(t *testing.T) {
 		ServiceDir: "/tmp/services",
 		ScriptsDir: "/usr/local/bin",
 		SourceDir:  "/materia/source",
+		ExecutorConfig: executor.ExecutorConfig{
+			CleanupComponents: false,
+			MateriaDir:        "/tmp/materia",
+			QuadletDir:        "/tmp/materia/quadlets",
+			ScriptsDir:        "/usr/local/bin",
+			ServiceDir:        "/tmp/services",
+			OutputDir:         "/tmp/materia/output",
+		},
 	}, hm, sm, engine)
 	assert.NoError(t, err)
 	assert.NotNil(t, m)

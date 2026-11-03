@@ -15,6 +15,7 @@ import (
 	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/dirs"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/loader"
@@ -25,7 +26,6 @@ import (
 	"primamateria.systems/materia/pkg/plan"
 	"primamateria.systems/materia/pkg/planner"
 	"primamateria.systems/materia/pkg/repository"
-	"primamateria.systems/materia/pkg/services"
 )
 
 type Materia struct {
@@ -79,17 +79,8 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 	if err != nil {
 		return nil, fmt.Errorf("unable to resolve hostname: %w", err)
 	}
-
-	pc := planner.PlannerConfig{
-		BackupVolumes: true,
-	}
-	if c.PlannerConfig != nil {
-		pc = *c.PlannerConfig
-	}
-	ec := executor.ExecutorConfig{}
-	if c.ExecutorConfig != nil {
-		ec = *c.ExecutorConfig
-	}
+	pc := c.PlannerConfig
+	ec := c.ExecutorConfig
 	if c.Rootless {
 		cn, err := os.Hostname()
 		if err != nil {
@@ -107,39 +98,31 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 			}
 		}
 		if materiaContainer != nil {
-			if dataSrc, ok := materiaContainer.BindMounts[DefaultDataDir]; ok {
+			if dataSrc, ok := materiaContainer.BindMounts[dirs.DefaultDataDir]; ok {
 				ec.MateriaDir = dataSrc.Source
 			}
-			if quadSrc, ok := materiaContainer.BindMounts[DefaultQuadletDir]; ok {
+			if quadSrc, ok := materiaContainer.BindMounts[dirs.DefaultQuadletDir]; ok {
 				ec.QuadletDir = quadSrc.Source
 			}
-			if scriptSrc, ok := materiaContainer.BindMounts[DefaultScriptsDir]; ok {
+			if scriptSrc, ok := materiaContainer.BindMounts[dirs.DefaultScriptsDir]; ok {
 				ec.ScriptsDir = scriptSrc.Source
 			}
-			if serviceSrc, ok := materiaContainer.BindMounts[DefaultServiceDir]; ok {
+			if serviceSrc, ok := materiaContainer.BindMounts[dirs.DefaultServiceDir]; ok {
 				ec.ServiceDir = serviceSrc.Source
 			}
 
 		}
 	}
 
-	sc := services.ServicesConfig{}
-	nc := notify.NotifyConfig{}
-	if c.NotifyConfig != nil {
-		nc = *c.NotifyConfig
-	}
-	socketpath := ""
-	if c.ServicesConfig != nil {
-		sc = *c.ServicesConfig
-		socketpath = sc.DbusSocket
+	nc := c.NotifyConfig
+	sc := c.ServicesConfig
 
-	}
 	e := executor.NewExecutor(ec, hm, sc.Timeout)
 	p := planner.NewPlanner(pc, hm)
 	var l Locker
 	switch c.Lock {
 	case "dbus":
-		l, err = lock.NewDbusLocker(socketpath)
+		l, err = lock.NewDbusLocker(sc.DbusSocket)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create dbus locker: %w", err)
 		}
@@ -157,10 +140,7 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 	if err != nil {
 		return nil, err
 	}
-	rollback := false
-	if c.RollbackConfig != nil {
-		rollback = c.RollbackConfig.Kind != ""
-	}
+	rollback := c.RollbackConfig.Kind != ""
 	outdir, err := repository.NewManagedDir(c.OutputDir, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create output dir:%w", err)
