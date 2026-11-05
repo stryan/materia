@@ -28,9 +28,8 @@ func (c RollbackConfig) Validate() error {
 func (c RollbackConfig) String() string {
 	if c.Kind != "" {
 		return fmt.Sprintf("Rollback mode: %v\n", c.Kind)
-	} else {
-		return "Rollback mode: None\n"
 	}
+	return "Rollback mode: None\n"
 }
 
 func DefaultRollbackConfig() RollbackConfig {

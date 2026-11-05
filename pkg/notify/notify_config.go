@@ -2,6 +2,7 @@ package notify
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/knadh/koanf/v2"
@@ -62,6 +63,7 @@ func (c NotifyConfig) String() string {
 	for k := range c.Triggers {
 		keys = append(keys, k)
 	}
+	slices.Sort(keys)
 
 	for _, k := range keys {
 		v := c.Triggers[k]

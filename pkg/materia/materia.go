@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -85,38 +86,32 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		if err != nil {
 			return nil, err
 		}
-		potentials, err := hm.ListContainers(ctx, containers.ContainerListFilter{})
+		all, err := hm.ListContainers(ctx, containers.ContainerListFilter{})
 		if err != nil {
 			return nil, fmt.Errorf("passed rootless but unable to list materia containers: %w", err)
 		}
-		var materiaContainer *containers.Container
-		for _, v := range potentials {
-			if v.Hostname == cn {
-				materiaContainer = v
-				break
-			}
+		if i := slices.IndexFunc(all, func(v *containers.Container) bool {
+			return v.Hostname == cn
+		}); i >= 0 {
+			m := all[i].BindMounts
+			ec.MateriaDir = cmp.Or(ec.MateriaDir, m[c.MateriaDir].Source)
+			ec.QuadletDir = cmp.Or(ec.QuadletDir, m[c.QuadletDir].Source)
+			ec.ScriptsDir = cmp.Or(ec.ScriptsDir, m[c.ScriptsDir].Source)
+			ec.ServiceDir = cmp.Or(ec.ServiceDir, m[c.ServiceDir].Source)
+			ec.OutputDir = cmp.Or(ec.OutputDir, m[c.OutputDir].Source)
+		} else {
+			log.Warn("Rootless mode enabled but no materia contianer found, using provided config or defaults")
 		}
-		if materiaContainer != nil {
-			if dataSrc, ok := materiaContainer.BindMounts[c.MateriaDir]; ok {
-				ec.MateriaDir = dataSrc.Source
-				ec.OutputDir = filepath.Join(dataSrc.Source, "output")
-			}
-			if rel, err := filepath.Rel(c.MateriaDir, c.OutputDir); err == nil && filepath.IsLocal(rel) {
-				ec.OutputDir = filepath.Join(ec.MateriaDir, rel)
-			} else {
-				if outputSrc, ok := materiaContainer.BindMounts[c.OutputDir]; ok {
-					ec.OutputDir = outputSrc.Source
-				}
-			}
-			if quadSrc, ok := materiaContainer.BindMounts[c.QuadletDir]; ok {
-				ec.QuadletDir = quadSrc.Source
-			}
-			if scriptSrc, ok := materiaContainer.BindMounts[c.ScriptsDir]; ok {
-				ec.ScriptsDir = scriptSrc.Source
-			}
-			if serviceSrc, ok := materiaContainer.BindMounts[c.ServiceDir]; ok {
-				ec.ServiceDir = serviceSrc.Source
-			}
+	}
+	// use the already set paths via rootless, or whatevers configured
+	ec.MateriaDir = cmp.Or(ec.MateriaDir, c.MateriaDir)
+	ec.QuadletDir = cmp.Or(ec.QuadletDir, c.QuadletDir)
+	ec.ScriptsDir = cmp.Or(ec.ScriptsDir, c.ScriptsDir)
+	ec.ServiceDir = cmp.Or(ec.ServiceDir, c.ServiceDir)
+	if ec.OutputDir == "" { // follow the final materia dir when output is not already overridden
+		ec.OutputDir = c.OutputDir
+		if rel, err := filepath.Rel(c.MateriaDir, c.OutputDir); err == nil && filepath.IsLocal(rel) {
+			ec.OutputDir = filepath.Join(ec.MateriaDir, rel)
 		}
 	}
 

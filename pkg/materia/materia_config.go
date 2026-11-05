@@ -1,6 +1,7 @@
 package materia
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os/user"
@@ -52,22 +53,26 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.SourceDir = k.String("source_dir")
 	c.Debug = k.Bool("debug")
+	c.UseStdout = k.Bool("use_stdout")
+
 	c.Hostname = k.String("hostname")
 	c.Roles = k.Strings("roles")
 
-	c.Attributes = k.String("attributes")
-	c.UseStdout = k.Bool("use_stdout")
-	c.MateriaDir = k.String("materia_dir")
-	c.QuadletDir = k.String("quadlet_dir")
-	c.ServiceDir = k.String("service_dir")
-	c.ScriptsDir = k.String("scripts_dir")
-	c.OutputDir = k.String("output_dir")
-	c.RemoteDir = k.String("remote_dir")
+	// use user specified paths OR the paths already provided via DefaultConfig
+	c.SourceDir = cmp.Or(k.String("source_dir"), c.SourceDir)
+	c.MateriaDir = cmp.Or(k.String("materia_dir"), c.MateriaDir)
+	c.QuadletDir = cmp.Or(k.String("quadlet_dir"), c.QuadletDir)
+	c.ServiceDir = cmp.Or(k.String("service_dir"), c.ServiceDir)
+	c.ScriptsDir = cmp.Or(k.String("scripts_dir"), c.ScriptsDir)
+	c.OutputDir = cmp.Or(k.String("output_dir"), c.OutputDir)
+	c.RemoteDir = cmp.Or(k.String("remote_dir"), c.RemoteDir)
+
 	c.NoSync = k.Bool("nosync")
 	c.Lock = k.String("lock")
 	c.AppMode = k.Bool("appmode")
+
+	c.Attributes = k.String("attributes")
 	if k.Exists("age") || c.Attributes == "age" {
 		c.AgeConfig, err = age.NewConfig(k)
 		if err != nil {
@@ -111,39 +116,9 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	currentUser, err := user.Current()
-	if err != nil {
-		return nil, err
-	}
-	c.User = currentUser
+
 	c.Rootless = k.Bool("rootless")
 	c.CommandPodman = k.Bool("podman_command")
-	mdirs, err := dirs.DefaultMateriaDirs(currentUser)
-	if err != nil {
-		return nil, err
-	}
-	if c.MateriaDir == "" {
-		c.MateriaDir = mdirs.Data
-	}
-	if c.QuadletDir == "" {
-		c.QuadletDir = mdirs.Quadlets
-	}
-	if c.ServiceDir == "" {
-		c.ServiceDir = mdirs.Services
-	}
-	if c.ScriptsDir == "" {
-		c.ScriptsDir = mdirs.Scripts
-	}
-	if c.SourceDir == "" {
-		c.SourceDir = mdirs.Source
-	}
-	if c.RemoteDir == "" {
-		c.RemoteDir = mdirs.Remote
-	}
-	if c.OutputDir == "" {
-		c.OutputDir = mdirs.Output
-	}
-	c.syncExecutorDirs()
 
 	return c, nil
 }
@@ -181,7 +156,6 @@ func DefaultConfig() (*MateriaConfig, error) {
 		RollbackConfig:   DefaultRollbackConfig(),
 		User:             currentUser,
 	}
-	c.syncExecutorDirs()
 	return c, nil
 }
 
@@ -197,6 +171,15 @@ func (c *MateriaConfig) Validate() error {
 	}
 	if c.SourceDir == "" {
 		return errors.New("need source directory")
+	}
+	if c.MateriaDir == "" {
+		return errors.New("need materia directory")
+	}
+	if c.OutputDir == "" {
+		return errors.New("need output directory")
+	}
+	if c.RemoteDir == "" {
+		return errors.New("need remote directory")
 	}
 	if err := c.PlannerConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid planner config: %w", err)
@@ -234,7 +217,9 @@ func (c *MateriaConfig) String() string {
 
 	result += fmt.Sprintf("Configured Hostname: %v\n", c.Hostname)
 	result += fmt.Sprintf("Configured Roles: %v\n", c.Roles)
-	result += fmt.Sprintf("User: %v\n", c.User.Username)
+	if c.User != nil {
+		result += fmt.Sprintf("User: %v\n", c.User.Username)
+	}
 	result += fmt.Sprintf("Debug mode: %v\n", c.Debug)
 	result += fmt.Sprintf("Use STDOUT: %v\n", c.UseStdout)
 	result += fmt.Sprintf("Sync Source: %v\n", !c.NoSync)
@@ -273,22 +258,4 @@ func (c *MateriaConfig) String() string {
 	}
 
 	return result
-}
-
-func (c *MateriaConfig) syncExecutorDirs() {
-	if c.ExecutorConfig.MateriaDir == "" {
-		c.ExecutorConfig.MateriaDir = c.MateriaDir
-	}
-	if c.ExecutorConfig.QuadletDir == "" {
-		c.ExecutorConfig.QuadletDir = c.QuadletDir
-	}
-	if c.ExecutorConfig.ScriptsDir == "" {
-		c.ExecutorConfig.ScriptsDir = c.ScriptsDir
-	}
-	if c.ExecutorConfig.ServiceDir == "" {
-		c.ExecutorConfig.ServiceDir = c.ServiceDir
-	}
-	if c.ExecutorConfig.OutputDir == "" {
-		c.ExecutorConfig.OutputDir = c.OutputDir
-	}
 }

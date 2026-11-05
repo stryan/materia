@@ -1,7 +1,6 @@
 package executor
 
 import (
-	"errors"
 	"fmt"
 	"os/user"
 
@@ -10,12 +9,13 @@ import (
 )
 
 type ExecutorConfig struct {
-	CleanupComponents bool   `koanf:"cleanup_components"`
-	MateriaDir        string `koanf:"materia_dir"`
-	QuadletDir        string `koanf:"quadlet_dir"`
-	ScriptsDir        string `koanf:"scripts_dir"`
-	ServiceDir        string `koanf:"service_dir"`
-	OutputDir         string `koanf:"output_dir"`
+	CleanupComponents bool `koanf:"cleanup_components"`
+	// Overrides
+	MateriaDir string `koanf:"materia_dir"`
+	QuadletDir string `koanf:"quadlet_dir"`
+	ScriptsDir string `koanf:"scripts_dir"`
+	ServiceDir string `koanf:"service_dir"`
+	OutputDir  string `koanf:"output_dir"`
 }
 
 func (e ExecutorConfig) String() string {
@@ -31,21 +31,6 @@ func NewExecutorConfig(k *koanf.Koanf) (ExecutorConfig, error) {
 }
 
 func (e ExecutorConfig) Validate() error {
-	if e.MateriaDir == "" {
-		return errors.New("no materia directory set")
-	}
-	if e.QuadletDir == "" {
-		return errors.New("no quadlet directory set")
-	}
-	if e.ScriptsDir == "" {
-		return errors.New("no scripts directory set")
-	}
-	if e.ServiceDir == "" {
-		return errors.New("no service directory set")
-	}
-	if e.OutputDir == "" {
-		return errors.New("no output directory set")
-	}
 	return nil
 }
 

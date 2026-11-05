@@ -38,17 +38,16 @@ func DefaultMateriaDirs(u *user.User) (MateriaDirs, error) {
 	sourcePath := DefaultSourceDir
 	outputPath := DefaultOutputDir
 	remotePath := DefaultRemoteDir
-	if u != nil && u.Username != "root" {
+	if u != nil && u.Uid != "0" {
 		home := u.HomeDir
-		var found bool
-		conf, found := os.LookupEnv("XDG_CONFIG_HOME")
-		if !found {
+		conf := os.Getenv("XDG_CONFIG_HOME")
+		if conf == "" {
 			quadletPath = filepath.Join(home, ".config", "containers", "systemd")
 		} else {
 			quadletPath = filepath.Join(conf, "containers", "systemd")
 		}
-		datadir, found := os.LookupEnv("XDG_DATA_HOME")
-		if !found {
+		datadir := os.Getenv("XDG_DATA_HOME")
+		if datadir == "" {
 			dataPath = filepath.Join(home, ".local", "share")
 			servicePath = filepath.Join(home, ".local", "share", "systemd", "user")
 		} else {
