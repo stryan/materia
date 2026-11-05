@@ -123,7 +123,7 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		log.Info("skipping background update since no timer is configured")
 	}
 
-	if conf.PlanInterval != 0 {
+	if conf.PlanInterval > 0 {
 		g.Go(func() error { return serv.backgroundPlan(gctx) })
 	} else {
 		log.Info("skipping background plan since no timer is configured")
@@ -194,9 +194,11 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 // reused between background and foreground sync
 func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
 	aplan, err := commands.RunPlan(ctx, s.materia, nil)
-	serr := s.materia.SavePlan(ctx, aplan)
-	if serr != nil {
-		log.Warnf("unable to save execution plan: %v", serr)
+	if aplan != nil {
+		serr := s.materia.SavePlan(ctx, aplan)
+		if serr != nil {
+			log.Warnf("unable to save execution plan: %v", serr)
+		}
 	}
 	return aplan, err
 }
@@ -233,7 +235,7 @@ func (s *Server) update(ctx context.Context, opts *source.SyncOpts) error {
 }
 
 func (s *Server) backgroundUpdate(ctx context.Context) error {
-	log.Info("executing background update loop")
+	log.Info("executing background update loop", "interval", s.UpdateInterval)
 	ticker := time.NewTicker(time.Duration(s.UpdateInterval) * time.Second)
 	defer ticker.Stop()
 	for {

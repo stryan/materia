@@ -18,6 +18,7 @@ Best effort list of major changes and bugfixes
 - bugfix: Fix `materia.rootless` macro paths by passing executor config directly to macros.
     - this applies to all directory macros like `m_dataDir`, `m_outputDir`, etc.
 - qol: `lastrun.toml` files in the previous saved plan format will be deleted upon facts collection instead of returning an error.
+- feat: `server --show-config` prints out the server exclusive config options before starting the server
 
 ## 0.8.0
 - feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.

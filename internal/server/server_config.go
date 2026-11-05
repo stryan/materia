@@ -50,7 +50,7 @@ func (c ServerConfig) Validate() error {
 }
 
 func NewConfig(k *koanf.Koanf) (*ServerConfig, error) {
-	c, err := DefaultServicesConfig()
+	c, err := DefaultServerConfig()
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate default server config: %w", err)
 	}
@@ -68,7 +68,28 @@ func (c ServerConfig) HasWebhook() bool {
 	return c.FactsEndpoint || c.Health || c.UpdateWebhook
 }
 
-func DefaultServicesConfig() (*ServerConfig, error) {
+func (c ServerConfig) String() string {
+	result := "Server Mode\n"
+	result += fmt.Sprintf("Plan Interval: %v\n", c.PlanInterval)
+	result += fmt.Sprintf("Update Interval: %v\n", c.UpdateInterval)
+	result += fmt.Sprintf("Varlink Socket: %v\n", c.Socket)
+	result += fmt.Sprintf("QuitOnError: %v\n", c.QuitOnError)
+	result += fmt.Sprintf("Update Webhook Enabled: %v\n", c.UpdateWebhook)
+	result += fmt.Sprintf("Update URL: %v\n", c.UpdateUrl)
+	result += fmt.Sprintf("URL: %v\n", c.Url)
+	result += fmt.Sprintf("Update Webhook Enabled: %v\n", c.UpdateWebhook)
+	result += fmt.Sprintf("Health Endpoint Enabled: %v\n", c.Health)
+	result += fmt.Sprintf("Facts Endpoint : %v\n", c.FactsEndpoint)
+	if c.Token != "" {
+		result += "Token: [REDACTED]"
+	}
+	if c.UpdateSecret != "" {
+		result += "Update Secret: [REDACTED]"
+	}
+	return result
+}
+
+func DefaultServerConfig() (*ServerConfig, error) {
 	socket, err := rpc.SocketPath()
 	if err != nil {
 		return nil, err

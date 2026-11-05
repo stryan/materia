@@ -12,9 +12,9 @@ func SocketPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	uid := currentUser.Uid
 	socketDir := ""
-	if currentUser.Name != "root" {
-		uid := currentUser.Uid
+	if uid != "0" {
 		socketDir = filepath.Join("/run/user", uid, "materia")
 	} else {
 		socketDir = filepath.Join("/run/materia")

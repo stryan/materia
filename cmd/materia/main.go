@@ -258,10 +258,24 @@ func main() {
 			{
 				Name:  "server",
 				Usage: "start materia in server mode",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:     "show-config",
+						Usage:    "Show the materia server config instead of running server mode",
+						Required: false,
+					},
+				},
 				Action: func(ctx context.Context, cCtx *cli.Command) error {
 					k, err := config.Load(configFile, cliflags)
 					if err != nil {
 						return err
+					}
+					if cCtx.Bool("show-config") {
+						conf, err := server.NewConfig(k)
+						if err != nil {
+							return err
+						}
+						fmt.Println(conf)
 					}
 					return server.RunServer(ctx, k, Version)
 				},
