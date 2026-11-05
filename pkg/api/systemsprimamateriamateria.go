@@ -51,14 +51,14 @@ func (e PlanFailed) Error() string {
 	return s
 }
 
-type ExecutionFailed struct {
+type UpdateFailed struct {
 	Message        string `json:"message"`
 	StepsCompleted int64  `json:"stepsCompleted"`
 	TotalSteps     int64  `json:"totalSteps"`
 }
 
-func (e ExecutionFailed) Error() string {
-	s := "systems.primamateria.materia.ExecutionFailed"
+func (e UpdateFailed) Error() string {
+	s := "systems.primamateria.materia.UpdateFailed"
 	s += fmt.Sprintf("(Message: %v, StepsCompleted: %v, TotalSteps: %v)", e.Message, e.StepsCompleted, e.TotalSteps)
 	return s
 }
@@ -110,12 +110,12 @@ func Dispatch_Error(err error) error {
 				return e
 			}
 			return &param
-		case "systems.primamateria.materia.ExecutionFailed":
+		case "systems.primamateria.materia.UpdateFailed":
 			errorRawParameters := e.Parameters.(*json.RawMessage)
 			if errorRawParameters == nil {
 				return e
 			}
-			var param ExecutionFailed
+			var param UpdateFailed
 			err := json.Unmarshal(*errorRawParameters, &param)
 			if err != nil {
 				return e
@@ -389,12 +389,12 @@ func (c *VarlinkCall) ReplyPlanFailed(ctx context.Context, message_ string) erro
 	return c.ReplyError(ctx, "systems.primamateria.materia.PlanFailed", &out)
 }
 
-func (c *VarlinkCall) ReplyExecutionFailed(ctx context.Context, message_ string, stepsCompleted_ int64, totalSteps_ int64) error {
-	var out ExecutionFailed
+func (c *VarlinkCall) ReplyUpdateFailed(ctx context.Context, message_ string, stepsCompleted_ int64, totalSteps_ int64) error {
+	var out UpdateFailed
 	out.Message = message_
 	out.StepsCompleted = stepsCompleted_
 	out.TotalSteps = totalSteps_
-	return c.ReplyError(ctx, "systems.primamateria.materia.ExecutionFailed", &out)
+	return c.ReplyError(ctx, "systems.primamateria.materia.UpdateFailed", &out)
 }
 
 // Generated reply methods for all varlink methods
@@ -518,7 +518,7 @@ method Update() -> (steps: int)
 
 error SyncFailed(message: string)
 error PlanFailed(message: string)
-error ExecutionFailed(message: string, stepsCompleted: int, totalSteps: int)
+error UpdateFailed(message: string, stepsCompleted: int, totalSteps: int)
 `
 }
 

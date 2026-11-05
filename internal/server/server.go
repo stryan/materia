@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,7 +15,7 @@ import (
 	"github.com/knadh/koanf/v2"
 	"golang.org/x/sync/errgroup"
 	"primamateria.systems/materia/internal/commands"
-	"primamateria.systems/materia/internal/rpc"
+	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/materia"
 	"primamateria.systems/materia/pkg/notify"
 	"primamateria.systems/materia/pkg/plan"
@@ -29,34 +28,23 @@ type Server struct {
 	Socket                       string
 	UpdateInterval, PlanInterval int
 	QuitOnError                  bool
-	materia                      *materia.Materia
 	cancel                       context.CancelCauseFunc
 	mu                           sync.Mutex
+	materiaBuilder               func() (*materia.Materia, error)
+	hostname                     string // TODO remove
+	notifier                     *notify.Notifier
 }
 
-func serverMateria(ctx context.Context, k *koanf.Koanf, sc *ServerConfig) (*materia.Materia, error) {
-	c, err := materia.NewConfig(k)
+func getHostname(ctx context.Context, m *materia.Materia) (string, error) {
+	f, err := facts.Collect(ctx, m.Collectors...)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing config: %w", err)
+		return "", err
 	}
-	materia.SetupLogger(c)
-
-	if sc.NotifyWebhook != "" {
-		c.NotifyConfig = notify.NotifyConfig{
-			Triggers: map[string]string{notify.NotifyUpdate: sc.NotifyWebhook},
-		}
-	}
-
-	if err := c.Validate(); err != nil {
-		return nil, fmt.Errorf("error validating config: %w", err)
-	}
-
-	src, err := commands.BuildSource(k)
+	mf, err := materia.ToMateriaFacts(f)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	return materia.NewFromConfig(ctx, c, src)
+	return mf.Hostname, nil
 }
 
 func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
@@ -70,22 +58,34 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	if err := conf.Validate(); err != nil {
 		return err
 	}
-	if conf.NotifyWebhook != "" {
-		log.Warn("Server notifications config is deprecated, use the new [notify] config")
-		log.Infof("starting up with notify webhook %v", conf.NotifyWebhook)
-	}
-
-	m, err := serverMateria(ctx, k, conf)
+	nc, err := notify.NewConfig(k)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := m.Close(); err != nil {
-			log.Warnf("error closing materia server: %v", err)
+	if conf.NotifyWebhook != "" {
+		log.Warn("Server notifications config is deprecated, use the new [notify] config")
+		log.Infof("starting up with notify webhook %v", conf.NotifyWebhook)
+		nc = notify.NotifyConfig{
+			Triggers: map[string]string{notify.NotifyUpdate: conf.NotifyWebhook},
 		}
-	}()
+	}
+	notifier, err := notify.NewNotifier(nc)
+	if err != nil {
+		return err
+	}
 
-	log.Info("Materia instance created")
+	hostname, err := func() (string, error) {
+		m, err := serverMateria(ctx, k, conf)
+		if err != nil {
+			return "", err
+		}
+		defer func() { _ = m.Close() }()
+		return getHostname(ctx, m)
+	}()
+	if err != nil {
+		return err
+	}
+
 	serv := &Server{
 		syncSecret:     conf.UpdateSecret,
 		Socket:         conf.Socket,
@@ -94,13 +94,17 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		QuitOnError:    conf.QuitOnError,
 		token:          conf.Token,
 		cancel:         serverClose,
-		materia:        m,
+		materiaBuilder: func() (*materia.Materia, error) {
+			return serverMateria(ctx, k, conf)
+		},
+		notifier: notifier,
+		hostname: hostname,
 	}
 	spath := serv.Socket
 	if spath == "" {
 		return errors.New("no socket provided, unable to generate one")
 	}
-	vserv, err := rpc.NewVarlinkServer(ctx, m, version)
+	vserv, err := NewVarlinkServer(ctx, serv, version)
 	if err != nil {
 		return err
 	}
@@ -191,11 +195,10 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 	return gerr
 }
 
-// reused between background and foreground sync
-func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
-	aplan, err := commands.RunPlan(ctx, s.materia, nil)
+func (s *Server) plan(ctx context.Context, m *materia.Materia) (*plan.Plan, error) {
+	aplan, err := commands.RunPlan(ctx, m, nil)
 	if aplan != nil {
-		serr := s.materia.SavePlan(ctx, aplan)
+		serr := m.SavePlan(ctx, aplan)
 		if serr != nil {
 			log.Warnf("unable to save execution plan: %v", serr)
 		}
@@ -203,35 +206,33 @@ func (s *Server) plan(ctx context.Context) (*plan.Plan, error) {
 	return aplan, err
 }
 
-func (s *Server) update(ctx context.Context, opts *source.SyncOpts) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	err := s.materia.Source.Sync(ctx, opts)
-	if err != nil {
-		return fmt.Errorf("unable to sync sources: %w", err)
-	}
-	plan, err := s.plan(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to generate plan: %w", err)
-	}
-
-	// last chance to bail cleanly
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	finalPlan, rep, err := commands.RunExecute(context.WithoutCancel(ctx), s.materia, plan)
-	if err != nil {
-		return fmt.Errorf("unable to execute, %v/%v steps completed: %w", rep.StepsCompleted, rep.TotalSteps, err)
-	}
-	if rep.StepsCompleted == -1 {
-		log.Info("Update ran; no changes made")
-	} else if finalPlan != plan {
-		log.Info("Update ran but rolled back. Steps completed: %v/%v", rep.StepsCompleted, rep.TotalSteps)
-	} else {
-		log.Infof("Update ran; Steps completed: %v/%v", rep.StepsCompleted, rep.TotalSteps)
-	}
-	return nil
+// reused between background and foreground sync
+func (s *Server) update(ctx context.Context, opts *source.SyncOpts) (steps, total int64, err error) {
+	err = s.runner(func(m *materia.Materia) error {
+		if err := m.Source.Sync(ctx, opts); err != nil {
+			return fmt.Errorf("unable to sync sources: %w", err)
+		}
+		plan, err := s.plan(ctx, m)
+		if err != nil {
+			return fmt.Errorf("unable to generate plan: %w", err)
+		}
+		// last chance to bail cleanly
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		finalPlan, rep, err := commands.RunExecute(context.WithoutCancel(ctx), m, plan)
+		steps, total = int64(max(rep.StepsCompleted, 0)), int64(rep.TotalSteps)
+		switch {
+		case err != nil:
+			return fmt.Errorf("unable to execute, %v/%v steps completed: %w", steps, total, err)
+		case finalPlan != plan:
+			return fmt.Errorf("update rolled back, %v/%v steps completed", steps, total)
+		case steps == 0:
+			log.Info("Update ran; no changes made")
+		}
+		return nil
+	})
+	return
 }
 
 func (s *Server) backgroundUpdate(ctx context.Context) error {
@@ -243,8 +244,10 @@ func (s *Server) backgroundUpdate(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			err := s.update(ctx, nil)
+			log.Info("Running background update")
+			_, _, err := s.update(ctx, nil)
 			if err != nil {
+				log.Warnf("background update failed: %v", err)
 				if nerr := s.notifyOnFailure(ctx, "failed to update", err); nerr != nil {
 					return nerr
 				}
@@ -262,79 +265,28 @@ func (s *Server) backgroundPlan(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			plan, cerr := func() (*plan.Plan, error) {
-				s.mu.Lock()
-				defer s.mu.Unlock()
-				return s.plan(ctx)
-			}()
+			log.Info("Running background plan")
+			cerr := s.runner(func(m *materia.Materia) error {
+				plan, err := s.plan(ctx, m)
+				if err != nil {
+					return err
+				}
+				log.Infof("Plan generated successfully: %v changes", plan.Size())
+				return nil
+			})
 			if cerr != nil {
+				log.Warnf("plan generation failed: %v", cerr)
 				if nerr := s.notifyOnFailure(ctx, "failed to generate plan", cerr); nerr != nil {
 					return nerr
 				}
-				break
 			}
-			log.Infof("Plan generated successfully: %v changes", plan.Size())
 		}
 	}
 }
 
 func (s *Server) notify(ctx context.Context, msg string) error {
-	payload := fmt.Sprintf("%v: %v", s.materia.Hostname, msg)
-	return s.materia.Notifier.Notify(ctx, notify.NotifyDefault, payload)
-}
-
-type UpdatePayload struct {
-	Revision string
-	Update   bool
-	Secret   string
-}
-
-func (s *Server) updateHookHandler(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
-			return
-		}
-
-		var payload UpdatePayload
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, "invalid payload json", http.StatusBadRequest)
-			return
-		}
-		opts := &source.SyncOpts{
-			Revision: payload.Revision,
-		}
-		w.WriteHeader(http.StatusAccepted)
-		go func() {
-			err := s.update(ctx, opts)
-			if err != nil {
-				if nerr := s.notifyOnFailure(ctx, "update failed", err); nerr != nil {
-					s.cancel(nerr)
-					return
-				}
-			}
-		}()
-	}
-}
-
-func (s *Server) factsHookHandler(ctx context.Context) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
-			return
-		}
-		facts, err := commands.RunFacts(ctx, s.materia)
-		if err != nil {
-			http.Error(w, "unable to generate facts", http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-
-		if err := json.NewEncoder(w).Encode(facts); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
+	payload := fmt.Sprintf("%v: %v", s.hostname, msg)
+	return s.notifier.Notify(ctx, notify.NotifyDefault, payload)
 }
 
 func (s *Server) notifyOnFailure(ctx context.Context, what string, err error) error {
@@ -350,23 +302,4 @@ func (s *Server) notifyOnFailure(ctx context.Context, what string, err error) er
 		return err
 	}
 	return nil
-}
-
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-
-	response := map[string]any{
-		"health":    "ok",
-		"timestamp": time.Now().Format(time.RFC3339),
-	}
-
-	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Warnf("health check error: %v", err)
-	}
 }

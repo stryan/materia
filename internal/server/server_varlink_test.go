@@ -1,4 +1,4 @@
-package rpc
+package server
 
 import (
 	"context"
@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"primamateria.systems/materia/internal/rpc"
 )
 
 func Test_NewVarlinkServer_BindsSocket(t *testing.T) {
 	ctx := context.Background()
-	addr, err := SocketPath()
+	addr, err := rpc.SocketPath()
 	require.NoError(t, err)
 
 	serv, err := NewVarlinkServer(ctx, nil, "test")

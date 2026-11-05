@@ -19,4 +19,4 @@ method Update() -> (steps: int)
 
 error SyncFailed(message: string)
 error PlanFailed(message: string)
-error ExecutionFailed(message: string, stepsCompleted: int, totalSteps: int)
+error UpdateFailed(message: string, stepsCompleted: int, totalSteps: int)

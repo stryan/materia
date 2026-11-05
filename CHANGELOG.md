@@ -19,6 +19,10 @@ Best effort list of major changes and bugfixes
     - this applies to all directory macros like `m_dataDir`, `m_outputDir`, etc.
 - qol: `lastrun.toml` files in the previous saved plan format will be deleted upon facts collection instead of returning an error.
 - feat: `server --show-config` prints out the server exclusive config options before starting the server
+- feat: many server mode improvements
+    - More logging at runtime
+    - Server mode uses a fresh Materia instance for each plan/update/varlink_call so stale vault info isn't cached
+    - cleaner varlink api
 
 ## 0.8.0
 - feat: most materia packages are now public. This will be stabilized and documented better in 0.8 or 0.9.
