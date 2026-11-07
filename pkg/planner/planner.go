@@ -666,6 +666,10 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 		if updatedServiceActions, ok := triggers[d.Target.Path]; ok {
 			for _, v := range updatedServiceActions {
 				live, err := mgr.GetService(ctx, v.Target.Service())
+				if errors.Is(err, services.ErrServiceNotFound) {
+					log.Warnf("service %v has triggers but does not exist, ignoring", v.Target.Service())
+					continue
+				}
 				if err != nil {
 					return nil, err
 				}

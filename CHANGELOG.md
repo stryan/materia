@@ -13,6 +13,7 @@ Best effort list of major changes and bugfixes
     - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
+- bugfix: non-existent services no longer fail triggers
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize
