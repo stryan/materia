@@ -13,6 +13,8 @@ Best effort list of major changes and bugfixes
     - `interface`: replaced with `host.interfaces`
 
 ## Upcoming
+
+## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize
     - This is to help cover situations where a service starts -> fails -> restarts via systemd -> stabilizes
 - bugfix: Fix `materia.rootless` macro paths by passing executor config directly to macros.
