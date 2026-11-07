@@ -14,6 +14,7 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 - bugfix: non-existent services no longer fail triggers
+- bugfix: fix static services stalling service check
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize

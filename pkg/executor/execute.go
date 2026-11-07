@@ -95,7 +95,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		default:
 			return steps, fmt.Errorf("unknown service action state: %v", v)
 		}
-		if finalState != "" {
+		if finalState != services.StateUnknown {
 			expectedServices[serv.Name] = finalState
 			serviceDiffs = append(serviceDiffs, serviceComparison{
 				service:  serv.Name,
