@@ -44,7 +44,7 @@ func NewFromConfig(ctx context.Context, c *MateriaConfig, src source.Source) (*M
 		ServicesCfg:   c.ServicesConfig,
 	}
 	smc := &sourceman.SourceManConfig{
-		SourceDir: c.SourceDir,
+		SourceDir: filepath.Join(c.SourceDir, c.SourceSubpath),
 		RemoteDir: c.RemoteDir,
 	}
 
@@ -78,8 +78,9 @@ func NewFromConfig(ctx context.Context, c *MateriaConfig, src source.Source) (*M
 
 func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 	var vaults []AttributesEngine
+	sourcePath := filepath.Join(c.SourceDir, c.SourceSubpath)
 	if c.AgeConfig != nil {
-		vault, err := age.NewAgeStore(*c.AgeConfig, c.SourceDir)
+		vault, err := age.NewAgeStore(*c.AgeConfig, sourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("error creating age store: %w", err)
 		}
@@ -89,7 +90,7 @@ func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 		vaults = append(vaults, vault)
 	}
 	if c.FileConfig != nil {
-		vault, err := fileattrs.NewFileStore(*c.FileConfig, c.SourceDir)
+		vault, err := fileattrs.NewFileStore(*c.FileConfig, sourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("error creating file store: %w", err)
 		}
@@ -100,7 +101,7 @@ func setupVault(c *MateriaConfig) (AttributesEngine, error) {
 		vaults = append(vaults, vault)
 	}
 	if c.SopsConfig != nil {
-		vault, err := sops.NewSopsStore(*c.SopsConfig, c.SourceDir)
+		vault, err := sops.NewSopsStore(*c.SopsConfig, sourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("error creating sops store: %w", err)
 		}
@@ -128,15 +129,15 @@ func SetupLogger(c *MateriaConfig) {
 }
 
 func SetupDirectories(c *MateriaConfig) error {
-	err := os.Mkdir(c.MateriaDir, 0o755)
+	err := os.MkdirAll(c.MateriaDir, 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating prefix: %w", err)
 	}
-	err = os.Mkdir(c.OutputDir, 0o755)
+	err = os.MkdirAll(c.OutputDir, 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating output dir: %w", err)
 	}
-	err = os.Mkdir(c.SourceDir, 0o755)
+	err = os.MkdirAll(c.SourceDir, 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating source repo: %w", err)
 	}
@@ -144,7 +145,7 @@ func SetupDirectories(c *MateriaConfig) error {
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating source repo: %w", err)
 	}
-	err = os.Mkdir(filepath.Join(c.MateriaDir, "components"), 0o755)
+	err = os.MkdirAll(filepath.Join(c.MateriaDir, "components"), 0o755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return fmt.Errorf("error creating components in prefix: %w", err)
 	}

@@ -70,6 +70,10 @@ Use these assigned roles instead of what's in the `materia-manifest(5)`
 
 Do not sync source repository before running operations.
 
+#### `MATERIA_SOURCE_SUBPATH`/**source_subpath**
+
+Look for the materia repository in this subpath of the configured source repository
+
 #### `MATERIA_MATERIA_DIR`/**materia_dir**
 
 Root directory for materia directories. Defaults to `/var/lib/materia` for root and `XDG_DATA_HOME/materia` for nonroot.

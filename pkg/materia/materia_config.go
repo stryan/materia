@@ -31,6 +31,7 @@ type MateriaConfig struct {
 	OutputDir        string                      `toml:"output_dir"`
 	RemoteDir        string                      `toml:"remote_dir"`
 	NoSync           bool                        `toml:"nosync"`
+	SourceSubpath    string                      `toml:"source_subpath"`
 	Lock             string                      `toml:"lock"`
 	AppMode          bool                        `toml:"appmode"`
 	Rootless         bool                        `toml:"rootless"`
@@ -69,6 +70,7 @@ func NewConfig(k *koanf.Koanf) (*MateriaConfig, error) {
 	c.RemoteDir = cmp.Or(k.String("remote_dir"), c.RemoteDir)
 
 	c.NoSync = k.Bool("nosync")
+	c.SourceSubpath = k.String("source_subpath")
 	c.Lock = k.String("lock")
 	c.AppMode = k.Bool("appmode")
 

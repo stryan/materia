@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -137,6 +138,7 @@ func (s *SourceManager) AddSource(newSource source.Source, opts *source.SyncOpts
 }
 
 func (s *SourceManager) LoadManifest(filename string) (*manifests.MateriaManifest, error) {
+	fmt.Fprintf(os.Stderr, "FBLTHP[63]: sourceman.go:140: s.sourceDir=%+v\n", s.sourceDir)
 	manifestLocation := filepath.Join(s.sourceDir, filename)
 	man, err := manifests.LoadMateriaManifest(manifestLocation)
 	if err != nil {
