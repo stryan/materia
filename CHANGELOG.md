@@ -11,12 +11,18 @@ Best effort list of major changes and bugfixes
 - The following facts are deprecated:
     - `hostname`: replaced with `host.hostname`
     - `interface`: replaced with `host.interfaces`
+- The follow `[[Services]]` settings are deprecated:
+  - `Static=true|false` -> use `Type = "unit"`
+  - `Stopped=true|false` -> use `State = "lazy"` or `State = "inert"`. The former allows materia to still trigger the service. The latter blocks materia from touching it at all.
 
 ## Upcoming
 - bugfix: non-existent services no longer fail triggers
 - bugfix: fix static services stalling service check
 - feat: `source_subpath` setting for materia repositories in sub directories of the source repo.
     - i.e. Your materia repository no longer needs to be at the root of your Git or OCI source repository. All other ordering such as the MANIFEST.toml being at the root remains
+- feat: Services config rework
+- feat: `executor.verbose` to output each step as materia runs it
+- feat: more runtime logging
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize

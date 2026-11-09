@@ -216,6 +216,14 @@ func (s *Server) update(ctx context.Context, opts *source.SyncOpts) (steps, tota
 		if err != nil {
 			return fmt.Errorf("unable to generate plan: %w", err)
 		}
+		if plan.Empty() {
+			log.Info("Update skipped; no changes planned.")
+			return nil
+		}
+		log.Info("Executing the following plan: %v")
+		for _, step := range plan.PrettyLines() {
+			log.Info(step)
+		}
 		// last chance to bail cleanly
 		if err := ctx.Err(); err != nil {
 			return err
@@ -227,8 +235,8 @@ func (s *Server) update(ctx context.Context, opts *source.SyncOpts) (steps, tota
 			return fmt.Errorf("unable to execute, %v/%v steps completed: %w", steps, total, err)
 		case finalPlan != plan:
 			return fmt.Errorf("update rolled back, %v/%v steps completed", steps, total)
-		case steps == 0:
-			log.Info("Update ran; no changes made")
+		default:
+			log.Info("Update executed: %v/%v steps completed", steps, total)
 		}
 		return nil
 	})

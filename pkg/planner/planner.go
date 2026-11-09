@@ -18,6 +18,8 @@ import (
 	"primamateria.systems/materia/pkg/services"
 )
 
+var DefaultServiceActionTimeout = 60
+
 type HostStateManager interface {
 	ListVolumes(context.Context) ([]*containers.Volume, error)
 	GetNetwork(context.Context, string) (*containers.Network, error)
@@ -37,10 +39,6 @@ func NewPlanner(conf PlannerConfig, host HostStateManager) *Planner {
 }
 
 func (p *Planner) Plan(ctx context.Context, installedComponents, assignedComponents []*components.Component) (*plan.Plan, error) {
-	installedCompNames := make([]string, 0, len(installedComponents))
-	for _, c := range installedComponents {
-		installedCompNames = append(installedCompNames, c.Name)
-	}
 	actionPlan := plan.NewPlan()
 	componentGraph, err := BuildComponentGraph(ctx, installedComponents, assignedComponents)
 	if err != nil {
@@ -84,10 +82,7 @@ func (p *Planner) Plan(ctx context.Context, installedComponents, assignedCompone
 			}
 		}
 	}
-	planValidationPipeline := plan.NewDefaultValidationPipeline(installedCompNames)
-	if err := planValidationPipeline.Validate(actionPlan); err != nil {
-		return nil, fmt.Errorf("generated invalid plan: %w", err)
-	}
+	log.Debug("generated plan")
 	return actionPlan, nil
 }
 
@@ -241,7 +236,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if err != nil {
 		return nil, fmt.Errorf("can't generate component service triggers for %v: %w", currentTree.Name, err)
 	}
-	triggeredUpdates, err := processTriggeredUpdates(ctx, p.Host, currentTree.Source, triggeredActions, resourceActions)
+	triggeredUpdates, err := processTriggeredUpdates(ctx, p.Host, triggeredActions, resourceActions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to trigger services updates based off changed resources for %v: %w", currentTree.Name, err)
 	}
@@ -522,16 +517,16 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 	}
 	// volume resource has been updated and volume migration has been enabled, add extra actions
 	stoppedServiceActions := []actions.Action{}
-	for _, s := range parent.ServiceConfigs.List() {
+	for _, sm := range parent.ServiceManifests.List() {
 		// stop all services so that we're safe to dump
-		currentServ, err := getLiveService(ctx, mgr, parent, s)
+		currentServ, err := getLiveServiceFromManifest(ctx, mgr, sm)
 		if err != nil {
-			return diffActions, fmt.Errorf("can't get service %v when generating volume migration: %w", s.Service, err)
+			return diffActions, fmt.Errorf("can't get service %v when generating volume migration: %w", sm.Service, err)
 		}
 		if !currentServ.Started() {
 			continue
 		}
-		stopAction, err := getServiceAction(s, parent, actions.ActionStop)
+		stopAction, err := getServiceManifestAction(sm, parent, actions.ActionStop)
 		if err != nil {
 			return diffActions, err
 		}
@@ -583,27 +578,11 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 	return diffActions, nil
 }
 
-func serviceActionWithMetadata(parent *components.Component, targetSrc components.Resource, s manifests.ServiceResourceConfig, a actions.ActionType) actions.Action {
-	act := actions.Action{
-		Todo:   a,
-		Parent: parent,
-		Target: targetSrc,
-	}
-	if s.Timeout != 0 {
-		act = act.With(actions.WithServiceTimeout(s.Timeout))
-	}
-	if s.Oneshot {
-		endState := string(services.StateInternalWildcard)
-		act = act.With(actions.WithServiceUntilState(endState))
-	}
-	return act
-}
-
-func getLiveService(ctx context.Context, mgr HostStateManager, parent *components.Component, src manifests.ServiceResourceConfig) (*services.Service, error) {
-	if src.Service == "" {
+func getLiveServiceFromManifest(ctx context.Context, mgr HostStateManager, sm manifests.ServiceManifest) (*services.Service, error) {
+	if sm.Service == "" {
 		return nil, errors.New("tried to get empty live service")
 	}
-	name := services.PathToService(src.Service)
+	name := services.PathToService(sm.Service)
 	liveService, err := mgr.GetService(ctx, name)
 	if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
 		return nil, err
@@ -619,16 +598,19 @@ func getLiveService(ctx context.Context, mgr HostStateManager, parent *component
 
 func generateComponentServiceTriggers(newComponent *components.Component) (map[string][]actions.Action, error) {
 	triggeredActions := make(map[string][]actions.Action)
-	for _, src := range newComponent.ServiceConfigs.List() {
-		for _, trigger := range src.RestartedBy {
-			triggerAction, err := getServiceAction(src, newComponent, actions.ActionRestart)
+	for _, sm := range newComponent.ServiceManifests.List() {
+		if !sm.CanTrigger() {
+			continue
+		}
+		for _, trigger := range sm.RestartedBy {
+			triggerAction, err := getServiceManifestAction(sm, newComponent, actions.ActionRestart)
 			if err != nil {
 				return nil, err
 			}
 			triggeredActions[trigger] = append(triggeredActions[trigger], triggerAction)
 		}
-		for _, trigger := range src.ReloadedBy {
-			triggerAction, err := getServiceAction(src, newComponent, actions.ActionReload)
+		for _, trigger := range sm.ReloadedBy {
+			triggerAction, err := getServiceManifestAction(sm, newComponent, actions.ActionReload)
 			if err != nil {
 				return nil, err
 			}
@@ -648,6 +630,9 @@ func generateComponentServiceTriggers(newComponent *components.Component) (map[s
 			if err != nil {
 				return nil, err
 			}
+			if sm, err := newComponent.ServiceManifests.Get(res.Service()); err == nil {
+				resAct = applyServiceManifestAction(resAct, sm)
+			}
 			triggeredActions[res.Path] = append(triggeredActions[res.Path], resAct)
 		}
 	}
@@ -655,7 +640,12 @@ func generateComponentServiceTriggers(newComponent *components.Component) (map[s
 	return triggeredActions, nil
 }
 
-func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *components.Component, triggers map[string][]actions.Action, resourceActions []actions.Action) ([]actions.Action, error) {
+func isOneshotAction(a actions.Action) bool {
+	endState, ok := a.GetServiceUntilState()
+	return ok && endState == string(services.StateInternalWildcard)
+}
+
+func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, triggers map[string][]actions.Action, resourceActions []actions.Action) ([]actions.Action, error) {
 	var result []actions.Action
 
 	for _, d := range resourceActions {
@@ -673,7 +663,7 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 				if err != nil {
 					return nil, err
 				}
-				if live.State == services.StateActive {
+				if live.State == services.StateActive || isOneshotAction(v) {
 					result = append(result, v)
 				}
 			}
@@ -682,18 +672,31 @@ func processTriggeredUpdates(ctx context.Context, mgr HostStateManager, comp *co
 	return result, nil
 }
 
-func getServiceAction(src manifests.ServiceResourceConfig, parent *components.Component, a actions.ActionType) (actions.Action, error) {
-	res, err := parent.Resources.Get(src.Service)
+func getServiceManifestAction(sm manifests.ServiceManifest, parent *components.Component, a actions.ActionType) (actions.Action, error) {
+	var act actions.Action
+	res, err := parent.Resources.Get(sm.Service)
 	if err != nil {
-		// No resource for component, treat it like an arbitary systemd unit
-		res = components.Resource{
-			Parent: parent.Name,
-			Path:   src.Service,
-			Kind:   components.ResourceTypeService,
+		// No resource for component, treat it like an arbitrary systemd unit
+		act = actions.Action{
+			Todo:   a,
+			Parent: parent,
+			Target: components.Resource{Parent: parent.Name, Path: sm.Service, Kind: components.ResourceTypeService},
 		}
-		return serviceActionWithMetadata(parent, res, src, a), nil
+	} else if act, err = resourceActionWithMetadata(res, parent, a); err != nil {
+		return actions.Action{}, err
 	}
-	return resourceActionWithMetadata(res, parent, a)
+	return applyServiceManifestAction(act, sm), nil
+}
+
+func applyServiceManifestAction(act actions.Action, sm manifests.ServiceManifest) actions.Action {
+	_, hasTimeout := act.GetServiceTimeout()
+	if sm.Timeout != 0 && !hasTimeout {
+		act = act.With(actions.WithServiceTimeout(sm.Timeout))
+	}
+	if sm.IsOneshot() {
+		act = act.With(actions.WithServiceUntilState(string(services.StateInternalWildcard)))
+	}
+	return act
 }
 
 func resourceActionWithMetadata(res components.Resource, parent *components.Component, a actions.ActionType) (actions.Action, error) {
@@ -716,15 +719,16 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 
 	if res.Kind == components.ResourceTypePod {
 		// TODO figure out how to calculate timeout for pod
-		timeout := 60000 // 10 minutes
+
+		timeout := getResTimeout(parent, res)
+		if timeout == DefaultServiceActionTimeout {
+			timeout = 60000 // 10 minutes
+		}
 		return actions.Action{
 			Todo:   a,
 			Parent: parent,
 			Target: parent.InstantiateResource(res),
-			Metadata: &actions.ActionMetadata{
-				ServiceTimeout: &timeout,
-			},
-		}, nil
+		}.With(actions.WithServiceTimeout(timeout)), nil
 	}
 	unitfile := parser.NewUnitFile()
 	err := unitfile.Parse(res.Content)
@@ -736,41 +740,37 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		return actions.Action{}, fmt.Errorf("invalid container quadlet: %v", res)
 	}
 	if strings.HasSuffix(imageName, ".image") || strings.HasSuffix(imageName, ".build") {
-		timeout := 60
-		src, err := parent.ServiceConfigs.Get(imageName)
-		if errors.Is(err, components.ErrServiceConfigNotFound) {
-			// no custom timeout defined
-			return actions.Action{
-				Todo:   a,
-				Parent: parent,
-				Target: parent.InstantiateResource(res),
-				Metadata: &actions.ActionMetadata{
-					ServiceTimeout: &timeout,
-				},
-			}, nil
-		} else if err != nil {
+		timeout := getResTimeout(parent, res)
+		sm, err := parent.ServiceManifests.Get(imageName)
+		if err != nil && !errors.Is(err, components.ErrServiceManifestNotFound) {
 			return actions.Action{}, fmt.Errorf("can't get service config for resource %v: %w", imageName, err)
 		}
-		timeout = src.Timeout + timeout
-		metadata := &actions.ActionMetadata{}
-		metadata.ServiceTimeout = &timeout
-		if src.Oneshot {
-			endState := services.StateInternalWildcard
-			endStr := string(endState)
-			metadata.ServiceUntilState = &endStr
+		if err == nil {
+			timeout += sm.Timeout
 		}
 		return actions.Action{
-			Todo:     a,
-			Parent:   parent,
-			Target:   parent.InstantiateResource(res),
-			Metadata: metadata,
-		}, nil
+			Todo:   a,
+			Parent: parent,
+			Target: parent.InstantiateResource(res),
+		}.With(actions.WithServiceTimeout(timeout)), nil
 	}
 	return actions.Action{
 		Todo:   a,
 		Parent: parent,
 		Target: parent.InstantiateResource(res),
 	}, nil
+}
+
+func getServiceManifest(parent *components.Component, res components.Resource) (manifests.ServiceManifest, bool) {
+	sm, err := parent.ServiceManifests.Get(parent.Instantiate(res.Path))
+	return sm, err == nil
+}
+
+func getResTimeout(parent *components.Component, res components.Resource) int {
+	if sm, ok := getServiceManifest(parent, res); ok && sm.Timeout != 0 {
+		return sm.Timeout
+	}
+	return DefaultServiceActionTimeout
 }
 
 func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp, newComp *components.Component) ([]actions.Action, error) {
@@ -879,6 +879,12 @@ func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, h
 	// no longer tracked services get stopped
 	untrackedServices := currentServices.Difference(assignedServices)
 	for _, v := range untrackedServices.List() {
+		if source != nil {
+			if sm, err := source.ServiceManifests.Get(v.Name); err == nil && sm.State == manifests.ServiceStateInert {
+				// don't services that are now inert, just leave em be
+				continue
+			}
+		}
 		live, err := hostServices.Get(v.Name)
 		if errors.Is(err, services.ErrServiceNotFound) {
 			// untracked service no longer exists, nothing to do
@@ -891,12 +897,12 @@ func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, h
 			continue
 		}
 		// add stop service
-		src, err := host.ServiceConfigs.Get(v.Name)
+		sm, err := host.ServiceManifests.Get(v.Name)
 		if err != nil {
 			return nil, err
 		}
 		for _, t := range serviceStateHelper(services.Service{}, live) {
-			act, err := getServiceAction(src, host, t)
+			act, err := getServiceManifestAction(sm, host, t)
 			if err != nil {
 				return nil, err
 			}
@@ -910,13 +916,13 @@ func GenerateServiceActions(ctx context.Context, mgr HostStateManager, source, h
 		if err != nil && !errors.Is(err, services.ErrServiceNotFound) {
 			return nil, err
 		}
-		src, err := source.ServiceConfigs.Get(v.Name)
+		sm, err := source.ServiceManifests.Get(v.Name)
 		if err != nil {
 			return nil, err
 		}
 
 		for _, t := range serviceStateHelper(v, live) {
-			install, err := getServiceAction(src, source, t)
+			install, err := getServiceManifestAction(sm, source, t)
 			if err != nil {
 				return nil, err
 			}

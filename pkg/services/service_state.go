@@ -27,6 +27,7 @@ var serviceStateMap = map[string]ServiceState{
 	"deactivating": StateDeactivating,
 	"maintenance":  StateMaintenance,
 	"refreshing":   StateRefreshing,
+	"wildcard":     StateInternalWildcard,
 }
 
 func NewServiceState(name string) ServiceState {
@@ -56,7 +57,7 @@ const (
 	EnableStateBad            ServiceEnableState = "bad"
 	EnableStateNotFound       ServiceEnableState = "not-found"
 
-	EnableStateInternalWildcard ServiceEnableState = "wildcard" // Note we don't put this in the map since its internal
+	EnableStateInternalWildcard ServiceEnableState = "wildcard"
 )
 
 var serviceEnableStateMap = map[string]ServiceEnableState{
@@ -74,6 +75,7 @@ var serviceEnableStateMap = map[string]ServiceEnableState{
 	"generated":       EnableStateGenerated,
 	"transient":       EnableStateTransient,
 	"bad":             EnableStateBad,
+	"wildcard":        EnableStateInternalWildcard,
 }
 
 func NewServiceEnableState(name string) ServiceEnableState {

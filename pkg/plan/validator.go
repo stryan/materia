@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
 )
@@ -23,6 +24,7 @@ func (p *PlanValidatorPipeline) Validate(plan *Plan) error {
 			return err
 		}
 	}
+	log.Debug("plan validation passed")
 	return nil
 }
 

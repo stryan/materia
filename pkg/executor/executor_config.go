@@ -10,6 +10,7 @@ import (
 
 type ExecutorConfig struct {
 	CleanupComponents bool `koanf:"cleanup_components"`
+	Verbose           bool `koanf:"verbose"`
 	// Overrides
 	MateriaDir string `koanf:"materia_dir"`
 	QuadletDir string `koanf:"quadlet_dir"`
@@ -41,6 +42,7 @@ func DefaultExecutorConfig(user *user.User) (ExecutorConfig, error) {
 	}
 	return ExecutorConfig{
 		CleanupComponents: false,
+		Verbose:           false,
 		MateriaDir:        dirs.Data,
 		QuadletDir:        dirs.Quadlets,
 		ScriptsDir:        dirs.Scripts,

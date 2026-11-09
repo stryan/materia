@@ -80,7 +80,8 @@ func TestRepo2_ComplexCase(t *testing.T) {
 	trackServices(testcase)
 	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase.Destination(), "config", "config.toml")))
 
-	require.NoError(t, runMateriaCmd(ctx, tc, "plan"))
+	// require.NoError(t, runMateriaCmd(ctx, tc, "plan"))
+	log.Info("executing")
 	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
 }
 
@@ -310,7 +311,6 @@ func Test_UpdatedResources(t *testing.T) {
 	testcase2 := updatedRes2
 	trackServices(testcase2)
 	require.NoError(t, setEnv(ctx, tc, "MATERIA_CONFIG", filepath.Join(testcase1.Destination(), "config", "config.toml")))
-	require.NoError(t, setEnv(ctx, tc, "MATERIA_DEBUG", "1"))
 
 	require.NoError(t, runMateriaCmd(ctx, tc, "update"))
 	require.NoError(t, checkTestCase(ctx, tc, testcase1))

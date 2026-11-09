@@ -28,8 +28,8 @@ func newResSet(resources ...components.Resource) *components.ResourceSet {
 	return rs
 }
 
-func newServSet(services ...manifests.ServiceResourceConfig) *components.ServiceConfigSet {
-	ss := components.NewServiceConfigSet()
+func newServManSet(services ...manifests.ServiceManifest) *components.ServiceManifestSet {
+	ss := components.NewServiceManifestSet()
 	for _, v := range services {
 		ss.Add(v)
 	}
@@ -38,49 +38,47 @@ func newServSet(services ...manifests.ServiceResourceConfig) *components.Service
 
 var testComponents = []*components.Component{
 	{
-		Name:           "hello",
-		State:          components.StateFresh,
-		Resources:      newResSet(testResources[6]),
-		ServiceConfigs: newServSet(),
+		Name:             "hello",
+		State:            components.StateFresh,
+		Resources:        newResSet(testResources[6]),
+		ServiceManifests: newServManSet(),
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
 		Resources: newResSet(testResources[0], testResources[6]),
-		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+		ServiceManifests: newServManSet(manifests.ServiceManifest{
 			Service: "hello.service",
-			Static:  false,
 		}),
 	},
 	{
 		Name:      "hello",
 		State:     components.StateFresh,
 		Resources: newResSet(testResources[0], testResources[1], testResources[2], testResources[5]),
-		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+		ServiceManifests: newServManSet(manifests.ServiceManifest{
 			Service: "hello.service",
-			Static:  false,
 		}),
 	},
 	{
-		Name:           "oldhello",
-		State:          components.StateStale,
-		Resources:      newResSet(testResources[0]),
-		ServiceConfigs: newServSet(),
+		Name:             "oldhello",
+		State:            components.StateStale,
+		Resources:        newResSet(testResources[0]),
+		ServiceManifests: newServManSet(),
 	},
 	{
 		Name:      "updated",
 		State:     components.StateMayNeedUpdate,
 		Resources: newResSet(testResources[0], testResources[3]),
-		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+
+		ServiceManifests: newServManSet(manifests.ServiceManifest{
 			Service: "hello.service",
-			Static:  false,
 		}),
 	},
 	{
-		Name:           "hello-secret",
-		State:          components.StateFresh,
-		Resources:      newResSet(testResources[0], testResources[6], testResources[7]),
-		ServiceConfigs: newServSet(),
+		Name:             "hello-secret",
+		State:            components.StateFresh,
+		Resources:        newResSet(testResources[0], testResources[6], testResources[7]),
+		ServiceManifests: newServManSet(),
 	},
 }
 
@@ -303,13 +301,10 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 		{
 			name: "happy-path/resources",
 			component: &components.Component{
-				Name:      "hello",
-				State:     components.StateNeedRemoval,
-				Resources: newResSet(testResources[0], testResources[6]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "hello.service",
-					Static:  false,
-				}),
+				Name:             "hello",
+				State:            components.StateNeedRemoval,
+				Resources:        newResSet(testResources[0], testResources[6]),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "hello.service"}),
 			},
 			expectedError: false,
 			expectedPlan: []actions.Action{
@@ -330,10 +325,10 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 		{
 			name: "happy-path/secrets",
 			component: &components.Component{
-				Name:           "hello-secret",
-				State:          components.StateNeedRemoval,
-				Resources:      newResSet(testResources[0], testResources[6], testResources[7]),
-				ServiceConfigs: newServSet(),
+				Name:             "hello-secret",
+				State:            components.StateNeedRemoval,
+				Resources:        newResSet(testResources[0], testResources[6], testResources[7]),
+				ServiceManifests: newServManSet(),
 			},
 			expectedError: false,
 			expectedPlan: []actions.Action{
@@ -367,7 +362,7 @@ func TestGenerateRemovedComponentResources(t *testing.T) {
 						Kind:       components.ResourceTypeVolume,
 						Parent:     "hello",
 					}, testResources[6]),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(comp *components.Component, mhm *mocks.MockHostManager) {
 				mhm.EXPECT().GetVolume(mock.Anything, "systemd-hello").Return(&containers.Volume{
@@ -446,7 +441,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -455,7 +450,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
@@ -480,7 +475,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -489,7 +484,7 @@ func TestPlanUpdatedComponent(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -504,27 +499,27 @@ func TestPlanUpdatedComponent(t *testing.T) {
 				State:   components.StateMayNeedUpdate,
 				Version: components.DefaultComponentVersion,
 				Config: manifests.Settings{
-					PreScript: Ptr("pre-sync-hook.sh"),
+					PreScript: new("pre-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 					resourceHelper("pre-sync-hook.sh", "hello", "echo 'hi mom!'"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
 				State: components.StateFresh,
 				Config: manifests.Settings{
-					PreScript: Ptr("pre-sync-hook.sh"),
+					PreScript: new("pre-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 					resourceHelper("pre-sync-hook.sh", "hello", "echo 'hi mom!'"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
@@ -546,27 +541,27 @@ func TestPlanUpdatedComponent(t *testing.T) {
 				State:   components.StateMayNeedUpdate,
 				Version: components.DefaultComponentVersion,
 				Config: manifests.Settings{
-					PostScript: Ptr("post-sync-hook.sh"),
+					PostScript: new("post-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 					resourceHelper("post-sync-hook.sh", "hello", "echo 'hi mom!'"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
 				State: components.StateFresh,
 				Config: manifests.Settings{
-					PostScript: Ptr("post-sync-hook.sh"),
+					PostScript: new("post-sync-hook.sh"),
 				},
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 					resourceHelper("post-sync-hook.sh", "hello", "echo 'hi mom!'"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 				host.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
@@ -633,7 +628,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -642,7 +637,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -658,7 +653,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -667,7 +662,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -685,7 +680,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -693,7 +688,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -710,7 +705,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -719,7 +714,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=goodbye"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -737,7 +732,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelperWithMode("hello", "hello", "hello", os.FileMode(0o755)),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -746,7 +741,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello", "hello", "hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -775,7 +770,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelperWithMode("hello.container", "hello", "[Container]\nImage=hello", os.FileMode(0o755)),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			fresh: &components.Component{
 				Name:  "hello",
@@ -784,7 +779,7 @@ func TestGenerateUpdatedComponentResources(t *testing.T) {
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
 				),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			setup: func(host *mocks.MockHostManager, stale *components.Component, fresh *components.Component) {
 			},
@@ -848,7 +843,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				},
 			},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range source.ServiceConfigs.List() {
+				for _, src := range source.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -861,7 +856,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 			name:   "fresh - services - running",
 			source: testComponents[1],
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range source.ServiceConfigs.List() {
+				for _, src := range source.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   services.StateActive,
@@ -873,13 +868,10 @@ func Test_GenerateServiceActions(t *testing.T) {
 		{
 			name: "fresh - services - static",
 			source: &components.Component{
-				Name:      "hello",
-				State:     components.StateFresh,
-				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "hello.service",
-					Static:  true,
-				}),
+				Name:             "hello",
+				State:            components.StateFresh,
+				Resources:        newResSet(testResources[0]),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "hello.service", Type: manifests.ServiceTypeUnit}),
 			},
 			want: []actions.Action{
 				{
@@ -896,7 +888,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				},
 			},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range source.ServiceConfigs.List() {
+				for _, src := range source.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -911,18 +903,13 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.service",
-					Stopped: true,
+					State:   manifests.ServiceStateInert,
 				}),
 			},
 			want: []actions.Action{},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
-					Name:    "hello.service",
-					State:   services.StateUnknown,
-					Enabled: services.EnableStateDisabled,
-				}, nil)
 			},
 		},
 		{
@@ -931,7 +918,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.container",
 				}),
 			},
@@ -956,7 +943,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[8]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.container",
 				}),
 			},
@@ -986,15 +973,9 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateFresh,
 				Resources: newResSet(testResources[8]),
-				ServiceConfigs: newServSet(
-					manifests.ServiceResourceConfig{
-						Service: "hello.container",
-					},
-					manifests.ServiceResourceConfig{
-						Service: "hello.image",
-						Stopped: true,
-						Timeout: 100,
-					},
+				ServiceManifests: newServManSet(
+					manifests.ServiceManifest{Service: "hello.container"},
+					manifests.ServiceManifest{Service: "hello.image", State: manifests.ServiceStateLazy, Timeout: 100},
 				),
 			},
 			want: []actions.Action{
@@ -1032,7 +1013,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 			name: "removal - services - none running",
 			host: testComponents[1],
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range host.ServiceConfigs.List() {
+				for _, src := range host.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   "inactive",
@@ -1053,7 +1034,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				},
 			},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range host.ServiceConfigs.List() {
+				for _, src := range host.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   services.StateActive,
@@ -1068,9 +1049,10 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.service",
-					Static:  true,
+					Type:    manifests.ServiceTypeUnit,
 				}),
 			},
 			want: []actions.Action{
@@ -1082,7 +1064,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				},
 			},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range host.ServiceConfigs.List() {
+				for _, src := range host.ServiceManifests.List() {
 					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
 						Name:    src.Service,
 						State:   services.StateActive,
@@ -1092,25 +1074,18 @@ func Test_GenerateServiceActions(t *testing.T) {
 			},
 		},
 		{
-			name: "removal - services - stopped",
+			name: "removal - services - inert",
 			host: &components.Component{
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.service",
-					Stopped: true,
+					State:   manifests.ServiceStateInert,
 				}),
 			},
 			want: []actions.Action{},
 			setup: func(source, host *components.Component, sm *mocks.MockHostManager) {
-				for _, src := range host.ServiceConfigs.List() {
-					sm.EXPECT().GetService(mock.Anything, src.Service).Return(&services.Service{
-						Name:    src.Service,
-						State:   "inactive",
-						Enabled: services.EnableStateDisabled,
-					}, nil)
-				}
 			},
 		},
 		{
@@ -1119,7 +1094,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[0]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service: "hello.container",
 				}),
 			},
@@ -1144,9 +1119,9 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[8]),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "hello.container",
-				}),
+				ServiceManifests: newServManSet(
+					manifests.ServiceManifest{Service: "hello.container"},
+				),
 			},
 			want: []actions.Action{
 				{
@@ -1174,15 +1149,9 @@ func Test_GenerateServiceActions(t *testing.T) {
 				Name:      "hello",
 				State:     components.StateNeedRemoval,
 				Resources: newResSet(testResources[8]),
-				ServiceConfigs: newServSet(
-					manifests.ServiceResourceConfig{
-						Service: "hello.container",
-					},
-					manifests.ServiceResourceConfig{
-						Service: "hello.image",
-						Stopped: true,
-						Timeout: 100,
-					},
+				ServiceManifests: newServManSet(
+					manifests.ServiceManifest{Service: "hello.container"},
+					manifests.ServiceManifest{Service: "hello.image", State: manifests.ServiceStateLazy, Timeout: 100},
 				),
 			},
 			want: []actions.Action{
@@ -1219,7 +1188,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Parent: "foo",
 					Kind:   components.ResourceTypeService,
 				}),
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			source: &components.Component{
 				Name:  "foo",
@@ -1229,9 +1198,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Parent: "foo",
 					Kind:   components.ResourceTypeService,
 				}),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "test.service",
-				}),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "test.service"}),
 			},
 			want: []actions.Action{
 				{
@@ -1260,9 +1227,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Parent: "foo",
 					Kind:   components.ResourceTypeService,
 				}),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "test.service",
-				}),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "test.service"}),
 			},
 			source: &components.Component{
 				Name:  "foo",
@@ -1273,7 +1238,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Kind:   components.ResourceTypeService,
 				}),
 
-				ServiceConfigs: newServSet(),
+				ServiceManifests: newServManSet(),
 			},
 			want: []actions.Action{
 				{
@@ -1302,9 +1267,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Parent: "foo",
 					Kind:   components.ResourceTypeService,
 				}),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "test.service",
-				}),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "test.service"}),
 			},
 			source: &components.Component{
 				Name:  "foo",
@@ -1314,9 +1277,7 @@ func Test_GenerateServiceActions(t *testing.T) {
 					Parent: "foo",
 					Kind:   components.ResourceTypeService,
 				}),
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
-					Service: "test.service",
-				}),
+				ServiceManifests: newServManSet(manifests.ServiceManifest{Service: "test.service"}),
 			},
 			want: []actions.Action{
 				{
@@ -1376,15 +1337,15 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 		{
 			name: "base case",
 			input: &components.Component{
-				ServiceConfigs: newServSet(),
-				Resources:      newResSet(),
+				ServiceManifests: newServManSet(),
+				Resources:        newResSet(),
 			},
 			want: make(map[string][]actions.Action),
 		},
 		{
 			name: "restarted",
 			input: &components.Component{
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service:     "hello.service",
 					RestartedBy: []string{"hello.env"},
 				}),
@@ -1404,7 +1365,7 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 		{
 			name: "reloaded",
 			input: &components.Component{
-				ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+				ServiceManifests: newServManSet(manifests.ServiceManifest{
 					Service:    "hello.service",
 					ReloadedBy: []string{"hello.env"},
 				}),
@@ -1424,8 +1385,8 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 		{
 			name: "auto-restart containers",
 			input: &components.Component{
-				ServiceConfigs: newServSet(),
-				Resources:      newResSet(resourceHelper("hello.container", "hello", "[Container]\nImage=foo")),
+				ServiceManifests: newServManSet(),
+				Resources:        newResSet(resourceHelper("hello.container", "hello", "[Container]\nImage=foo")),
 			},
 			want: map[string][]actions.Action{
 				"hello.container": {
@@ -1441,10 +1402,10 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 		{
 			name: "don't auto restart when set",
 			input: &components.Component{
-				ServiceConfigs: newServSet(),
-				Resources:      newResSet(resourceHelper("hello.container", "hello", "[Container]\nImage=foo")),
+				ServiceManifests: newServManSet(),
+				Resources:        newResSet(resourceHelper("hello.container", "hello", "[Container]\nImage=foo")),
 				Config: manifests.Settings{
-					NoRestart: Ptr(true),
+					NoRestart: new(true),
 				},
 			},
 			want: map[string][]actions.Action{},
@@ -1453,8 +1414,8 @@ func Test_generateComponentServiceTriggers(t *testing.T) {
 		{
 			name: "auto-restart pods",
 			input: &components.Component{
-				ServiceConfigs: newServSet(),
-				Resources:      newResSet(resourceHelper("hello.pod", "hello", "[Pod]\n")),
+				ServiceManifests: newServManSet(),
+				Resources:        newResSet(resourceHelper("hello.pod", "hello", "[Pod]\n")),
 			},
 			want: map[string][]actions.Action{
 				"hello.pod": {
@@ -1501,7 +1462,6 @@ func Test_processTriggeredUpdates(t *testing.T) {
 		name         string
 		input        []actions.Action
 		triggers     map[string][]actions.Action
-		comp         *components.Component
 		setup        func(sm *mocks.MockHostManager)
 		want         []actions.Action
 		wantErr      bool
@@ -1513,10 +1473,7 @@ func Test_processTriggeredUpdates(t *testing.T) {
 				planHelper(actions.ActionUpdate, "hello", "hello.env"),
 			},
 			triggers: make(map[string][]actions.Action),
-			comp: &components.Component{
-				Name: "hello",
-			},
-			setup: func(sm *mocks.MockHostManager) {},
+			setup:    func(sm *mocks.MockHostManager) {},
 		},
 		{
 			name: "action from trigger",
@@ -1533,15 +1490,6 @@ func Test_processTriggeredUpdates(t *testing.T) {
 						},
 					},
 				},
-			},
-			comp: &components.Component{
-				Name: "hello",
-				ServiceConfigs: newServSet(
-					manifests.ServiceResourceConfig{
-						Service:     "hello.service",
-						RestartedBy: []string{"hello.env"},
-					},
-				),
 			},
 			setup: func(sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
@@ -1574,14 +1522,6 @@ func Test_processTriggeredUpdates(t *testing.T) {
 					},
 				},
 			},
-			comp: &components.Component{
-				Name: "hello",
-				ServiceConfigs: newServSet(
-					manifests.ServiceResourceConfig{
-						Service: "hello.container",
-					},
-				),
-			},
 			setup: func(sm *mocks.MockHostManager) {
 				sm.EXPECT().GetService(mock.Anything, "hello.service").Return(&services.Service{
 					Name:  "hello.service",
@@ -1603,7 +1543,7 @@ func Test_processTriggeredUpdates(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			hm := mocks.NewMockHostManager(t)
 			tt.setup(hm)
-			got, gotErr := processTriggeredUpdates(context.Background(), hm, tt.comp, tt.triggers, tt.input)
+			got, gotErr := processTriggeredUpdates(context.Background(), hm, tt.triggers, tt.input)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("processTriggeredUpdates failed: %v", gotErr)
@@ -1685,12 +1625,12 @@ func TestPlan(t *testing.T) {
 		Kind:   components.ResourceTypeManifest,
 	}
 	helloComp := &components.Component{
-		Name:           "hello",
-		Resources:      newResSet(containerResource, dataResource, manifestResource),
-		State:          components.StateFresh,
-		Defaults:       map[string]any{},
-		ServiceConfigs: newServSet(),
-		Version:        components.DefaultComponentVersion,
+		Name:             "hello",
+		Resources:        newResSet(containerResource, dataResource, manifestResource),
+		State:            components.StateFresh,
+		Defaults:         map[string]any{},
+		ServiceManifests: newServManSet(),
+		Version:          components.DefaultComponentVersion,
 	}
 	plan, err := p.Plan(ctx, []*components.Component{}, []*components.Component{helloComp})
 	assert.NoError(t, err)
@@ -1731,12 +1671,12 @@ func TestPlanOnlyResourcesFreshComponentReload(t *testing.T) {
 		State:     components.StateFresh,
 		Resources: newResSet(containerResource, setupResource, cleanupResource),
 		Config: manifests.Settings{
-			SetupScript:   Ptr(setupResource.Path),
-			CleanupScript: Ptr(cleanupResource.Path),
+			SetupScript:   new(setupResource.Path),
+			CleanupScript: new(cleanupResource.Path),
 		},
-		ServiceConfigs: newServSet(manifests.ServiceResourceConfig{
+		ServiceManifests: newServManSet(manifests.ServiceManifest{
 			Service: containerResource.Path,
-			Static:  true,
+			Type:    manifests.ServiceTypeUnit,
 		}),
 		Version: components.DefaultComponentVersion,
 	}
@@ -1822,10 +1762,6 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 		},
 	}
 	return act
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func mustComponent(name string) *components.Component {

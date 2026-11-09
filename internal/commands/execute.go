@@ -63,9 +63,15 @@ func UpdateCmd(ctx context.Context, k *koanf.Koanf, quiet bool) error {
 			log.Warnf("error closing materia: %v", err)
 		}
 	}()
+	if !quiet {
+		fmt.Println("Gathering facts")
+	}
 	facts, err := m.Facts(ctx)
 	if err != nil {
 		return err
+	}
+	if !quiet {
+		fmt.Println("Generating plan")
 	}
 	aplan, err := RunPlan(ctx, m, facts)
 	if err != nil {
@@ -73,6 +79,7 @@ func UpdateCmd(ctx context.Context, k *koanf.Koanf, quiet bool) error {
 	}
 	if !quiet {
 		fmt.Println(aplan.Pretty())
+		fmt.Println("Executing plan")
 	}
 	// From this point on we log or concatenate errors
 	finalPlan, report, exErr := RunExecute(ctx, m, aplan)

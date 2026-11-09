@@ -51,22 +51,22 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 	steps := 0
 	// Execute actions
 	for _, v := range plan.Steps() {
+		if e.Verbose {
+			log.Infof("%v. %v", steps+1, v.Pretty())
+		}
 		err := e.executeAction(ctx, v)
 		if err != nil {
 			return steps, err
 		}
 
 		if v.Todo.IsServiceAction() && v.Target.Kind != components.ResourceTypeHost {
-			if v.Metadata != nil {
-				if v.Metadata.ServiceUntilState != nil {
-					// we know exact what state it should be in, don't bother guessing
-					expectedServices[v.Target.Service()] = services.NewServiceState(*v.Metadata.ServiceUntilState)
-					continue
-				}
+			if endState, ok := v.GetServiceUntilState(); ok {
+				// we know exact what state it should be in, don't bother guessing
+				expectedServices[v.Target.Service()] = services.ServiceState(endState)
+				continue
 			}
 			lastAction[v.Target.Service()] = v
 		}
-
 		steps++
 	}
 
@@ -81,6 +81,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 			}
 			return steps, fmt.Errorf("unable to get service %v for final check: %w", k, err)
 		}
+
 		finalState := services.StateUnknown
 		timeout := e.defaultTimeout
 		if dynamicTimeout, ok := v.GetServiceTimeout(); ok {
@@ -95,7 +96,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 		default:
 			return steps, fmt.Errorf("unknown service action state: %v", v)
 		}
-		if finalState != services.StateUnknown {
+		if finalState != services.StateUnknown && finalState != services.StateInternalWildcard {
 			expectedServices[serv.Name] = finalState
 			serviceDiffs = append(serviceDiffs, serviceComparison{
 				service:  serv.Name,

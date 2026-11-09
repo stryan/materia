@@ -325,12 +325,13 @@ var sopsTest = func() TestCase {
 	tc := TestCase{
 		Name: "sops-test",
 		Config: mustConfig("sops-test", map[string]any{
-			"hostname":      "localhost",
-			"quiet":         "true",
-			"sops.base_dir": "attributes",
-			"sops.suffix":   "enc",
-			"source.kind":   "local",
-			"source.url":    fmt.Sprintf("file:///root/tests/%v/source", "sops-test"),
+			"hostname":         "localhost",
+			"quiet":            "true",
+			"sops.base_dir":    "attributes",
+			"sops.suffix":      "enc",
+			"source.kind":      "local",
+			"source.url":       fmt.Sprintf("file:///root/tests/%v/source", "sops-test"),
+			"executor.verbose": "true",
 		}),
 		Source: TestRepo{
 			AttributesKind: "sops",
@@ -430,12 +431,13 @@ var instancedComponents = func() TestCase {
 var exampleRepo = TestCase{
 	Name: "example-repo",
 	Config: mustConfig("example-repo", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "git",
-		"source.url":    "https://github.com/stryan/materia_example_repo",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "git",
+		"source.url":       "https://github.com/stryan/materia_example_repo",
+		"executor.verbose": "true",
 	}),
 	Source: TestRepo{Remote: true},
 	Output: TestOutput{
@@ -449,12 +451,13 @@ var exampleRepo = TestCase{
 var exampleRepoBranch = TestCase{
 	Name: "example-repo-branch",
 	Config: mustConfig("example-repo-branch", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "git",
-		"source.url":    "https://github.com/stryan/materia_example_repo",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "git",
+		"source.url":       "https://github.com/stryan/materia_example_repo",
+		"executor.verbose": "true",
 	}),
 	Source: TestRepo{Remote: true},
 	Output: TestOutput{
@@ -468,12 +471,13 @@ var exampleRepoBranch = TestCase{
 var ociSource = TestCase{
 	Name: "example-repo-oci",
 	Config: mustConfig("oci-source", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "oci",
-		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "oci",
+		"source.url":       "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"executor.verbose": "true",
 	}),
 	Source: TestRepo{Remote: true},
 	Output: TestOutput{
@@ -487,12 +491,13 @@ var ociSource = TestCase{
 var rollbackGitFailed = TestCase{
 	Name: "rollback-git-failed",
 	Config: mustConfig("rollback-git-failed", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "git",
-		"source.url":    "/tmp/materia/repo",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "git",
+		"source.url":       "/tmp/materia/repo",
+		"executor.verbose": "true",
 	}),
 
 	Source: TestRepo{Remote: true},
@@ -507,13 +512,14 @@ var rollbackGitFailed = TestCase{
 var rollbackGitSuccess = TestCase{
 	Name: "rollback-git-success",
 	Config: mustConfig("rollback-git-success", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "git",
-		"source.url":    "/tmp/materia/repo",
-		"rollback.kind": "service",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "git",
+		"source.url":       "/tmp/materia/repo",
+		"rollback.kind":    "service",
+		"executor.verbose": "true",
 	}),
 
 	Source: TestRepo{Remote: true},
@@ -528,12 +534,13 @@ var rollbackGitSuccess = TestCase{
 var rollbackOciFailed = TestCase{
 	Name: "rollback-oci-failed",
 	Config: mustConfig("rollback-oci-failed", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "oci",
-		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "oci",
+		"source.url":       "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"executor.verbose": "true",
 	}),
 	Source: TestRepo{Remote: true},
 	Output: TestOutput{
@@ -547,13 +554,14 @@ var rollbackOciFailed = TestCase{
 var rollbackOciSuccess = TestCase{
 	Name: "rollback-oci-success",
 	Config: mustConfig("rollback-oci-success", map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"sops.base_dir": "attributes",
-		"sops.suffix":   "enc",
-		"source.kind":   "oci",
-		"source.url":    "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
-		"rollback.kind": "service",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"sops.base_dir":    "attributes",
+		"sops.suffix":      "enc",
+		"source.kind":      "oci",
+		"source.url":       "oci://git.saintnet.tech/stryan/materia-example-repo:latest",
+		"rollback.kind":    "service",
+		"executor.verbose": "true",
 	}),
 	Source: TestRepo{Remote: true},
 	Output: TestOutput{
@@ -588,6 +596,7 @@ var serverModePlan = TestCase{
 		"source.kind":          "local",
 		"source.url":           fmt.Sprintf("file:///root/tests/%v/source", "auto-plan"),
 		"server.plan_interval": "1",
+		"executor.verbose":     "true",
 	}),
 	Source: TestRepo{
 		Manifest:   defaultManifest(),
@@ -610,6 +619,7 @@ var serverModeSync = TestCase{
 		"source.kind":            "local",
 		"source.url":             fmt.Sprintf("file:///root/tests/%v/source", "auto-sync"),
 		"server.update_interval": "1",
+		"executor.verbose":       "true",
 	}),
 	Source: TestRepo{
 		Manifest:   defaultManifest("hello"),
@@ -654,12 +664,13 @@ func mustConfig(name string, input map[string]any) *koanf.Koanf {
 
 func defaultConfig(name string) *koanf.Koanf {
 	return mustConfig(name, map[string]any{
-		"hostname":      "localhost",
-		"quiet":         "true",
-		"file.base_dir": "attributes",
-		"source.kind":   "local",
-		"source.url":    fmt.Sprintf("file:///root/tests/%v/source", name),
-		"lock":          "true",
+		"hostname":         "localhost",
+		"quiet":            "true",
+		"file.base_dir":    "attributes",
+		"source.kind":      "local",
+		"source.url":       fmt.Sprintf("file:///root/tests/%v/source", name),
+		"lock":             "true",
+		"executor.verbose": "true",
 	})
 }
 

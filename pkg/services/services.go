@@ -184,6 +184,9 @@ func (s *ServiceManager) WaitUntilState(ctx context.Context, name string, state 
 		// Nothing to do, we allow all states
 		return nil
 	}
+	if state == StateUnknown {
+		return fmt.Errorf("service %v tried to wait for unknown state", name)
+	}
 	us, err := s.Conn.ListUnitsByNamesContext(ctx, []string{name})
 	if err != nil {
 		return err

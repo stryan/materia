@@ -49,3 +49,7 @@ Overrides the executor's configured service directory.
 #### `MATERIA_EXECUTOR__OUTPUT_DIR`/**executor.output_dir**
 
 Overrides the executor's configured output directory.
+
+#### `MATERIA_EXECUTOR__VERBOSE`/**executor.verbose**
+
+Logs each step as the executor runs it.

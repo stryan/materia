@@ -28,7 +28,9 @@ func runMateriaCmd(ctx context.Context, tc testcontainers.Container, args ...str
 	fullCmd := fmt.Sprintf("set -e; [ -f /tmp/materia-test-env.sh ] && . /tmp/materia-test-env.sh; %s", cmd)
 
 	code, output, err := runInContainer(ctx, tc, nil, "sh", "-c", fullCmd)
-	log.Info(output)
+	for _, line := range strings.Split(output, "\n") {
+		log.Info(line)
+	}
 	if err != nil {
 		return err
 	}

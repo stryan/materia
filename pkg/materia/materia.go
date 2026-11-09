@@ -178,6 +178,7 @@ func (m *Materia) lock(ctx context.Context) error {
 	if m.Lock == nil {
 		return nil
 	}
+	log.Debug("trying to get lock")
 	if err := m.Lock.LockOrWait(ctx); err != nil {
 		return fmt.Errorf("unable to get materia lock: %w", err)
 	}
@@ -280,6 +281,10 @@ func (m *Materia) Clean(ctx context.Context, force bool) error {
 		if err != nil {
 			return err
 		}
+		planValidator := plan.NewDefaultValidationPipeline(installedComps)
+		if err := planValidator.Validate(removalPlan); err != nil {
+			return fmt.Errorf("generated invalid removal plan: %w", err)
+		}
 		_, err = m.Executor.Execute(ctx, removalPlan)
 		if err != nil {
 			return err
@@ -318,6 +323,10 @@ func (m *Materia) CleanComponent(ctx context.Context, name string) error {
 	removalPlan, err := m.Planner.Plan(ctx, []*components.Component{hostComponent}, []*components.Component{})
 	if err != nil {
 		return err
+	}
+	planValidator := plan.NewDefaultValidationPipeline(installedComps)
+	if err := planValidator.Validate(removalPlan); err != nil {
+		return fmt.Errorf("generated invalid removal plan: %w", err)
 	}
 	_, err = m.Executor.Execute(ctx, removalPlan)
 	return err

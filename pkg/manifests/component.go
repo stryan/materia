@@ -5,21 +5,11 @@ import (
 	"maps"
 	"slices"
 
+	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
 )
 
 var ComponentManifestFile = "MANIFEST.toml"
-
-type ServiceResourceConfig struct {
-	Service     string   `toml:"Service"`
-	RestartedBy []string `toml:"RestartedBy"`
-	ReloadedBy  []string `toml:"ReloadedBy"`
-	Disabled    bool     `toml:"Disabled"`
-	Static      bool     `toml:"Static"`
-	Stopped     bool     `toml:"Stopped"`
-	Oneshot     bool     `toml:"Oneshot"`
-	Timeout     int      `toml:"Timeout"`
-}
 
 type Settings struct {
 	NoRestart     *bool   `toml:"NoRestart"`
@@ -93,25 +83,34 @@ func (s Settings) GetPostScript() string {
 	return *s.PostScript
 }
 
-func (src ServiceResourceConfig) Validate() error {
-	if src.Service == "" {
-		return errors.New("service config without a name")
-	}
-	return nil
+type ComponentManifest struct {
+	Defaults map[string]any    `toml:"Defaults"`
+	Settings Settings          `toml:"Settings"`
+	Snippets []SnippetConfig   `toml:"Snippets"`
+	Services []ServiceManifest `toml:"Services"`
+	Scripts  []string          `toml:"Scripts"`
+	Secrets  []string          `toml:"Secrets"`
 }
 
-type ComponentManifest struct {
-	Defaults map[string]any          `toml:"Defaults"`
-	Settings Settings                `toml:"Settings"`
-	Snippets []SnippetConfig         `toml:"Snippets"`
-	Services []ServiceResourceConfig `toml:"Services"`
-	Scripts  []string                `toml:"Scripts"`
-	Secrets  []string                `toml:"Secrets"`
+func convertServicesToManifests(manifest ComponentManifest) (ComponentManifest, error) {
+	result := make([]ServiceManifest, 0, len(manifest.Services))
+	for _, srvOpt := range manifest.Services {
+		if srvOpt.Deprecated() {
+			log.Warnf("Static/Stopped are deprecated, use Type = 'unit' and/or State = 'lazy': %v", srvOpt.Service)
+		}
+		result = append(result, srvOpt.Migrate())
+	}
+	manifest.Services = result
+	return manifest, nil
 }
 
 func LoadComponentManifestFromContent(buffer []byte) (*ComponentManifest, error) {
 	var c ComponentManifest
 	_, err := toml.Decode(string(buffer), &c)
+	if err != nil {
+		return nil, err
+	}
+	c, err = convertServicesToManifests(c)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +120,10 @@ func LoadComponentManifestFromContent(buffer []byte) (*ComponentManifest, error)
 func LoadComponentManifestFromFile(path string) (*ComponentManifest, error) {
 	var c ComponentManifest
 	_, err := toml.DecodeFile(path, &c)
+	if err != nil {
+		return nil, err
+	}
+	c, err = convertServicesToManifests(c)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +182,8 @@ func ExtendComponentManifests(original, extension *ComponentManifest) (*Componen
 	result.Settings.Merge(extension.Settings)
 	result.Services = original.Services
 	for _, s := range extension.Services {
-		i := slices.IndexFunc(result.Services, func(src ServiceResourceConfig) bool {
-			return src.Service == s.Service
+		i := slices.IndexFunc(result.Services, func(sm ServiceManifest) bool {
+			return sm.Service == s.Service
 		})
 		if i == -1 {
 			result.Services = append(result.Services, s)

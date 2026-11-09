@@ -24,15 +24,15 @@ var (
 )
 
 type Component struct {
-	Name           string
-	Instance       string
-	Overrides      []string
-	Config         manifests.Settings
-	Resources      *ResourceSet
-	State          ComponentLifecycle
-	Defaults       map[string]any
-	ServiceConfigs *ServiceConfigSet
-	Version        int
+	Name             string
+	Instance         string
+	Overrides        []string
+	Config           manifests.Settings
+	Resources        *ResourceSet
+	State            ComponentLifecycle
+	Defaults         map[string]any
+	ServiceManifests *ServiceManifestSet
+	Version          int
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -76,22 +76,22 @@ func NewComponent(name string) (*Component, error) {
 	}
 	name, instance, _ := strings.Cut(name, "@")
 	return &Component{
-		Name:           name,
-		Instance:       instance,
-		State:          StateStale,
-		Defaults:       make(map[string]any),
-		ServiceConfigs: NewServiceConfigSet(),
-		Resources:      NewResourceSet(),
+		Name:             name,
+		Instance:         instance,
+		State:            StateStale,
+		Defaults:         make(map[string]any),
+		ServiceManifests: NewServiceManifestSet(),
+		Resources:        NewResourceSet(),
 	}, nil
 }
 
 func NewRootComponent() *Component {
 	return &Component{
-		Name:           "root",
-		State:          StateRoot,
-		Defaults:       make(map[string]any),
-		ServiceConfigs: NewServiceConfigSet(),
-		Resources:      NewResourceSet(),
+		Name:             "root",
+		State:            StateRoot,
+		Defaults:         make(map[string]any),
+		ServiceManifests: NewServiceManifestSet(),
+		Resources:        NewResourceSet(),
 	}
 }
 
@@ -117,7 +117,7 @@ func (c *Component) InstantiateResource(template Resource) Resource {
 	return template
 }
 
-func (c *Component) InstantiateServiceConfig(template manifests.ServiceResourceConfig) manifests.ServiceResourceConfig {
+func (c *Component) InstantiateServiceManifest(template manifests.ServiceManifest) manifests.ServiceManifest {
 	if c.Instance == "" {
 		return template
 	}
@@ -167,7 +167,7 @@ func (c *Component) ApplyManifest(man *manifests.ComponentManifest) error {
 		if err := s.Validate(); err != nil {
 			return fmt.Errorf("invalid service for component: %w", err)
 		}
-		c.ServiceConfigs.Add(c.InstantiateServiceConfig(s))
+		c.ServiceManifests.Add(c.InstantiateServiceManifest(s))
 	}
 	for _, r := range c.Resources.List() {
 		if r.Kind != ResourceTypeScript && slices.Contains(man.Scripts, r.Path) {
@@ -189,8 +189,8 @@ func (c *Component) String() string {
 		numRes = c.Resources.Size()
 	}
 	numServes := -1
-	if c.ServiceConfigs != nil {
-		numServes = c.ServiceConfigs.Size()
+	if c.ServiceManifests != nil {
+		numServes = c.ServiceManifests.Size()
 	}
 	name := c.Name
 	if c.Instance != "" {
@@ -209,8 +209,9 @@ func (c Component) Validate() error {
 	if c.Resources == nil {
 		return errors.New("component without resource set")
 	}
-	if c.ServiceConfigs == nil {
-		return errors.New("component without services set")
+
+	if c.ServiceManifests == nil {
+		return errors.New("component without service manifests set")
 	}
 	if c.Config.GetSetupScript() != "" && c.Config.GetCleanupScript() == "" {
 		return errors.New("component has setup script but no cleanup script")
@@ -241,20 +242,22 @@ func (c *Component) ToResource() Resource {
 
 func (c *Component) ToServiceState() (*services.ServiceSet, error) {
 	result := services.NewServiceSet()
-	for _, sc := range c.ServiceConfigs.List() {
+	for _, sm := range c.ServiceManifests.List() {
+		if sm.State == manifests.ServiceStateInert {
+			// No actions are taken on inert services
+			continue
+		}
 		s := services.Service{
-			Name:  sc.Service,
-			State: services.StateActive,
-			Type:  "", // Do we even need this field
+			Name:    sm.Service,
+			State:   services.StateInternalWildcard,
+			Enabled: services.EnableStateDisabled,
+			Type:    "",
 		}
-		if sc.Stopped || sc.Oneshot {
-			s.State = services.StateInternalWildcard
+		if sm.CanStart() {
+			s.State = services.StateActive
 		}
-		if sc.Static {
+		if sm.CanEnable() {
 			s.Enabled = services.EnableStateEnabled
-			if sc.Disabled {
-				s.Enabled = services.EnableStateDisabled
-			}
 		}
 		result.Add(s)
 	}

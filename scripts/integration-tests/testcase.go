@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"charm.land/log/v2"
 	"filippo.io/age"
 	koanftoml "github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/v2"
@@ -125,6 +126,7 @@ func installTestCase(ctx context.Context, c testcontainers.Container, tcs ...Tes
 }
 
 func checkTestCase(ctx context.Context, c testcontainers.Container, tc TestCase) error {
+	log.Info("verifying testcase", "case", tc.Name)
 	installed, err := listInstalledComponents(ctx, c)
 	if err != nil {
 		return err
