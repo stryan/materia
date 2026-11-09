@@ -109,6 +109,6 @@ func (a *Agent) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Update ran: %v actions taken", update_out)
+	fmt.Printf("Update ran: %v actions taken\n", update_out)
 	return nil
 }
