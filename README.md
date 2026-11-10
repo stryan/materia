@@ -4,20 +4,20 @@
 
 A GitOps tool for managing services and applications deployed as [Podman Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
 
-Materia handles the full lifecycle of an application (or **component**):
-1. Materia polls a remote source, downloading a manifest describing what the state of the applications on the host should look like.
-2. It installs components and all their associated Quadlets and data files, templating files with variables and secrets if required
-3. It starts services required by the component.
-4. When updated files are found in the source repository it updates the installed versions and restarts services accordingly.
-5. And when a component is not longer assigned to a host, it stops all related services and removes the resources, keeping things nice and tidy.
+Materia makes managing Podman containers easy: just install the single binary or run the container on your host, point it at a Git repository or OCI image containing your desired state, and Materia will keep everything in sync.
 
-Curious to how it works? See the `materia update` [workflow diagram](./diagram.md)
+The general workflow looks like this:
+
+1. Materia syncs with a remote source, downloading a manifest that describes what components are assigned to the host.
+2. It installs new Quadlets and data files or updates existing ones, optionally templating them from [age, sops, and other engines](https://primamateria.systems/documentation/latest/attributes.html#attributes-engines).
+3. It starts, stops, and restarts systemd services based on which files changed.
+4. When a component is no longer assigned to a host, Materia stops the related services and removes the now unnecessary files.
+
+Want more details on how it works? See the `materia update` [workflow diagram](./diagram.md). Ready to run it yourself? Try the [Quickstart guide](https://primamateria.systems/quickstart.html) or read on.
 
 # Documentation
 
 Main Documentation site: [primamateria.systems](https://primamateria.systems)
-
-Quickstart guide: [On the documentation website](https://primamateria.systems/quickstart.html).
 
 Online Manpages: [latest](https://primamateria.systems/documentation/latest/reference/)
 
@@ -50,13 +50,16 @@ If you'd like to build without mise, you can do so through the normal go methods
 
 ## From Binary
 
-Grab a release for your architecture from the releases page; the static binaries should work on any relatively recent Linux distro.
+Grab a release tarball for your architecture from the releases page; both `amd64` and `arm64` are supported.
 
 ## With Podman
 
 For obvious reasons, materia should only be run using `podman` as your container engine.
 
-By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](./docs/markdown/reference/index.md) for more details. By default materia uses XDG_DIR settings in rootless mode.
+By default it is assumed you are running using root. If not, you'll need to update the bind mounts to their appropriate locations; see the [manual](https://primamateria.systems/documentation/latest/cheatsheet.html) for more details. By default materia uses XDG_DIR settings in rootless mode.
+
+These volume mounts are exhaustive for teaching purposes.
+
 ```
 podman run --name materia --rm \
 	--hostname <system_hostname> \
@@ -87,7 +90,7 @@ See [install](./install/) for example Quadlets.
 
 **v<tag>**: Specific tagged release.
 
-**latest**: Latest push to master
+**latest**: Latest push to master that passes integration tests.
 
 ### Validating Installations
 

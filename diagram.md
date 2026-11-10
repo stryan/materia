@@ -6,7 +6,8 @@ An example digram of what the `materia update` command does
 graph TD
     Start([Start: materia update]) --> SyncSources[Sync Source from Git repository]
 
-    SyncSources --> BuildGraph[Build Component Graph]
+    SyncSources --> GatherFacts
+    GatherFacts --> BuildGraph[Build Component Graph]
     BuildGraph --> ListInstalled[List Installed Components on Host]
     BuildGraph --> ListAssigned[List Assigned Components from Source]
 
