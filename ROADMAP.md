@@ -6,7 +6,6 @@
     - [ ] standardize config names (`update_webhook` -> `update_endpoint`)
     - [ ] Prometheus compatible logging option
 - [ ] Component-level output directories/temporary directories
-- [ ] Podman registry login support
 
 # The Road to 1.0 (TBD)
 - [ ] OpenBao as attrributes engine, or some equivalent
