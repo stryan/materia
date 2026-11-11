@@ -1,37 +1,43 @@
 # Materia workflow diagram
 
-An example digram of what the `materia update` command does
+An example digram of what the `materia update` command does. This works the same way for both CLI and server mode.
 
 ```mermaid
 graph TD
-    Start([Start: materia update]) --> SyncSources[Sync Source from Git repository]
+    Start([Start: materia update])
+    SyncSources[Sync Local cache with Remote Source]
 
-    SyncSources --> GatherFacts
-    GatherFacts --> BuildGraph[Build Component Graph]
-    BuildGraph --> ListInstalled[List Installed Components on Host]
-    BuildGraph --> ListAssigned[List Assigned Components from Source]
+    subgraph GatherFactsGraph[Gather Facts about Host]
+        GatherFacts --> ListInstalled[List Installed Components on Host]
+        GatherFacts --> ListAssigned[List Assigned Components from Source]
+        GatherFacts --> LookupInfo[Gather local host information]
+        GatherFacts --> BuildGraph[Build Component Graph]
+    end
 
-    ListInstalled --> CompareStates[Compare current host state versus desired state]
-    ListAssigned --> CompareStates
-    CompareStates -->|New Component| GenFresh[Generate installation steps: </br>-Install Files<br/>- Start Services]
+    subgraph PlanUpdatesGraph[Generate a plan]
+        CompareStates[Compare current host state versus desired state]
+        CompareStates -->|New Component| GenFresh[Generate installation steps: </br>-Install Files<br/>- Start Services]
+        CompareStates -->|Removed Component| GenRemove[Generate removal steps:<br/>- Stop Services<br/>- Remove files]
+        CompareStates -->|Updated Component| GenUpdate[Generate update steps:<br/>- Add/Update/Remove Files<br/>- Restart Services if needed]
+        CompareStates -->|No Changes| GenUnchanged[Start/Stop out-of-sync services]
+    end
 
-    CompareStates -->|Removed Component| GenRemove[Generate removal steps:<br/>- Stop Services<br/>- Remove files]
+    subgraph ExecutePlanGraph[Execute the plan]
+        ExecutePlan --> ExecResources[-Install/Update/Remove templated files<br/>- Install Quadlets<br/>- Create Volumes/Networks]
+        ExecResources --> ExecServices[Execute Service Actions:<br/>- Start/Stop/Restart systemd units<br/>]
+    end
 
-    CompareStates -->|Updated Component| GenUpdate[Generate update steps:<br/>- Add/Update/Remove Files<br/>- Restart Services if needed]
+    subgraph FinalizeGraph[Validate Execution and Save Output]
+        CheckServices[Ensure all services are stopped and stopped as needed] --> SaveOutput[Save plan and execution output]
+    end
 
-    CompareStates -->|No Changes| GenUnchanged[Start/Stop services]
+    End([End: Host in expected state])
 
-    GenFresh --> BuildPlan[Build Execution Plan]
-    GenRemove --> BuildPlan
-    GenUpdate --> BuildPlan
-    GenUnchanged --> BuildPlan
-
-    BuildPlan --> ExecutePlan[Execute Plan]
-
-    ExecutePlan --> ExecResources[-Install/Update/Remove templated files<br/>- Install Quadlets<br/>- Create Volumes/Networks]
-
-    ExecResources --> ExecServices[Execute Service Actions:<br/>- Start/Stop/Restart systemd units<br/>]
-
-    ExecServices --> End([End: Host in expected state])
+    Start --> SyncSources
+    SyncSources --> GatherFactsGraph
+    GatherFactsGraph --> PlanUpdatesGraph
+    PlanUpdatesGraph --> ExecutePlanGraph
+    ExecutePlanGraph --> FinalizeGraph
+    FinalizeGraph --> End
 ```
 
