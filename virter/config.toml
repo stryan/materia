@@ -3,7 +3,7 @@ diffs = true
 hostname = "localhost"
 
 [source]
-kind = "file"
+kind = "local"
 url = "/root/materia/virter/explore-repo"
 
 [age]

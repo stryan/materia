@@ -2,7 +2,7 @@
 - [ ] Increasing test coverage
 - [ ] Server mode improvements
     - [ ] varlink API refinement
-    - [ ] better logging
+    - [x] better logging
     - [ ] standardize config names (`update_webhook` -> `update_endpoint`)
     - [ ] Prometheus compatible logging option
 - [ ] Component-level output directories/temporary directories
