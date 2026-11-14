@@ -99,6 +99,15 @@ Root materia keeps a record of the component in its data directory: the Manifest
 
 Then it calls `Update` on the varlink socket of the account's materia server, `/run/user/<uid>/materia/materia.sock`.
 
+The account owns that socket, so root materia does not trust what answers there:
+
+- It sends nothing unless the peer runs as the account.
+- It reads one reply of at most 64 KiB: a step count, or an error.
+- It removes characters that do not print from the error text, and keeps at most 512 characters.
+- It gives up after `executor.delegate_timeout` seconds.
+
+The reply decides only whether root materia records the delivery. An account that reports success without applying anything is not detected.
+
 Order for a new or changed component:
 
 1. `PreScript` (changed components only)
@@ -144,6 +153,7 @@ Keep the configuration outside the account's home directory and pass it with `MA
 - `materia plan` as root shows one `Delegate Account` step per account, not the account's own steps. To see those, run `materia agent plan` as the account.
 - The staging directory holds the component's attributes in plain text. Only root and the account can read it.
 - Root materia's rollback does not cover the account's services.
+- The account owns its installed Quadlets and units. Root materia does not check them, and asks the account to update only when a component changed.
 - Changing or removing `User` on an installed component is an error. Remove the component from the host first, then assign it again.
 - Root materia finds the account in `/etc/passwd`.
 
