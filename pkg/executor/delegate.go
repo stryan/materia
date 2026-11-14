@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	// DefaultDelegateTimeout is how long, in seconds, an account's materia may take to update
-	DefaultDelegateTimeout = 900
+	// DefaultDelegateTimeout is how long, in seconds, an account's materia may
+	// take to update. The delegating materia holds its lock all that time, and
+	// the account decides how long its server takes to answer, so keep it short.
+	DefaultDelegateTimeout = 300
 	// delegateConnectWait is how long to wait for an account's materia to start listening
 	delegateConnectWait = 30 * time.Second
 )

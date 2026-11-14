@@ -62,7 +62,9 @@ Materia creates nothing here until a component sets `User`.
 
 (EXPERIMENTAL)
 
-How many seconds to wait for an account's materia to finish an update. Defaults to `900`.
+How many seconds to wait for an account's materia to finish an update. Defaults to `300`.
+
+Materia holds its lock while it waits, and the account controls how long its server takes to answer. Raise this only if an account's services need longer to start.
 
 #### `MATERIA_EXECUTOR__VERBOSE`/**executor.verbose**
 
