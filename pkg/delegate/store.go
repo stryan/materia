@@ -218,19 +218,60 @@ func (s *Store) Unstage(user, component string) error {
 // created with mode 0750 and is never changed afterwards: whoever sets up the
 // account gives it read access, for example by changing the group.
 func (s *Store) ensureAccountDir(user string) (string, error) {
-	if err := os.MkdirAll(filepath.Join(s.dir, accountsDir), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.dir), 0o755); err != nil {
 		return "", err
 	}
+	for _, dir := range []string{s.dir, filepath.Join(s.dir, accountsDir)} {
+		if err := mkdirMode(dir, 0o755); err != nil {
+			return "", err
+		}
+	}
 	account := s.AccountDir(user)
-	if err := os.Mkdir(account, 0o750); err != nil && !errors.Is(err, fs.ErrExist) {
+	if err := mkdirMode(account, 0o750); err != nil {
 		return "", err
 	}
 	for _, sub := range []string{componentsDir, AttributesDir} {
-		if err := os.Mkdir(filepath.Join(account, sub), 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+		if err := mkdirMode(filepath.Join(account, sub), 0o755); err != nil {
 			return "", err
 		}
 	}
 	return account, nil
+}
+
+// mkdirMode creates dir with exactly mode, whatever the umask is. It leaves
+// a directory that already exists as it is.
+func mkdirMode(dir string, mode fs.FileMode) error {
+	if err := os.Mkdir(dir, mode); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return nil
+		}
+		return err
+	}
+	return os.Chmod(dir, mode)
+}
+
+// openModes gives every directory below dir mode 0755 and every file 0644,
+// or 0755 if its owner may execute it. The account reads the staged files as
+// "other", so their modes must not depend on the umask.
+func openModes(dir string) error {
+	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		mode := fs.FileMode(0o644)
+		if d.IsDir() {
+			mode = 0o755
+		} else {
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if info.Mode()&0o100 != 0 {
+				mode = 0o755
+			}
+		}
+		return os.Chmod(path, mode)
+	})
 }
 
 func writeComponent(parent, name string, d *components.Delegation) error {
@@ -272,6 +313,9 @@ func writeComponent(parent, name string, d *components.Delegation) error {
 			return err
 		}
 	}
+	if err := openModes(fresh); err != nil {
+		return err
+	}
 	current := filepath.Join(parent, name)
 	err = unix.Renameat2(unix.AT_FDCWD, fresh, unix.AT_FDCWD, current, unix.RENAME_EXCHANGE)
 	switch {
@@ -296,7 +340,9 @@ func writeAttributes(dir, component string, attrs map[string]any) error {
 	vault := attributes.AttributeVault{
 		Components: map[string]map[string]any{component: attrs},
 	}
-	return writeTOML(path, 0o640, vault)
+	// The account reads this file as "other": only the top directory has its
+	// group. The mode of that directory is what keeps everyone else out.
+	return writeTOML(path, 0o644, vault)
 }
 
 // writeRepoManifest regenerates the account's repository manifest from the

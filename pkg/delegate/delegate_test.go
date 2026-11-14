@@ -2,8 +2,10 @@ package delegate_test
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"text/template"
 
@@ -172,6 +174,9 @@ func TestDelegationStage_OverrideSetsUser(t *testing.T) {
 // load as another user, and that materia must render with its own paths.
 func TestStore_AccountLoadsStagedRepository(t *testing.T) {
 	ctx := context.Background()
+	// a strict umask must not hide the staged files from the account
+	umask := syscall.Umask(0o077)
+	t.Cleanup(func() { syscall.Umask(umask) })
 	store := delegate.NewStore(filepath.Join(t.TempDir(), "delegate"))
 	require.NoError(t, store.Stage(loadWeb(t, newSource(t))))
 
@@ -179,6 +184,24 @@ func TestStore_AccountLoadsStagedRepository(t *testing.T) {
 	info, err := os.Stat(account)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o750), info.Mode().Perm(), "only root may read the staging directory until someone grants the account access")
+
+	// The account gets the group of the top directory and nothing else, so it
+	// reads everything below as "other".
+	require.NoError(t, filepath.WalkDir(account, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || path == account {
+			return err
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		want := fs.FileMode(0o004)
+		if d.IsDir() {
+			want = 0o005
+		}
+		assert.Equal(t, want, info.Mode().Perm()&want, "the account can't read %v", path)
+		return nil
+	}))
 
 	repoManifest, err := manifests.LoadMateriaManifest(filepath.Join(account, manifests.MateriaManifestFile))
 	require.NoError(t, err)

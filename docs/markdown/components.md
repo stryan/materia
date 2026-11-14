@@ -122,7 +122,7 @@ Root materia plans a delegated component again until the account's materia has a
 Root materia does not create the account and does not configure its materia. Do this once, for example in the component's `SetupScript`, which runs after the component is staged and before the first update:
 
 1. Create the account, with subordinate ID ranges and lingering enabled.
-2. Give the account read access to its staging directory. Materia creates it with mode `0750`, owned by root, and never changes it afterwards. For example: `chgrp hello /var/lib/materia/delegate/accounts/hello`.
+2. Give the account read access to its staging directory. Materia creates it with mode `0750`, owned by root, and never changes it afterwards. For example: `chgrp hello /var/lib/materia/delegate/accounts/hello`. The mode of this directory is the only thing that keeps other users out: the files below it, including the attributes, are readable by everyone who can enter it.
 3. Run `materia server` as the account, in its user manager, with a configuration like this:
 
 ~~~toml
