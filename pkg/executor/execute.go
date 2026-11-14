@@ -32,13 +32,14 @@ type Executor struct {
 	ExecutorConfig
 	host           Host
 	defaultTimeout int
+	updater        accountUpdater
 }
 
 func NewExecutor(conf ExecutorConfig, host Host, timeout int) *Executor {
 	return &Executor{
-		conf,
-		host,
-		timeout,
+		ExecutorConfig: conf,
+		host:           host,
+		defaultTimeout: timeout,
 	}
 }
 

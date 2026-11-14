@@ -74,3 +74,35 @@ func clearMateriaEnv(t *testing.T) {
 		}
 	}
 }
+
+func Test_NewExecutorConfig_Delegate(t *testing.T) {
+	clearMateriaEnv(t)
+	k, err := config.Load("", nil)
+	require.NoError(t, err)
+	cfg, err := NewExecutorConfig(k)
+	require.NoError(t, err)
+	assert.Equal(t, "", cfg.DelegateDir, "unset means materia derives it from materia_dir")
+	assert.Equal(t, 0, cfg.DelegateTimeout)
+	assert.NoError(t, cfg.Validate())
+
+	f, err := os.CreateTemp(t.TempDir(), "*.toml")
+	require.NoError(t, err)
+	_, err = f.WriteString("[executor]\ndelegate_dir = \"/srv/delegate\"\ndelegate_timeout = 120\n")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	k, err = config.Load(f.Name(), nil)
+	require.NoError(t, err)
+	cfg, err = NewExecutorConfig(k)
+	require.NoError(t, err)
+	assert.Equal(t, "/srv/delegate", cfg.DelegateDir)
+	assert.Equal(t, 120, cfg.DelegateTimeout)
+
+	t.Setenv("MATERIA_EXECUTOR__DELEGATE_DIR", "/env/delegate")
+	t.Setenv("MATERIA_EXECUTOR__DELEGATE_TIMEOUT", "-1")
+	k, err = config.Load("", nil)
+	require.NoError(t, err)
+	cfg, err = NewExecutorConfig(k)
+	require.NoError(t, err)
+	assert.Equal(t, "/env/delegate", cfg.DelegateDir)
+	assert.Error(t, cfg.Validate())
+}

@@ -151,6 +151,13 @@ var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandl
 		actions.ActionEnable:  serviceAction,
 		actions.ActionDisable: serviceAction,
 	},
+	components.ResourceTypeDelegate: {
+		actions.ActionInstall: stageComponent,
+		actions.ActionRemove:  unstageComponent,
+	},
+	components.ResourceTypeAccount: {
+		actions.ActionDelegate: delegateAccount,
+	},
 	components.ResourceTypePodmanSecret: {
 		actions.ActionInstall: installOrUpdateSecret,
 		actions.ActionUpdate:  installOrUpdateSecret,
