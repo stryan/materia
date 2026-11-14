@@ -88,7 +88,10 @@ func TestNew_PathOverrides(t *testing.T) {
 			}, hm, sm, mem.NewMemoryEngine())
 			require.NoError(t, err)
 
-			assert.Equal(t, tc.want, m.Executor.ExecutorConfig)
+			want := tc.want
+			// the delegate directory follows the final materia dir unless set
+			want.DelegateDir = filepath.Join(want.MateriaDir, "delegate")
+			assert.Equal(t, want, m.Executor.ExecutorConfig)
 		})
 	}
 }
