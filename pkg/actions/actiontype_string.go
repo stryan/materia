@@ -25,11 +25,12 @@ func _() {
 	_ = x[ActionImport-14]
 	_ = x[ActionDump-15]
 	_ = x[ActionExecute-16]
+	_ = x[ActionDelegate-17]
 }
 
-const _ActionType_name = "UnknownInstallRemoveUpdateStartStopRestartReloadEnableDisableEnsureSetupCleanupMountImportDumpExecute"
+const _ActionType_name = "UnknownInstallRemoveUpdateStartStopRestartReloadEnableDisableEnsureSetupCleanupMountImportDumpExecuteDelegate"
 
-var _ActionType_index = [...]uint8{0, 7, 14, 20, 26, 31, 35, 42, 48, 54, 61, 67, 72, 79, 84, 90, 94, 101}
+var _ActionType_index = [...]uint8{0, 7, 14, 20, 26, 31, 35, 42, 48, 54, 61, 67, 72, 79, 84, 90, 94, 101, 109}
 
 func (i ActionType) String() string {
 	idx := int(i) - 0

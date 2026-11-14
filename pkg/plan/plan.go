@@ -43,6 +43,8 @@ type Plan struct {
 	size       int
 	changesMap maps.Map
 	needReload bool
+	// accounts whose own materia must update once every component is staged
+	delegates []string
 }
 
 func (p *Plan) addResourceChange(a actions.Action) {
@@ -117,6 +119,15 @@ func (p *Plan) Add(a actions.Action) error {
 	if err := a.Validate(); err != nil {
 		return fmt.Errorf("invalid action %v to add: %w", a, err)
 	}
+	if a.Todo == actions.ActionDelegate && a.Priority == 0 {
+		// one update per account, after everything else in the plan
+		if !slices.Contains(p.delegates, a.Target.Path) {
+			p.delegates = append(p.delegates, a.Target.Path)
+			slices.Sort(p.delegates)
+			p.size++
+		}
+		return nil
+	}
 	if a.Priority == 0 {
 		priority, err := getDefaultPriority(a)
 		if err != nil {
@@ -178,6 +189,13 @@ func (p *Plan) Steps() []actions.Action {
 		steps = append(steps, reload)
 	}
 	steps = mergeStepsIntoPlan(steps, serviceSteps)
+	for _, account := range p.delegates {
+		steps = append(steps, actions.Action{
+			Todo:   actions.ActionDelegate,
+			Parent: components.NewRootComponent(),
+			Target: components.Resource{Kind: components.ResourceTypeAccount, Path: account, Parent: "root"},
+		})
+	}
 
 	return steps
 }
@@ -330,6 +348,9 @@ func getDefaultPriority(a actions.Action) (int, error) {
 		},
 		components.ResourceTypeHost: {
 			actions.ActionReload: 4,
+		},
+		components.ResourceTypeDelegate: {
+			actions.ActionInstall: 3, actions.ActionRemove: 1,
 		},
 	}
 
