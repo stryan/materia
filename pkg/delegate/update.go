@@ -11,15 +11,19 @@ import (
 	"net"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
 	varlinkapi "primamateria.systems/materia/pkg/api"
 )
 
 var (
 	// ErrNoAccount means the account of a delegated component does not exist.
 	ErrNoAccount = errors.New("account does not exist")
+	// ErrWrongPeer means the process that answered on the account's socket does not run as the account.
+	ErrWrongPeer = errors.New("peer is not the account")
 	// ErrReplyTooLarge means the account's materia sent more than a reply to Update can hold.
 	ErrReplyTooLarge = errors.New("reply is too large")
 )
@@ -49,8 +53,8 @@ func SocketPath(uid string) string {
 // UpdateAccount keeps trying to connect for up to wait.
 //
 // The account owns the socket, so UpdateAccount treats whatever answers
-// there as untrusted: it speaks the one call itself and reads a bounded
-// reply.
+// there as untrusted: it checks that the peer runs as the account, speaks
+// the one call itself and reads a bounded reply.
 func UpdateAccount(ctx context.Context, account string, wait time.Duration) (int64, error) {
 	u, err := user.Lookup(account)
 	if err != nil {
@@ -59,15 +63,22 @@ func UpdateAccount(ctx context.Context, account string, wait time.Duration) (int
 		}
 		return 0, fmt.Errorf("can't look up account %v: %w", account, err)
 	}
-	return updateSocket(ctx, SocketPath(u.Uid), wait)
+	uid, err := strconv.ParseUint(u.Uid, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("account %v has no numeric user ID: %w", account, err)
+	}
+	return updateSocket(ctx, SocketPath(u.Uid), uint32(uid), wait)
 }
 
-func updateSocket(ctx context.Context, path string, wait time.Duration) (int64, error) {
+func updateSocket(ctx context.Context, path string, uid uint32, wait time.Duration) (int64, error) {
 	conn, err := connect(ctx, path, wait)
 	if err != nil {
 		return 0, fmt.Errorf("can't reach materia server at %v: %w", path, err)
 	}
 	defer func() { _ = conn.Close() }()
+	if err := checkPeer(conn, uid); err != nil {
+		return 0, fmt.Errorf("won't use materia server at %v: %w", path, err)
+	}
 	// closing the connection is what interrupts a read when ctx ends
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
@@ -124,6 +135,32 @@ func callUpdate(conn io.ReadWriter) (int64, error) {
 	default:
 		return 0, fmt.Errorf("update failed: %v", reply.Error)
 	}
+}
+
+// checkPeer makes sure the process on the other end of conn runs as uid.
+//
+// The socket is in a directory the account owns. The account can put a
+// symbolic link there, and the connection then reaches the socket of some
+// other service, which would take a call from root.
+func checkPeer(conn *net.UnixConn, uid uint32) error {
+	raw, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var cred *unix.Ucred
+	var credErr error
+	if err := raw.Control(func(fd uintptr) {
+		cred, credErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
+	}); err != nil {
+		return err
+	}
+	if credErr != nil {
+		return fmt.Errorf("can't read peer credentials: %w", credErr)
+	}
+	if cred.Uid != uid {
+		return fmt.Errorf("%w: it runs as user ID %v, not %v", ErrWrongPeer, cred.Uid, uid)
+	}
+	return nil
 }
 
 func unmarshalParameters(raw json.RawMessage, out any) error {

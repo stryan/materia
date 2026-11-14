@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func serve(t *testing.T, path string, impl *fakeServer) {
 func TestUpdateSocket(t *testing.T) {
 	path := filepath.Join(socketDir(t), "materia.sock")
 	serve(t, path, &fakeServer{})
-	steps, err := updateSocket(context.Background(), path, 5*time.Second)
+	steps, err := updateSocket(context.Background(), path, me(), 5*time.Second)
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), steps)
 }
@@ -67,7 +68,7 @@ func TestUpdateSocket(t *testing.T) {
 func TestUpdateSocket_ReportsFailure(t *testing.T) {
 	path := filepath.Join(socketDir(t), "materia.sock")
 	serve(t, path, &fakeServer{fail: true})
-	steps, err := updateSocket(context.Background(), path, 5*time.Second)
+	steps, err := updateSocket(context.Background(), path, me(), 5*time.Second)
 	require.Error(t, err)
 	assert.Equal(t, int64(2), steps)
 	assert.ErrorContains(t, err, "service unhealthy")
@@ -80,7 +81,7 @@ func TestUpdateSocket_WaitsForServer(t *testing.T) {
 		time.Sleep(700 * time.Millisecond)
 		serve(t, path, &fakeServer{})
 	}()
-	steps, err := updateSocket(context.Background(), path, 10*time.Second)
+	steps, err := updateSocket(context.Background(), path, me(), 10*time.Second)
 	require.NoError(t, err)
 	assert.Equal(t, int64(7), steps)
 }
@@ -88,7 +89,7 @@ func TestUpdateSocket_WaitsForServer(t *testing.T) {
 func TestUpdateSocket_GivesUp(t *testing.T) {
 	path := filepath.Join(socketDir(t), "materia.sock")
 	start := time.Now()
-	_, err := updateSocket(context.Background(), path, 0)
+	_, err := updateSocket(context.Background(), path, me(), 0)
 	require.Error(t, err)
 	assert.Less(t, time.Since(start), 2*time.Second)
 }
@@ -132,7 +133,7 @@ func TestUpdateSocket_RejectsEndlessReply(t *testing.T) {
 			}
 		}
 	})
-	_, err := updateSocket(context.Background(), path, time.Second)
+	_, err := updateSocket(context.Background(), path, me(), time.Second)
 	assert.ErrorIs(t, err, ErrReplyTooLarge)
 }
 
@@ -147,7 +148,7 @@ func TestUpdateSocket_RejectsInvalidReply(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(socketDir(t), "materia.sock")
 			serveRaw(t, path, func(conn net.Conn) { _, _ = conn.Write([]byte(reply)) })
-			_, err := updateSocket(context.Background(), path, time.Second)
+			_, err := updateSocket(context.Background(), path, me(), time.Second)
 			assert.Error(t, err)
 		})
 	}
@@ -161,7 +162,38 @@ func TestUpdateSocket_StopsWithContext(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	_, err := updateSocket(ctx, path, time.Second)
+	_, err := updateSocket(ctx, path, me(), time.Second)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Less(t, time.Since(start), 3*time.Second)
+}
+
+// me is the user ID the test servers run as.
+func me() uint32 { return uint32(os.Getuid()) }
+
+func TestUpdateSocket_RejectsWrongPeer(t *testing.T) {
+	path := filepath.Join(socketDir(t), "materia.sock")
+	var called atomic.Bool
+	closed := make(chan struct{})
+	serveRaw(t, path, func(conn net.Conn) {
+		defer close(closed)
+		buffer := make([]byte, 1)
+		if n, _ := conn.Read(buffer); n > 0 {
+			called.Store(true)
+		}
+	})
+	_, err := updateSocket(context.Background(), path, me()+1, time.Second)
+	assert.ErrorIs(t, err, ErrWrongPeer)
+	<-closed
+	assert.False(t, called.Load(), "nothing may be sent to a peer that is not the account")
+}
+
+func TestUpdateSocket_RejectsRedirect(t *testing.T) {
+	dir := socketDir(t)
+	other := filepath.Join(dir, "other.sock")
+	serve(t, other, &fakeServer{})
+	link := filepath.Join(dir, "materia.sock")
+	require.NoError(t, os.Symlink(other, link))
+	// the link reaches a server that runs as someone other than the account
+	_, err := updateSocket(context.Background(), link, me()+1, time.Second)
+	assert.ErrorIs(t, err, ErrWrongPeer)
 }
