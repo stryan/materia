@@ -15,6 +15,7 @@ Best effort list of major changes and bugfixes
   - `Stopped=true|false` -> use `State = "lazy"` or `State = "inert"`. The former allows materia to still trigger the service. The latter blocks materia from touching it at all.
 
 ## Upcoming
+- bugfix: host `Overrides` no longer drop the component's `[Settings]` they don't set
 - bugfix: non-existent services no longer fail triggers
 - bugfix: fix static services stalling service check
 - feat: `source_subpath` setting for materia repositories in sub directories of the source repo.

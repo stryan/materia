@@ -143,6 +143,7 @@ func MergeComponentManifests(original, override *ComponentManifest) (*ComponentM
 	result.Scripts = original.Scripts
 	result.Services = original.Services
 	result.Secrets = original.Secrets
+	result.Settings = original.Settings
 
 	if len(override.Defaults) > 0 {
 		result.Defaults = maps.Clone(override.Defaults)
