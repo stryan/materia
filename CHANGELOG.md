@@ -24,6 +24,8 @@ Best effort list of major changes and bugfixes
 - feat: `executor.verbose` to output each step as materia runs it
 - feat: more runtime logging
 - deprecation: file source renamed to "local"
+- feat: (EXPERIMENTAL) `User` component setting. A root materia stages the component and hands it to the materia server of that account, which installs it rootless. Components without `User` are not affected.
+    - new settings `executor.delegate_dir` and `executor.delegate_timeout`
 
 
 ## 0.8.1

@@ -194,6 +194,20 @@ A script resource to run after component update. Does not run on install or remo
 
 It will be run as a `one-shot` transient systemd unit after resources installed/updated and the host is reloaded, but before services are changed.
 
+##### User
+
+(EXPERIMENTAL)
+
+The system account whose own materia installs this component. Not set by default.
+
+When set, the materia that reads the repository does not install the component's Quadlets and does not manage its services. It keeps a record of the component, stages the component for the account, and asks the materia server running as that account to update. The component's containers then run rootless, as that account.
+
+Only a materia running as root can use this setting. The account must run `materia server` with the staged directory as a `local` source. Instanced components can not set `User`.
+
+`SetupScript`, `CleanupScript`, `PreScript` and `PostScript` still run as root, in the system manager. They do not run in the account.
+
+See [Delegated Components](../components.md#delegated-components) for the order of actions and the account's configuration.
+
 #### *Defaults*
 
 Key-value pairs describing default variable/attribute values for a component.
