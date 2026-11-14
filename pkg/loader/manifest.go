@@ -38,7 +38,7 @@ func (s *ManifestLoadStage) Process(ctx context.Context, comp *components.Compon
 		for _, extension := range s.extensions {
 			manifest, err = manifests.ExtendComponentManifests(manifest, extension)
 			if err != nil {
-				return fmt.Errorf("can't load source component %v's overrides: %w", comp.Name, err)
+				return fmt.Errorf("can't load source component %v's extensions: %w", comp.Name, err)
 			}
 		}
 	}
