@@ -7,6 +7,7 @@ import (
 
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
+	"primamateria.systems/materia/pkg/plan"
 )
 
 // DelegationState reports what an account's own materia last applied.
@@ -199,11 +200,13 @@ func stageAction(c *components.Component) actions.Action {
 	}
 }
 
+// delegateAction updates user's materia once the rest of the plan has run.
 func delegateAction(user string) actions.Action {
 	return actions.Action{
-		Todo:   actions.ActionDelegate,
-		Parent: components.NewRootComponent(),
-		Target: components.Resource{Parent: "root", Kind: components.ResourceTypeAccount, Path: user},
+		Todo:     actions.ActionDelegate,
+		Parent:   components.NewRootComponent(),
+		Target:   components.Resource{Parent: "root", Kind: components.ResourceTypeAccount, Path: user},
+		Priority: plan.PriorityEndOfPlan,
 	}
 }
 

@@ -276,3 +276,37 @@ func mustComponent(name string) *components.Component {
 	comp, _ := components.NewComponent(name)
 	return comp
 }
+
+func account(compname, user string, prio int) actions.Action {
+	a := act(compname, actions.ActionDelegate, "", prio)
+	a.Target = components.Resource{Parent: compname, Kind: components.ResourceTypeAccount, Path: user}
+	return a
+}
+
+func Test_PlanDelegateEndOfPlan(t *testing.T) {
+	clearRegistry()
+	p := NewPlan()
+	assert.NoError(t, p.Append([]actions.Action{
+		account("root", "webapp", PriorityEndOfPlan),
+		act("web", actions.ActionInstall, "web.container", 0),
+		account("root", "webapp", PriorityEndOfPlan),
+		account("gone", "other", 1),
+	}))
+	steps := p.Steps()
+	assert.Equal(t, 3, p.Size())
+	assert.Len(t, steps, 3)
+	// the account update with an explicit priority stays with its component
+	assert.Equal(t, "other", steps[0].Target.Path)
+	assert.Equal(t, 1, steps[0].Priority)
+	assert.Equal(t, "web.container", steps[1].Target.Path)
+	// the end of plan update comes last, once
+	assert.Equal(t, "webapp", steps[2].Target.Path)
+	assert.Equal(t, PriorityEndOfPlan, steps[2].Priority)
+}
+
+func Test_PlanDelegateNeedsPriority(t *testing.T) {
+	clearRegistry()
+	p := NewPlan()
+	assert.Error(t, p.Add(account("root", "webapp", 0)), "an account update has no default priority")
+	assert.Error(t, p.Add(act("web", actions.ActionInstall, "web.container", PriorityEndOfPlan)), "only account updates wait for the end of the plan")
+}

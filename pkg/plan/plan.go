@@ -13,6 +13,11 @@ import (
 	"primamateria.systems/materia/pkg/components"
 )
 
+// PriorityEndOfPlan holds an account update back until every other step has
+// run. Each account is updated once, however many actions ask for it. An
+// update with any other priority runs where that priority puts it.
+const PriorityEndOfPlan = -1
+
 type componentChanges struct {
 	resourceChanges []actions.Action
 	serviceChanges  []actions.Action
@@ -119,8 +124,10 @@ func (p *Plan) Add(a actions.Action) error {
 	if err := a.Validate(); err != nil {
 		return fmt.Errorf("invalid action %v to add: %w", a, err)
 	}
-	if a.Todo == actions.ActionDelegate && a.Priority == 0 {
-		// one update per account, after everything else in the plan
+	if a.Priority == PriorityEndOfPlan {
+		if a.Todo != actions.ActionDelegate {
+			return fmt.Errorf("invalid action %v to add: only an account update can wait for the end of the plan", a)
+		}
 		if !slices.Contains(p.delegates, a.Target.Path) {
 			p.delegates = append(p.delegates, a.Target.Path)
 			slices.Sort(p.delegates)
@@ -191,9 +198,10 @@ func (p *Plan) Steps() []actions.Action {
 	steps = mergeStepsIntoPlan(steps, serviceSteps)
 	for _, account := range p.delegates {
 		steps = append(steps, actions.Action{
-			Todo:   actions.ActionDelegate,
-			Parent: components.NewRootComponent(),
-			Target: components.Resource{Kind: components.ResourceTypeAccount, Path: account, Parent: "root"},
+			Todo:     actions.ActionDelegate,
+			Parent:   components.NewRootComponent(),
+			Target:   components.Resource{Kind: components.ResourceTypeAccount, Path: account, Parent: "root"},
+			Priority: PriorityEndOfPlan,
 		})
 	}
 
