@@ -24,6 +24,7 @@ func (s *ComponentInitStage) Process(ctx context.Context, comp *components.Compo
 	}
 	comp.Resources = newcomp.Resources
 	comp.Version = newcomp.Version
+	comp.User = newcomp.User
 	return nil
 }
 
@@ -52,6 +53,10 @@ func (s *ResourceDiscoveryStage) Process(ctx context.Context, comp *components.C
 type AppCompatibilityStage struct{}
 
 func (s *AppCompatibilityStage) Process(ctx context.Context, comp *components.Component) error {
+	if comp.User != "" {
+		// the account's own materia writes the appfile for a delegated component
+		return nil
+	}
 	appfileData := comp.ToAppfile()
 	name := comp.Name
 	if comp.IsInstanced() {

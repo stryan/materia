@@ -45,6 +45,12 @@ func NewSourceComponentPipeline(mgr components.ComponentReader, macros macros.Ma
 				extensions: extensions,
 			},
 			&ResourceDiscoveryStage{manager: mgr},
+			&DelegationStage{
+				manager:    mgr,
+				attrs:      attrs,
+				overrides:  overrides,
+				extensions: extensions,
+			},
 			&TemplateProcessorStage{macros: macros, attrs: attrs},
 			&ComponentInstanceStage{},
 			&SecretInjectorStage{attrs: attrs},
