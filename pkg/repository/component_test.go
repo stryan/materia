@@ -159,3 +159,27 @@ func getContent(t *testing.T, path string) string {
 	require.NoError(t, err)
 	return string(data)
 }
+
+func Test_DelegatedComponent_RecordsUser(t *testing.T) {
+	fix := newHostFixture(t)
+	comp, err := components.NewComponent("web")
+	require.NoError(t, err)
+	comp.Version = components.DefaultComponentVersion
+	comp.User = "webapp"
+	require.NoError(t, fix.repo.InstallComponent(comp))
+	require.NoError(t, fix.repo.InstallResource(components.Resource{
+		Parent: "web", Path: manifests.ComponentManifestFile, Kind: components.ResourceTypeManifest,
+	}, nil))
+	// the record keeps today's layout, so tools that look for an installed component still find it
+	require.True(t, fileExists(t, fix.Quad("web", ".materia_managed")))
+
+	got, err := fix.repo.GetComponent("web")
+	require.NoError(t, err)
+	require.Equal(t, "webapp", got.User)
+	require.Equal(t, components.DefaultComponentVersion, got.Version)
+
+	plain := fix.install(t, "plain", components.DefaultComponentVersion)
+	got, err = fix.repo.GetComponent(plain.Name)
+	require.NoError(t, err)
+	require.Equal(t, "", got.User)
+}
