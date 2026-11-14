@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,11 +21,17 @@ import (
 type fakeServer struct {
 	varlinkapi.VarlinkInterface
 	fail bool
+	// message replaces the text of the failure
+	message string
 }
 
 func (s *fakeServer) Update(ctx context.Context, c varlinkapi.VarlinkCall) error {
 	if s.fail {
-		return c.ReplyUpdateFailed(ctx, "service unhealthy", 2, 5)
+		message := "service unhealthy"
+		if s.message != "" {
+			message = s.message
+		}
+		return c.ReplyUpdateFailed(ctx, message, 2, 5)
 	}
 	return c.ReplyUpdate(ctx, 7)
 }
@@ -196,4 +203,25 @@ func TestUpdateSocket_RejectsRedirect(t *testing.T) {
 	// the link reaches a server that runs as someone other than the account
 	_, err := updateSocket(context.Background(), link, me()+1, time.Second)
 	assert.ErrorIs(t, err, ErrWrongPeer)
+}
+
+func TestUpdateSocket_CleansFailureText(t *testing.T) {
+	path := filepath.Join(socketDir(t), "materia.sock")
+	hostile := "bad\nERRO forged line\x1b[2J\r" + strings.Repeat("x", 2*maxMessage)
+	serve(t, path, &fakeServer{fail: true, message: hostile})
+	_, err := updateSocket(context.Background(), path, me(), 5*time.Second)
+	require.Error(t, err)
+	text := err.Error()
+	assert.NotContains(t, text, "\n")
+	assert.NotContains(t, text, "\r")
+	assert.NotContains(t, text, "\x1b")
+	assert.Contains(t, text, "forged line", "the text itself is kept, on one line")
+	assert.Less(t, len(text), maxMessage*4+200)
+	assert.True(t, strings.HasSuffix(text, "…"))
+}
+
+func TestPrintable(t *testing.T) {
+	assert.Equal(t, "plain text, with ünïcödé", printable("plain text, with ünïcödé"))
+	assert.Equal(t, "a\ufffdb\ufffdc", printable("a\x00b\tc"))
+	assert.Equal(t, strings.Repeat("y", maxMessage), printable(strings.Repeat("y", maxMessage)))
 }

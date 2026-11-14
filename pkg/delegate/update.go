@@ -12,8 +12,10 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"golang.org/x/sys/unix"
 	varlinkapi "primamateria.systems/materia/pkg/api"
@@ -38,6 +40,9 @@ const (
 
 	updateMethod = "systems.primamateria.materia.Update"
 	updateFailed = "systems.primamateria.materia.UpdateFailed"
+
+	// maxMessage is how many characters of an account's error text are kept
+	maxMessage = 512
 )
 
 // SocketPath is the varlink socket of the materia server that runs as the
@@ -131,9 +136,9 @@ func callUpdate(conn io.ReadWriter) (int64, error) {
 		if err := unmarshalParameters(reply.Parameters, &failed); err != nil {
 			return 0, err
 		}
-		return failed.StepsCompleted, fmt.Errorf("update failed after %v of %v steps: %v", failed.StepsCompleted, failed.TotalSteps, failed.Message)
+		return failed.StepsCompleted, fmt.Errorf("update failed after %v of %v steps: %v", failed.StepsCompleted, failed.TotalSteps, printable(failed.Message))
 	default:
-		return 0, fmt.Errorf("update failed: %v", reply.Error)
+		return 0, fmt.Errorf("update failed: %v", printable(reply.Error))
 	}
 }
 
@@ -161,6 +166,27 @@ func checkPeer(conn *net.UnixConn, uid uint32) error {
 		return fmt.Errorf("%w: it runs as user ID %v, not %v", ErrWrongPeer, cred.Uid, uid)
 	}
 	return nil
+}
+
+// printable makes text from an account's materia safe to put in an error
+// and a log: one line, no control characters, at most maxMessage characters.
+// Without this the account could forge log lines or send terminal escape
+// sequences to whoever reads the log of the root materia.
+func printable(text string) string {
+	var out strings.Builder
+	count := 0
+	for _, r := range text {
+		if count == maxMessage {
+			out.WriteString("…")
+			break
+		}
+		if !unicode.IsPrint(r) {
+			r = unicode.ReplacementChar
+		}
+		out.WriteRune(r)
+		count++
+	}
+	return out.String()
 }
 
 func unmarshalParameters(raw json.RawMessage, out any) error {
