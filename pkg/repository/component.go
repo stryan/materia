@@ -117,6 +117,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 			return nil, err
 		}
 		oldComp.Version = c.Version
+		oldComp.User = c.User
 	} else {
 		oldComp.Version = -1
 	}

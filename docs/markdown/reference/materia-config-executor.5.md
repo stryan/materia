@@ -50,6 +50,22 @@ Overrides the executor's configured service directory.
 
 Overrides the executor's configured output directory.
 
+#### `MATERIA_EXECUTOR__DELEGATE_DIR`/**executor.delegate_dir**
+
+(EXPERIMENTAL)
+
+Where components that set `User` are staged for their account's materia. Defaults to `delegate` inside the materia data directory, for example `/var/lib/materia/delegate`.
+
+Materia creates nothing here until a component sets `User`.
+
+#### `MATERIA_EXECUTOR__DELEGATE_TIMEOUT`/**executor.delegate_timeout**
+
+(EXPERIMENTAL)
+
+How many seconds to wait for an account's materia to finish an update. Defaults to `300`.
+
+Materia holds its lock while it waits, and the account controls how long its server takes to answer. Raise this only if an account's services need longer to start.
+
 #### `MATERIA_EXECUTOR__VERBOSE`/**executor.verbose**
 
 Logs each step as the executor runs it.

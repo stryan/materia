@@ -16,6 +16,7 @@ import (
 	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
+	"primamateria.systems/materia/pkg/delegate"
 	"primamateria.systems/materia/pkg/executor"
 	"primamateria.systems/materia/pkg/facts"
 	"primamateria.systems/materia/pkg/loader"
@@ -115,11 +116,15 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		}
 	}
 
+	// staging area for components that set User; nothing is created until one does
+	ec.DelegateDir = cmp.Or(ec.DelegateDir, filepath.Join(ec.MateriaDir, "delegate"))
+
 	nc := c.NotifyConfig
 	sc := c.ServicesConfig
 
 	e := executor.NewExecutor(ec, hm, sc.Timeout)
 	p := planner.NewPlanner(pc, hm)
+	p.Delegation = delegate.NewStore(ec.DelegateDir)
 	var l Locker
 	switch c.Lock {
 	case "dbus":
@@ -172,6 +177,12 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 		Lock:     l,
 		Rollback: rollback,
 	}, nil
+}
+
+// canDelegate reports whether this materia may hand components to other
+// accounts. It is a variable so tests can run without root.
+var canDelegate = func() bool {
+	return os.Geteuid() == 0
 }
 
 func (m *Materia) lock(ctx context.Context) error {
@@ -298,6 +309,9 @@ func (m *Materia) Clean(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
+	if err := os.RemoveAll(m.Executor.DelegateDir); err != nil {
+		return err
+	}
 	return os.RemoveAll(m.OutputDir)
 }
 
@@ -412,6 +426,16 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 		err = sourcePipeline.Load(ctx, sourceComponent)
 		if err != nil {
 			return nil, fmt.Errorf("error loading source component %v: %w", n, err)
+		}
+		if sourceComponent.Delegation != nil {
+			if !canDelegate() {
+				return nil, fmt.Errorf("component %v sets User to %q: only a materia that runs as root can hand a component to another account", n, sourceComponent.User)
+			}
+			sourceComponent.Delegation.Repository = components.DelegatedRepository{
+				Hostname: mfacts.Hostname,
+				Roles:    mfacts.Roles,
+				Snippets: m.Manifest.Snippets,
+			}
 		}
 		assignedComponents = append(assignedComponents, sourceComponent)
 	}

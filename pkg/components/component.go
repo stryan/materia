@@ -33,6 +33,10 @@ type Component struct {
 	Defaults         map[string]any
 	ServiceManifests *ServiceManifestSet
 	Version          int
+	// User is the account whose own materia installs this component. Empty for a normal component.
+	User string
+	// Delegation is what gets staged for that account. Only set on source components.
+	Delegation *Delegation
 }
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
@@ -52,6 +56,7 @@ const (
 
 type ComponentVersion struct {
 	Version int
+	User    string
 }
 
 func ValidateComponentName(name string) error {
@@ -219,12 +224,23 @@ func (c Component) Validate() error {
 	if c.Config.GetSetupScript() == "" && c.Config.GetCleanupScript() != "" {
 		return errors.New("component has cleanup script but no setup script")
 	}
+	if c.User != "" {
+		if err := ValidateUser(c.User); err != nil {
+			return err
+		}
+		if c.Instance != "" {
+			return errors.New("instanced components can't set User")
+		}
+	}
 	return nil
 }
 
 func (c *Component) VersionData() (*bytes.Buffer, error) {
 	vd := make(map[string]any)
 	vd["Version"] = c.Version
+	if c.User != "" {
+		vd["User"] = c.User
+	}
 	buffer, err := toml.Parser().Marshal(vd)
 	if err != nil {
 		return nil, err

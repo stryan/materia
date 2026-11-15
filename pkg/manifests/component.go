@@ -18,6 +18,7 @@ type Settings struct {
 	CleanupScript *string `toml:"CleanupScript"`
 	PreScript     *string `toml:"PreScript"`
 	PostScript    *string `toml:"PostScript"`
+	User          *string `toml:"User"`
 }
 
 func (s *Settings) Merge(o Settings) {
@@ -38,6 +39,9 @@ func (s *Settings) Merge(o Settings) {
 	}
 	if o.PostScript != nil {
 		s.PostScript = o.PostScript
+	}
+	if o.User != nil {
+		s.User = o.User
 	}
 }
 
@@ -81,6 +85,15 @@ func (s Settings) GetPostScript() string {
 		return ""
 	}
 	return *s.PostScript
+}
+
+// GetUser returns the account whose own materia installs the component.
+// Empty means materia installs the component itself.
+func (s Settings) GetUser() string {
+	if s.User == nil {
+		return ""
+	}
+	return *s.User
 }
 
 type ComponentManifest struct {

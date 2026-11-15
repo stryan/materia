@@ -1,8 +1,10 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"os/user"
+	"path/filepath"
 
 	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/pkg/dirs"
@@ -17,10 +19,13 @@ type ExecutorConfig struct {
 	ScriptsDir string `koanf:"scripts_dir"`
 	ServiceDir string `koanf:"service_dir"`
 	OutputDir  string `koanf:"output_dir"`
+	// Delegation: only used for components that set User
+	DelegateDir     string `koanf:"delegate_dir"`
+	DelegateTimeout int    `koanf:"delegate_timeout"`
 }
 
 func (e ExecutorConfig) String() string {
-	return fmt.Sprintf("Cleanup Components: %v\nMateria Data Dir: %v\nQuadlets Dir: %v\nScripts Dir: %v\nService Dir: %v\nOutput Dir: %v\n", e.CleanupComponents, e.MateriaDir, e.QuadletDir, e.ScriptsDir, e.ServiceDir, e.OutputDir)
+	return fmt.Sprintf("Cleanup Components: %v\nMateria Data Dir: %v\nQuadlets Dir: %v\nScripts Dir: %v\nService Dir: %v\nOutput Dir: %v\nDelegate Dir: %v\nDelegate Timeout: %v\n", e.CleanupComponents, e.MateriaDir, e.QuadletDir, e.ScriptsDir, e.ServiceDir, e.OutputDir, e.DelegateDir, e.DelegateTimeout)
 }
 
 func NewExecutorConfig(k *koanf.Koanf) (ExecutorConfig, error) {
@@ -32,6 +37,9 @@ func NewExecutorConfig(k *koanf.Koanf) (ExecutorConfig, error) {
 }
 
 func (e ExecutorConfig) Validate() error {
+	if e.DelegateTimeout < 0 {
+		return errors.New("delegate_timeout can't be negative")
+	}
 	return nil
 }
 
@@ -48,5 +56,7 @@ func DefaultExecutorConfig(user *user.User) (ExecutorConfig, error) {
 		ScriptsDir:        dirs.Scripts,
 		ServiceDir:        dirs.Services,
 		OutputDir:         dirs.Output,
+		DelegateDir:       filepath.Join(dirs.Data, "delegate"),
+		DelegateTimeout:   DefaultDelegateTimeout,
 	}, nil
 }

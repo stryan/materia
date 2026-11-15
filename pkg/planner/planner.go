@@ -32,10 +32,12 @@ type HostStateManager interface {
 type Planner struct {
 	PlannerConfig
 	Host HostStateManager
+	// Delegation is only consulted for components that set User. It may be nil.
+	Delegation DelegationState
 }
 
 func NewPlanner(conf PlannerConfig, host HostStateManager) *Planner {
-	return &Planner{conf, host}
+	return &Planner{PlannerConfig: conf, Host: host}
 }
 
 func (p *Planner) Plan(ctx context.Context, installedComponents, assignedComponents []*components.Component) (*plan.Plan, error) {
@@ -46,6 +48,17 @@ func (p *Planner) Plan(ctx context.Context, installedComponents, assignedCompone
 	}
 
 	for _, currentTree := range componentGraph.List() {
+		if isDelegated(currentTree) {
+			log.Debugf("planning delegated component %v", currentTree.Name)
+			actions, err := p.PlanDelegatedComponent(ctx, currentTree)
+			if err != nil {
+				return nil, err
+			}
+			if err := actionPlan.Append(actions); err != nil {
+				return nil, fmt.Errorf("error calculating delegated component %v differences: %w", currentTree.Name, err)
+			}
+			continue
+		}
 		if currentTree.Host == nil {
 			log.Debugf("planning fresh component %v", currentTree.Name)
 			currentTree.Source.State = components.StateFresh

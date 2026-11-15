@@ -35,6 +35,9 @@ const (
 	ActionDump
 
 	ActionExecute
+
+	// ActionDelegate asks an account's own materia to apply what was staged for it
+	ActionDelegate
 )
 
 func (t ActionType) IsServiceAction() bool {

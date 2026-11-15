@@ -57,6 +57,11 @@ const (
 
 	ResourceTypeService
 	ResourceTypePodmanSecret
+
+	// ResourceTypeDelegate is the copy of a component staged for an account's own materia
+	ResourceTypeDelegate
+	// ResourceTypeAccount is an account whose own materia installs delegated components
+	ResourceTypeAccount
 )
 
 func (t ResourceType) toExt() (string, error) {

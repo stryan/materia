@@ -43,3 +43,24 @@ port = "8080"
 	assert.True(t, original.Settings.GetNoRestart())
 	assert.Equal(t, "cleanup.sh", original.Settings.GetCleanupScript())
 }
+
+func TestSettings_User(t *testing.T) {
+	plain, err := LoadComponentManifestFromContent([]byte("[Settings]\nNoRestart = true\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "", plain.Settings.GetUser())
+
+	m, err := LoadComponentManifestFromContent([]byte("[Settings]\nUser = \"moonshine\"\n"))
+	require.NoError(t, err)
+	assert.Equal(t, "moonshine", m.Settings.GetUser())
+
+	// an extension can set User for one host
+	extended, err := ExtendComponentManifests(plain, m)
+	require.NoError(t, err)
+	assert.Equal(t, "moonshine", extended.Settings.GetUser())
+	assert.True(t, extended.Settings.GetNoRestart())
+
+	// and one that says nothing about User keeps it
+	kept, err := ExtendComponentManifests(m, plain)
+	require.NoError(t, err)
+	assert.Equal(t, "moonshine", kept.Settings.GetUser())
+}
