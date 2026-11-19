@@ -1,5 +1,7 @@
-![materia logo](./materia_logo.png)
-# Materia
+<h1>
+  <img src="./materia_logo.png" alt="Materia Logo" width="32" height="32" align="absmiddle" />
+  Materia
+</h1>
 
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#materia:saintnet.tech)
 

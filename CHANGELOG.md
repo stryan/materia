@@ -24,6 +24,7 @@ Best effort list of major changes and bugfixes
 - feat: `executor.verbose` to output each step as materia runs it
 - feat: more runtime logging
 - deprecation: file source renamed to "local"
+- art: temporary logo design
 
 
 ## 0.8.1
