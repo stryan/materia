@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"charm.land/log/v2"
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -35,15 +36,15 @@ func removeScript(ctx context.Context, e *Executor, v actions.Action) error {
 
 func setupScript(ctx context.Context, e *Executor, v actions.Action) error {
 	scriptPath := filepath.Join(e.ScriptsDir, v.Target.Path)
-	setupName := fmt.Sprintf("%v-materia-setup.service", v.Parent.Name)
-	cleanupName := fmt.Sprintf("%v-materia-cleanup.service", v.Parent.Name)
+	setupName := oneshotGenerater(v.Parent, "setup")
+	cleanupName := oneshotGenerater(v.Parent, "cleanup")
 	if err := e.host.RunOneshotCommand(ctx, e.defaultTimeout, setupName, []string{scriptPath}); err != nil {
 		return err
 	}
 	// we succesfully setup, remove any cleanup script instances
 	if srv, err := e.host.GetService(ctx, cleanupName); err == nil && srv.State == services.StateActive {
 		if err := e.host.ApplyService(ctx, cleanupName, services.ServiceStop, e.defaultTimeout); err != nil {
-			log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent.Name, err)
+			log.Warnf("couldn't remove old cleanup script instance for %v: %v", v.Parent, err)
 		}
 	}
 	return nil
@@ -51,15 +52,15 @@ func setupScript(ctx context.Context, e *Executor, v actions.Action) error {
 
 func cleanupScript(ctx context.Context, e *Executor, v actions.Action) error {
 	scriptPath := filepath.Join(e.ScriptsDir, v.Target.Path)
-	setupName := fmt.Sprintf("%v-materia-setup.service", v.Parent.Name)
-	cleanupName := fmt.Sprintf("%v-materia-cleanup.service", v.Parent.Name)
+	setupName := oneshotGenerater(v.Parent, "setup")
+	cleanupName := oneshotGenerater(v.Parent, "cleanup")
 	if err := e.host.RunOneshotCommand(ctx, e.defaultTimeout, cleanupName, []string{scriptPath}); err != nil {
 		return err
 	}
 	// we succesfully setup, remove any setup script instances
 	if srv, err := e.host.GetService(ctx, setupName); err == nil && srv.State == services.StateActive {
 		if err := e.host.ApplyService(ctx, setupName, services.ServiceStop, e.defaultTimeout); err != nil {
-			log.Warnf("couldn't remove old setup script instance for %v: %v", v.Parent.Name, err)
+			log.Warnf("couldn't remove old setup script instance for %v: %v", v.Parent, err)
 		}
 	}
 	return nil
@@ -67,7 +68,7 @@ func cleanupScript(ctx context.Context, e *Executor, v actions.Action) error {
 
 func executeScript(ctx context.Context, e *Executor, v actions.Action) error {
 	scriptPath := filepath.Join(e.ScriptsDir, v.Target.Path)
-	cmdName := fmt.Sprintf("%v-materia-execute.service", v.Parent.Name)
+	cmdName := oneshotGenerater(v.Parent, "execute")
 	if v.Metadata != nil && v.Metadata.OneshotName != nil {
 		cmdName = *v.Metadata.OneshotName
 	}
@@ -75,4 +76,8 @@ func executeScript(ctx context.Context, e *Executor, v actions.Action) error {
 		return err
 	}
 	return nil
+}
+
+func oneshotGenerater(name, job string) string {
+	return fmt.Sprintf("%s-materia-%s.service", strings.ReplaceAll(name, "@", "-at-"), job)
 }

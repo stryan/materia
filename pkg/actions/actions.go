@@ -51,7 +51,7 @@ func (t ActionType) IsHostAction() bool {
 
 type Action struct {
 	Todo        ActionType            `json:"todo" toml:"todo"`
-	Parent      *components.Component `json:"parent" toml:"parent"`
+	Parent      string                `json:"parent" toml:"parent"`
 	Target      components.Resource   `json:"target" toml:"target"`
 	DiffContent []diffmatchpatch.Diff `json:"content" toml:"content"`
 	Priority    int                   `json:"priority" toml:"priority"`
@@ -62,7 +62,7 @@ func (a Action) Validate() error {
 	if a.Todo == ActionUnknown {
 		return errors.New("unknown action")
 	}
-	if a.Parent == nil {
+	if a.Parent == "" {
 		return errors.New("action without parent")
 	}
 	if err := a.Target.Validate(); err != nil {
@@ -80,16 +80,16 @@ func (a Action) Validate() error {
 
 func (a Action) String() string {
 	name := "<parent>"
-	if a.Parent != nil {
-		name = a.Parent.InstanceName()
+	if a.Parent != "" {
+		name = a.Parent
 	}
 	return fmt.Sprintf("{a %v %v %v }", a.Todo, name, a.Target.Path)
 }
 
 func (a *Action) Pretty() string {
 	name := "<parent>"
-	if a.Parent != nil {
-		name = a.Parent.InstanceName()
+	if a.Parent != "" {
+		name = a.Parent
 	}
 	return fmt.Sprintf("(%v) %v %v %v", name, a.Todo, a.Target.Kind, a.Target.Path)
 }
@@ -110,7 +110,7 @@ func (a *Action) MarshalJSON() ([]byte, error) {
 		Priority int
 	}{
 		Todo:     a.Todo,
-		Parent:   a.Parent.Name,
+		Parent:   a.Parent,
 		Target:   a.Target,
 		Priority: a.Priority,
 	})

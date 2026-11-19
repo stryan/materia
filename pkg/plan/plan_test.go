@@ -27,7 +27,7 @@ func reload() actions.Action {
 		compRegistry["root"] = c
 	}
 	return actions.Action{
-		Parent: c,
+		Parent: c.InstanceName(),
 		Todo:   actions.ActionReload,
 		Target: components.Resource{
 			Kind: components.ResourceTypeHost,
@@ -57,7 +57,7 @@ func act(compname string, todo actions.ActionType, resName string, prio int) act
 	}
 	result := actions.Action{
 		Todo:     todo,
-		Parent:   c,
+		Parent:   c.InstanceName(),
 		Target:   res,
 		Priority: prio,
 	}
@@ -255,12 +255,12 @@ func Test_Plan(t *testing.T) {
 			assert.Nil(t, p.Append(tt.input))
 			result := p.Steps()
 			for _, r := range result {
-				fmt.Printf("%v %v/%v p: %v\n", r.Todo, r.Parent.Name, r.Target.Path, r.Priority)
+				fmt.Printf("%v %v/%v p: %v\n", r.Todo, r.Parent, r.Target.Path, r.Priority)
 			}
 			assert.Equal(t, len(tt.output), len(result), "plan is incorrect size: %v != %v", len(tt.output), len(result))
 			for k, expectedStep := range tt.output {
 				actualStep := result[k]
-				assert.Equal(t, expectedStep.Parent.Name, actualStep.Parent.Name, "%v wrong parent %v!=%v", k, expectedStep.Parent, actualStep.Parent)
+				assert.Equal(t, expectedStep.Parent, actualStep.Parent, "%v wrong parent %v!=%v", k, expectedStep.Parent, actualStep.Parent)
 				assert.Equal(t, expectedStep.Todo, actualStep.Todo, "%v wrong action %v!=%v", k, expectedStep.Todo, actualStep.Todo)
 				assert.NotEqual(t, actions.ActionUnknown, actualStep.Todo, "plan contains a unknown action: %+v", actualStep)
 				assert.Equal(t, expectedStep.Target, actualStep.Target, "%v wrong target %v!=%v", k, expectedStep.Target, actualStep.Target)

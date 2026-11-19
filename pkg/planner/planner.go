@@ -99,7 +99,7 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 	if len(resourceActions) > 0 {
 		resourceActions = append(resourceActions, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: components.NewRootComponent(),
+			Parent: components.RootComponent,
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
@@ -118,7 +118,7 @@ func (p *Planner) PlanFreshComponent(ctx context.Context, currentTree *Component
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionSetup,
-			Parent:   c,
+			Parent:   c.InstanceName(),
 			Target:   setupResource,
 			Priority: 5,
 		})
@@ -134,7 +134,7 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 	}
 	resourceActions = append(resourceActions, actions.Action{
 		Todo:   actions.ActionReload,
-		Parent: components.NewRootComponent(),
+		Parent: components.RootComponent,
 		Target: components.Resource{Kind: components.ResourceTypeHost},
 	})
 
@@ -153,7 +153,7 @@ func (p *Planner) PlanRemovedComponent(ctx context.Context, currentTree *Compone
 		}
 		serviceActions = append(serviceActions, actions.Action{
 			Todo:     actions.ActionCleanup,
-			Parent:   c,
+			Parent:   c.InstanceName(),
 			Target:   setupResource,
 			Priority: 2,
 		})
@@ -178,20 +178,12 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 		cmdName := fmt.Sprintf("%v-materia-pre-update.service", c.Name)
 		steps = append(steps, actions.Action{
 			Todo:     actions.ActionExecute,
-			Parent:   c,
+			Parent:   c.InstanceName(),
 			Target:   preResource,
 			Priority: 1,
 			Metadata: &actions.ActionMetadata{
 				OneshotName: &cmdName,
 			},
-		})
-	}
-	if currentTree.Host.Version != components.DefaultComponentVersion {
-		currentTree.Host.Version = components.DefaultComponentVersion
-		resourceActions = append(resourceActions, actions.Action{
-			Todo:   actions.ActionUpdate,
-			Parent: currentTree.Host,
-			Target: components.Resource{Parent: currentTree.Source.Name, Kind: components.ResourceTypeComponent, Path: currentTree.Source.Name},
 		})
 	}
 	ensureActions, err := generateQuadletEnsurements(ctx, p.Host, currentTree.Host, currentTree.Source)
@@ -203,7 +195,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 	if len(resourceActions) > 0 {
 		steps = append(steps, actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: components.NewRootComponent(),
+			Parent: components.RootComponent,
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		})
 	}
@@ -222,7 +214,7 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 			cmdName := fmt.Sprintf("%v-materia-post-update.service", c.Name)
 			steps = append(steps, actions.Action{
 				Todo:     actions.ActionExecute,
-				Parent:   c,
+				Parent:   c.InstanceName(),
 				Target:   postResource,
 				Priority: 4, // TODO should this run pre or post service updates?
 				Metadata: &actions.ActionMetadata{
@@ -259,16 +251,15 @@ func (p *Planner) PlanUpdatedComponent(ctx context.Context, currentTree *Compone
 func generateFreshComponentResources(comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	if err := comp.Validate(); err != nil {
-		return result, fmt.Errorf("invalid component %v: %w", comp.Name, err)
+		return result, fmt.Errorf("invalid component %v: %w", comp.InstanceName(), err)
 	}
 	if comp.State != components.StateFresh {
 		return result, errors.New("expected fresh component")
 	}
-
 	result = append(result, actions.Action{
 		Todo:   actions.ActionInstall,
-		Parent: comp,
-		Target: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
+		Parent: comp.InstanceName(),
+		Target: components.Resource{Parent: comp.InstanceName(), Kind: components.ResourceTypeComponent, Path: comp.InstanceName()},
 	})
 
 	for _, r := range comp.Resources.List() {
@@ -278,7 +269,7 @@ func generateFreshComponentResources(comp *components.Component) ([]actions.Acti
 		}
 		result = append(result, actions.Action{
 			Todo:        actions.ActionInstall,
-			Parent:      comp,
+			Parent:      comp.InstanceName(),
 			Target:      r,
 			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
 		})
@@ -306,7 +297,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		}
 		diffActions = append(diffActions, actions.Action{
 			Todo:        actions.ActionRemove,
-			Parent:      host,
+			Parent:      host.InstanceName(),
 			Target:      v,
 			DiffContent: []diffmatchpatch.Diff{},
 		})
@@ -326,7 +317,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 		}
 		diffActions = append(diffActions, actions.Action{
 			Todo:        actions.ActionInstall,
-			Parent:      source,
+			Parent:      source.InstanceName(),
 			Target:      v,
 			DiffContent: diffmatchpatch.New().DiffMain("", content, false),
 		})
@@ -364,7 +355,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 
 		act := actions.Action{
 			Todo:        actions.ActionUpdate,
-			Parent:      source,
+			Parent:      source.InstanceName(),
 			Target:      sourceRes,
 			DiffContent: diffs,
 		}
@@ -387,7 +378,7 @@ func generateUpdatedComponentResources(ctx context.Context, mgr HostStateManager
 func generateRemovedComponentResources(ctx context.Context, mgr HostStateManager, opts PlannerConfig, comp *components.Component) ([]actions.Action, error) {
 	var result []actions.Action
 	if err := comp.Validate(); err != nil {
-		return result, fmt.Errorf("invalid component %v: %w", comp.Name, err)
+		return result, fmt.Errorf("invalid component %v: %w", comp.InstanceName(), err)
 	}
 	if comp.State != components.StateNeedRemoval {
 		return result, errors.New("expected to be removed component")
@@ -405,7 +396,7 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostStateManager
 			if r.IsFile() {
 				result = append(result, actions.Action{
 					Todo:        actions.ActionRemove,
-					Parent:      comp,
+					Parent:      comp.InstanceName(),
 					Target:      r,
 					DiffContent: diffmatchpatch.New().DiffMain(r.Content, "", false),
 				})
@@ -425,20 +416,20 @@ func generateRemovedComponentResources(ctx context.Context, mgr HostStateManager
 	for _, d := range dirs {
 		result = append(result, actions.Action{
 			Todo:   actions.ActionRemove,
-			Parent: comp,
+			Parent: comp.InstanceName(),
 			Target: d,
 		})
 	}
 	result = append(result, actions.Action{
 		Todo:        actions.ActionRemove,
-		Parent:      comp,
+		Parent:      comp.InstanceName(),
 		Target:      manifestResource,
 		DiffContent: diffmatchpatch.New().DiffMain(manifestResource.Content, "", false),
 	})
 	result = append(result, actions.Action{
 		Todo:   actions.ActionRemove,
-		Parent: comp,
-		Target: components.Resource{Parent: comp.Name, Kind: components.ResourceTypeComponent, Path: comp.Name},
+		Parent: comp.InstanceName(),
+		Target: components.Resource{Parent: comp.InstanceName(), Kind: components.ResourceTypeComponent, Path: comp.InstanceName()},
 	})
 	return result, nil
 }
@@ -456,7 +447,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 		}
 		result = append(result, actions.Action{
 			Todo:   actions.ActionCleanup,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: res,
 		})
 	case components.ResourceTypeBuild, components.ResourceTypeImage:
@@ -468,7 +459,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 			if slices.Contains(i.Names, res.HostObject) {
 				result = append(result, actions.Action{
 					Todo:   actions.ActionCleanup,
-					Parent: parent,
+					Parent: parent.InstanceName(),
 					Target: res,
 				})
 			}
@@ -487,13 +478,13 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 		if opts.BackupVolumes {
 			result = append(result, actions.Action{
 				Todo:   actions.ActionDump,
-				Parent: parent,
+				Parent: parent.InstanceName(),
 				Target: res,
 			})
 		}
 		result = append(result, actions.Action{
 			Todo:   actions.ActionCleanup,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: res,
 		})
 	}
@@ -538,27 +529,28 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 		diffActions = append(diffActions, stopAction)
 		stoppedServiceActions = append(stoppedServiceActions, stopAction)
 	}
+	name := parent.InstanceName()
 	diffActions = append(diffActions, actions.Action{
 		Todo:     actions.ActionDump,
-		Parent:   parent,
+		Parent:   name,
 		Target:   volumeRes,
 		Priority: 1,
 	})
 	diffActions = append(diffActions, actions.Action{
 		Todo:     actions.ActionCleanup,
-		Parent:   parent,
+		Parent:   name,
 		Target:   volumeRes,
 		Priority: 2,
 	})
 	diffActions = append(diffActions, actions.Action{
 		Todo:     actions.ActionEnsure,
-		Parent:   parent,
+		Parent:   name,
 		Target:   volumeRes,
 		Priority: 4,
 	})
 	diffActions = append(diffActions, actions.Action{
 		Todo:     actions.ActionImport,
-		Parent:   parent,
+		Parent:   name,
 		Target:   volumeRes,
 		Priority: 4,
 	})
@@ -567,7 +559,7 @@ func generateVolumeMigrationActions(ctx context.Context, mgr HostStateManager, p
 			Target: s.Target,
 
 			Todo:     actions.ActionStart,
-			Parent:   parent,
+			Parent:   name,
 			Priority: 5,
 			Metadata: &actions.ActionMetadata{
 				ServiceUntilState: stateToPointer(services.StateActive),
@@ -679,7 +671,7 @@ func getServiceManifestAction(sm manifests.ServiceManifest, parent *components.C
 		// No resource for component, treat it like an arbitrary systemd unit
 		act = actions.Action{
 			Todo:   a,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: components.Resource{Parent: parent.Name, Path: sm.Service, Kind: components.ResourceTypeService},
 		}
 	} else if act, err = resourceActionWithMetadata(res, parent, a); err != nil {
@@ -712,7 +704,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		// TODO volumes can be based off images too and need their timeouts adjusted accordingly
 		return actions.Action{
 			Todo:   a,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: parent.InstantiateResource(res),
 		}, nil
 	}
@@ -726,7 +718,7 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		}
 		return actions.Action{
 			Todo:   a,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: parent.InstantiateResource(res),
 		}.With(actions.WithServiceTimeout(timeout)), nil
 	}
@@ -750,13 +742,13 @@ func resourceActionWithMetadata(res components.Resource, parent *components.Comp
 		}
 		return actions.Action{
 			Todo:   a,
-			Parent: parent,
+			Parent: parent.InstanceName(),
 			Target: parent.InstantiateResource(res),
 		}.With(actions.WithServiceTimeout(timeout)), nil
 	}
 	return actions.Action{
 		Todo:   a,
-		Parent: parent,
+		Parent: parent.InstanceName(),
 		Target: parent.InstantiateResource(res),
 	}, nil
 }
@@ -829,7 +821,7 @@ func generateQuadletEnsurements(ctx context.Context, mgr HostStateManager, comp,
 		}
 		result = append(result, actions.Action{
 			Todo:   actions.ActionEnsure,
-			Parent: comp,
+			Parent: comp.InstanceName(),
 			Target: r,
 		})
 	}

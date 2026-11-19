@@ -23,7 +23,6 @@ func (s *ComponentInitStage) Process(ctx context.Context, comp *components.Compo
 		comp.Instance = split[1]
 	}
 	comp.Resources = newcomp.Resources
-	comp.Version = newcomp.Version
 	return nil
 }
 

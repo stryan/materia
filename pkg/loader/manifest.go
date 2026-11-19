@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"charm.land/log/v2"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
 )
@@ -16,12 +15,6 @@ type ManifestLoadStage struct {
 }
 
 func (s *ManifestLoadStage) Process(ctx context.Context, comp *components.Component) error {
-	if comp.Version != components.DefaultComponentVersion {
-		log.Debugf("skipping component manifest loading due to version mismatch: %v != %v", comp.Version, components.DefaultComponentVersion)
-		// trying to load a manifest with a different version that materia knows, return empty
-		return nil
-	}
-
 	manifest, err := s.manager.GetManifest(comp)
 	if err != nil {
 		return fmt.Errorf("can't load source component %v manifest: %w", comp.Name, err)

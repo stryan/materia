@@ -9,9 +9,6 @@ import (
 	"slices"
 
 	"charm.land/log/v2"
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/rawbytes"
-	"github.com/knadh/koanf/v2"
 	"primamateria.systems/materia/pkg/atomic"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/manifests"
@@ -67,6 +64,19 @@ func openComp(prefix string, c *components.Component) (*os.Root, error) {
 	return root, err
 }
 
+func openCompByName(prefix string, c string) (*os.Root, error) {
+	parent, err := os.OpenRoot(prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = parent.Close() }()
+	root, err := parent.OpenRoot(c)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("%w: %w", components.ErrCorruptComponent, err)
+	}
+	return root, err
+}
+
 func openRes(prefix string, res components.Resource) (*os.Root, error) {
 	parent, err := os.OpenRoot(prefix)
 	if err != nil {
@@ -92,35 +102,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 	}
 	defer func() { _ = qpath.Close() }()
 	// load resources
-	versionFileExists := true
-	_, err = dpath.Stat(".component_version")
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			versionFileExists = false
-		} else {
-			return nil, fmt.Errorf("error reading component version: %w", err)
-		}
-	}
-	if versionFileExists {
-		k := koanf.New(".")
-		filebytes, err := dpath.ReadFile(".component_version")
-		if err != nil {
-			return nil, fmt.Errorf("error reading component version content: %w", err)
-		}
-		err = k.Load(rawbytes.Provider(filebytes), toml.Parser())
-		if err != nil {
-			return nil, err
-		}
-		var c components.ComponentVersion
-		err = k.Unmarshal("", &c)
-		if err != nil {
-			return nil, err
-		}
-		oldComp.Version = c.Version
-	} else {
-		oldComp.Version = -1
-	}
-	log.Debug("loading component", "component", oldComp.InstanceName(), "version", oldComp.Version)
+	log.Debug("loading component", "component", oldComp.InstanceName())
 	if _, err := dpath.Stat(manifests.ComponentManifestFile); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, components.ErrCorruptComponent
@@ -139,7 +121,7 @@ func (r *HostComponentRepository) GetComponent(name string) (*components.Compone
 		if err != nil {
 			return err
 		}
-		if fullPath == "." || fullPath == ".component_version" || fullPath == manifests.ComponentManifestFile || atomic.TmpFileRegex.MatchString(d.Name()) {
+		if fullPath == "." || fullPath == manifests.ComponentManifestFile || atomic.TmpFileRegex.MatchString(d.Name()) {
 			return nil
 		}
 		newRes, err := r.newResource(oldComp, dpath, false, fullPath)
@@ -236,7 +218,7 @@ func (r *HostComponentRepository) ListResources(c *components.Component) ([]comp
 			if err != nil {
 				return err
 			}
-			if p == "." || p == ".component_version" || p == ".materia_managed" || atomic.TmpFileRegex.MatchString(d.Name()) {
+			if p == "." || p == ".materia_managed" || atomic.TmpFileRegex.MatchString(d.Name()) {
 				return nil
 			}
 			newRes, err := addFunc(p)
@@ -285,17 +267,11 @@ func (r *HostComponentRepository) ListComponentNames() ([]string, error) {
 	return compPaths, nil
 }
 
-func (r *HostComponentRepository) InstallComponent(c *components.Component) (err error) {
-	if c == nil {
+func (r *HostComponentRepository) InstallComponent(c string) (err error) {
+	if c == "" {
 		return errors.New("nil component")
 	}
-	if err := c.Validate(); err != nil {
-		return err
-	}
-	vd, err := c.VersionData()
-	if err != nil {
-		return err
-	}
+
 	droot, err := r.dRoot()
 	if err != nil {
 		return err
@@ -307,59 +283,47 @@ func (r *HostComponentRepository) InstallComponent(c *components.Component) (err
 		return err
 	}
 	defer func() { _ = qroot.Close() }()
-	if err := droot.Mkdir(c.InstanceName(), 0o755); err != nil {
-		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
+	if err := droot.Mkdir(c, 0o755); err != nil {
+		return fmt.Errorf("error installing component %v: %w", c, err)
 	}
 	defer func() {
 		if err != nil {
-			_ = droot.RemoveAll(c.InstanceName())
+			_ = droot.RemoveAll(c)
 		}
 	}()
-	if err := qroot.Mkdir(c.InstanceName(), 0o755); err != nil {
-		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
+	if err := qroot.Mkdir(c, 0o755); err != nil {
+		return fmt.Errorf("error installing component %v: %w", c, err)
 	}
 	defer func() {
 		if err != nil {
-			_ = qroot.RemoveAll(c.InstanceName())
+			_ = qroot.RemoveAll(c)
 		}
 	}()
 
-	if err := qroot.WriteFile(filepath.Join(c.InstanceName(), ".materia_managed"), nil, 0o644); err != nil {
-		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
-	}
-	// version file goes last
-	if err := atomic.Write(droot, filepath.Join(c.InstanceName(), ".component_version"), 0o644, vd.Bytes()); err != nil {
-		return fmt.Errorf("error installing component %v: %w", c.InstanceName(), err)
+	if err := qroot.WriteFile(filepath.Join(c, ".materia_managed"), nil, 0o644); err != nil {
+		return fmt.Errorf("error installing component %v: %w", c, err)
 	}
 	return nil
 }
 
-func (r *HostComponentRepository) UpdateComponent(c *components.Component) error {
-	if c == nil {
+// This function is currently vestigial, but most likely we will need to update component metadata somehow so I'm leaving it in
+func (r *HostComponentRepository) UpdateComponent(c string) error {
+	if c == "" {
 		return errors.New("invalid component")
 	}
-	vd, err := c.VersionData()
-	if err != nil {
-		return err
-	}
-	dpath, err := openComp(r.dataPrefix, c)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = dpath.Close() }()
-	return atomic.Write(dpath, ".component_version", 0o644, vd.Bytes())
+	return nil
 }
 
-func (r *HostComponentRepository) RemoveComponent(c *components.Component) error {
-	if c == nil {
+func (r *HostComponentRepository) RemoveComponent(c string) error {
+	if c == "" {
 		return errors.New("invalid component")
 	}
-	dpath, err := openComp(r.dataPrefix, c)
+	dpath, err := openCompByName(r.dataPrefix, c)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = dpath.Close() }()
-	qpath, err := openComp(r.quadletPrefix, c)
+	qpath, err := openCompByName(r.quadletPrefix, c)
 	if err != nil {
 		return err
 	}
@@ -371,7 +335,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 		if err != nil {
 			return err
 		}
-		if d.Name() == "." || fullPath == ".component_version" {
+		if d.Name() == "." {
 			return nil
 		}
 		if !d.IsDir() && atomic.TmpFileRegex.MatchString(d.Name()) {
@@ -401,10 +365,6 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 			return err
 		}
 	}
-	err = dpath.Remove(".component_version")
-	if err != nil {
-		return err
-	}
 	droot, err := r.dRoot()
 	if err != nil {
 		return err
@@ -416,7 +376,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 		return err
 	}
 	defer func() { _ = qroot.Close() }()
-	err = droot.Remove(c.InstanceName())
+	err = droot.Remove(c)
 	if err != nil {
 		return err
 	}
@@ -424,7 +384,7 @@ func (r *HostComponentRepository) RemoveComponent(c *components.Component) error
 	if err != nil {
 		return err
 	}
-	return qroot.Remove(c.InstanceName())
+	return qroot.Remove(c)
 }
 
 func (r *HostComponentRepository) newResource(parent *components.Component, root *os.Root, isQuadlet bool, path string) (components.Resource, error) {

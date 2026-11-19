@@ -1,7 +1,6 @@
 package components
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"maps"
@@ -10,12 +9,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/knadh/koanf/parsers/toml"
 	"primamateria.systems/materia/pkg/manifests"
 	"primamateria.systems/materia/pkg/services"
 )
 
-const DefaultComponentVersion = 1
+const (
+	RootComponent = "root"
+)
 
 var (
 	ErrCorruptComponent = errors.New("error corrupt component")
@@ -32,8 +32,12 @@ type Component struct {
 	State            ComponentLifecycle
 	Defaults         map[string]any
 	ServiceManifests *ServiceManifestSet
-	Version          int
 }
+
+// TODO determine if the component lifecycle system is actually useful.
+// As of 11/18/2026 nothing actually *uses* the component state system
+// Potentially it should be used more in the future e.g. monitoring systems
+// but for now it's just validation tax for no reason
 
 //go:generate stringer -type ComponentLifecycle -trimprefix State
 type ComponentLifecycle int
@@ -222,20 +226,10 @@ func (c Component) Validate() error {
 	return nil
 }
 
-func (c *Component) VersionData() (*bytes.Buffer, error) {
-	vd := make(map[string]any)
-	vd["Version"] = c.Version
-	buffer, err := toml.Parser().Marshal(vd)
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewBuffer(buffer), nil
-}
-
 func (c *Component) ToResource() Resource {
 	return Resource{
-		Path:   c.Name,
-		Parent: c.Name,
+		Path:   c.InstanceName(),
+		Parent: c.InstanceName(),
 		Kind:   ResourceTypeComponent,
 	}
 }

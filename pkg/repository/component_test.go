@@ -24,16 +24,14 @@ func Test_InstallComponent(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	fix := newHostFixture(t)
-	require.NoError(t, fix.repo.InstallComponent(comp))
-	require.True(t, fileExists(t, fix.Data("test", ".component_version")))
-	require.True(t, contentIs(t, fix.Data("test", ".component_version"), "Version = 0"), "Got %v", getContent(t, fix.Data("test", ".component_version")))
+	require.NoError(t, fix.repo.InstallComponent("test"))
 	require.True(t, fileExists(t, fix.Quad("test", ".materia_managed")))
 	require.True(t, contentIs(t, fix.Quad("test", ".materia_managed"), ""))
 }
 
 func Test_GetComponent(t *testing.T) {
 	fix := newHostFixture(t)
-	c := fix.install(t, "test", components.DefaultComponentVersion)
+	c := fix.install(t, "test")
 	fix.put(t, c, "hello.container", "[Container]\nImage=foo\n")
 	fix.put(t, c, "conf/conf.txt", "")
 	fix.put(t, c, "hello.container.d/10-foo.conf", "[Container]\n")
@@ -68,7 +66,7 @@ func Test_GetComponent(t *testing.T) {
 
 func Test_GetComponent_Corrupt(t *testing.T) {
 	fix := newHostFixture(t)
-	_ = fix.install(t, "test", components.DefaultComponentVersion)
+	_ = fix.install(t, "test")
 	require.NoError(t, os.Remove(fix.Data("test", manifests.MateriaManifestFile)))
 
 	_, err := fix.repo.GetComponent("test")
@@ -77,22 +75,22 @@ func Test_GetComponent_Corrupt(t *testing.T) {
 
 func Test_RemoveComponent(t *testing.T) {
 	fix := newHostFixture(t)
-	c := fix.install(t, "test", components.DefaultComponentVersion)
+	c := fix.install(t, "test")
 	fix.put(t, c, "conf/", "")
 	fix.put(t, c, "conf/foo/", "")
 	fix.put(t, c, "hello.container.d/", "[Container]\n")
 	fix.put(t, c, ".foo.0123456789ab.materia_tmp", "")
 	require.NoError(t, os.Remove(fix.Data("test", manifests.MateriaManifestFile)))
 
-	require.NoError(t, fix.repo.RemoveComponent(c))
+	require.NoError(t, fix.repo.RemoveComponent(c.InstanceName()))
 }
 
 func Test_RemoveComponent_Fail(t *testing.T) {
 	fix := newHostFixture(t)
-	c := fix.install(t, "test", components.DefaultComponentVersion)
+	c := fix.install(t, "test")
 	fix.put(t, c, "conf.txt", "")
 
-	require.Error(t, fix.repo.RemoveComponent(c))
+	require.Error(t, fix.repo.RemoveComponent(c.InstanceName()))
 	_, err := fix.repo.GetComponent("test")
 	require.NoError(t, err)
 }
@@ -111,12 +109,11 @@ func newHostFixture(t *testing.T) *hostFixture {
 	return &hostFixture{repo, d, q}
 }
 
-func (h *hostFixture) install(t *testing.T, name string, version int) *components.Component {
+func (h *hostFixture) install(t *testing.T, name string) *components.Component {
 	t.Helper()
 	c, err := components.NewComponent(name)
 	require.NoError(t, err)
-	c.Version = version
-	require.NoError(t, h.repo.InstallComponent(c))
+	require.NoError(t, h.repo.InstallComponent(c.Name))
 	require.NoError(t, h.repo.InstallResource(components.Resource{
 		Parent: c.InstanceName(), Path: manifests.ComponentManifestFile, Kind: components.ResourceTypeManifest,
 	}, nil))
@@ -151,11 +148,4 @@ func contentIs(t *testing.T, path, content string) bool {
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return strings.TrimSpace(content) == strings.TrimSpace(string(data))
-}
-
-func getContent(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-	return string(data)
 }

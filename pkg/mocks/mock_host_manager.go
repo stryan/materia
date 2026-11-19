@@ -996,16 +996,16 @@ func (_c *MockHostManager_ImportVolume_Call) RunAndReturn(run func(context1 cont
 }
 
 // InstallComponent provides a mock function for the type MockHostManager
-func (_mock *MockHostManager) InstallComponent(component *components.Component) error {
-	ret := _mock.Called(component)
+func (_mock *MockHostManager) InstallComponent(s string) error {
+	ret := _mock.Called(s)
 
 	if len(ret) == 0 {
 		panic("no return value specified for InstallComponent")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*components.Component) error); ok {
-		r0 = returnFunc(component)
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(s)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1018,16 +1018,16 @@ type MockHostManager_InstallComponent_Call struct {
 }
 
 // InstallComponent is a helper method to define mock.On call
-//   - component *components.Component
-func (_e *MockHostManager_Expecter) InstallComponent(component any) *MockHostManager_InstallComponent_Call {
-	return &MockHostManager_InstallComponent_Call{Call: _e.mock.On("InstallComponent", component)}
+//   - s string
+func (_e *MockHostManager_Expecter) InstallComponent(s any) *MockHostManager_InstallComponent_Call {
+	return &MockHostManager_InstallComponent_Call{Call: _e.mock.On("InstallComponent", s)}
 }
 
-func (_c *MockHostManager_InstallComponent_Call) Run(run func(component *components.Component)) *MockHostManager_InstallComponent_Call {
+func (_c *MockHostManager_InstallComponent_Call) Run(run func(s string)) *MockHostManager_InstallComponent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *components.Component
+		var arg0 string
 		if args[0] != nil {
-			arg0 = args[0].(*components.Component)
+			arg0 = args[0].(string)
 		}
 		run(
 			arg0,
@@ -1041,7 +1041,7 @@ func (_c *MockHostManager_InstallComponent_Call) Return(err error) *MockHostMana
 	return _c
 }
 
-func (_c *MockHostManager_InstallComponent_Call) RunAndReturn(run func(component *components.Component) error) *MockHostManager_InstallComponent_Call {
+func (_c *MockHostManager_InstallComponent_Call) RunAndReturn(run func(s string) error) *MockHostManager_InstallComponent_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1880,16 +1880,16 @@ func (_c *MockHostManager_ReadResource_Call) RunAndReturn(run func(resource comp
 }
 
 // RemoveComponent provides a mock function for the type MockHostManager
-func (_mock *MockHostManager) RemoveComponent(component *components.Component) error {
-	ret := _mock.Called(component)
+func (_mock *MockHostManager) RemoveComponent(s string) error {
+	ret := _mock.Called(s)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RemoveComponent")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*components.Component) error); ok {
-		r0 = returnFunc(component)
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(s)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1902,16 +1902,16 @@ type MockHostManager_RemoveComponent_Call struct {
 }
 
 // RemoveComponent is a helper method to define mock.On call
-//   - component *components.Component
-func (_e *MockHostManager_Expecter) RemoveComponent(component any) *MockHostManager_RemoveComponent_Call {
-	return &MockHostManager_RemoveComponent_Call{Call: _e.mock.On("RemoveComponent", component)}
+//   - s string
+func (_e *MockHostManager_Expecter) RemoveComponent(s any) *MockHostManager_RemoveComponent_Call {
+	return &MockHostManager_RemoveComponent_Call{Call: _e.mock.On("RemoveComponent", s)}
 }
 
-func (_c *MockHostManager_RemoveComponent_Call) Run(run func(component *components.Component)) *MockHostManager_RemoveComponent_Call {
+func (_c *MockHostManager_RemoveComponent_Call) Run(run func(s string)) *MockHostManager_RemoveComponent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *components.Component
+		var arg0 string
 		if args[0] != nil {
-			arg0 = args[0].(*components.Component)
+			arg0 = args[0].(string)
 		}
 		run(
 			arg0,
@@ -1925,7 +1925,7 @@ func (_c *MockHostManager_RemoveComponent_Call) Return(err error) *MockHostManag
 	return _c
 }
 
-func (_c *MockHostManager_RemoveComponent_Call) RunAndReturn(run func(component *components.Component) error) *MockHostManager_RemoveComponent_Call {
+func (_c *MockHostManager_RemoveComponent_Call) RunAndReturn(run func(s string) error) *MockHostManager_RemoveComponent_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2439,57 +2439,6 @@ func (_c *MockHostManager_SecretName_Call) Return(s1 string) *MockHostManager_Se
 }
 
 func (_c *MockHostManager_SecretName_Call) RunAndReturn(run func(s string) string) *MockHostManager_SecretName_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UpdateComponent provides a mock function for the type MockHostManager
-func (_mock *MockHostManager) UpdateComponent(component *components.Component) error {
-	ret := _mock.Called(component)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateComponent")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*components.Component) error); ok {
-		r0 = returnFunc(component)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockHostManager_UpdateComponent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateComponent'
-type MockHostManager_UpdateComponent_Call struct {
-	*mock.Call
-}
-
-// UpdateComponent is a helper method to define mock.On call
-//   - component *components.Component
-func (_e *MockHostManager_Expecter) UpdateComponent(component any) *MockHostManager_UpdateComponent_Call {
-	return &MockHostManager_UpdateComponent_Call{Call: _e.mock.On("UpdateComponent", component)}
-}
-
-func (_c *MockHostManager_UpdateComponent_Call) Run(run func(component *components.Component)) *MockHostManager_UpdateComponent_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *components.Component
-		if args[0] != nil {
-			arg0 = args[0].(*components.Component)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockHostManager_UpdateComponent_Call) Return(err error) *MockHostManager_UpdateComponent_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockHostManager_UpdateComponent_Call) RunAndReturn(run func(component *components.Component) error) *MockHostManager_UpdateComponent_Call {
 	_c.Call.Return(run)
 	return _c
 }

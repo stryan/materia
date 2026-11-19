@@ -143,10 +143,10 @@ func (s *ComponentInstallValidator) Validate(steps []actions.Action) error {
 		}
 		if a.Todo == actions.ActionInstall {
 			if a.Target.Kind == components.ResourceTypeComponent {
-				componentList = append(componentList, a.Parent.Name)
+				componentList = append(componentList, a.Parent)
 			} else {
-				if !slices.Contains(componentList, a.Parent.Name) {
-					return fmt.Errorf("(%v/%v): invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Target, a.Parent.Name)
+				if !slices.Contains(componentList, a.Parent) {
+					return fmt.Errorf("(%v/%v): invalid plan: installed resource %v before parent component %v", currentStep, maxSteps, a.Target, a.Parent)
 				}
 			}
 		}

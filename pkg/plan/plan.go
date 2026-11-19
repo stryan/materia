@@ -47,8 +47,7 @@ type Plan struct {
 
 func (p *Plan) addResourceChange(a actions.Action) {
 	var changes *componentChanges
-	name := a.Parent.Name
-	rawChanges, ok := p.changesMap.Get(name)
+	rawChanges, ok := p.changesMap.Get(a.Parent)
 	if !ok {
 		changes = &componentChanges{}
 	} else {
@@ -56,13 +55,12 @@ func (p *Plan) addResourceChange(a actions.Action) {
 	}
 	changes.resourceChanges = append(changes.resourceChanges, a)
 	slices.SortStableFunc(changes.resourceChanges, prioritizeActions)
-	p.changesMap.Put(name, changes)
+	p.changesMap.Put(a.Parent, changes)
 }
 
 func (p *Plan) addServiceChange(a actions.Action) {
 	var changes *componentChanges
-	name := a.Parent.Name
-	rawChanges, ok := p.changesMap.Get(name)
+	rawChanges, ok := p.changesMap.Get(a.Parent)
 	if !ok {
 		changes = &componentChanges{}
 	} else {
@@ -70,7 +68,7 @@ func (p *Plan) addServiceChange(a actions.Action) {
 	}
 	changes.serviceChanges = append(changes.serviceChanges, a)
 	slices.SortStableFunc(changes.serviceChanges, prioritizeActions)
-	p.changesMap.Put(name, changes)
+	p.changesMap.Put(a.Parent, changes)
 }
 
 func (p *Plan) getServiceChanges(name string) []actions.Action {
@@ -172,7 +170,7 @@ func (p *Plan) Steps() []actions.Action {
 	if p.needReload {
 		reload := actions.Action{
 			Todo:   actions.ActionReload,
-			Parent: components.NewRootComponent(),
+			Parent: components.RootComponent,
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		}
 		steps = append(steps, reload)
@@ -258,7 +256,7 @@ func (p *Plan) PrettyLines() []string {
 func getDefaultPriority(a actions.Action) (int, error) {
 	priorityMap := map[components.ResourceType]map[actions.ActionType]int{
 		components.ResourceTypeComponent: {
-			actions.ActionInstall: 2, actions.ActionUpdate: 3, actions.ActionCleanup: 2,
+			actions.ActionInstall: 2, actions.ActionCleanup: 2,
 			actions.ActionSetup: 5, actions.ActionRemove: 4,
 		},
 		components.ResourceTypeDirectory: {

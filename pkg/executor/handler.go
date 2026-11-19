@@ -12,7 +12,6 @@ type actionHandler func(context.Context, *Executor, actions.Action) error
 var handlerList = map[components.ResourceType]map[actions.ActionType]actionHandler{
 	components.ResourceTypeComponent: {
 		actions.ActionInstall: installComponent,
-		actions.ActionUpdate:  updateComponent,
 		actions.ActionRemove:  removeComponent,
 	},
 	components.ResourceTypeVolume: {

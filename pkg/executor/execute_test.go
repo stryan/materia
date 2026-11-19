@@ -15,22 +15,21 @@ import (
 	"primamateria.systems/materia/pkg/services"
 )
 
-func newResSet(resources ...components.Resource) *components.ResourceSet {
-	rs := components.NewResourceSet()
-	for _, v := range resources {
-		_ = rs.Add(v)
-	}
-	return rs
-}
-
-func newServManSet(services ...manifests.ServiceManifest) *components.ServiceManifestSet {
-	ss := components.NewServiceManifestSet()
-	for _, v := range services {
-		ss.Add(v)
-	}
-	return ss
-}
-
+//	func newResSet(resources ...components.Resource) *components.ResourceSet {
+//		rs := components.NewResourceSet()
+//		for _, v := range resources {
+//			_ = rs.Add(v)
+//		}
+//		return rs
+//	}
+//
+//	func newServManSet(services ...manifests.ServiceManifest) *components.ServiceManifestSet {
+//		ss := components.NewServiceManifestSet()
+//		for _, v := range services {
+//			ss.Add(v)
+//		}
+//		return ss
+//	}
 func TestExecute(t *testing.T) {
 	ctx := context.Background()
 	hm := mocks.NewMockHostManager(t)
@@ -50,42 +49,34 @@ func TestExecute(t *testing.T) {
 		Parent: "hello",
 		Kind:   components.ResourceTypeManifest,
 	}
-	helloComp := &components.Component{
-		Name:             "hello",
-		Resources:        newResSet(containerResource, dataResource, manifestResource),
-		ServiceManifests: newServManSet(),
-		State:            components.StateFresh,
-		Defaults:         map[string]any{},
-		Version:          components.DefaultComponentVersion,
-	}
 	planSteps := []actions.Action{
 		{
 			Todo:        actions.ActionInstall,
-			Parent:      helloComp,
-			Target:      components.Resource{Parent: helloComp.Name, Kind: components.ResourceTypeComponent, Path: helloComp.Name},
+			Parent:      "hello",
+			Target:      components.Resource{Parent: "hello", Kind: components.ResourceTypeComponent, Path: "hello"},
 			DiffContent: getDiffs("", ""),
 		},
 		{
 			Todo:        actions.ActionInstall,
-			Parent:      helloComp,
+			Parent:      "hello",
 			Target:      containerResource,
 			DiffContent: getDiffs("", "[Container]"),
 		},
 		{
 			Todo:        actions.ActionInstall,
-			Parent:      helloComp,
+			Parent:      "hello",
 			Target:      dataResource,
 			DiffContent: getDiffs("", "FOO=BAR"),
 		},
 		{
 			Todo:        actions.ActionInstall,
-			Parent:      helloComp,
+			Parent:      "hello",
 			Target:      manifestResource,
 			DiffContent: getDiffs("", ""),
 		},
 		{
 			Todo:   actions.ActionReload,
-			Parent: mustComponent("root"),
+			Parent: "root",
 			Target: components.Resource{Kind: components.ResourceTypeHost},
 		},
 	}
@@ -93,7 +84,7 @@ func TestExecute(t *testing.T) {
 	for _, p := range planSteps {
 		assert.NoError(t, plan.Add(p), "can't add action to plan")
 	}
-	hm.EXPECT().InstallComponent(helloComp).Return(nil)
+	hm.EXPECT().InstallComponent("hello").Return(nil)
 	hm.EXPECT().InstallResource(containerResource, []byte("[Container]")).Return(nil)
 	hm.EXPECT().InstallResource(dataResource, []byte("FOO=BAR")).Return(nil)
 	hm.EXPECT().InstallResource(manifestResource, []byte("")).Return(nil)
@@ -115,7 +106,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "start - service",
 			input: actions.Action{
 				Todo:   actions.ActionStart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.service",
 					HostObject: "hello.service",
@@ -131,7 +122,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "stop - service",
 			input: actions.Action{
 				Todo:   actions.ActionStop,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.service",
 					HostObject: "hello.service",
@@ -147,7 +138,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "restart - service",
 			input: actions.Action{
 				Todo:   actions.ActionRestart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.service",
 					HostObject: "hello.service",
@@ -163,7 +154,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "reload - service",
 			input: actions.Action{
 				Todo:   actions.ActionReload,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.service",
 					HostObject: "hello.service",
@@ -179,7 +170,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "start - container",
 			input: actions.Action{
 				Todo:   actions.ActionStart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.container",
 					HostObject: "systemd-hello",
@@ -195,7 +186,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "stop - container",
 			input: actions.Action{
 				Todo:   actions.ActionStop,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.container",
 					HostObject: "systemd-hello",
@@ -211,7 +202,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "restart - container",
 			input: actions.Action{
 				Todo:   actions.ActionRestart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.container",
 					HostObject: "systemd-hello",
@@ -227,7 +218,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "reload - container",
 			input: actions.Action{
 				Todo:   actions.ActionReload,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.container",
 					HostObject: "systemd-hello",
@@ -243,7 +234,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "start - pod",
 			input: actions.Action{
 				Todo:   actions.ActionStart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.pod",
 					HostObject: "systemd-hello",
@@ -259,7 +250,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "stop - pod",
 			input: actions.Action{
 				Todo:   actions.ActionStop,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.pod",
 					HostObject: "systemd-hello",
@@ -275,7 +266,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "restart - pod",
 			input: actions.Action{
 				Todo:   actions.ActionRestart,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.pod",
 					HostObject: "systemd-hello",
@@ -291,7 +282,7 @@ func TestExecute_Services(t *testing.T) {
 			name: "reload - pod",
 			input: actions.Action{
 				Todo:   actions.ActionReload,
-				Parent: &components.Component{},
+				Parent: "test",
 				Target: components.Resource{
 					Path:       "hello.pod",
 					HostObject: "systemd-hello",
@@ -315,9 +306,4 @@ func TestExecute_Services(t *testing.T) {
 func getDiffs(res1, res2 string) []diffmatchpatch.Diff {
 	dmp := diffmatchpatch.New()
 	return dmp.DiffMain(res1, res2, false)
-}
-
-func mustComponent(name string) *components.Component {
-	comp, _ := components.NewComponent(name)
-	return comp
 }

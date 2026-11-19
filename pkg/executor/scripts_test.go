@@ -29,13 +29,11 @@ func TestSetupScript(t *testing.T) {
 	action := actions.Action{
 		Todo:   actions.ActionSetup,
 		Target: resource,
-		Parent: comp,
+		Parent: comp.InstanceName(),
 	}
 
 	e := &Executor{
-		ExecutorConfig: ExecutorConfig{
-			ScriptsDir: "/usr/local/bin",
-		},
+		ScriptsDir:     "/usr/local/bin",
 		host:           hm,
 		defaultTimeout: 30,
 	}
@@ -64,13 +62,11 @@ func TestCleanupScript(t *testing.T) {
 	action := actions.Action{
 		Todo:   actions.ActionCleanup,
 		Target: resource,
-		Parent: comp,
+		Parent: comp.InstanceName(),
 	}
 
 	e := &Executor{
-		ExecutorConfig: ExecutorConfig{
-			ScriptsDir: "/usr/local/bin",
-		},
+		ScriptsDir:     "/usr/local/bin",
 		host:           hm,
 		defaultTimeout: 30,
 	}

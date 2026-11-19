@@ -59,6 +59,11 @@ func reset(ctx context.Context, tc testcontainers.Container, all bool) error {
 	cmds = append(cmds, [][]string{
 		{"sh", "-c", "systemctl reset-failed"},
 		{"sh", "-c", "systemctl daemon-reload"},
+		{
+			"sh",
+			"-c",
+			"systemctl list-units --type=service --all --no-legend --plain '*-network.service' '*-volume.service' '*-image.service' '*-build.service' | awk '{print $1}' | xargs -r systemctl stop",
+		},
 		{"sh", "-c", "systemctl list-units --state=not-found --no-legend | awk '{print $2}' | xargs -r systemctl stop || true"},
 		{"sh", "-c", "systemctl daemon-reload"},
 	}...)

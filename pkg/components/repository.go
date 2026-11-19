@@ -16,9 +16,8 @@ type ComponentReader interface {
 }
 
 type ComponentWriter interface {
-	InstallComponent(*Component) error
-	RemoveComponent(*Component) error
-	UpdateComponent(*Component) error
+	InstallComponent(string) error
+	RemoveComponent(string) error
 	InstallResource(Resource, []byte) error
 	RemoveResource(Resource) error
 	PurgeComponent(*Component) error

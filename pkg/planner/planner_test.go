@@ -434,9 +434,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 		{
 			name: "happy-path/one-diffs",
 			stale: &components.Component{
-				Name:    "hello",
-				State:   components.StateMayNeedUpdate,
-				Version: components.DefaultComponentVersion,
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
@@ -468,9 +467,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 			name: "happy-path/one-diff-only-resources",
 			opts: PlannerConfig{OnlyResources: true},
 			stale: &components.Component{
-				Name:    "hello",
-				State:   components.StateMayNeedUpdate,
-				Version: components.DefaultComponentVersion,
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
 				Resources: newResSet(
 					resourceHelper("MANIFEST.toml", "hello", ""),
 					resourceHelper("hello.container", "hello", "[Container]\nImage=hello"),
@@ -495,9 +493,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 		{
 			name: "happy-path/pre-script",
 			stale: &components.Component{
-				Name:    "hello",
-				State:   components.StateMayNeedUpdate,
-				Version: components.DefaultComponentVersion,
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
 				Config: manifests.Settings{
 					PreScript: new("pre-sync-hook.sh"),
 				},
@@ -537,9 +534,8 @@ func TestPlanUpdatedComponent(t *testing.T) {
 		{
 			name: "happy-path/post-script",
 			stale: &components.Component{
-				Name:    "hello",
-				State:   components.StateMayNeedUpdate,
-				Version: components.DefaultComponentVersion,
+				Name:  "hello",
+				State: components.StateMayNeedUpdate,
 				Config: manifests.Settings{
 					PostScript: new("post-sync-hook.sh"),
 				},
@@ -1630,14 +1626,13 @@ func TestPlan(t *testing.T) {
 		State:            components.StateFresh,
 		Defaults:         map[string]any{},
 		ServiceManifests: newServManSet(),
-		Version:          components.DefaultComponentVersion,
 	}
 	plan, err := p.Plan(ctx, []*components.Component{}, []*components.Component{helloComp})
 	assert.NoError(t, err)
 	for k, v := range plan.Steps() {
 		expected := expected[k]
 		assert.Equal(t, expected.Todo, v.Todo, "%v Todo not equal: %v != %v", v, v.Todo, expected.Todo)
-		assert.Equal(t, expected.Parent.Name, v.Parent.Name, "Res %v Parent not equal: %v != %v", v.Target.Path, v.Parent.Name, expected.Parent.Name)
+		assert.Equal(t, expected.Parent, v.Parent, "Res %v Parent not equal: %v != %v", v.Target.Path, v.Parent, expected.Parent)
 		assert.Equal(t, expected.Target.Path, v.Target.Path, "Res %v Path not equal: %v != %v", v.Target.Path, v.Target.Path, expected.Target.Path)
 	}
 }
@@ -1678,7 +1673,6 @@ func TestPlanOnlyResourcesFreshComponentReload(t *testing.T) {
 			Service: containerResource.Path,
 			Type:    manifests.ServiceTypeUnit,
 		}),
-		Version: components.DefaultComponentVersion,
 	}
 
 	got, err := p.Plan(ctx, nil, []*components.Component{component})
@@ -1733,7 +1727,7 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 		if todo == actions.ActionReload {
 			return actions.Action{
 				Todo:   todo,
-				Parent: &components.Component{Name: name},
+				Parent: name,
 				Target: components.Resource{
 					Parent: name,
 					Kind:   components.ResourceTypeHost,
@@ -1742,7 +1736,7 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 		}
 		return actions.Action{
 			Todo:   todo,
-			Parent: &components.Component{Name: name},
+			Parent: name,
 			Target: components.Resource{
 				Parent: name,
 				Kind:   components.ResourceTypeComponent,
@@ -1751,10 +1745,8 @@ func planHelper(todo actions.ActionType, name, res string) actions.Action {
 		}
 	}
 	act := actions.Action{
-		Todo: todo,
-		Parent: &components.Component{
-			Name: name,
-		},
+		Todo:   todo,
+		Parent: name,
 		Target: components.Resource{
 			Parent: name,
 			Kind:   components.FindResourceType(res),

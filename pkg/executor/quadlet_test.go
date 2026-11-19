@@ -172,7 +172,7 @@ func TestEnsureQuadlet(t *testing.T) {
 	action := actions.Action{
 		Todo:   actions.ActionEnsure,
 		Target: resource,
-		Parent: comp,
+		Parent: comp.InstanceName(),
 	}
 
 	e := &Executor{

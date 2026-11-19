@@ -96,19 +96,15 @@ func Test_SavePlan_NoSecrets(t *testing.T) {
 	}
 	p := plan.NewPlan()
 	require.Nil(t, p.Add(actions.Action{
-		Todo: actions.ActionInstall,
-		Parent: &components.Component{
-			Name: "johncena",
-		},
+		Todo:     actions.ActionInstall,
+		Parent:   "johncena",
 		Target:   secretRes,
 		Metadata: &actions.ActionMetadata{},
 	}))
 
 	require.Nil(t, p.Add(actions.Action{
-		Todo: actions.ActionUpdate,
-		Parent: &components.Component{
-			Name: "johncena",
-		},
+		Todo:     actions.ActionUpdate,
+		Parent:   "johncena",
 		Target:   secretRes,
 		Metadata: &actions.ActionMetadata{},
 	}))
@@ -140,19 +136,15 @@ func Test_SaveOutput_NoSecrets(t *testing.T) {
 	}
 	p := plan.NewPlan()
 	require.Nil(t, p.Add(actions.Action{
-		Todo: actions.ActionInstall,
-		Parent: &components.Component{
-			Name: "johncena",
-		},
+		Todo:     actions.ActionInstall,
+		Parent:   "johncena",
 		Target:   secretRes,
 		Metadata: &actions.ActionMetadata{},
 	}))
 
 	require.Nil(t, p.Add(actions.Action{
-		Todo: actions.ActionUpdate,
-		Parent: &components.Component{
-			Name: "johncena",
-		},
+		Todo:     actions.ActionUpdate,
+		Parent:   "johncena",
 		Target:   secretRes,
 		Metadata: &actions.ActionMetadata{},
 	}))

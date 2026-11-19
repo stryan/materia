@@ -25,7 +25,8 @@ Best effort list of major changes and bugfixes
 - feat: more runtime logging
 - deprecation: file source renamed to "local"
 - art: temporary logo design
-
+- rework: actions no longer have components embeded in them
+- bugfix: actions correctly use the instanced component name everywhere
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize
