@@ -1,3 +1,4 @@
+![materia logo](./materia_logo.png)
 # Materia
 
 [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#materia:saintnet.tech)
@@ -37,7 +38,7 @@ Materia will not work with Podman versions lower than 4.4, as that is the versio
 - Systemd v254 or higher
 - AMD64 or ARM64 architecture
 
-Materia supports running both root-full and rootless quadlets, however currently root-full is the more tested pathway.
+Materia supports running both root and rootless quadlets, however currently root is the more tested pathway.
 
 Note: When running in a container Materia uses the Podman remote API; therefore some features may be limited by the host's Podman API version (i.e. the container may have Podman 5.8 but if the host is 5.3 you can't use volume backups).
 

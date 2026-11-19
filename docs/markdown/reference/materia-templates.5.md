@@ -75,7 +75,7 @@ Same as `secretEnv` but accesses the secret as a file mount. Optionally, provide
 
 #### **isRoot**
 
-Returns `true` if materia is running in rootful mode.
+Returns `true` if materia is running in root mode.
 
 ## Snippets
 

@@ -2,24 +2,24 @@
 
 There are three supported methods of running materia:
 
-1. [Rootful Containerized](#containerized)
+1. [Root Containerized](#containerized)
 2. [Bare metal](#bare-metal)
 3. [Rootless Containerized](#rootless-containerized)
 
 
-## Rootful Containerized
+## Root Containerized
 
 In this method you are running Materia using a Podman container (or Quadlet) run by the root user on the host.
 
-Rootful Containerized is the recommended way of running Materia. It is the most well tested pathway and the default assumption when designing features.
+Root Containerized is the recommended way of running Materia. It is the most well tested pathway and the default assumption when designing features.
 
-No special installation notes are needed for this method as the Materia defaults cover it. An example quadlet for running Rootful Containerized Materia can be found at `install/materia@.container` in the [source repository](https://github.com/stryan/materia/blob/master/install/materia%40.container).
+No special installation notes are needed for this method as the Materia defaults cover it. An example quadlet for running Root Containerized Materia can be found at `install/materia@.container` in the [source repository](https://github.com/stryan/materia/blob/master/install/materia%40.container).
 
 ##  Bare metal
 
 In this method you are running the Materia binary directly on the target host.
 
-This method is less tested than the Rootful Containerized method, but is still relatively well tested.
+This method is less tested than the Root Containerized method, but is still relatively well tested.
 
 You can run Materia as either root or another user with this method: Materia will automatically use the `XDG_DIR` settings for it's directories if run as a normal user, as well as the users podman and systemd sockets. See the reference section for what directories those are.
 
@@ -42,7 +42,7 @@ Some macros like `m_dataDir` reference materia path's directly. This means, when
 
 2. Manually specify the resulting host directories with the `materia.executor.materia/scripts/quadlet/service_dir` configuration options.
 
-3. Use the `materia.rootless`/`MATERIA_ROOTLESS=true` config option. This is an experimental configuration option to make setting this up a little easier. You use it by bind mounting the user's directories (e.g `/home/user/.local/share/materia/`) as the normal rootful locations (e.g. `/var/lib/materia`). Materia will then try to auto-discover it's own Podman container during start up and extract the correct host mounts, meaning you do not have to set the directory locations yourself. This is an automated version of option 2.
+3. Use the `materia.rootless`/`MATERIA_ROOTLESS=true` config option. This is an experimental configuration option to make setting this up a little easier. You use it by bind mounting the user's directories (e.g `/home/user/.local/share/materia/`) as the normal root locations (e.g. `/var/lib/materia`). Materia will then try to auto-discover it's own Podman container during start up and extract the correct host mounts, meaning you do not have to set the directory locations yourself. This is an automated version of option 2.
 
 An example quadlet for running Rootless Containerized Materia can be found at `install/materia@.container` in the [source repository](https://github.com/stryan/materia/blob/master/install/materia-rootless.container).
 
