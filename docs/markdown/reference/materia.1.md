@@ -26,6 +26,8 @@ These two stages are usually separated by a "host reload" where **materia** exec
 
 Note that some service actions can take place during the Resource phase if required. For example, migrating data between volume resources on a volume quadlet update requires several systemd services to be started and stopped during the resources phase.
 
+Prometheus-compatible metrics are saved to `METRIC_OUTPUT/metrics.prom` on each plan or execution.
+
 ## Configuration
 
 Materia can be configured via either environmental variables or a TOML config file. The most common environmental variables are documented below:
