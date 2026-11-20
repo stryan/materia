@@ -141,7 +141,6 @@ func RunServer(ctx context.Context, k *koanf.Koanf, version string) error {
 		}
 		return err
 	})
-
 	if conf.HasWebhook() {
 		url := conf.Url
 		if url == "" {

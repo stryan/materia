@@ -15,6 +15,11 @@ import (
 // shared between cli and server
 func RunPlan(ctx context.Context, m *materia.Materia, facts *facts.Facts) (*plan.Plan, error) {
 	var err error
+	defer func() {
+		if merr := m.SaveMetrics(ctx); merr != nil {
+			log.Warnf("unable to save metrics: %v", err)
+		}
+	}()
 	if facts == nil {
 		facts, err = m.Facts(ctx)
 		if err != nil {

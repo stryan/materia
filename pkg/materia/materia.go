@@ -13,6 +13,7 @@ import (
 
 	"charm.land/log/v2"
 	"github.com/BurntSushi/toml"
+	"github.com/prometheus/client_golang/prometheus"
 	"primamateria.systems/materia/pkg/attributes"
 	"primamateria.systems/materia/pkg/components"
 	"primamateria.systems/materia/pkg/containers"
@@ -40,6 +41,8 @@ type Materia struct {
 	Collectors     []facts.Collector
 	macroGetter    func(*facts.Facts) macros.MacroMap
 	Lock           Locker
+	metricsReg     *prometheus.Registry
+	metrics        *metrics
 	Rollback       bool
 	snippets       map[string]*macros.Snippet
 	OutputDir      string
@@ -146,6 +149,8 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 	if err != nil {
 		return nil, fmt.Errorf("unable to create output dir:%w", err)
 	}
+	baseReg := prometheus.NewRegistry()
+	reg := prometheus.WrapRegistererWithPrefix("materia_", baseReg)
 	return &Materia{
 		Host:           hm,
 		Hostname:       hostname,
@@ -169,8 +174,10 @@ func New(ctx context.Context, c *MateriaConfig, hm HostManager, srcman SourceMan
 			&facts.HostCollector{},
 			&MateriaCollector{hostname, c, man, hm, outdir},
 		},
-		Lock:     l,
-		Rollback: rollback,
+		Lock:       l,
+		metricsReg: baseReg,
+		metrics:    newMetrics(reg),
+		Rollback:   rollback,
 	}, nil
 }
 
@@ -421,7 +428,17 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 		return nil, fmt.Errorf("unable to generate plan: %w", err)
 	}
 	planValidator := plan.NewDefaultValidationPipeline(installedNames)
-	return actionPlan, planValidator.Validate(actionPlan)
+	if err := planValidator.Validate(actionPlan); err != nil {
+		return nil, fmt.Errorf("invalid plan generated: %w", err)
+	}
+	metricSteps := map[string]int{}
+	for _, v := range actionPlan.Steps() {
+		metricSteps[v.Todo.String()] = metricSteps[v.Todo.String()] + 1
+	}
+	for k, v := range metricSteps {
+		m.metrics.lastPlanSteps.With(prometheus.Labels{"action": k}).Set(float64(v))
+	}
+	return actionPlan, nil
 }
 
 func (m *Materia) ValidateComponents(ctx context.Context) ([]string, error) {
@@ -455,5 +472,8 @@ func (m *Materia) Close() error {
 	if err := m.Host.Close(); err != nil {
 		log.Warnf("error closing host manager: %v", err)
 	}
+	// if err := m.SaveMetrics(context.TODO()); err != nil {
+	// 	log.Warnf("error saving metrics file: %v", err)
+	// }
 	return nil
 }

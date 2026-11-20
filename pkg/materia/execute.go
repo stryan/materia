@@ -42,8 +42,23 @@ func (m *Materia) Execute(ctx context.Context, aplan *plan.Plan) (ExecutionRepor
 
 	startTime := time.Now()
 	defer m.unlock()
+	var report ExecutionReport
+	defer func() {
+		if report.StepsCompleted == report.TotalSteps {
+			m.metrics.lastRun.Set(1)
+		} else {
+			m.metrics.lastRun.Set(0)
+		}
+		if _, isRollback := errors.AsType[*ErrNeedRollbackType](report.Error); isRollback {
+			m.metrics.lastRollback.Set(1)
+		} else {
+			m.metrics.lastRollback.Set(0)
+		}
+		m.metrics.lastRunTimestamp.Set(float64(startTime.Unix()))
+		m.metrics.lastRunDuration.Set(float64(startTime.Unix()) - float64(time.Now().Unix()))
+	}()
 	steps, err := m.Executor.Execute(ctx, aplan)
-	report := ExecutionReport{
+	report = ExecutionReport{
 		Timestamp:      startTime,
 		StepsCompleted: steps,
 		TotalSteps:     aplan.Size(),

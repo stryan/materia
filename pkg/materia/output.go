@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/prometheus/common/expfmt"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"primamateria.systems/materia/pkg/actions"
 	"primamateria.systems/materia/pkg/components"
@@ -143,4 +144,18 @@ func (m *Materia) rotateOutput(ctx context.Context, name string, index int) erro
 		return err
 	}
 	return m.Output.Rename(ctx, path, outputPath(name, index+1))
+}
+
+func (m *Materia) SaveMetrics(ctx context.Context) error {
+	// materia has it's own file writing primitives since we may not always have a filesystem
+	// so manually do the same bits WriteToTextFile does
+	gat := m.metricsReg.MustGather()
+	buffer := bytes.NewBuffer([]byte{})
+	for _, metriFam := range gat {
+		_, err := expfmt.MetricFamilyToText(buffer, metriFam)
+		if err != nil {
+			return err
+		}
+	}
+	return m.Output.Install(ctx, "metrics.prom", buffer.Bytes())
 }

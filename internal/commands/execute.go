@@ -19,6 +19,9 @@ func executeAndSave(ctx context.Context, m *materia.Materia, p *plan.Plan) (mate
 	if serr := m.SaveExecution(ctx, p, rep); serr != nil {
 		log.Warnf("unable to save execution report: %v", serr)
 	}
+	if merr := m.SaveMetrics(ctx); merr != nil {
+		log.Warnf("unable to save metrics: %v", err)
+	}
 	return rep, err
 }
 
