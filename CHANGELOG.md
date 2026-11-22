@@ -28,6 +28,7 @@ Best effort list of major changes and bugfixes
 - rework: actions no longer have components embeded in them
 - bugfix: actions correctly use the instanced component name everywhere
 - feat: create `metrics.prom` to output directory for `node_exporter` consumption
+- org: add atcr.io/primamateria.systems/materia image mirror
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize

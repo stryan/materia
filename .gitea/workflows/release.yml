@@ -44,6 +44,9 @@ jobs:
       - name: Login to ghcr registry
         run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
           get GH_USER)" --password-stdin
+      - name: Login to actr registry
+        run: mise x -- fnox get ATCR_TOKEN | podman login atcr.io -u "$(mise x --
+          fnox get ATCR_USER)" --password-stdin
       - name: Copy Registry auths for cosign
         run: mkdir -p ~/.docker && cat /run/containers/0/auth.json > ~/.docker/config.json
       - name: Check release canidate status
@@ -61,7 +64,7 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASS }}
           STABLE_FLAG: ${{ steps.check-rc.outputs.is_rc == 'false' && '--stable' || '' }}
         run: |
-          mise run ci-buildah $STABLE_FLAG ${{ github.ref_name }} ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia
+          mise run ci-buildah $STABLE_FLAG ${{ github.ref_name }} ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia atcr.io/primamateria.systems/materia
       - name: Generate Github release
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_KEY }}
@@ -77,3 +80,5 @@ jobs:
         run: podman logout "$IMAGE_REGISTRY"
       - name: Logout registry
         run: podman logout ghcr.io
+      - name: Logout registry
+        run: podman logout atcr.io

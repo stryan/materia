@@ -54,6 +54,9 @@ jobs:
       - name: Login to ghcr registry
         run: mise x -- fnox get GH_TOKEN | podman login ghcr.io -u "$(mise x -- fnox
           get GH_USER)" --password-stdin
+      - name: Login to actr registry
+        run: mise x -- fnox get ATCR_TOKEN | podman login atcr.io -u "$(mise x --
+          fnox get ATCR_USER)" --password-stdin
       - name: Copy Registry auths for cosign
         run: mkdir -p ~/.docker && cat /run/containers/0/auth.json > ~/.docker/config.json
       - name: Build container image
@@ -64,7 +67,7 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             mise ci-buildah
           else
-            mise ci-buildah --no-sign latest ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia
+            mise ci-buildah --no-sign latest ${IMAGE_REGISTRY}/materia ghcr.io/stryan/materia atcr.io/primamateria.systems/materia
           fi
       - name: Cleanup leftover containers
         if: always()
@@ -73,3 +76,5 @@ jobs:
         run: podman logout "$IMAGE_REGISTRY"
       - name: Logout registry
         run: podman logout ghcr.io
+      - name: Logout registry
+        run: podman logout atcr.io
