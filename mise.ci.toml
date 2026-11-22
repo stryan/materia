@@ -107,7 +107,10 @@ run = '''
 	  --inherit-annotations=false \
 	  --manifest materia -f Containerfile.ci .
   buildah manifest annotate --index \
+    --annotation org.opencontainers.image.title="materia" \
     --annotation org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets" \
+    --annotation org.opencontainers.image.source="https://src.primamateria.systems" \
+    --annotation org.opencontainers.image.url="https://primamateria.systems" \
     --annotation org.opencontainers.image.licenses="GPL-3.0-only" \
     materia
   if [[ "${usage_test}" == "true" ]]; then
