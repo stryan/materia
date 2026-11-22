@@ -102,7 +102,10 @@ run = '''
   if [[ "${usage_clear}" == "true" ]]; then
     buildah manifest rm materia 2>/dev/null || true # clear old manifest from buildah cache
   fi
-  buildah build --platform linux/arm64,linux/amd64 --manifest materia -f Containerfile.ci .
+  buildah build --platform linux/arm64,linux/amd64 \
+	  --inherit-labels=false \
+	  --inherit-annotations=false \
+	  --manifest materia -f Containerfile.ci .
   buildah manifest annotate --index \
     --annotation org.opencontainers.image.description="Materia: a GitOps tool for managing Quadlets" \
     --annotation org.opencontainers.image.licenses="GPL-3.0-only" \
