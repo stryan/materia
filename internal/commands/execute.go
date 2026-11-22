@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"charm.land/log/v2"
 	"github.com/knadh/koanf/v2"
@@ -19,17 +20,31 @@ func executeAndSave(ctx context.Context, m *materia.Materia, p *plan.Plan) (mate
 	if serr := m.SaveExecution(ctx, p, rep); serr != nil {
 		log.Warnf("unable to save execution report: %v", serr)
 	}
-	if merr := m.SaveMetrics(ctx); merr != nil {
-		log.Warnf("unable to save metrics: %v", err)
-	}
 	return rep, err
 }
 
 // RunExecute always returns the final plan executed (which may differ due to rollback), the final plans report, and any errors
 // Shared between cli and server
 func RunExecute(ctx context.Context, m *materia.Materia, aplan *plan.Plan) (*plan.Plan, materia.ExecutionReport, error) {
+	start := time.Now()
+	rolledBack := false
+	var finalReport materia.ExecutionReport
+	finalPlan := aplan.Steps()
 	report, err := executeAndSave(ctx, m, aplan)
+	defer func() {
+		m.SaveRun(materia.RunResult{
+			Start:      start,
+			End:        time.Now(),
+			Success:    finalReport.Error == nil,
+			RolledBack: rolledBack,
+			Plan:       finalPlan,
+		})
+		if merr := m.SaveMetrics(ctx); merr != nil {
+			log.Warnf("unable to save metrics: %v", merr)
+		}
+	}()
 	if rErr, ok := errors.AsType[*materia.ErrNeedRollbackType](err); ok {
+		rolledBack = true
 		// Need to run rollback
 		err := m.Notifier.Notify(ctx, notify.NotifyRollback, fmt.Sprintf("Rollback initiated; Reason: %v", rErr))
 		if err != nil {
@@ -48,11 +63,14 @@ func RunExecute(ctx context.Context, m *materia.Materia, aplan *plan.Plan) (*pla
 		if err != nil {
 			return rollbackPlan, rollbackReport, fmt.Errorf("rollback execution failed: %w", err)
 		}
+		finalReport = rollbackReport
+		finalPlan = rollbackPlan.Steps()
 		return rollbackPlan, rollbackReport, nil
 	}
 	if err != nil {
 		return aplan, report, err
 	}
+	finalReport = report
 	return aplan, report, nil
 }
 

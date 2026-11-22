@@ -431,13 +431,6 @@ func (m *Materia) Plan(ctx context.Context, snap *facts.Facts) (*plan.Plan, erro
 	if err := planValidator.Validate(actionPlan); err != nil {
 		return nil, fmt.Errorf("invalid plan generated: %w", err)
 	}
-	metricSteps := map[string]int{}
-	for _, v := range actionPlan.Steps() {
-		metricSteps[v.Todo.String()] = metricSteps[v.Todo.String()] + 1
-	}
-	for k, v := range metricSteps {
-		m.metrics.lastPlanSteps.With(prometheus.Labels{"action": k}).Set(float64(v))
-	}
 	return actionPlan, nil
 }
 

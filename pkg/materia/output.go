@@ -149,7 +149,10 @@ func (m *Materia) rotateOutput(ctx context.Context, name string, index int) erro
 func (m *Materia) SaveMetrics(ctx context.Context) error {
 	// materia has it's own file writing primitives since we may not always have a filesystem
 	// so manually do the same bits WriteToTextFile does
-	gat := m.metricsReg.MustGather()
+	gat, err := m.metricsReg.Gather()
+	if err != nil {
+		return err
+	}
 	buffer := bytes.NewBuffer([]byte{})
 	for _, metriFam := range gat {
 		_, err := expfmt.MetricFamilyToText(buffer, metriFam)
