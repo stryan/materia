@@ -2,9 +2,9 @@ package materia
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"primamateria.systems/materia/pkg/executor"
@@ -35,7 +35,7 @@ func loadDefaultSnippets() []*macros.Snippet {
 		},
 		{
 			Name: "harden",
-			Body: template.Must(template.New("harden").Parse("DropCapability=ALL\nReadOnly=true\n\nNoNewPrivileges=true")),
+			Body: template.Must(template.New("harden").Parse("DropCapability=ALL\nReadOnly=true\nNoNewPrivileges=true")),
 		},
 	}
 }
@@ -65,7 +65,7 @@ func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostMa
 			"m_default": func(arg string, def string) string {
 				val, ok := vars[arg]
 				if ok {
-					return val.(string)
+					return fmt.Sprintf("%v", val)
 				}
 				return def
 			},
@@ -83,7 +83,10 @@ func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostMa
 				if len(args) == 1 {
 					return fmt.Sprintf("Secret=%v,type=env,target=%v", host.SecretName(args[0]), args[0])
 				}
-				return fmt.Sprintf("Secret=%v,type=env,target=%v", host.SecretName(args[0]), args[1])
+				if len(args) == 2 {
+					return fmt.Sprintf("Secret=%v,type=env,target=%v", host.SecretName(args[0]), args[1])
+				}
+				return fmt.Sprintf("Secret=%v,type=env,target=%v,%v", host.SecretName(args[0]), args[1], strings.Join(args[2:], ","))
 			},
 			"secretMount": func(args ...string) string {
 				if len(args) == 0 {
@@ -92,15 +95,21 @@ func loadDefaultMacros(c *MateriaConfig, ec executor.ExecutorConfig, host HostMa
 				if len(args) == 1 {
 					return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[0])
 				}
-				return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[1])
+				if len(args) == 2 {
+					return fmt.Sprintf("Secret=%v,type=mount,target=%v", host.SecretName(args[0]), args[1])
+				}
+				return fmt.Sprintf("Secret=%v,type=mount,target=%v,%v", host.SecretName(args[0]), args[1], strings.Join(args[2:], ","))
 			},
 			"snippet": func(name string, args ...string) (string, error) {
 				s, ok := snippets[name]
 				if !ok {
-					return "", errors.New("snippet not found")
+					return "", fmt.Errorf("snippet %v not found", name)
 				}
 				snipVars := make(map[string]string, len(s.Parameters))
 				for k, v := range s.Parameters {
+					if k >= len(args) {
+						break
+					}
 					snipVars[v] = args[k]
 				}
 

@@ -120,7 +120,7 @@ func (e *Executor) Execute(ctx context.Context, plan *plan.Plan) (int, error) {
 				return
 			}
 			if !errors.Is(err, services.ErrOperationTimedOut) {
-				log.Warn("Error waiting for final service %v check: %w", serv, err)
+				log.Warnf("Error waiting for final service %v check: %v", serv, err)
 			}
 			badState = true
 			fserv, err := e.host.GetService(ctx, serv)
