@@ -443,7 +443,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 			return result, nil
 		}
 		if err != nil {
-			return result, fmt.Errorf("could not get network %v for cleanup: %v", res.Path, err)
+			return result, fmt.Errorf("could not get network %v for cleanup: %w", res.Path, err)
 		}
 		result = append(result, actions.Action{
 			Todo:   actions.ActionCleanup,
@@ -473,7 +473,7 @@ func generateCleanupResourceActions(ctx context.Context, mgr HostStateManager, o
 			return result, nil
 		}
 		if err != nil {
-			return result, fmt.Errorf("could not get volume %v for cleanup: %v", res.Path, err)
+			return result, fmt.Errorf("could not get volume %v for cleanup: %w", res.Path, err)
 		}
 		if opts.BackupVolumes {
 			result = append(result, actions.Action{

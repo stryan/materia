@@ -22,7 +22,7 @@ func Load(configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
 			return nil, fmt.Errorf("error loading config file: %w", err)
 		}
 	}
-	err := envConf.Load(env.Provider("MATERIA", ".", func(s string) string {
+	err := envConf.Load(env.Provider("MATERIA_", ".", func(s string) string {
 		return strings.ReplaceAll(strings.ToLower(
 			strings.TrimPrefix(s, "MATERIA_")), "__", ".")
 	}), nil)
@@ -46,5 +46,5 @@ func Load(configFile string, cliflags map[string]any) (*koanf.Koanf, error) {
 		return nil, fmt.Errorf("error building config: %w", err)
 	}
 
-	return k, err
+	return k, nil
 }

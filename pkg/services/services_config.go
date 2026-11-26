@@ -21,7 +21,7 @@ func NewServicesConfig(k *koanf.Koanf) (ServicesConfig, error) {
 }
 
 func (c ServicesConfig) String() string {
-	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v", c.Timeout, c.DryrunQuadlets)
+	return fmt.Sprintf("Default Timeout: %v\nDry Run Quadlets: %v\nDbus Socket: %v\n", c.Timeout, c.DryrunQuadlets, c.DbusSocket)
 }
 
 func (c ServicesConfig) Validate() error {
