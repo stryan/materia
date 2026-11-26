@@ -30,8 +30,8 @@ run = '''
 	{% if not usage.no_sign %}
 	mise r release-sign-tar
 	{% endif %}
-
-	release_args=(--verify-tag --draft --title "${usage_tag?}" --notes-file CHANGELOG.md)
+	release_notes=$(mise r get-changelog ${usage_tag?})
+	release_args=(--verify-tag --draft --title "${usage_tag?}" --notes "${release_notes?}")
 	{% if usage.prerelease %}
 	release_args+=(--prerelease)
 	{% endif %}
@@ -72,7 +72,8 @@ run = '''
 
 	# create the release un-drafted so we can upload assets to it
 	# fix if/when forge supports uploading to drafted github releases
-	f release create --tag ${usage_tag?} --body "$(cat CHANGELOG.md)"
+	release_notes=$(mise r get-changelog ${usage_tag?})
+	f release create --tag ${usage_tag?} --body "${release_notes?}"
 	for file in {{vars.releasedir}}/*; do
 		echo "$file"
 		f release upload ${usage_tag?} "$file"

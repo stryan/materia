@@ -15,21 +15,23 @@ Best effort list of major changes and bugfixes
   - `Stopped=true|false` -> use `State = "lazy"` or `State = "inert"`. The former allows materia to still trigger the service. The latter blocks materia from touching it at all.
 
 ## Upcoming
-- bugfix: host `Overrides` no longer drop the component's `[Settings]` they don't set
-- bugfix: non-existent services no longer fail triggers
-- bugfix: fix static services stalling service check
+
+## 0.8.2
+- feat: create `metrics.prom` to output directory for `node_exporter` consumption
 - feat: `source_subpath` setting for materia repositories in sub directories of the source repo.
     - i.e. Your materia repository no longer needs to be at the root of your Git or OCI source repository. All other ordering such as the MANIFEST.toml being at the root remains
 - feat: Services config rework
 - feat: `executor.verbose` to output each step as materia runs it
 - feat: more runtime logging
-- deprecation: file source renamed to "local"
-- art: temporary logo design
 - rework: actions no longer have components embeded in them
+- deprecation: file source renamed to "local"
+- bugfix: host `Overrides` no longer drop the component's `[Settings]` they don't set
+- bugfix: non-existent services no longer fail triggers
+- bugfix: fix static services stalling service check
 - bugfix: actions correctly use the instanced component name everywhere
-- feat: create `metrics.prom` to output directory for `node_exporter` consumption
-- org: add atcr.io/primamateria.systems/materia image mirror
 - bugfix: cleanup snippets a bit
+- art: temporary logo design
+- org: add atcr.io/primamateria.systems/materia image mirror
 
 ## 0.8.1
 - feat: executor respects dynamic service timeouts when waiting for services to stabilize
