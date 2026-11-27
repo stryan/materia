@@ -16,6 +16,9 @@ Best effort list of major changes and bugfixes
 
 ## Upcoming
 
+## 0.8.3
+- release: release source tarballs now include correct version information
+
 ## 0.8.2
 - feat: create `metrics.prom` to output directory for `node_exporter` consumption
 - feat: `source_subpath` setting for materia repositories in sub directories of the source repo.

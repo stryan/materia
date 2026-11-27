@@ -17,6 +17,7 @@ DOCKER_HOST = "unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/pod
 [vars]
 releasedir = "./dist"
 release_archs = "amd64 arm64"
+NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 
 [tasks.container]
 depends = ["build", "lint", "test"]
@@ -91,7 +92,6 @@ run = [
 depends = ["lint"]
 vars.PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long || cat VERSION 2>/dev/null || echo unknown")}}'
 vars.LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
-vars.NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 description = "Build the project for arm64"
 sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-arm64"]
@@ -102,7 +102,6 @@ run = 'go build -tags "{{vars.NOCGO}}" -ldflags="{{vars.LDFLAGS}}" -o bin/materi
 depends = ["lint"]
 vars.PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long || cat VERSION 2>/dev/null || echo unknown")}}'
 vars.LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
-vars.NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 description = "Build the project for amd64"
 sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-amd64"]
