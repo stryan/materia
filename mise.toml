@@ -9,6 +9,7 @@ sops = "latest"
 
 [settings]
 experimental = true
+lockfile_platforms = ["linux-x64","linux-arm64" ]
 
 [env]
 DOCKER_HOST = "unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
@@ -130,22 +131,29 @@ usage = '''
 run = '''
   #!/usr/bin/env bash
   set -euo pipefail
-  VERSION=${usage_version:-$(git describe --exact-match --tags --match 'v[0-9]*' HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD)}
+  VERSION=${usage_version:-$(git describe --exact-match --dirty --tags --match 'v[0-9]*' HEAD 2>/dev/null || git rev-parse --abbrev-ref HEAD)}
+
+  if [[ "$VERSION" == *-dirty* ]]; then
+	  echo "$VERSION is dirty, can't release"
+	  git status --short || exit 1
+	  exit 1
+  fi
+
   epoch=$(git log -1 --format=%ct HEAD)
   rm -rf {{vars.releasedir}} && mkdir -p {{vars.releasedir}}
   for arch in {{vars.release_archs}}; do
-    tmpdir=$(mktemp -d)
-    chmod 755 "$tmpdir"
-    mkdir -p "$tmpdir"/bin "$tmpdir"/man/man1 "$tmpdir"/man/man5
-    cp ./README.md "$tmpdir"/
-    cp ./LICENSE "$tmpdir"/
-    cp docs/output/man/*.1 "$tmpdir"/man/man1/
-    cp docs/output/man/*.5 "$tmpdir"/man/man5/
-    cp install/systems.primamateria.materia.conf "$tmpdir"/
-    cp bin/materia-$arch "$tmpdir"/bin/materia
-    tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
-      -cf - -C "$tmpdir" . | gzip -n > "{{vars.releasedir}}/materia-$VERSION-$arch.tar.gz"
-    rm -rf "$tmpdir"
+	  tmpdir=$(mktemp -d)
+	  chmod 755 "$tmpdir"
+	  mkdir -p "$tmpdir"/bin "$tmpdir"/man/man1 "$tmpdir"/man/man5
+	  cp ./README.md "$tmpdir"/
+	  cp ./LICENSE "$tmpdir"/
+	  cp docs/output/man/*.1 "$tmpdir"/man/man1/
+	  cp docs/output/man/*.5 "$tmpdir"/man/man5/
+	  cp install/systems.primamateria.materia.conf "$tmpdir"/
+	  cp bin/materia-$arch "$tmpdir"/bin/materia
+	  tar --sort=name --mtime="@$epoch" --owner=0 --group=0 --numeric-owner \
+	    -cf - -C "$tmpdir" . | gzip -n > "{{vars.releasedir}}/materia-$VERSION-$arch.tar.gz"
+	  rm -rf "$tmpdir"
   done
   git archive --format=tar.gz -o {{vars.releasedir}}/materia-$VERSION-src.tar.gz --prefix="materia-${VERSION#v}/" $VERSION
 '''

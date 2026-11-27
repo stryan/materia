@@ -32,6 +32,7 @@ jobs:
       - name: Checkout
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git config --global init.defaultBranch master
           git init .
           git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
           git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -41,7 +42,7 @@ jobs:
       - name: Setup mise
         run: |
           mise trust
-          mise install
+          mise install --locked
       - name: Run unit tests
         run: mise run test
       - name: Build binaries

@@ -98,10 +98,23 @@ usage = '''
 run = '''
   #!/usr/bin/env bash
   set -euo pipefail
+
+  host_arch="$(go env GOARCH)"
   tmpdir=$(mktemp -d); ctr=""
   trap 'rm -rf "$tmpdir"; [ -z "$ctr" ] || buildah rm "$ctr" >/dev/null 2>&1 || true' EXIT # trap to cleanup on sigint
   if [[ "${usage_clear}" == "true" ]]; then
     buildah manifest rm materia 2>/dev/null || true # clear old manifest from buildah cache
+  fi
+
+  localmateria="bin/materia-$host_arch"
+  if ! localversion=$("$localmateria" version); then
+    echo "failed to get version from $localmateria, bailing" >&2
+    exit 1
+  fi
+  if [[ "$localversion" == *-dirty* ]]; then
+    echo "local materia version $localversion dirty, bailing" >&2
+    git status --short || exit 1
+    exit 1
   fi
   buildah build --platform linux/arm64,linux/amd64 \
 	  --inherit-labels=false \
@@ -115,7 +128,6 @@ run = '''
     --annotation org.opencontainers.image.licenses="GPL-3.0-only" \
     materia
   if [[ "${usage_test}" == "true" ]]; then
-    host_arch="$(go env GOARCH)"
     ctr="$(buildah from --pull=never --arch "$host_arch" localhost/materia:latest)" # grab the image for the runner arch from the manifest
     buildah run "$ctr" -- /app/materia version
     buildah run "$ctr" -- /app/materia --help
