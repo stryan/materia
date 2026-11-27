@@ -15,10 +15,6 @@ lockfile_platforms = ["linux-x64","linux-x64-musl","linux-arm64" ]
 DOCKER_HOST = "unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
 
 [vars]
-CURRENTBRANCH = "{{exec(command='git rev-parse --abbrev-ref HEAD')}}"
-PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long")}}'
-LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
-NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 releasedir = "./dist"
 release_archs = "amd64 arm64"
 
@@ -91,22 +87,22 @@ run = [
   "mockery",
 ]
 
-[tasks.build-amd64]
-depends = ["build-materia-amd64"]
-
 [tasks.build-arm64]
-depends = ["build-materia-arm64"]
-
-[tasks.build-materia-arm64]
 depends = ["lint"]
+vars.PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long || cat VERSION 2>/dev/null || echo unknown")}}'
+vars.LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
+vars.NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 description = "Build the project for arm64"
 sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-arm64"]
 env = { GOOS = "linux", GOARCH = "arm64", CGO_ENABLED = 0 }
 run = 'go build -tags "{{vars.NOCGO}}" -ldflags="{{vars.LDFLAGS}}" -o bin/materia-arm64 ./cmd/materia/'
 
-[tasks.build-materia-amd64]
+[tasks.build-amd64]
 depends = ["lint"]
+vars.PKGVERSION = '{{exec(command="git describe --tags --abbrev=8 --dirty --always --long || cat VERSION 2>/dev/null || echo unknown")}}'
+vars.LDFLAGS = "{{ get_env(name='LDFLAGS',default='-w -s') }} -X 'main.Version={{vars.PKGVERSION}}'"
+vars.NOCGO = "remote exclude_graphdriver_btrfs btrfs_noversion exclude_graphdriver_devicemapper containers_image_openpgp"
 description = "Build the project for amd64"
 sources = ["**/*.go", "go.mod", "go.sum"]
 outputs = ["./bin/materia-amd64"]
@@ -155,7 +151,11 @@ run = '''
 	    -cf - -C "$tmpdir" . | gzip -n > "{{vars.releasedir}}/materia-$VERSION-$arch.tar.gz"
 	  rm -rf "$tmpdir"
   done
-  git archive --format=tar.gz -o {{vars.releasedir}}/materia-$VERSION-src.tar.gz --prefix="materia-${VERSION#v}/" $VERSION
+  vdir=$(mktemp -d)
+  printf '%s\n' "$VERSION" > "$vdir/VERSION"
+  cat "$vdir/VERSION"
+  git archive --format=tar.gz -o {{vars.releasedir}}/materia-$VERSION-src.tar.gz --prefix="materia-${VERSION#v}/" --add-file="$vdir/VERSION" $VERSION
+  rm -rf "$vdir"
 '''
 
 [tasks.install]
