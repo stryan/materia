@@ -19,6 +19,12 @@ url = "https://github.com/jdx/fnox/releases/download/v1.50.0/fnox-x86_64-unknown
 signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
 repository_ids = { repository = "1078762196" }
 
+[tools.fnox."platforms.linux-x64-musl"]
+checksum = "sha256:3ad4c13244cd9fb6ae45931cc22f876a3ee8608a0fcc7e429c2f890ff6d7da18"
+url = "https://github.com/jdx/fnox/releases/download/v1.50.0/fnox-x86_64-unknown-linux-musl.tar.gz"
+signer = "sigstore-oidc:https://github.com/jdx/fnox/.github/workflows/release.yml"
+repository_ids = { repository = "1078762196" }
+
 [[tools.gh]]
 version = "2.106.0"
 backend = "aqua:cli/cli"
@@ -31,6 +37,12 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444867"
 provenance = "github-attestations"
 
 [tools.gh."platforms.linux-x64"]
+checksum = "sha256:a476449fa9625413c54a3734eded62e9e480e49f421ff08e7f3b3879c059a033"
+url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444853"
+provenance = "github-attestations"
+
+[tools.gh."platforms.linux-x64-musl"]
 checksum = "sha256:a476449fa9625413c54a3734eded62e9e480e49f421ff08e7f3b3879c059a033"
 url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_linux_amd64.tar.gz"
 url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444853"
@@ -53,6 +65,12 @@ url = "https://github.com/git-pkgs/forge/releases/download/v0.11.0/forge_0.11.0_
 url_api = "https://api.github.com/repos/git-pkgs/forge/releases/assets/720467562"
 provenance = "github-attestations"
 
+[tools."github:git-pkgs/forge"."platforms.linux-x64-musl"]
+checksum = "sha256:0c1f9e8753d2f6439bec86abb3f41ab0e58ea943fb0cda467cdce2d74475905d"
+url = "https://github.com/git-pkgs/forge/releases/download/v0.11.0/forge_0.11.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/git-pkgs/forge/releases/assets/720467562"
+provenance = "github-attestations"
+
 [[tools.pandoc]]
 version = "3.12.1"
 backend = "github:jgm/pandoc"
@@ -65,6 +83,12 @@ url_api = "https://api.github.com/repos/jgm/pandoc/releases/assets/620377502"
 provenance = "github-attestations"
 
 [tools.pandoc."platforms.linux-x64"]
+checksum = "sha256:d0c90410e90204c9ca83b8539fac5c7aed01fd537207e4585849f8abc5df20b8"
+url = "https://github.com/jgm/pandoc/releases/download/3.12.1/pandoc-3.12.1-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/jgm/pandoc/releases/assets/620377440"
+provenance = "github-attestations"
+
+[tools.pandoc."platforms.linux-x64-musl"]
 checksum = "sha256:d0c90410e90204c9ca83b8539fac5c7aed01fd537207e4585849f8abc5df20b8"
 url = "https://github.com/jgm/pandoc/releases/download/3.12.1/pandoc-3.12.1-linux-amd64.tar.gz"
 url_api = "https://api.github.com/repos/jgm/pandoc/releases/assets/620377440"

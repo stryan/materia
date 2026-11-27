@@ -9,7 +9,7 @@ sops = "latest"
 
 [settings]
 experimental = true
-lockfile_platforms = ["linux-x64","linux-arm64" ]
+lockfile_platforms = ["linux-x64","linux-x64-musl","linux-arm64" ]
 
 [env]
 DOCKER_HOST = "unix://{{get_env(name='XDG_RUNTIME_DIR',default='/var/run')}}/podman/podman.sock"
